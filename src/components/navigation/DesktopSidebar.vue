@@ -83,7 +83,7 @@ function isActive(path) {
 }
 
 .desktop-sidebar__brand-name {
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-weight: 700;
   font-size: 21px;
   color: #171717;
@@ -91,7 +91,7 @@ function isActive(path) {
 }
 
 .desktop-sidebar__brand-sub {
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-weight: 400;
   font-size: 13px;
   color: #171717;
