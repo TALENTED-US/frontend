@@ -1,0 +1,151 @@
+name: Create Jira Issue
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  create-jira:
+    runs-on: ubuntu-latest
+
+    outputs:
+      jiraKey: ${{ steps.create.outputs.jiraKey }}
+      branchName: ${{ steps.parser.outputs.issueparser_branchName }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Parse issue form
+        id: parser
+        uses: stefanbuck/github-issue-parser@v3
+        with:
+          template-path: .github/ISSUE_TEMPLATE/feature-issue-template.yml
+      - name: Set Jira issue type
+        id: issue_type
+        env:
+          GITHUB_ISSUE_TYPE: ${{ github.event.issue.type.name }}
+        run: |
+          case "${GITHUB_ISSUE_TYPE,,}" in
+            feature) echo "jiraType=Feature" >> "$GITHUB_OUTPUT" ;;
+            bug) echo "jiraType=Bug" >> "$GITHUB_OUTPUT" ;;
+            task) echo "jiraType=Task" >> "$GITHUB_OUTPUT" ;;
+            test) echo "jiraType=Test" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "지원하지 않는 GitHub 이슈 타입입니다: $GITHUB_ISSUE_TYPE"
+              exit 1
+              ;;
+          esac
+          
+      - name: Check parsed values
+        env:
+          PARENT_KEY: ${{ steps.parser.outputs.issueparser_parentKey }}
+          BRANCH_NAME: ${{ steps.parser.outputs.issueparser_branchName }}
+        run: |
+          echo "Parent key: $PARENT_KEY"
+          echo "Branch name: $BRANCH_NAME"
+
+          if [ -z "$PARENT_KEY" ]; then
+            echo "parentKey 파싱에 실패했습니다."
+            exit 1
+          fi
+
+      - name: Create Jira issue
+        id: create
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_TYPE: ${{ steps.issue_type.outputs.jiraType }}
+          PARENT_KEY: ${{ steps.parser.outputs.issueparser_parentKey }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          DESCRIPTION=$(printf '%s\n\n%s\n\n%s' \
+            "GitHub Issue: $ISSUE_URL" \
+            "$ISSUE_BODY" \
+            "Created from GitHub")
+
+          PAYLOAD=$(jq -n \
+            --arg project "BUT" \
+            --arg issueType "$JIRA_TYPE" \
+            --arg summary "$ISSUE_TITLE" \
+            --arg description "$DESCRIPTION" \
+            --arg parentKey "$PARENT_KEY" \
+            '{
+              fields: {
+                project: {
+                  key: $project
+                },
+                issuetype: {
+                  name: $issueType
+                },
+                summary: $summary,
+                description: {
+                  type: "doc",
+                  version: 1,
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [
+                        {
+                          type: "text",
+                          text: $description
+                        }
+                      ]
+                    }
+                  ]
+                },
+                parent: {
+                  key: $parentKey
+                }
+              }
+            }')
+
+          HTTP_STATUS=$(curl -sS \
+            -o response.json \
+            -w "%{http_code}" \
+            --request POST \
+            --url "$JIRA_BASE_URL/rest/api/3/issue" \
+            --user "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            --data "$PAYLOAD")
+
+          cat response.json
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "Jira 이슈 생성 실패: HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+          JIRA_KEY=$(jq -r '.key' response.json)
+
+          if [ -z "$JIRA_KEY" ] || [ "$JIRA_KEY" = "null" ]; then
+            echo "Jira Key를 응답에서 찾지 못했습니다."
+            exit 1
+          fi
+
+          echo "jiraKey=$JIRA_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Update GitHub issue title
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JIRA_KEY: ${{ steps.create.outputs.jiraKey }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" \
+            --title "$JIRA_KEY $ISSUE_TITLE"
+
+  create-branch:
+    needs: create-jira
+    uses: ./.github/workflows/create-branch.yml
+    with:
+      jiraKey: ${{ needs.create-jira.outputs.jiraKey }}
+      branchName: ${{ needs.create-jira.outputs.branchName }}
