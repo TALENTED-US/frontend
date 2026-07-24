@@ -1,0 +1,109 @@
+/* ===================================
+   Buttie 타이포그래피
+   variables.css의 font 관련 변수를 사용
+   =================================== */
+
+/* ---- 폰트 로드 ----
+   Pretendard는 npm 패키지로 설치해서 self-host 한다.
+   설치: npm install pretendard
+   로드: main.js에 import 'pretendard/dist/web/static/pretendard.css' 한 줄 추가
+   (CDN 방식은 쓰지 않음 — 외부 서버 장애 시 폰트가 깨지는 리스크 방지)
+------------------------------------- */
+
+body {
+  font-family: var(--font-family-base);
+  color: var(--color-text-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- 타이틀 ---- */
+.text-title-lg {
+  font-size: var(--font-size-title-lg); /* 24px */
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+}
+
+.text-title-md {
+  font-size: var(--font-size-title-md); /* 22px */
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+}
+
+.text-title-sm {
+  font-size: var(--font-size-title-sm); /* 18px */
+  font-weight: var(--font-weight-bold);
+  line-height: 1.4;
+}
+
+/* ---- 본문 ---- */
+.text-body {
+  font-size: var(--font-size-body); /* 15px */
+  font-weight: var(--font-weight-regular);
+  line-height: 1.5;
+}
+
+.text-body-bold {
+  font-size: var(--font-size-body); /* 15px */
+  font-weight: var(--font-weight-bold);
+  line-height: 1.5;
+}
+
+.text-body-sm {
+  font-size: var(--font-size-body-sm); /* 13px */
+  font-weight: var(--font-weight-regular);
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.text-body-semibold {
+  font-size: var(--font-size-body); /* 15px */
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+}
+
+/* ---- 캡션 ---- */
+.text-caption {
+  font-size: var(--font-size-caption); /* 12px */
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  color: var(--color-text-secondary);
+}
+
+.text-micro {
+  font-size: var(--font-size-micro); /* 11px */
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  color: var(--color-text-secondary);
+}
+
+/* ---- 링크 ---- */
+.text-link {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- 플레이스홀더 공통 ---- */
+::placeholder {
+  color: var(--color-text-placeholder);
+  font-weight: var(--font-weight-regular);
+}
+
+/* ---- 데스크톱 반응형 (타이틀만 확대) ---- */
+@media (min-width: 768px) {
+  .text-title-lg {
+    font-size: var(--font-size-title-lg-desktop); /* 32px */
+  }
+
+  .text-title-md {
+    font-size: var(--font-size-title-md-desktop); /* 28px */
+  }
+
+  .text-title-sm {
+    font-size: var(--font-size-title-sm-desktop); /* 22px */
+  }
+}

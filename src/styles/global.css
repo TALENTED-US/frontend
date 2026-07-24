@@ -1,0 +1,97 @@
+/* ==========================================================================
+   global.css
+   전역 공통 스타일 — variables.css, typography.css 다음에 로드
+   ========================================================================== */
+
+@import './variables.css';
+@import './typography.css';
+@import './reset.css';
+
+/* --------------------------------------------------------------------------
+   기본 태그 스타일
+   -------------------------------------------------------------------------- */
+
+html {
+  font-family: var(--font-family-base, 'Pretendard', -apple-system, sans-serif);
+  color: var(--color-text-primary, #1a1a1a);
+  background-color: var(--color-bg-base, #ffffff);
+}
+
+body {
+  font-size: var(--font-size-body, 16px);
+  word-break: keep-all; /* 한글 어절 단위 줄바꿈 */
+}
+
+/* --------------------------------------------------------------------------
+   레이아웃 컨테이너 (페이지 최대 너비 + 중앙 정렬 + 반응형 패딩)
+   -------------------------------------------------------------------------- */
+
+.container {
+  width: 100%;
+  max-width: var(--container-max-width, 480px); /* 모바일 우선 앱 형태 */
+  margin: 0 auto;
+  padding: 0 var(--spacing-md, 16px);
+}
+
+/* --------------------------------------------------------------------------
+   스크롤바 커스텀 (선택 — 디자인에 맞게 조정)
+   -------------------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border, #d9d9d9);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   포커스 접근성 (키보드 탐색 시 아웃라인 명확하게)
+   -------------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary, #3182f6);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   자주 쓰는 유틸리티 클래스
+   -------------------------------------------------------------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   반응형 브레이크포인트 기준 (참고용 주석 — 실제 값은 variables.css에서 관리)
+   -------------------------------------------------------------------------- */
+/*
+  모바일: ~767px  (BottomNavigation 노출)
+  태블릿/데스크톱: 768px~ (DesktopSidebar 노출)
+*/
