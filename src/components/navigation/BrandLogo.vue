@@ -1,5 +1,5 @@
 <script setup>
-import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
+import buttieLogo from '@/assets/images/brand/buttie-logo.png'
 
 defineProps({
   compact: {
@@ -11,7 +11,7 @@ defineProps({
 
 <template>
   <RouterLink class="brand-logo" to="/">
-    <ButtieAvatar :size="30" />
+    <img class="brand-logo__image" :src="buttieLogo" alt="" />
     <span v-if="!compact" class="brand-logo__name">버티</span>
   </RouterLink>
 </template>
@@ -21,6 +21,13 @@ defineProps({
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+.brand-logo__image {
+  width: 35px;
+  height: 35px;
+  flex: none;
+  object-fit: contain;
 }
 
 .brand-logo__name {
