@@ -4,7 +4,8 @@ import { user } from '@/data/mockData'
 
 export const useSessionStore = defineStore('session', () => {
   const isAuthenticated = ref(sessionStorage.getItem('buttie-auth') === 'true')
-  const currentUser = ref(user)
+  const savedProfile = JSON.parse(localStorage.getItem('buttie-profile') || 'null')
+  const currentUser = ref({ ...user, ...savedProfile })
 
   const displayName = computed(() => currentUser.value.nickname || currentUser.value.name)
 
@@ -18,5 +19,10 @@ export const useSessionStore = defineStore('session', () => {
     sessionStorage.removeItem('buttie-auth')
   }
 
-  return { isAuthenticated, currentUser, displayName, login, logout }
+  function updateProfile(profile) {
+    currentUser.value = { ...currentUser.value, ...profile }
+    localStorage.setItem('buttie-profile', JSON.stringify(currentUser.value))
+  }
+
+  return { isAuthenticated, currentUser, displayName, login, logout, updateProfile }
 })
