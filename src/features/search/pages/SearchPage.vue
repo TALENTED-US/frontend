@@ -1,151 +1,193 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import {
+  defaultPolicyFilters,
+  filterPolicies,
+  policyItems,
+  readFilters,
+  toFilterQuery,
+} from '@/features/search/policyData'
 
 const route = useRoute()
 const router = useRouter()
-const type = ref(route.query.type === 'finance' ? '금융상품' : '정책')
-const query = ref('')
-const activeTags = ref(['취업준비생'])
-const showFilter = ref(false)
-const selected = ref(null)
-const policyItems = [
-  { id: 1, type: '정책', title: '청년 구직활동지원금', description: '취업준비생 · 온라인 신청', benefit: '월 50만원', deadline: '7일 이내', color: '#eaf9f5' },
-  { id: 2, type: '정책', title: '서울시 청년수당', description: '구직활동 계획 제출', benefit: '최대 300만원', deadline: '모집 중', color: '#eaf9f5' },
-  { id: 3, type: '정책', title: '국민내일배움카드', description: '교육비 · 훈련 과정 선택', benefit: '최대 500만원', deadline: '상시 모집', color: '#eaf9f5' },
-  { id: 4, type: '금융상품', title: 'KB 청년도약계좌', description: 'KB국민은행 · 청년 우대', benefit: '최대 연 6.0%', deadline: '판매 중', color: '#eef2ff' },
-  { id: 5, type: '금융상품', title: '청년 주택드림 통장', description: '주거 준비 · 우대 금리', benefit: '최대 연 4.5%', deadline: '상시', color: '#eef2ff' },
-]
-const result = computed(() => policyItems.filter((item) => item.type === type.value && (!query.value || item.title.includes(query.value))))
+const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const activeFilters = ref(readFilters(route.query))
+const amount = computed(() => Number(route.query.amount || 0))
 
-function toggleTag(tag) {
-  activeTags.value = activeTags.value.includes(tag) ? activeTags.value.filter((item) => item !== tag) : [...activeTags.value, tag]
+const result = computed(() => {
+  const keyword = query.value.trim().toLowerCase()
+  return filterPolicies(policyItems, activeFilters.value, amount.value).filter((item) =>
+    !keyword || `${item.title} ${item.description}`.toLowerCase().includes(keyword),
+  )
+})
+
+watch(
+  () => route.query,
+  (nextQuery) => {
+    activeFilters.value = readFilters(nextQuery)
+    query.value = typeof nextQuery.q === 'string' ? nextQuery.q : ''
+  },
+)
+
+function syncSearch() {
+  router.replace({
+    path: '/search',
+    query: {
+      ...(query.value.trim() ? { q: query.value.trim() } : {}),
+      filters: toFilterQuery(activeFilters.value),
+      ...(amount.value ? { amount: String(amount.value) } : {}),
+    },
+  })
+}
+
+function resetSearch() {
+  query.value = ''
+  activeFilters.value = []
+  router.replace('/search')
+}
+
+function openFilter() {
+  router.push({
+    path: '/search/filter',
+    query: {
+      filters: toFilterQuery(activeFilters.value),
+      ...(amount.value ? { amount: String(amount.value) } : {}),
+    },
+  })
 }
 </script>
 
 <template>
   <section class="page search-page">
     <header class="search-heading">
-      <h1>나에게 맞는 정책과 금융상품 찾기</h1>
-      <p>검색어 없이 조건만 골라도 맞는 혜택을 찾아드려요.</p>
+      <h1>나에게 맞는 정책 찾기</h1>
+      <p>검색어 없이 조건에 맞는 정책을 찾아드려요.</p>
     </header>
 
-    <div class="type-tabs">
-      <button :class="{ active: type === '정책' }" @click="type = '정책'; selected = null">정책</button>
-      <button :class="{ active: type === '금융상품' }" @click="type = '금융상품'; selected = null">금융상품</button>
-    </div>
-
-    <label class="search-input">
-      <input v-model="query" :placeholder="`${type === '정책' ? '정책명' : '상품명'}으로 검색 (선택)`" />
-      <button type="button"><AppIcon name="search" :size="18" /></button>
-    </label>
+    <form class="search-input" @submit.prevent="syncSearch">
+      <input v-model="query" placeholder="정책명으로 검색 (선택)" aria-label="정책명 검색" />
+      <button type="submit" aria-label="검색"><AppIcon name="search" :size="18" /></button>
+    </form>
 
     <div class="quick-filters">
-      <button v-for="tag in ['취업준비생', '취업', '모집 중', '7일 이내']" :key="tag" :class="{ active: activeTags.includes(tag) }" @click="toggleTag(tag)">{{ tag }}</button>
-      <button class="filter-button" aria-label="상세 필터" @click="router.push({ path: '/search/filter', query: { type: type === '정책' ? 'policy' : 'finance' } })">☷</button>
-    </div>
-
-    <section v-if="showFilter" class="filter-panel card">
-      <div v-for="group in [
-        ['취업 상태', ['취업준비생', '대학생', '재직중', '휴학생']],
-        ['정책 분야', ['취업', '창업', '주거', '금융']],
-        ['신청 마감', ['모집 중', '7일 이내', '30일 이내', '상시']],
-      ]" :key="group[0]">
-        <strong>{{ group[0] }}</strong>
-        <span><button v-for="item in group[1]" :key="item" :class="{ active: activeTags.includes(item) }" @click="toggleTag(item)">{{ item }}</button></span>
+      <div class="filter-chips">
+        <span
+          v-for="filter in activeFilters"
+          :key="filter"
+          class="filter-chip"
+        >
+          {{ filter }}
+        </span>
       </div>
-      <button class="filter-apply" @click="showFilter = false">선택한 조건으로 검색하기</button>
-    </section>
-
-    <div class="result-heading"><h2>검색 결과</h2><span>{{ type }} {{ result.length + (type === '정책' ? 3 : 0) }}개</span></div>
-    <div class="result-list">
-      <button v-for="item in result" :key="item.id" class="result-card" :style="{ background: item.color }" @click="selected = item">
-        <div><span>{{ item.type === '정책' ? '정책' : '금융' }}</span><h3>{{ item.title }}</h3><p>{{ item.description }}</p></div>
-        <div><strong>{{ item.benefit }}</strong><small>{{ item.deadline }}</small></div>
-        <AppIcon name="chevron" :size="15" />
+      <button class="filter-button" type="button" aria-label="정책 상세 필터" @click="openFilter">
+        <span /><span /><span />
       </button>
     </div>
 
-    <div v-if="!result.length" class="empty-search card">
-      <span><AppIcon name="search" :size="31" /></span><h2>검색 결과가 없습니다</h2><p>검색어나 필터 조건을 바꿔 다시 찾아보세요.</p>
-      <div><button @click="query = ''; activeTags = []">필터 초기화</button><button @click="query = ''">전체 항목 보기</button></div>
+    <div class="result-heading">
+      <h2>검색 결과</h2>
+      <span>정책 {{ result.length }}개</span>
     </div>
 
-    <div v-if="selected" class="detail-backdrop" @click.self="selected = null">
-      <article class="detail-sheet">
-        <button class="detail-close" @click="selected = null">×</button>
-        <span class="detail-tag">{{ selected.type }}</span>
-        <h2>{{ selected.title }}</h2><p>{{ selected.description }}</p>
-        <dl><div><dt>지원 혜택</dt><dd>{{ selected.benefit }}</dd></div><div><dt>신청 마감</dt><dd>{{ selected.deadline }}</dd></div><div><dt>추천 이유</dt><dd>현재 취업 준비 상태와 거주 조건에 잘 맞아요.</dd></div></dl>
-        <button class="detail-apply">시뮬레이션에 적용하기</button>
-      </article>
+    <div v-if="result.length" class="result-list">
+      <a
+        v-for="item in result"
+        :key="item.id"
+        class="result-card"
+        :href="item.url"
+        target="_blank"
+        rel="noopener noreferrer"
+        :aria-label="`${item.title} 관련 페이지로 이동`"
+      >
+        <div>
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </div>
+        <div>
+          <strong>{{ item.benefit }}</strong>
+          <small>{{ item.deadline }}</small>
+        </div>
+        <AppIcon name="chevron" :size="15" />
+      </a>
+    </div>
+
+    <div v-else class="empty-search card">
+      <span><AppIcon name="search" :size="34" /></span>
+      <h2>검색 결과가 없습니다</h2>
+      <p>검색어나 필터 조건을 바꿔 다시 찾아보세요.</p>
+      <div>
+        <button type="button" @click="resetSearch">필터 초기화</button>
+        <button
+          type="button"
+          @click="query = ''; activeFilters = [...defaultPolicyFilters]; syncSearch()"
+        >
+          전체 항목 보기
+        </button>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.search-heading { margin-bottom: 22px; }
-.search-heading h1 { color: var(--primary); font-size: 25px; }
-.search-heading p { margin-top: 5px; color: #777; font-size: 11px; }
-.type-tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.type-tabs button { min-height: 47px; color: #555; font-size: 12px; }
-.type-tabs button.active { border-radius: 11px; background: var(--sky); color: white; font-weight: 800; }
-.search-input { display: flex; height: 46px; margin-top: 18px; padding: 0 10px 0 18px; align-items: center; border-radius: 11px; background: #fff9df; }
-.search-input input { min-width: 0; flex: 1; font-size: 11px; }
-.search-input button { display: grid; width: 37px; height: 29px; place-items: center; border-radius: 999px; background: var(--primary); color: white; }
-.quick-filters { display: flex; align-items: center; gap: 9px; margin: 13px 0; }
-.quick-filters button, .filter-panel span button { padding: 7px 16px; border-radius: 999px; background: #f1f4fc; color: var(--primary); font-size: 9px; }
-.quick-filters button.active, .filter-panel span button.active { background: #e8eeff; font-weight: 800; }
-.quick-filters .filter-button { width: 34px; margin-left: auto; padding: 7px; border: 1px solid var(--border); background: white; font-size: 17px; }
-.filter-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 25px; margin: 15px 0; padding: 20px; }
-.filter-panel > div { display: grid; gap: 9px; }
-.filter-panel strong { color: var(--primary); font-size: 11px; }
-.filter-panel span { display: flex; flex-wrap: wrap; gap: 5px; }
-.filter-panel span button { border: 1px solid var(--border); background: white; }
-.filter-panel .filter-apply { grid-column: 1 / -1; padding: 12px; border-radius: 9px; background: var(--accent); color: var(--primary); font-size: 11px; font-weight: 800; }
-.result-heading { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 10px; }
-.result-heading h2 { color: var(--primary); font-size: 14px; }
-.result-heading span { color: #777; font-size: 9px; }
-.result-list { display: grid; gap: 13px; }
-.result-card { display: grid; grid-template-columns: 1fr auto 20px; align-items: center; gap: 18px; min-height: 87px; padding: 16px 19px; border: 1px solid #d9e6e3; border-radius: 13px; text-align: left; }
-.result-card > div { display: grid; gap: 3px; }
-.result-card > div:first-child > span { width: fit-content; padding: 4px 13px; border-radius: 999px; background: #d5f4e9; color: var(--primary); font-size: 8px; }
-.result-card h3 { color: var(--primary); font-size: 14px; }
-.result-card p, .result-card small { color: #777; font-size: 9px; }
+.search-page { padding-top: 8px; }
+.search-heading { margin-bottom: 42px; }
+.search-heading h1 { color: var(--primary); font-size: 26px; line-height: 1.25; }
+.search-heading p { margin-top: 6px; color: #666; font-size: 13px; }
+.search-input { display: flex; height: 56px; padding: 0 15px 0 21px; align-items: center; border-radius: 15px; background: #fff9df; }
+.search-input input { min-width: 0; flex: 1; font-size: 13px; }
+.search-input button { display: grid; width: 52px; height: 34px; place-items: center; border-radius: 999px; background: var(--primary); color: white; }
+.quick-filters { display: flex; min-height: 54px; align-items: center; gap: 12px; }
+.filter-chips { display: flex; min-width: 0; flex: 1; flex-wrap: wrap; gap: 12px; }
+.filter-chip { display: inline-flex; min-width: 86px; flex: none; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 999px; background: #eff3ff; color: var(--primary); font-size: 11px; font-weight: 700; cursor: default; user-select: none; }
+.filter-button { display: grid; width: 40px; height: 34px; margin-left: auto; place-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 9px; background: white; }
+.filter-button span { position: relative; display: block; width: 19px; height: 2px; background: var(--primary); }
+.filter-button span::after { position: absolute; top: -3px; width: 7px; height: 7px; border: 2px solid var(--primary); border-radius: 50%; background: white; content: ''; }
+.filter-button span:nth-child(1)::after, .filter-button span:nth-child(3)::after { left: 3px; }
+.filter-button span:nth-child(2)::after { right: 3px; }
+.result-heading { display: flex; justify-content: space-between; align-items: center; margin: 0 0 13px; }
+.result-heading h2 { color: var(--primary); font-size: 16px; }
+.result-heading span { color: #777; font-size: 12px; }
+.result-list { display: grid; gap: 16px; }
+.result-card { display: grid; grid-template-columns: 1fr auto 16px; min-height: 112px; align-items: center; gap: 22px; padding: 22px 24px; border: 1px solid var(--border); border-radius: 15px; background: white; color: inherit; transition: border-color .15s ease, transform .15s ease; }
+.result-card:hover { border-color: var(--primary-soft); transform: translateY(-1px); }
+.result-card > div { display: grid; gap: 10px; }
+.result-card h3 { color: var(--primary); font-size: 17px; }
+.result-card p, .result-card small { color: #777; font-size: 12px; }
 .result-card > div:nth-child(2) { justify-items: end; }
-.result-card > div:nth-child(2) strong { color: var(--primary); font-size: 14px; }
-.empty-search { display: grid; min-height: 290px; place-content: center; justify-items: center; gap: 8px; text-align: center; }
-.empty-search > span { display: grid; width: 70px; height: 70px; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); }
-.empty-search h2 { color: var(--primary); font-size: 16px; }
-.empty-search p { color: #777; font-size: 10px; }
-.empty-search div { display: flex; gap: 12px; margin-top: 8px; }
-.empty-search button { min-width: 140px; padding: 11px; border: 1px solid var(--border); border-radius: 9px; color: var(--primary); font-size: 10px; }
-.empty-search button:last-child { border-color: var(--accent-strong); background: var(--accent-strong); color: #171717; }
-.detail-backdrop { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; padding: 18px; background: rgb(4 15 100 / 40%); }
-.detail-sheet { position: relative; width: min(100%, 430px); padding: 27px; border-radius: 16px; background: white; box-shadow: var(--shadow-md); }
-.detail-close { position: absolute; top: 14px; right: 17px; font-size: 22px; }
-.detail-tag { padding: 5px 12px; border-radius: 999px; background: var(--success-soft); color: var(--primary); font-size: 9px; }
-.detail-sheet h2 { margin-top: 14px; color: var(--primary); font-size: 20px; }
-.detail-sheet > p { color: #777; font-size: 11px; }
-.detail-sheet dl { display: grid; gap: 13px; margin: 20px 0; }
-.detail-sheet dl div { display: grid; gap: 2px; }
-.detail-sheet dt { color: #888; font-size: 9px; }
-.detail-sheet dd { font-size: 12px; }
-.detail-apply { width: 100%; padding: 13px; border-radius: 9px; background: var(--accent); color: var(--primary); font-size: 11px; font-weight: 800; }
+.result-card strong { color: var(--primary); font-size: 17px; }
+.empty-search { display: grid; min-height: 370px; place-content: center; justify-items: center; gap: 10px; text-align: center; }
+.empty-search > span { display: grid; width: 106px; height: 106px; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); }
+.empty-search h2 { color: var(--primary); font-size: 22px; }
+.empty-search p { color: #777; font-size: 13px; }
+.empty-search div { display: flex; gap: 16px; margin-top: 15px; }
+.empty-search button { min-width: 190px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; color: var(--primary); font-size: 13px; font-weight: 700; }
+.empty-search button:last-child { border-color: var(--accent-strong); background: var(--accent-strong); }
 
 @media (max-width: 767px) {
-  .search-heading { margin: 12px 0 15px; }
-  .search-heading h1 { font-size: 19px; }
-  .search-heading p { font-size: 11px; }
-  .type-tabs button { min-height: 41px; }
-  .search-input { height: 44px; margin-top: 13px; }
-  .quick-filters { overflow-x: auto; }
-  .quick-filters button { flex: none; padding: 7px 14px; }
-  .filter-panel { grid-template-columns: 1fr; padding: 15px; }
-  .filter-panel .filter-apply { grid-column: auto; }
-  .result-card { grid-template-columns: 1fr auto 14px; min-height: 82px; padding: 13px 15px; box-shadow: var(--shadow-sm); }
-  .detail-backdrop { align-items: end; padding: 0; }
-  .detail-sheet { width: 100%; border-radius: 20px 20px 0 0; padding: 25px 20px 28px; }
+  .search-page { padding-top: 8px; }
+  .search-heading { margin: 8px 0 20px; }
+  .search-heading h1 { color: #222; font-size: 24px; }
+  .search-heading p { margin-top: 7px; font-size: 13px; }
+  .search-input { height: 58px; padding-left: 18px; border-radius: 18px; background: #f4f6fb; }
+  .search-input input { font-size: 13px; }
+  .search-input button { width: 46px; height: 42px; }
+  .quick-filters { display: grid; grid-template-columns: 1fr; gap: 9px; padding: 13px 0 8px; }
+  .filter-chips { gap: 9px; overflow: visible; }
+  .filter-chip { min-width: auto; padding: 10px 19px; background: #fff0b4; color: #222; font-size: 12px; }
+  .filter-button { position: static; width: 38px; margin-left: 0; justify-self: end; border: 0; background: var(--background); }
+  .result-heading { margin-top: 2px; }
+  .result-heading h2 { color: #222; font-size: 17px; }
+  .result-list { gap: 16px; }
+  .result-card { grid-template-columns: 1fr auto 12px; min-height: 122px; padding: 20px 21px; border-radius: 20px; box-shadow: var(--shadow-sm); }
+  .result-card h3 { color: #222; font-size: 17px; }
+  .result-card p, .result-card small { font-size: 12px; }
+  .result-card strong { color: #222; font-size: 17px; }
+  .empty-search { min-height: 390px; padding: 22px; border-radius: 20px; }
+  .empty-search > span { width: 88px; height: 88px; }
+  .empty-search h2 { font-size: 20px; }
+  .empty-search div { width: 100%; gap: 10px; }
+  .empty-search button { min-width: 0; flex: 1; padding: 13px 6px; }
 }
 </style>

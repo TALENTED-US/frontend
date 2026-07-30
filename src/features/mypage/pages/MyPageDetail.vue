@@ -6,12 +6,12 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
 
 const route = useRoute()
 const router = useRouter()
-const settings = ref({ all: true, quest: true, policy: true, finance: true, plan: true, reward: true, notice: true })
+const settings = ref({ all: true, policy: true, finance: true, plan: true, reward: true, notice: true })
 const twoFactor = ref(false)
 const details = {
   myInfo: ['내 정보', '개인정보를 확인하고 수정해요'],
   jobInfo: ['취업 준비 정보 관리', '정확한 추천과 준비 기간 계산에 사용돼요.'],
-  notificationSettings: ['알림 설정', '퀘스트와 재정 변화 알림을 관리해요.'],
+  notificationSettings: ['알림 설정', '정책과 재정 변화 알림을 관리해요.'],
   security: ['비밀번호·보안', '비밀번호와 로그인 기기를 관리해요.'],
   dataManagement: ['데이터 관리', '금융 연결과 저장 데이터를 관리해요.'],
   withdraw: ['회원 탈퇴', '탈퇴 전 꼭 확인해 주세요'],
@@ -50,7 +50,7 @@ const form = ref({ name: '김재준', birth: '1998-03-15', phone: '010-1234-5678
     <template v-else-if="route.name === 'notificationSettings'">
       <label class="toggle-card card"><span><strong>전체 알림</strong><small>모든 알림을 한번에 켜고 끕니다.</small></span><input v-model="settings.all" type="checkbox" /></label>
       <article class="toggle-list card">
-        <label v-for="(value, key) in settings" v-show="key !== 'all'" :key="key"><span><strong>{{ { quest: '퀘스트 마감', policy: '정책 마감', finance: '재정 변화', plan: '계획 이탈', reward: '리워드 획득', notice: '서비스 공지' }[key] }}</strong><small>중요한 변화를 알려드려요.</small></span><input v-model="settings[key]" type="checkbox" /></label>
+        <label v-for="(value, key) in settings" v-show="key !== 'all'" :key="key"><span><strong>{{ { policy: '정책 마감', finance: '재정 변화', plan: '계획 이탈', reward: '리워드 획득', notice: '서비스 공지' }[key] }}</strong><small>중요한 변화를 알려드려요.</small></span><input v-model="settings[key]" type="checkbox" /></label>
       </article>
     </template>
 
@@ -62,11 +62,11 @@ const form = ref({ name: '김재준', birth: '1998-03-15', phone: '010-1234-5678
 
     <template v-else-if="route.name === 'dataManagement'">
       <article class="accounts card"><header><h2>마이데이터 연결</h2><button>⟳ 새로고침</button></header><div v-for="account in [['KB국민은행 입출금','****-****-2847 · 320만원'],['KB국민은행 적금','****-****-5931 · 150만원'],['KB국민카드','****-****-4821 · 30만원']]" :key="account[0]"><i>▭</i><span><strong>{{ account[0] }}</strong><small>{{ account[1] }}<br />갱신: 2026-07-15 10:32</small></span><button>해제</button></div><button class="add-account">＋ 계좌 추가 연결</button></article>
-      <article class="delete-data"><h2>⚠ 전체 데이터 삭제</h2><p>모든 거래 내역, 시뮬레이션, 퀘스트 데이터가 영구 삭제됩니다.</p><button>데이터 전체 삭제</button></article>
+      <article class="delete-data"><h2>⚠ 전체 데이터 삭제</h2><p>모든 거래 내역과 시뮬레이션 데이터가 영구 삭제됩니다.</p><button>데이터 전체 삭제</button></article>
     </template>
 
     <template v-else>
-      <article class="withdraw-warning card"><span>주의</span><h2>계정과 모든 기록이 삭제돼요.</h2><p>거래 내역, 시뮬레이션, 퀘스트 및 리워드 데이터가 삭제됩니다.<br />일부 정보는 법령상 보관 기준에 따라 처리돼요.</p></article>
+      <article class="withdraw-warning card"><span>주의</span><h2>계정과 모든 기록이 삭제돼요.</h2><p>거래 내역, 시뮬레이션 및 리워드 데이터가 삭제됩니다.<br />일부 정보는 법령상 보관 기준에 따라 처리돼요.</p></article>
       <form class="withdraw-form"><label><span>비밀번호를 다시 입력해주세요</span><input v-model="form.password" type="password" /></label><label><span>탈퇴 사유 (선택)</span><select v-model="form.reason"><option>서비스가 기대와 달랐어요</option><option>더 이상 사용하지 않아요</option></select></label><button>회원 탈퇴</button><small>탈퇴 후에는 같은 계정으로 바로 복구할 수 없어요.</small></form>
     </template>
   </section>

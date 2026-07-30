@@ -7,7 +7,7 @@ const route = useRoute()
 const openPopover = ref('')
 const titles = {
   dashboard: '홈', finance: '내 재정', simulation: '시뮬레이션', simulationCategory: '시뮬레이션',
-  timeline: '내 재정', search: '혜택', searchFilter: '혜택', quests: '퀘스트', notifications: '알림',
+  timeline: '내 재정', search: '검색', searchFilter: '정책 상세 필터', notifications: '알림',
   mypage: '마이페이지', myInfo: '내 정보', jobInfo: '취업 준비 정보 관리', notificationSettings: '알림 설정',
   security: '비밀번호·보안', dataManagement: '데이터 관리', withdraw: '회원 탈퇴',
 }
@@ -23,21 +23,6 @@ function toggle(name) {
     <strong class="app-header__title mobile-only">{{ title }}</strong>
     <div class="app-header__spacer" />
     <div class="popover-anchor">
-      <button :class="['header-chip', { active: openPopover === 'quest' }]" type="button" aria-label="퀘스트" @click="toggle('quest')">
-        <AppIcon class="mobile-only" name="quest" :size="19" /><span class="desktop-only">퀘스트 3</span><b class="mobile-only header-badge header-badge--quest" />
-      </button>
-      <section v-if="openPopover === 'quest'" class="header-popover quest-popover">
-        <header><h2>퀘스트 4</h2><RouterLink to="/quests" @click="openPopover = ''">퀘스트함 들어가기</RouterLink></header>
-        <RouterLink v-for="item in [
-          ['진행 중', '청년 구직활동지원금 신청', '마감 2026.07.31'],
-          ['시작 전', '넷플릭스 구독 해지', '월 지출 -17,000원'],
-          ['완료', '카페 아르바이트 지원하기', '월 수입 +500,000원'],
-        ]" :key="item[1]" to="/quests" @click="openPopover = ''">
-          <span :class="{ done: item[0] === '완료' }">{{ item[0] }}</span><div><strong>{{ item[1] }}</strong><small>{{ item[2] }}</small></div><b>›</b>
-        </RouterLink>
-      </section>
-    </div>
-    <div class="popover-anchor">
       <button :class="['header-chip', { active: openPopover === 'notification' }]" type="button" aria-label="알림" @click="toggle('notification')">
         <AppIcon class="mobile-only" name="bell" :size="19" /><span class="desktop-only">알림 3</span><b class="mobile-only header-badge">3</b>
       </button>
@@ -46,7 +31,7 @@ function toggle(name) {
         <RouterLink v-for="item in [
           ['목표 재설정 경고', '목표 취업일을 다시 확인해 주세요.', '방금'],
           ['청년 월세 지원 마감', '신청 마감일이 7일 남았어요.', '오늘'],
-          ['퀘스트 리워드 확인', '식비 줄이기 퀘스트를 확인하세요.', '어제'],
+          ['생존기간 변동 안내', '이번 달 지출을 반영해 준비 기간을 계산했어요.', '어제'],
         ]" :key="item[0]" to="/notifications" @click="openPopover = ''">
           <i>•</i><div><strong>{{ item[0] }}</strong><small>{{ item[1] }}</small></div><time>{{ item[2] }}</time>
         </RouterLink>
@@ -60,7 +45,7 @@ function toggle(name) {
 .app-header__spacer { flex: 1; }
 .popover-anchor { position: relative; }
 .header-chip { position: relative; display: inline-flex; min-height: 40px; align-items: center; gap: 7px; padding: 0 13px; border: 1px solid var(--border); border-radius: 10px; background: white; color: var(--text); font-size: 12px; }
-.header-chip.active, .popover-anchor:first-of-type .header-chip { background: var(--primary-soft); color: var(--primary); font-weight: 800; }
+.header-chip.active { background: var(--primary-soft); color: var(--primary); font-weight: 800; }
 .header-popover { position: absolute; z-index: 60; top: 54px; right: 0; width: 360px; padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: white; box-shadow: var(--shadow-md); }
 .notification-popover { width: 420px; padding: 27px 28px 25px; border-radius: 20px; }
 .header-popover::before { position: absolute; top: -9px; right: 30px; width: 16px; height: 16px; border-top: 1px solid var(--border); border-left: 1px solid var(--border); background: white; content: ''; transform: rotate(45deg); }
@@ -68,9 +53,6 @@ function toggle(name) {
 .header-popover h2 { font-size: 17px; }
 .header-popover header a { color: #666; font-size: 10px; }
 .header-popover > a { display: grid; align-items: center; gap: 12px; min-height: 66px; padding: 10px 0; }
-.quest-popover > a { grid-template-columns: 80px 1fr 10px; }
-.quest-popover > a > span { color: #666; font-size: 11px; font-weight: 700; }
-.quest-popover > a > span.done { color: var(--success); }
 .header-popover > a div { display: grid; gap: 4px; }
 .header-popover strong { color: var(--primary); font-size: 12px; }
 .header-popover small { color: #777; font-size: 9px; }
@@ -89,10 +71,8 @@ function toggle(name) {
   .app-header__title { color: var(--primary); font-size: 14px; font-weight: 900; }
   .header-chip { min-height: 32px; padding: 6px; border: 0; background: transparent !important; color: #172035; }
   .header-badge { position: absolute; top: 0; right: -1px; display: grid; width: 16px; height: 16px; place-items: center; border-radius: 50%; background: #ef5f78; color: white; font-size: 9px; }
-  .header-badge--quest { top: 2px; width: 7px; height: 7px; background: #f4ae00; }
   .header-popover { position: fixed; top: 58px; right: 10px; left: 10px; width: auto; max-height: calc(100dvh - 80px); overflow: auto; padding: 18px; border-radius: 14px; }
   .notification-popover { width: auto; }
   .header-popover::before { display: none; }
-  .quest-popover > a { grid-template-columns: 58px 1fr 10px; }
 }
 </style>

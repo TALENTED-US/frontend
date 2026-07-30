@@ -9,7 +9,7 @@ const session = useSessionStore()
 const menuItems = [
   ['내 정보', '개인정보를 확인하고 수정해요', '/mypage/info'],
   ['취업 준비 정보 관리', '준비 유형·일정·거주 정보를 관리해요', '/mypage/job'],
-  ['알림 설정', '퀘스트와 재정 변화 알림을 관리해요', '/mypage/notifications'],
+  ['알림 설정', '정책과 재정 변화 알림을 관리해요', '/mypage/notifications'],
   ['비밀번호·보안', '비밀번호와 로그인 기록을 관리해요', '/mypage/security'],
   ['데이터 관리', '금융 연결과 저장 데이터를 관리해요', '/mypage/data'],
 ]
