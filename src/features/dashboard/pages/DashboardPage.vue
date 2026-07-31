@@ -2,6 +2,9 @@
 import { dashboard, user } from '@/data/mockData'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
+import { useSessionStore } from '@/stores/session'
+
+const session = useSessionStore()
 </script>
 
 <template>
@@ -9,16 +12,14 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
     <header class="dashboard__heading">
       <div>
         <p class="mobile-only dashboard__date">7월 16일 · 목요일</p>
-        <h1>재준님, 오늘도 파이팅!</h1>
+        <h1>{{ session.displayName }}님, 오늘도 파이팅!</h1>
         <p class="desktop-only">현재 재정과 목표를 한눈에 확인해 보세요.</p>
       </div>
       <ButtieAvatar class="mobile-only" :size="53" />
     </header>
 
     <article class="survival-card">
-      <div class="survival-card__top">
-        <span>생존기간</span><em>안정</em>
-      </div>
+      <div class="survival-card__top"><span>생존기간</span><em>안정</em></div>
       <div class="survival-card__values">
         <div>
           <small class="desktop-only">현재 기준 기간</small>
@@ -44,14 +45,18 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
           <span>총 자산</span><strong>300만원</strong><small>연결 계좌 기준</small>
         </article>
         <article class="summary-card summary-card--income">
-          <span>이번 달 수입</span><strong class="desktop-only">+50만원</strong><strong class="mobile-only">+0원</strong>
+          <span>이번 달 수입</span><strong class="desktop-only">+50만원</strong
+          ><strong class="mobile-only">+0원</strong>
           <small class="desktop-only">지난달 대비 +12%</small>
         </article>
         <article class="summary-card summary-card--expense">
-          <span>이번 달 지출</span><strong>-80만원</strong><small class="desktop-only">예상 지출 포함</small>
+          <span>이번 달 지출</span><strong>-80만원</strong
+          ><small class="desktop-only">예상 지출 포함</small>
         </article>
         <article class="summary-card summary-card--cash">
-          <span>순현금흐름<span class="mobile-only">(수입-지출)</span></span><strong class="desktop-only">-800,000원</strong><strong class="mobile-only">-800,000원</strong>
+          <span>순현금흐름<span class="mobile-only">(수입-지출)</span></span
+          ><strong class="desktop-only">-800,000원</strong
+          ><strong class="mobile-only">-800,000원</strong>
           <small class="desktop-only">수입 - 지출</small>
         </article>
       </div>
@@ -63,21 +68,32 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
         <article class="simulation-cta">
           <div>
             <h3>계획을 바꾸면 준비 기간이<br />얼마나 늘어날까요?</h3>
-            <p>아르바이트, 지출 절감, 정부지원금을 조합해<br class="desktop-only" /> 나만의 시나리오를 만들어보세요.</p>
+            <p>
+              아르바이트, 지출 절감, 정부지원금을 조합해<br class="desktop-only" />
+              나만의 시나리오를 만들어보세요.
+            </p>
           </div>
-          <RouterLink class="simulation-cta__button" to="/simulation">시뮬레이션 하러가기 <span>→</span></RouterLink>
+          <RouterLink class="simulation-cta__button" to="/simulation"
+            >시뮬레이션 하러가기 <span>→</span></RouterLink
+          >
         </article>
       </section>
 
       <section>
         <div class="section-head">
-          <h2>목표 설정</h2><RouterLink to="/mypage">수정하기 ›</RouterLink>
+          <h2>목표 설정</h2>
+          <RouterLink to="/mypage">수정하기 ›</RouterLink>
         </div>
         <article class="goal-card">
           <div><AppIcon name="clock" :size="15" /><span>목표 기간</span><strong>6개월</strong></div>
-          <div><AppIcon name="calendar" :size="15" /><span>목표 취업일</span><strong>{{ user.targetDate.replaceAll('.', '-') }}</strong></div>
+          <div>
+            <AppIcon name="calendar" :size="15" /><span>목표 취업일</span
+            ><strong>{{ user.targetDate.replaceAll('.', '-') }}</strong>
+          </div>
           <div><AppIcon name="clock" :size="15" /><span>비상금</span><strong>50만원</strong></div>
-          <div><AppIcon name="clock" :size="15" /><span>주간 준비 시간</span><strong>30시간</strong></div>
+          <div>
+            <AppIcon name="clock" :size="15" /><span>주간 준비 시간</span><strong>30시간</strong>
+          </div>
         </article>
       </section>
     </div>
@@ -139,16 +155,28 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
 }
 
 .survival-card__values small,
-.survival-card__values span { color: #575757; font-size: 11px; }
+.survival-card__values span {
+  color: #575757;
+  font-size: 11px;
+}
 
 .survival-card__values strong {
   color: #6a4c3c;
   font-size: 27px;
 }
 
-.survival-card__values i { margin-left: 5px; font-size: 14px; font-style: normal; font-weight: 500; }
-.survival-card__goal { text-align: right; }
-.survival-card__goal strong { font-size: 20px; }
+.survival-card__values i {
+  margin-left: 5px;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 500;
+}
+.survival-card__goal {
+  text-align: right;
+}
+.survival-card__goal strong {
+  font-size: 20px;
+}
 
 .survival-card__progress {
   height: 9px;
@@ -189,7 +217,9 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
   color: var(--danger);
 }
 
-.summary { margin-top: 24px; }
+.summary {
+  margin-top: 24px;
+}
 
 .section-head {
   display: flex;
@@ -199,8 +229,13 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
 }
 
 .section-head h2,
-.block-title { font-size: 16px; }
-.section-head a { color: #555; font-size: 11px; }
+.block-title {
+  font-size: 16px;
+}
+.section-head a {
+  color: #555;
+  font-size: 11px;
+}
 
 .summary__grid {
   display: grid;
@@ -218,16 +253,39 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
 }
 
 .summary-card span,
-.summary-card small { color: #666; font-size: 10px; }
-.summary-card strong { color: #324363; font-size: 18px; }
-.summary-card--asset { background: #d9e5ff; }
-.summary-card--asset strong { color: #07399e; font-size: 23px; }
-.summary-card--income { background: #e8eaf4; }
-.summary-card--income span { color: var(--primary); }
-.summary-card--expense { background: #fdeced; }
-.summary-card--expense span { color: var(--danger); }
-.summary-card--cash { background: #f1eff9; }
-.summary-card--cash span { color: #7361ad; }
+.summary-card small {
+  color: #666;
+  font-size: 10px;
+}
+.summary-card strong {
+  color: #324363;
+  font-size: 18px;
+}
+.summary-card--asset {
+  background: #d9e5ff;
+}
+.summary-card--asset strong {
+  color: #07399e;
+  font-size: 23px;
+}
+.summary-card--income {
+  background: #e8eaf4;
+}
+.summary-card--income span {
+  color: var(--primary);
+}
+.summary-card--expense {
+  background: #fdeced;
+}
+.summary-card--expense span {
+  color: var(--danger);
+}
+.summary-card--cash {
+  background: #f1eff9;
+}
+.summary-card--cash span {
+  color: #7361ad;
+}
 
 .dashboard__bottom {
   display: grid;
@@ -236,7 +294,9 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
   margin-top: 32px;
 }
 
-.block-title { margin-bottom: 12px; }
+.block-title {
+  margin-bottom: 12px;
+}
 
 .simulation-cta {
   display: flex;
@@ -249,8 +309,17 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
   background: #fff5ca;
 }
 
-.simulation-cta h3 { color: #684f3c; font-size: 18px; line-height: 1.35; }
-.simulation-cta p { margin-top: 9px; color: #766e66; font-size: 10px; line-height: 1.65; }
+.simulation-cta h3 {
+  color: #684f3c;
+  font-size: 18px;
+  line-height: 1.35;
+}
+.simulation-cta p {
+  margin-top: 9px;
+  color: #766e66;
+  font-size: 10px;
+  line-height: 1.65;
+}
 
 .simulation-cta__button {
   flex: none;
@@ -272,35 +341,88 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
   border-radius: 14px;
 }
 
-.goal-card > div { display: grid; grid-template-columns: 18px 1fr; align-items: center; }
-.goal-card span { color: #676767; font-size: 10px; }
-.goal-card strong { grid-column: 1 / -1; margin-top: 4px; font-size: 14px; }
+.goal-card > div {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+}
+.goal-card span {
+  color: #676767;
+  font-size: 10px;
+}
+.goal-card strong {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  font-size: 14px;
+}
 
 @media (max-width: 767px) {
-  .dashboard__heading { margin: 5px 0 12px; }
-  .dashboard__heading h1 { font-size: 18px; }
-  .dashboard__date { margin: 0 0 2px !important; font-size: 11px !important; }
-  .survival-card { padding: 16px; box-shadow: var(--shadow-sm); }
-  .survival-card__top span { font-size: 11px; }
-  .survival-card__values strong { font-size: 28px; }
-  .survival-card__goal strong { font-size: 18px; }
-  .survival-card > b { display: block; }
+  .dashboard__heading {
+    margin: 5px 0 12px;
+  }
+  .dashboard__heading h1 {
+    font-size: 18px;
+  }
+  .dashboard__date {
+    margin: 0 0 2px !important;
+    font-size: 11px !important;
+  }
+  .survival-card {
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .survival-card__top span {
+    font-size: 11px;
+  }
+  .survival-card__values strong {
+    font-size: 28px;
+  }
+  .survival-card__goal strong {
+    font-size: 18px;
+  }
+  .survival-card > b {
+    display: block;
+  }
 
-  .summary { margin-top: 17px; }
-  .section-head { margin-bottom: 8px; }
+  .summary {
+    margin-top: 17px;
+  }
+  .section-head {
+    margin-bottom: 8px;
+  }
   .section-head h2,
-  .block-title { font-size: 13px; }
+  .block-title {
+    font-size: 13px;
+  }
   .summary__grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 7px;
   }
-  .summary-card { min-height: 74px; padding: 11px; box-shadow: var(--shadow-sm); }
-  .summary-card--asset { grid-column: 1 / -1; min-height: 86px; }
-  .summary-card--asset strong { font-size: 23px; }
-  .summary-card:not(.summary-card--asset) strong { font-size: 13px; }
-  .summary-card--cash span span { display: inline !important; font-size: 8px; }
+  .summary-card {
+    min-height: 74px;
+    padding: 11px;
+    box-shadow: var(--shadow-sm);
+  }
+  .summary-card--asset {
+    grid-column: 1 / -1;
+    min-height: 86px;
+  }
+  .summary-card--asset strong {
+    font-size: 23px;
+  }
+  .summary-card:not(.summary-card--asset) strong {
+    font-size: 13px;
+  }
+  .summary-card--cash span span {
+    display: inline !important;
+    font-size: 8px;
+  }
 
-  .dashboard__bottom { grid-template-columns: 1fr; gap: 17px; margin-top: 18px; }
+  .dashboard__bottom {
+    grid-template-columns: 1fr;
+    gap: 17px;
+    margin-top: 18px;
+  }
   .simulation-cta {
     min-height: 154px;
     flex-direction: column;
@@ -308,8 +430,17 @@ import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
     padding: 18px;
     text-align: center;
   }
-  .simulation-cta h3 { font-size: 16px; }
-  .simulation-cta__button { padding: 11px 20px; }
-  .goal-card { min-height: 140px; padding: 17px; gap: 15px 20px; box-shadow: var(--shadow-sm); }
+  .simulation-cta h3 {
+    font-size: 16px;
+  }
+  .simulation-cta__button {
+    padding: 11px 20px;
+  }
+  .goal-card {
+    min-height: 140px;
+    padding: 17px;
+    gap: 15px 20px;
+    box-shadow: var(--shadow-sm);
+  }
 }
 </style>

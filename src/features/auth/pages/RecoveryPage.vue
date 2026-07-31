@@ -8,8 +8,11 @@ const route = useRoute()
 const router = useRouter()
 
 const isId = computed(() => route.name === 'find-id')
-const step = ref(1)
-const accountId = ref('')
+const isDirectPasswordChange = computed(
+  () => route.name === 'find-password' && route.query.mode === 'change',
+)
+const step = ref(isDirectPasswordChange.value ? 3 : 1)
+const accountId = ref(isDirectPasswordChange.value ? user.email : '')
 const password = ref('')
 const passwordConfirm = ref('')
 const accountError = ref('')
@@ -34,15 +37,15 @@ onBeforeUnmount(() => {
 })
 
 function resetFlow() {
-  step.value = 1
-  accountId.value = ''
+  step.value = isDirectPasswordChange.value ? 3 : 1
+  accountId.value = isDirectPasswordChange.value ? user.email : ''
   password.value = ''
   passwordConfirm.value = ''
   accountError.value = ''
   passwordError.value = ''
 }
 
-watch(() => route.name, resetFlow)
+watch(() => [route.name, route.query.mode], resetFlow)
 
 function goBack() {
   if (step.value > 1) {
