@@ -23,6 +23,8 @@ function changePassword() {
   }
 
   errorMessage.value = ''
+  session.changePassword(password.value)
+  session.clearPasswordChangeVerification()
   router.replace('/mypage/security')
 }
 </script>

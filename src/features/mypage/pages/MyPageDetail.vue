@@ -22,6 +22,9 @@ const info = computed(() => details[route.name] || details.myInfo)
 const nicknameEditing = ref(false)
 const nicknameDraft = ref(session.displayName)
 const profileMessage = ref('')
+const dataRefreshMessage = ref('')
+const withdrawError = ref('')
+const withdrawVerified = ref(false)
 const notificationSettings = reactive({
   all: true,
   policy: true,
@@ -105,6 +108,51 @@ function saveJobProfile() {
     family: Number(form.family),
   })
   router.push('/mypage')
+}
+
+function formatDateTime(value) {
+  if (!value) return '기록 없음'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+    .format(date)
+    .replace(/\.$/, '')
+}
+
+function refreshMyData() {
+  session.refreshMyData()
+  dataRefreshMessage.value = `마이데이터를 ${formatDateTime(session.myDataLastUpdated)}에 갱신했습니다.`
+}
+
+function resetWithdrawVerification() {
+  withdrawVerified.value = false
+  withdrawError.value = ''
+}
+
+function verifyWithdrawalPassword() {
+  if (!session.verifyCurrentPassword(form.password)) {
+    withdrawVerified.value = false
+    withdrawError.value = '인증 실패: 비밀번호가 일치하지 않습니다.'
+    return
+  }
+
+  withdrawError.value = ''
+  withdrawVerified.value = true
+}
+
+function withdrawAccount() {
+  if (!withdrawVerified.value) return
+  session.logout()
+  router.replace('/auth/login')
 }
 
 function logout() {
@@ -255,7 +303,7 @@ function setAllNotifications(value) {
         <button
           class="password-button"
           type="button"
-          @click="router.push('/mypage/security/password')"
+          @click="router.push('/mypage/security/password/verify')"
         >
           비밀번호 변경하기
         </button>
@@ -285,7 +333,7 @@ function setAllNotifications(value) {
       <article class="accounts-card">
         <header>
           <h2>마이데이터 연결</h2>
-          <button type="button">⟳ 새로고침</button>
+          <button type="button" @click="refreshMyData">⟳ 새로고침</button>
         </header>
         <p class="account-count">계좌 · 3</p>
         <template v-for="(account, index) in accounts" :key="account.name">
@@ -297,7 +345,7 @@ function setAllNotifications(value) {
               <small
                 >{{ account.number
                 }}<template v-if="account.amount"> · {{ account.amount }}</template
-                ><br />갱신: 2026-07-15 10:32</small
+                ><br />갱신: {{ formatDateTime(session.myDataLastUpdated) }}</small
               >
             </span>
             <button type="button">해제</button>
@@ -305,10 +353,13 @@ function setAllNotifications(value) {
           <button v-if="index === 2" class="add-account" type="button">＋ 계좌 추가 연결</button>
         </template>
         <button class="add-account" type="button">＋ 카드 추가 연결</button>
+        <p v-if="dataRefreshMessage" class="refresh-status" aria-live="polite">
+          {{ dataRefreshMessage }}
+        </p>
       </article>
       <article class="delete-data desktop-only">
         <h2>⚠ 전체 데이터 삭제</h2>
-        <p>모든 거래 내역, 시뮬레이션, 퀘스트 데이터가 영구 삭제됩니다.</p>
+        <p>모든 거래 내역, 시뮬레이션, 저장 데이터가 영구 삭제됩니다.</p>
         <button type="button">데이터 전체 삭제</button>
       </article>
     </template>
@@ -322,8 +373,25 @@ function setAllNotifications(value) {
       </article>
       <label class="withdraw-password"
         ><span>비밀번호를 다시 입력해주세요</span
-        ><input v-model="form.password" type="password" placeholder="비밀번호 입력"
-      /></label>
+        ><div class="withdraw-password__row">
+          <input
+            v-model="form.password"
+            type="password"
+            placeholder="비밀번호 입력"
+            autocomplete="current-password"
+            :aria-invalid="Boolean(withdrawError)"
+            @input="resetWithdrawVerification"
+            @keyup.enter="verifyWithdrawalPassword"
+          />
+          <button type="button" :disabled="!form.password" @click="verifyWithdrawalPassword">
+            인증하기
+          </button>
+        </div></label
+      >
+      <p v-if="withdrawError" class="withdraw-error" role="alert">{{ withdrawError }}</p>
+      <p v-if="withdrawVerified" class="withdraw-success" aria-live="polite">
+        비밀번호 인증에 성공했습니다.
+      </p>
       <div class="withdraw-character">
         <img :src="profileImage" alt="" />
         <h2>버티 키우러 돌아갈까요?</h2>
@@ -332,7 +400,14 @@ function setAllNotifications(value) {
       <button class="primary-action" type="button" @click="router.push('/')">
         홈으로 돌아가기
       </button>
-      <button class="withdraw-confirm" type="button">그래도 탈퇴할게요</button>
+      <button
+        v-if="withdrawVerified"
+        class="withdraw-confirm"
+        type="button"
+        @click="withdrawAccount"
+      >
+        그래도 탈퇴할게요
+      </button>
     </template>
   </section>
 </template>
@@ -730,6 +805,13 @@ function setAllNotifications(value) {
 .accounts-card header button {
   color: #666;
 }
+.refresh-status {
+  margin-top: 14px;
+  color: #16986a;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
 .account-count {
   margin-top: 13px;
   color: #888;
@@ -805,6 +887,37 @@ function setAllNotifications(value) {
 .withdraw-password {
   margin-top: 20px;
 }
+.withdraw-password__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 108px;
+  gap: 10px;
+}
+.withdraw-password__row button {
+  border-radius: 12px;
+  background: var(--accent);
+  color: #262626;
+  font-size: 13px;
+  font-weight: 800;
+}
+.withdraw-password__row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.withdraw-password input[aria-invalid='true'] {
+  border-color: #f0574f;
+}
+.withdraw-error,
+.withdraw-success {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.withdraw-error {
+  color: #e5484d;
+}
+.withdraw-success {
+  color: #16986a;
+}
 .withdraw-character {
   margin-top: 24px;
   text-align: center;
@@ -827,10 +940,11 @@ function setAllNotifications(value) {
 }
 .withdraw-confirm {
   display: block;
-  margin: 12px auto 0;
-  color: #9aa3b2;
+  margin: 18px auto 0;
+  color: #727b8c;
   text-decoration: underline;
-  font-size: 10px;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 @media (min-width: 768px) {
@@ -1014,6 +1128,17 @@ function setAllNotifications(value) {
   .withdraw-password input {
     height: 48px;
     border-radius: 14px;
+  }
+  .withdraw-password__row {
+    grid-template-columns: minmax(0, 1fr) 90px;
+    gap: 8px;
+  }
+  .withdraw-password__row button {
+    border-radius: 14px;
+    font-size: 11px;
+  }
+  .withdraw-confirm {
+    font-size: 13px;
   }
   .withdraw-character {
     margin-top: 40px;

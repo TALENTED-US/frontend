@@ -7,6 +7,27 @@ import profileImage from '@/assets/images/mypage/buttie-profile.png'
 const router = useRouter()
 const session = useSessionStore()
 
+function formatDate(value) {
+  return value ? value.replaceAll('-', '.') : '-'
+}
+
+function formatDateTime(value) {
+  if (!value) return '기록 없음'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .format(date)
+    .replace(/\.$/, '')
+}
+
 const menuItems = [
   { label: '내 정보', description: '개인정보를 확인하고 수정해요', to: '/mypage/info' },
   {
@@ -67,15 +88,18 @@ function logout() {
         </div>
         <div>
           <dt>준비 시작일</dt>
-          <dd>{{ session.currentUser.startDate.replaceAll('-', '.') }}</dd>
+          <dd>{{ formatDate(session.currentUser.startDate) }}</dd>
         </div>
         <div>
           <dt>목표 취업 시점</dt>
-          <dd>{{ session.currentUser.goalDate.replaceAll('-', '.') }}</dd>
+          <dd>{{ formatDate(session.currentUser.goalDate) }}</dd>
         </div>
         <div>
           <dt>마이데이터 연결 상태</dt>
-          <dd>마지막 갱신 · 2026.07.29 09:12</dd>
+          <dd>
+            {{ session.myDataConnected ? '연결됨' : '연결 안 됨' }} · 마지막 갱신
+            {{ formatDateTime(session.myDataLastUpdated) }}
+          </dd>
         </div>
       </dl>
     </article>

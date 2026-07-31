@@ -15,6 +15,16 @@ export const user = {
   family: 1,
 }
 
+export const mockCredentials = {
+  email: user.email,
+  password: 'qwer@123',
+}
+
+export const myData = {
+  connected: true,
+  lastUpdated: '2026-07-29T09:12:00+09:00',
+}
+
 export const dashboard = {
   totalAssets: 3000000,
   liquidAssets: 2240000,
