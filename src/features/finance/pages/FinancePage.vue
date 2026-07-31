@@ -1,364 +1,1600 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { transactions as seed } from '@/data/mockData'
+import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  addTransaction,
+  deleteTransaction,
+  financeTransactions,
+  updateTransaction,
+} from '@/features/finance/financeStore'
 
-const money = new Intl.NumberFormat('ko-KR')
-const activeTab = ref('캘린더')
-const filter = ref('전체')
-const showForm = ref(false)
-const formMode = ref('지출')
-const selectedDate = ref(null)
-const showFixedDetail = ref(false)
-const fixedTab = ref('고정')
+const router = useRouter()
+const tab = ref('calendar')
+const filter = ref('all')
+const month = ref('2026-07')
+const selectedDate = ref('2026-07-16')
+const panel = ref('')
 const editingId = ref(null)
-const transactions = ref([...seed])
-const form = ref({ title: '', category: '식비', amount: '', date: '2026-07-16', memo: '' })
-const categories = ['전체', '수입', '지출', '저축', '이체']
-const dailyRows = ref([
-  { id: 101, title: '급여', detail: '카카오뱅크 · 09:20', amount: 500000, category: '급여' },
-  { id: 102, title: '점심 식사', detail: '카드 · 식비 · 12:10', amount: -12000, category: '식비' },
-  { id: 103, title: '커피', detail: '카드 · 식비 · 15:30', amount: -8000, category: '식비' },
-  { id: 104, title: '교통카드', detail: '대중교통 · 18:10', amount: -30000, category: '교통' },
-])
-const fixedExpenses = ref([
-  { id: 1, title: '월세', detail: '매월 1일 · 주거', amount: 550000 },
-  { id: 2, title: '넷플릭스', detail: '매월 8일 · 구독', amount: 17000 },
-  { id: 3, title: '교통카드', detail: '매월 10일 · 교통', amount: 65000 },
-])
-
-const visibleTransactions = computed(() => {
-  if (filter.value === '전체') return transactions.value
-  if (filter.value === '수입') return transactions.value.filter((item) => item.amount > 0)
-  return transactions.value.filter((item) => item.amount < 0)
+const form = reactive({
+  type: 'expense',
+  amount: '',
+  category: '식비',
+  date: '2026-07-16',
+  time: '12:10',
+  memo: '',
+})
+const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(value))
+const signed = (value) => `${value >= 0 ? '+' : '-'}${money(value)}원`
+const formattedAmount = computed({
+  get: () => (form.amount ? money(Number(form.amount)) : ''),
+  set: (value) => {
+    form.amount = String(value).replace(/\D/g, '')
+  },
+})
+const formattedDate = computed({
+  get: () => form.date.replaceAll('-', '.'),
+  set: (value) => {
+    form.date = String(value).replaceAll('.', '-')
+  },
+})
+const monthLabel = computed(() => {
+  const [year, mon] = month.value.split('-').map(Number)
+  return `${year}년 ${mon}월`
 })
 
-function addTransaction() {
-  if (!form.value.title || !form.value.amount) return
-  const amount = Math.abs(Number(form.value.amount)) * (formMode.value === '수입' ? 1 : -1)
-  if (editingId.value) {
-    const row = dailyRows.value.find((item) => item.id === editingId.value)
-    if (row) Object.assign(row, { title: form.value.title, category: form.value.category, amount })
-  } else {
-    transactions.value.unshift({ id: Date.now(), date: form.value.date, title: form.value.title, category: form.value.category, amount })
-  }
-  form.value = { title: '', category: formMode.value === '수입' ? '급여' : '식비', amount: '', date: '2026-07-16', memo: '' }
-  editingId.value = null
-  showForm.value = false
+function changeMonth(offset) {
+  const [year, mon] = month.value.split('-').map(Number)
+  const next = new Date(year, mon - 1 + offset, 1)
+  month.value = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+  selectedDate.value = `${month.value}-01`
+  panel.value = ''
 }
 
-function openAdd(mode = '지출') {
-  formMode.value = mode
-  editingId.value = null
-  form.value = { title: mode === '수입' ? '급여' : '점심 식사', category: mode === '수입' ? '급여' : '식비', amount: mode === '수입' ? 500000 : 80000, date: '2026-07-16', memo: '' }
-  showForm.value = true
+const monthRows = computed(() =>
+  financeTransactions.value
+    .filter((row) => row.date.startsWith(month.value))
+    .sort((a, b) => `${b.date}${b.time || ''}`.localeCompare(`${a.date}${a.time || ''}`)),
+)
+const filteredMonthRows = computed(() =>
+  monthRows.value.filter(
+    (row) =>
+      filter.value === 'all' || (filter.value === 'income' ? row.amount > 0 : row.amount < 0),
+  ),
+)
+const visibleRows = filteredMonthRows
+const income = computed(() =>
+  monthRows.value.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0),
+)
+const expense = computed(() =>
+  monthRows.value.filter((r) => r.amount < 0).reduce((s, r) => s + Math.abs(r.amount), 0),
+)
+const dayRows = computed(() =>
+  filteredMonthRows.value.filter((row) => row.date === selectedDate.value),
+)
+const fixedTotal = computed(() =>
+  monthRows.value.filter((r) => r.fixed).reduce((s, r) => s + Math.abs(r.amount), 0),
+)
+const categoryTotals = computed(() => {
+  const result = {}
+  monthRows.value
+    .filter((r) => r.amount < 0)
+    .forEach((r) => {
+      result[r.category] = (result[r.category] || 0) + Math.abs(r.amount)
+    })
+  return Object.entries(result).sort((a, b) => b[1] - a[1])
+})
+const categoryColors = {
+  월세: '#fae7a4',
+  주거: '#fae7a4',
+  식비: '#86a8f1',
+  교통: '#f4a2a2',
+  공과금: '#9aa6b8',
+  통신비: '#f2b43d',
+  기타: '#475569',
+  구독: '#222222',
+  보험: '#8e7cc3',
+  교육: '#6fa8dc',
 }
+const categoryChartRows = computed(() =>
+  categoryTotals.value.map(([name, total], index) => ({
+    name,
+    total,
+    color: categoryColors[name] || ['#6d7f9a', '#d29b72', '#73a89b'][index % 3],
+  })),
+)
+const donutGradient = computed(() => {
+  const total = categoryChartRows.value.reduce((sum, item) => sum + item.total, 0)
+  if (!total) return 'conic-gradient(#edf0f5 0 100%)'
 
-function editDaily(row) {
-  formMode.value = row.amount > 0 ? '수입' : '지출'
+  let start = 0
+  const segments = categoryChartRows.value.map((item) => {
+    const end = start + (item.total / total) * 100
+    const segment = `${item.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`
+    start = end
+    return segment
+  })
+  return `conic-gradient(${segments.join(', ')})`
+})
+
+const days = computed(() => {
+  const [year, mon] = month.value.split('-').map(Number)
+  const first = new Date(year, mon - 1, 1).getDay()
+  const count = new Date(year, mon, 0).getDate()
+  return Array.from({ length: first + count }, (_, index) => {
+    const raw = index - first + 1
+    const date = raw < 1 ? '' : raw
+    const current = raw >= 1
+    const iso = current ? `${month.value}-${String(date).padStart(2, '0')}` : ''
+    const total = current
+      ? filteredMonthRows.value.filter((r) => r.date === iso).reduce((s, r) => s + r.amount, 0)
+      : 0
+    return { date, current, iso, total }
+  })
+})
+
+function openDate(iso) {
+  if (!iso) return
+  selectedDate.value = iso
+  panel.value = 'day'
+}
+function openAdd() {
+  editingId.value = null
+  Object.assign(form, {
+    type: 'income',
+    amount: '500000',
+    category: '수입',
+    date: '2026-07-16',
+    time: '09:20',
+    memo: '',
+  })
+  panel.value = 'form'
+}
+function openEdit(row) {
   editingId.value = row.id
-  form.value = { title: row.title, category: row.category, amount: Math.abs(row.amount), date: '2026-07-01', memo: '' }
-  showForm.value = true
+  Object.assign(form, {
+    type: row.amount > 0 ? 'income' : 'expense',
+    amount: String(Math.abs(row.amount)),
+    category: row.category,
+    date: row.date,
+    time: row.time || '12:00',
+    memo: row.memo || row.title,
+  })
+  panel.value = 'form'
 }
-
-function removeFixed(id) {
-  fixedExpenses.value = fixedExpenses.value.filter((row) => row.id !== id)
+function save() {
+  if (!Number(form.amount) || !form.date) return
+  const payload = {
+    date: form.date,
+    time: form.time,
+    title: form.memo || (form.type === 'income' ? '수입' : form.category),
+    category: form.type === 'income' ? '수입' : form.category,
+    detail: form.type === 'income' ? '입금' : '카드',
+    memo: form.memo,
+    amount: Math.abs(Number(form.amount)) * (form.type === 'income' ? 1 : -1),
+  }
+  if (editingId.value) updateTransaction(editingId.value, payload)
+  else addTransaction(payload)
+  panel.value = ''
+}
+function remove() {
+  if (editingId.value) deleteTransaction(editingId.value)
+  panel.value = ''
+}
+function dayLabel(value) {
+  if (!value) return ''
+  const [, m, d] = value.split('-')
+  return `${Number(m)}월 ${Number(d)}일 거래`
+}
+function groupLabel(date) {
+  const [, m, d] = date.split('-')
+  return `${Number(m)}월 ${Number(d)}일${date === '2026-07-16' ? ' (오늘)' : ''}`
 }
 </script>
 
 <template>
-  <section class="page finance-page">
-    <header class="page-heading desktop-only">
-      <div><h1 class="page-title">내 재정</h1><p class="page-description">이번 달의 수입·지출과 거래 흐름을 확인하세요.</p></div>
+  <section class="finance">
+    <header class="heading">
+      <div>
+        <h1>내 재정</h1>
+        <p>이번 달의 수입·지출과 거래 흐름을 확인하세요.</p>
+      </div>
     </header>
 
-    <div class="finance-summary desktop-only">
-      <article><span>총 자산</span><strong>300만원</strong><small>연결 계좌 기준</small></article>
-      <article><span>이번 달 수입</span><strong>+50만원</strong><small>지난달 대비 +12%</small></article>
-      <article><span>이번 달 지출</span><strong>-80만원</strong><small>예상 지출 포함</small></article>
-      <article><span>순현금흐름</span><strong>-30만원</strong><small>수입 - 지출</small></article>
+    <div class="summary">
+      <article>
+        <span>이번 달 수입</span><strong class="blue">{{ signed(income) }}</strong>
+        <small>지난달 대비 +12%</small>
+      </article>
+      <article>
+        <span>이번 달 지출</span><strong class="red">-{{ money(expense) }}원</strong>
+        <small>예상 지출 포함</small>
+      </article>
+      <article>
+        <span>순현금흐름</span><strong class="purple">{{ signed(income - expense) }}</strong>
+        <small>수입 − 지출</small>
+      </article>
+    </div>
+    <div class="desktop-add-row">
+      <button class="add-btn" @click="openAdd">＋ 거래 추가</button>
     </div>
 
-    <div class="finance-tabs">
-      <button v-for="tab in ['캘린더', '거래 목록']" :key="tab" :class="{ active: activeTab === tab }" @click="activeTab = tab">
-        {{ tab }}
-      </button>
+    <div class="tabs">
+      <button :class="{ active: tab === 'calendar' }" @click="tab = 'calendar'">캘린더</button
+      ><button :class="{ active: tab === 'list' }" @click="tab = 'list'">거래 목록</button>
+    </div>
+    <div class="mobile-toolbar">
+      <div class="filters">
+        <button
+          v-for="item in [
+            ['income', '수입만'],
+            ['expense', '지출만'],
+          ]"
+          :key="item[0]"
+          :class="{ on: filter === item[0] }"
+          @click="filter = filter === item[0] ? 'all' : item[0]"
+        >
+          {{ item[1] }}
+        </button>
+      </div>
+      <button class="add-btn" @click="openAdd">＋ 거래 추가</button>
     </div>
 
-    <template v-if="activeTab === '캘린더'">
-      <div class="finance-main">
-        <article class="calendar-card card">
-          <div class="calendar-head">
-            <h2><span>▣</span> 월별 캘린더</h2>
-            <div class="calendar-filters desktop-only">
-              <button v-for="item in categories" :key="item" :class="{ active: filter === item }" @click="filter = item">{{ item }}</button>
-            </div>
-          </div>
-          <div class="calendar-month"><button>‹</button><strong>2026년 7월</strong><button>›</button></div>
-          <div class="calendar-grid">
-            <strong v-for="day in ['일', '월', '화', '수', '목', '금', '토']" :key="day">{{ day }}</strong>
-            <button v-for="date in 35" :key="date" :class="{ today: date === 18, muted: date < 3 || date > 33 }" @click="selectedDate = date < 3 ? date + 28 : date > 33 ? date - 33 : date - 2">
-              <span>{{ date < 3 ? date + 28 : date > 33 ? date - 33 : date - 2 }}</span>
-              <small v-if="[4, 5, 6, 8, 10, 15, 23, 26, 30].includes(date)" :class="{ income: [8, 15].includes(date) }">
-                {{ [8, 15].includes(date) ? '+' : '-' }}{{ date === 8 ? '50만' : `${date}만` }}
-              </small>
+    <section v-if="tab === 'calendar'" class="card calendar-card">
+      <div class="card-head">
+        <h2>월별 캘린더</h2>
+        <div class="filters">
+          <button
+            v-for="item in [
+              ['all', '전체'],
+              ['income', '수입만'],
+              ['expense', '지출만'],
+            ]"
+            :key="item[0]"
+            :class="{ on: filter === item[0] }"
+            @click="filter = item[0]"
+          >
+            {{ item[1] }}
+          </button>
+        </div>
+      </div>
+      <div class="month-nav">
+        <button type="button" aria-label="이전 달" @click="changeMonth(-1)">‹</button>
+        <b>{{ monthLabel }}</b>
+        <button type="button" aria-label="다음 달" @click="changeMonth(1)">›</button>
+      </div>
+      <div class="week">
+        <b v-for="name in ['일', '월', '화', '수', '목', '금', '토']" :key="name">{{ name }}</b>
+      </div>
+      <div class="calendar">
+        <button
+          v-for="(day, index) in days"
+          :key="index"
+          :class="{ muted: !day.current, selected: selectedDate === day.iso }"
+          @click="openDate(day.iso)"
+        >
+          <span>{{ day.date }}</span
+          ><small v-if="day.total" :class="{ plus: day.total > 0 }"
+            >{{ day.total > 0 ? '+' : '-' }}{{ Math.round(Math.abs(day.total) / 10000) }}만</small
+          >
+        </button>
+      </div>
+      <div class="legend"><span>● 입금</span><span>● 지출</span></div>
+    </section>
+
+    <section v-else class="card list-card">
+      <div class="card-head">
+        <h2>거래 목록</h2>
+        <div class="list-actions">
+          <div class="filters">
+            <button
+              v-for="item in [
+                ['all', '전체'],
+                ['income', '수입만'],
+                ['expense', '지출만'],
+              ]"
+              :key="item[0]"
+              :class="{ on: filter === item[0] }"
+              @click="filter = item[0]"
+            >
+              {{ item[1] }}
             </button>
           </div>
-          <div class="calendar-legend"><span>● 확정 입금</span><span>● 확정 지출</span><span>● 출금 예정</span></div>
-        </article>
-
-        <article class="transaction-card card">
-          <div class="transaction-card__head">
-            <h2>▥ 주요 거래 리스트</h2>
-            <div>
-              <button v-for="item in categories" :key="item" :class="{ active: filter === item }" @click="filter = item">{{ item }}</button>
-            </div>
-          </div>
-          <div class="transaction-list">
-            <div v-for="item in visibleTransactions" :key="item.id" class="transaction-row">
-              <span><small>{{ item.date.replace('2026-', '').replace('-', '월 ') }}일</small><strong>{{ item.title }}</strong></span>
-              <b :class="{ income: item.amount > 0 }">{{ item.amount > 0 ? '+' : '-' }}{{ money.format(Math.abs(item.amount)) }}원</b>
-            </div>
-          </div>
-          <button class="add-transaction desktop-only" @click="openAdd('지출')">+ 거래 추가</button>
-        </article>
-      </div>
-
-      <div class="finance-insights">
-        <article class="category-chart card">
-          <h2>카테고리별 지출</h2>
-          <div class="category-chart__body">
-            <div class="donut" />
-            <ul>
-              <li><span>● 주거</span><b>50만원</b></li>
-              <li><span>● 식비</span><b>12만원</b></li>
-              <li><span>● 교통</span><b>6.5만원</b></li>
-              <li><span>● 공과금</span><b>4만원</b></li>
-              <li><span>● 통신비</span><b>3.5만원</b></li>
-            </ul>
-          </div>
-          <p><b>인사이트</b> 식비가 지난달보다 38,000원 늘었어요.</p>
-        </article>
-        <article class="fixed-card card">
-          <h2>고정지출</h2><strong>63.2만원</strong>
-          <div class="fixed-bar"><span /></div>
-          <p>고정지출 내역을 한 번에 볼 수 있어요.<br />여기를 눌러 고정지출을 추가해보세요.</p>
-          <button class="fixed-detail-button" @click="showFixedDetail = true">자세히 보기 ›</button>
-        </article>
-      </div>
-
-      <article class="timeline-chart card">
-        <h2>월별 재정 타임라인</h2>
-        <div class="timeline-legend"><span>● 현재 기준</span><span>● 시나리오 적용</span><span>● 비상금 50만원</span></div>
-        <svg viewBox="0 0 720 190" preserveAspectRatio="none" aria-label="월별 자산 변화 그래프">
-          <path class="grid" d="M35 30H700M35 80H700M35 130H700" />
-          <path class="base" d="M35 20 210 162" /><path class="scenario" d="M35 20 300 100 455 162" />
-          <path class="emergency" d="M35 132H700" /><path class="goal" d="M350 10V170" />
-        </svg>
-      </article>
-    </template>
-
-    <article v-else class="transaction-page card">
-      <div class="transaction-page__head">
-        <h2>거래 목록</h2><button class="btn btn-primary" @click="openAdd('지출')">+ 거래 추가</button>
-      </div>
-      <div class="filter-chips">
-        <button v-for="item in categories" :key="item" :class="{ active: filter === item }" @click="filter = item">{{ item }}</button>
-      </div>
-      <div v-for="item in visibleTransactions" :key="item.id" class="transaction-row transaction-row--large">
-        <span><small>{{ item.date }}</small><strong>{{ item.title }}</strong><em>{{ item.category }}</em></span>
-        <b :class="{ income: item.amount > 0 }">{{ item.amount > 0 ? '+' : '-' }}{{ money.format(Math.abs(item.amount)) }}원</b>
-      </div>
-    </article>
-
-    <button class="mobile-add mobile-only" aria-label="거래 추가" @click="openAdd('지출')">＋</button>
-
-    <div v-if="showForm" class="modal-backdrop" @click.self="showForm = false">
-      <form class="transaction-modal card" @submit.prevent="addTransaction">
-        <i class="modal-handle" />
-        <div><h2>{{ editingId ? '거래 수정' : `${formMode} 추가` }}</h2><button type="button" @click="showForm = false">×</button></div>
-        <div class="income-expense-tabs"><button type="button" :class="{ active: formMode === '수입' }" @click="formMode = '수입'; form.category = '급여'">수입</button><button type="button" :class="{ active: formMode === '지출' }" @click="formMode = '지출'; form.category = '식비'">지출</button></div>
-        <label><span class="field-label">금액</span><span class="amount-field"><input v-model="form.amount" type="number" /><b>원</b></span></label>
-        <label><span class="field-label">카테고리</span><select v-model="form.category" class="field"><option v-if="formMode === '수입'">급여</option><option v-if="formMode === '수입'">부수입</option><option v-if="formMode === '지출'">식비</option><option v-if="formMode === '지출'">교통</option><option v-if="formMode === '지출'">구독</option><option v-if="formMode === '지출'">교육</option></select></label>
-        <label><span class="field-label">거래일</span><span class="date-memo"><input v-model="form.date" class="field" type="date" /><input v-model="form.title" class="field" placeholder="메모 (선택)" /></span></label>
-        <button class="modal-save" type="submit">{{ editingId ? '수정 저장' : `${formMode} 저장` }}</button>
-      </form>
-    </div>
-
-    <div v-if="selectedDate" class="modal-backdrop modal-backdrop--sheet" @click.self="selectedDate = null">
-      <article class="daily-modal card">
-        <i class="modal-handle" /><header><h2>7월 {{ selectedDate }}일 거래</h2><button @click="selectedDate = null">×</button></header>
-        <div class="daily-total"><span>오늘 합계</span><strong>+450,000원</strong></div>
-        <div class="daily-summary"><article><span>수입</span><strong>+500,000원</strong></article><article><span>지출</span><strong>-50,000원</strong></article></div>
-        <h3>거래 내역</h3>
-        <div v-for="row in dailyRows" :key="row.id" class="daily-row">
-          <i>{{ row.title.slice(0, 1) }}</i><span><strong>{{ row.title }}</strong><small>{{ row.detail }}</small></span><b :class="{ income: row.amount > 0 }">{{ row.amount > 0 ? '+' : '-' }}{{ money.format(Math.abs(row.amount)) }}원</b><button @click="editDaily(row)">수정</button>
+          <span>총 {{ visibleRows.length }}건</span>
         </div>
-      </article>
+      </div>
+      <div class="list-filter">
+        <button>
+          <span>전체 거래</span>
+          <span class="dropdown-caret" aria-hidden="true">⌄</span>
+        </button>
+      </div>
+      <div class="month-nav">
+        <button type="button" aria-label="이전 달" @click="changeMonth(-1)">‹</button>
+        <b>{{ monthLabel }}</b>
+        <button type="button" aria-label="다음 달" @click="changeMonth(1)">›</button>
+      </div>
+      <div class="transaction-scroll">
+        <template v-for="(row, index) in visibleRows" :key="row.id">
+          <h3 v-if="index === 0 || visibleRows[index - 1].date !== row.date" class="date-title">
+            {{ groupLabel(row.date) }}
+          </h3>
+          <button class="transaction" @click="openEdit(row)">
+            <i>{{ row.title.slice(0, 1) }}</i
+            ><span
+              ><b>{{ row.title }}</b
+              ><small>{{ row.detail }} · {{ row.time }}</small></span
+            ><strong :class="{ plus: row.amount > 0 }">{{ signed(row.amount) }}</strong>
+          </button>
+        </template>
+      </div>
+    </section>
+
+    <div class="insights">
+      <section class="card category">
+        <h2>카테고리별 지출</h2>
+        <div class="category-body">
+          <div class="donut" :style="{ background: donutGradient }"></div>
+          <ul>
+            <li
+              v-for="item in categoryChartRows.slice(0, 7)"
+              :key="item.name"
+              :style="{ '--category-color': item.color }"
+            >
+              <span>{{ item.name }}</span
+              ><b>{{ money(item.total) }}원</b>
+            </li>
+          </ul>
+        </div>
+        <p class="category-insight">
+          <strong>인사이트</strong>
+          <span>식비가 지난달보다 38,000원 늘었어요</span>
+        </p>
+      </section>
+      <section class="card fixed">
+        <h2>고정지출</h2>
+        <strong>{{ (fixedTotal / 10000).toFixed(1) }}만원</strong>
+        <p>고정지출 내역을 한 눈에 볼 수 있어요.</p>
+        <p>여기를 눌러서 고정지출을 추가해보세요.</p>
+        <hr />
+        <button @click="router.push({ name: 'fixedExpenses' })">자세히 보기 ›</button>
+      </section>
     </div>
 
-    <div v-if="showFixedDetail" class="modal-backdrop" @click.self="showFixedDetail = false">
-      <article class="fixed-detail-modal card">
-        <header><h2>지출 상세</h2><button @click="showFixedDetail = false">×</button></header>
-        <div class="fixed-tabs"><button :class="{ active: fixedTab === '고정' }" @click="fixedTab = '고정'">고정 지출 63.2만원</button><button :class="{ active: fixedTab === '변동' }" @click="fixedTab = '변동'">변동 지출 16.8만원</button></div>
-        <section><h3>{{ fixedTab }} 지출</h3>
-          <div v-for="item in fixedExpenses" :key="item.id" class="fixed-row"><span><strong>{{ item.title }}</strong><small>{{ item.detail }}</small></span><b>-{{ money.format(item.amount) }}원</b><button @click="editDaily({ ...item, category: item.title })">수정</button><button class="delete" @click="removeFixed(item.id)">삭제</button></div>
-          <footer><span>월 {{ fixedTab }}지출 합계</span><strong>{{ fixedTab === '고정' ? '632,000' : '168,000' }}원</strong></footer>
-        </section>
-      </article>
+    <section class="card timeline">
+      <h2>월별 재정 타임라인</h2>
+      <div class="timeline-legend">
+        <span class="legend-now">● 현재 기준</span>
+        <span class="legend-plan">● 시나리오 적용</span>
+        <span class="legend-goal">● 목표 취업 시기</span>
+      </div>
+      <svg
+        class="timeline-chart timeline-chart--desktop"
+        viewBox="0 0 1066 224"
+        role="img"
+        aria-label="월별 재정 변화 그래프"
+      >
+        <g class="grid">
+          <line x1="60" y1="18" x2="1040" y2="18" />
+          <line x1="60" y1="60.5" x2="1040" y2="60.5" />
+          <line x1="60" y1="103" x2="1040" y2="103" />
+          <line x1="60" y1="145.5" x2="1040" y2="145.5" />
+          <line x1="60" y1="188" x2="1040" y2="188" />
+        </g>
+        <g class="axis-y">
+          <text x="52" y="22">300만</text>
+          <text x="52" y="64">225만</text>
+          <text x="52" y="107">150만</text>
+          <text x="52" y="150">75만</text>
+          <text x="52" y="192">0</text>
+        </g>
+        <line class="risk" x1="60" y1="160" x2="1040" y2="160" />
+        <text class="risk-label" x="1038" y="153">위험 잔액 50만</text>
+        <line class="goal-line" x1="632" y1="18" x2="632" y2="188" />
+        <polyline points="60,18 222,78 387,188 550,188 1040,188" class="now" />
+        <polyline points="60,18 223,58 387,102 550,146 713,188 1040,188" class="plan" />
+        <g class="axis-x">
+          <text x="60" y="211">7월</text>
+          <text x="223" y="211">9월</text>
+          <text x="387" y="211">11월</text>
+          <text x="550" y="211">1월</text>
+          <text x="713" y="211">3월</text>
+          <text x="877" y="211">5월</text>
+          <text x="1030" y="211">7월</text>
+        </g>
+        <g class="timeline-label label-now">
+          <rect x="150" y="91" width="122" height="24" rx="12" />
+          <text x="211" y="107">현재 3.8개월</text>
+        </g>
+        <g class="timeline-label label-plan">
+          <rect x="260" y="68" width="140" height="24" rx="12" />
+          <text x="330" y="84">시나리오 6.3개월</text>
+        </g>
+      </svg>
+      <svg
+        class="timeline-chart timeline-chart--mobile"
+        viewBox="0 0 360 205"
+        role="img"
+        aria-label="모바일 월별 재정 변화 그래프"
+      >
+        <g class="grid">
+          <line x1="38" y1="18" x2="334" y2="18" />
+          <line x1="38" y1="54" x2="334" y2="54" />
+          <line x1="38" y1="90" x2="334" y2="90" />
+          <line x1="38" y1="126" x2="334" y2="126" />
+          <line x1="38" y1="162" x2="334" y2="162" />
+        </g>
+        <g class="axis-y">
+          <text x="31" y="22">300만</text>
+          <text x="31" y="58">225만</text>
+          <text x="31" y="94">150만</text>
+          <text x="31" y="130">75만</text>
+          <text x="31" y="166">0</text>
+        </g>
+        <polygon
+          class="mobile-plan-area"
+          points="38,18 100,56 164,82 228,122 291,162 334,162 38,162"
+        />
+        <line class="risk" x1="38" y1="138" x2="334" y2="138" />
+        <text class="mobile-risk-amount" x="342" y="142">50만</text>
+        <line class="goal-line" x1="210" y1="18" x2="210" y2="162" />
+        <polyline class="mobile-now" points="38,18 100,88 146,162" />
+        <polyline class="mobile-plan" points="38,18 100,56 164,82 228,122 291,162" />
+        <circle class="mobile-now-point" cx="146" cy="162" r="4.5" />
+        <circle class="mobile-plan-point" cx="291" cy="162" r="4.5" />
+        <g class="axis-x">
+          <text x="38" y="180">7월</text>
+          <text x="87" y="180">9월</text>
+          <text x="137" y="180">11월</text>
+          <text x="186" y="180">1월</text>
+          <text x="235" y="180">3월</text>
+          <text x="284" y="180">5월</text>
+          <text x="334" y="180">7월</text>
+        </g>
+        <g class="timeline-label label-now">
+          <rect x="47" y="114" width="96" height="20" rx="10" />
+          <text x="95" y="128">현재 3.8개월</text>
+        </g>
+        <g class="timeline-label label-plan">
+          <rect x="91" y="60" width="118" height="20" rx="10" />
+          <text x="150" y="74">시나리오 6.3개월</text>
+        </g>
+        <g class="mobile-risk-key">
+          <line x1="277" y1="197" x2="302" y2="197" />
+          <text x="307" y="201">위험 잔액</text>
+        </g>
+      </svg>
+      <p class="timeline-note">300만원 기준 · 월 고정수입 45만원 적용 시 3.8 → 6.3개월</p>
+    </section>
+
+    <div v-if="panel" class="overlay" @click.self="panel = ''">
+      <aside class="sheet">
+        <button class="close" @click="panel = ''">×</button>
+        <template v-if="panel === 'day'">
+          <h2>{{ dayLabel(selectedDate) }}</h2>
+          <div class="day-total">
+            <span>오늘 합계</span
+            ><strong>{{ signed(dayRows.reduce((s, r) => s + r.amount, 0)) }}</strong>
+          </div>
+          <h3>거래 내역</h3>
+          <button v-for="row in dayRows" :key="row.id" class="transaction" @click="openEdit(row)">
+            <i>{{ row.title.slice(0, 1) }}</i
+            ><span
+              ><b>{{ row.title }}</b
+              ><small>{{ row.detail }} · {{ row.time }}</small></span
+            ><strong :class="{ plus: row.amount > 0 }">{{ signed(row.amount) }}</strong>
+          </button>
+        </template>
+        <template v-else>
+          <h2>{{ editingId ? '거래 수정' : '거래 추가' }}</h2>
+          <p class="form-label">거래 타입</p>
+          <div class="type-toggle">
+            <button
+              :class="{ income: form.type === 'income' }"
+              @click="form.type = 'income'; form.category = '수입'"
+            >
+              <strong>수입</strong></button
+            ><button
+              :class="{ expense: form.type === 'expense' }"
+              @click="form.type = 'expense'; form.category = '식비'"
+            >
+              <strong>지출</strong>
+            </button>
+          </div>
+          <button v-if="editingId" class="delete" @click="remove">삭제</button>
+          <label
+            >금액<input v-model="formattedAmount" type="text" inputmode="numeric" /><span>원</span></label
+          >
+          <label v-if="form.type === 'expense'"
+            >카테고리<select v-model="form.category">
+              <option
+                v-for="name in ['식비', '주거', '교통', '구독', '보험', '교육', '기타']"
+                :key="name"
+              >
+                {{ name }}
+              </option>
+            </select></label
+          >
+          <label class="date-field"
+            >거래일<input v-model="formattedDate" type="text" inputmode="numeric"
+          /></label>
+          <label>메모<input v-model="form.memo" placeholder="메모 (선택)" /></label>
+          <button class="save" @click="save">
+            <strong>{{
+              editingId ? '변경사항 저장' : form.type === 'income' ? '수입 저장' : '지출 저장'
+            }}</strong>
+          </button>
+        </template>
+      </aside>
     </div>
   </section>
 </template>
 
 <style scoped>
-.finance-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 12px; }
-.finance-summary article { display: grid; gap: 3px; padding: 16px; border-radius: 11px; background: #e8eeff; }
-.finance-summary article:nth-child(2) { background: #e8eaf3; }
-.finance-summary article:nth-child(3) { background: #fdebed; }
-.finance-summary article:nth-child(4) { background: #f1eff9; }
-.finance-summary span, .finance-summary small { color: #646464; font-size: var(--font-caption); }
-.finance-summary strong { color: var(--primary); font-size: var(--font-card-title); }
-
-.finance-tabs { display: flex; width: fit-content; margin: 0 0 12px; border-radius: 10px; background: #f4f5fa; }
-.finance-tabs button { min-width: 130px; padding: 10px 20px; border-radius: 10px; color: #555; font-size: var(--font-small); }
-.finance-tabs button.active { background: var(--sky); color: white; font-weight: 800; }
-
-.finance-main { display: grid; grid-template-columns: 1.55fr 1fr; gap: 18px; }
-.calendar-card, .transaction-card { padding: 18px; }
-.calendar-head, .transaction-card__head, .transaction-page__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.calendar-head h2, .transaction-card h2, .timeline-chart h2, .finance-insights h2, .transaction-page h2 { font-size: var(--font-body); }
-.calendar-filters, .transaction-card__head > div, .filter-chips { display: flex; gap: 5px; }
-.calendar-filters button, .transaction-card__head button, .filter-chips button { padding: 6px 11px; border: 1px solid var(--border); border-radius: 999px; color: #777; font-size: var(--font-caption); }
-.calendar-filters button.active, .transaction-card__head button.active, .filter-chips button.active { border-color: var(--primary); background: var(--primary); color: white; }
-.calendar-month { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 16px 0 8px; color: #333; font-size: var(--font-small); }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-.calendar-grid > strong { padding: 7px; color: var(--primary); text-align: center; font-size: var(--font-caption); }
-.calendar-grid > strong:first-child { color: var(--danger); }
-.calendar-grid button { display: grid; min-height: 50px; align-content: start; gap: 4px; padding: 7px; border: 1px solid #e7e7e7; border-radius: 6px; color: var(--primary); text-align: left; font-size: var(--font-caption); }
-.calendar-grid button.today span { display: grid; width: 19px; height: 19px; place-items: center; border-radius: 50%; background: var(--sky); color: white; }
-.calendar-grid button.muted { color: #aaa; }
-.calendar-grid small { padding: 2px 4px; border-radius: 4px; background: #fff0f1; color: var(--danger); text-align: center; font-size: var(--font-caption); }
-.calendar-grid small.income { background: #eafaf4; color: #27aa7a; }
-.calendar-legend { display: flex; justify-content: center; gap: 12px; margin-top: 12px; color: #777; font-size: var(--font-caption); }
-.calendar-legend span:nth-child(1) { color: var(--primary); }
-.calendar-legend span:nth-child(2) { color: var(--danger); }
-
-.transaction-list { max-height: 330px; overflow: auto; margin-top: 13px; }
-.transaction-row { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 5px; border-bottom: 1px solid #e7e7e7; }
-.transaction-row > span { display: grid; min-width: 0; flex: 1; gap: 3px; }
-.transaction-row small { color: #777; font-size: var(--font-caption); }
-.transaction-row strong { font-size: var(--font-caption); }
-.transaction-row b { color: var(--danger); font-size: var(--font-caption); }
-.transaction-row b.income { color: #31be8d; }
-.add-transaction { width: 100%; margin-top: 13px; padding: 10px; border-radius: 8px; background: var(--accent); color: var(--primary); font-size: var(--font-caption); font-weight: 800; }
-
-.finance-insights { display: grid; grid-template-columns: 1fr 1.12fr; gap: 18px; margin-top: 18px; }
-.finance-insights article, .timeline-chart { padding: 18px; }
-.category-chart__body { display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 20px; }
-.donut { width: 82px; height: 82px; margin: 10px auto; border-radius: 50%; background: conic-gradient(#ffe595 0 48%, #8eb1ff 48% 68%, #f5a4a9 68% 80%, #7379a8 80% 90%, #26356f 90%); -webkit-mask: radial-gradient(circle, transparent 42%, #000 44%); mask: radial-gradient(circle, transparent 42%, #000 44%); }
-.category-chart ul { display: grid; gap: 5px; font-size: var(--font-caption); }
-.category-chart li { display: flex; justify-content: space-between; }
-.category-chart li span { color: #777; }
-.category-chart li b { color: var(--primary); }
-.category-chart > p { padding: 6px 9px; border-radius: 5px; background: #fff0f1; color: #777; font-size: var(--font-caption); }
-.category-chart > p b { margin-right: 7px; color: var(--danger); }
-.fixed-card { position: relative; }
-.fixed-card > strong { display: block; margin-top: 14px; color: var(--primary); font-size: var(--font-page-title); }
-.fixed-card p { margin-top: 10px; color: #777; font-size: var(--font-caption); }
-.fixed-detail-button { position: absolute; right: 18px; bottom: 18px; color: var(--primary); font-size: var(--font-caption); font-weight: 700; }
-.fixed-bar { height: 8px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: #ffeda6; }
-.fixed-bar span { display: block; width: 79%; height: 100%; border-radius: inherit; background: var(--primary); }
-.timeline-chart { margin-top: 18px; }
-.timeline-legend { display: flex; gap: 12px; margin-top: 6px; color: #777; font-size: var(--font-caption); }
-.timeline-chart svg { width: 100%; height: 150px; margin-top: 5px; }
-.timeline-chart path { fill: none; }
-.timeline-chart .grid { stroke: #e7e7e7; stroke-width: 1; }
-.timeline-chart .base { stroke: var(--primary); stroke-width: 3; stroke-dasharray: 8 6; }
-.timeline-chart .scenario { stroke: #37be87; stroke-width: 3; }
-.timeline-chart .emergency { stroke: #b6e764; stroke-width: 2; stroke-dasharray: 5 5; }
-.timeline-chart .goal { stroke: #f0b43b; stroke-width: 2; }
-
-.transaction-page { padding: 22px; }
-.filter-chips { margin: 16px 0 8px; overflow-x: auto; }
-.transaction-row--large { padding: 16px 5px; }
-.transaction-row em { color: #777; font-size: var(--font-caption); font-style: normal; }
-
-.modal-backdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 18px; background: rgb(4 15 102 / 45%); }
-.transaction-modal { display: grid; gap: 15px; width: min(100%, 390px); padding: 24px; box-shadow: var(--shadow-md); }
-.transaction-modal > div { display: flex; justify-content: space-between; }
-.transaction-modal h2 { color: var(--primary); font-size: var(--font-card-title); }
-.modal-handle { display: block; width: 72px; height: 4px; margin: -12px auto 2px; border-radius: 999px; background: #9ba4b4; }
-.income-expense-tabs { display: grid !important; grid-template-columns: 1fr 1fr; }
-.income-expense-tabs button { min-height: 44px; border: 1px solid var(--border); border-radius: 9px; color: #777; font-size: var(--font-caption); }
-.income-expense-tabs button.active:first-child { border-color: transparent; background: #e5f8f2; color: var(--success); font-weight: 800; }
-.income-expense-tabs button.active:last-child { border-color: transparent; background: #fdebed; color: var(--danger); font-weight: 800; }
-.amount-field { display: flex; min-height: 52px; height: auto; align-items: center; padding: 10px 15px; border-radius: 9px; background: #fff9df; }
-.amount-field input { min-width: 0; flex: 1; color: var(--primary); font-size: var(--font-card-title); font-weight: 800; }
-.amount-field b { color: #777; font-size: var(--font-caption); }
-.date-memo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.modal-save { width: 100%; min-height: 48px; border-radius: 9px; background: var(--accent); font-size: var(--font-small); font-weight: 800; }
-.daily-modal { width: min(100%, 430px); padding: 24px; box-shadow: var(--shadow-md); }
-.daily-modal > header, .fixed-detail-modal > header { display: flex; align-items: center; justify-content: space-between; }
-.daily-modal h2, .fixed-detail-modal h2 { color: var(--primary); font-size: var(--font-card-title); }
-.daily-modal header button, .fixed-detail-modal header button { color: #666; font-size: var(--font-section-title); }
-.daily-total { display: flex; justify-content: space-between; margin-top: 20px; padding: 13px; border-radius: 9px; background: #fff9df; font-size: var(--font-caption); }
-.daily-total strong { color: var(--primary); font-size: var(--font-small); }
-.daily-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
-.daily-summary article { display: grid; gap: 5px; padding: 13px; border-radius: 9px; background: #eaf9f5; color: var(--primary); }
-.daily-summary article:last-child { background: #fdebed; color: var(--danger); }
-.daily-summary span { color: #777; font-size: var(--font-caption); }
-.daily-summary strong { font-size: var(--font-body); }
-.daily-modal h3 { margin: 19px 0 10px; color: var(--primary); font-size: var(--font-small); }
-.daily-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto minmax(44px, auto); align-items: center; gap: 10px; min-height: 66px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; }
-.daily-row > i { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 7px; background: #fdebed; color: var(--danger); font-size: var(--font-caption); font-style: normal; }
-.daily-row > span { display: grid; gap: 3px; }
-.daily-row strong { color: var(--primary); font-size: var(--font-caption); }
-.daily-row small { color: #777; font-size: var(--font-caption); }
-.daily-row > b { color: var(--danger); font-size: var(--font-caption); }
-.daily-row > b.income { color: var(--primary); }
-.daily-row > button { padding: 5px; border: 1px solid var(--border); border-radius: 6px; font-size: var(--font-caption); }
-.fixed-detail-modal { width: min(100%, 500px); padding: 26px; box-shadow: var(--shadow-md); }
-.fixed-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-top: 17px; }
-.fixed-tabs button { min-height: 44px; border: 1px solid var(--border); border-radius: 9px; font-size: var(--font-caption); }
-.fixed-tabs button.active { border-color: var(--sky); background: var(--sky); color: var(--primary); font-weight: 800; }
-.fixed-detail-modal > section { margin-top: 15px; padding: 16px; border: 1px solid var(--border); border-radius: 11px; }
-.fixed-detail-modal h3 { margin-bottom: 4px; font-size: var(--font-small); }
-.fixed-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
-.fixed-row > span { display: grid; gap: 3px; }
-.fixed-row strong { font-size: var(--font-small); }
-.fixed-row small { color: #777; font-size: var(--font-caption); }
-.fixed-row > b { color: var(--danger); font-size: var(--font-caption); }
-.fixed-row button { font-size: var(--font-caption); }
-.fixed-row .delete { color: var(--danger); }
-.fixed-detail-modal footer { display: flex; justify-content: space-between; margin-top: 15px; color: #777; font-size: var(--font-caption); }
-.fixed-detail-modal footer strong { color: var(--primary); font-size: var(--font-small); }
-.mobile-add { position: fixed; z-index: 20; right: 20px; bottom: 82px; width: 46px; height: 46px; border-radius: 50%; background: var(--primary); color: white; box-shadow: var(--shadow-md); font-size: var(--font-section-title); }
-
+.finance {
+  width: calc(100% + 15px);
+  max-width: 1066px;
+  margin: 0;
+  padding-top: 59px;
+  color: #222;
+  font-weight: 400;
+}
+.heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 0 0 11px;
+}
+.heading h1 {
+  margin: 0;
+  color: #222;
+  font-size: 24px;
+  line-height: 1.25;
+}
+.heading p {
+  margin: 7px 0 0;
+  color: #666;
+  font-size: 13px;
+}
+.mobile-toolbar {
+  display: none;
+}
+.desktop-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 66px;
+}
+.desktop-add-row .add-btn {
+  transform: translateY(3px);
+}
+button {
+  font: inherit;
+}
+.add-btn {
+  width: 150px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: #999;
+  color: #fff;
+  padding: 0;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 320px);
+  justify-content: space-between;
+  gap: 38px;
+  padding-right: 30px;
+}
+.summary article {
+  height: 132px;
+  padding: 17px 20px;
+  border-radius: 16px;
+  background: #dfe8ff;
+  box-shadow: 0 2px 3px #0003;
+  box-sizing: border-box;
+}
+.summary article:nth-child(2) {
+  background: #ffcaca;
+}
+.summary article:nth-child(3) {
+  background: #ded8f0;
+}
+.summary span,
+.summary strong {
+  display: block;
+}
+.summary span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.summary strong {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 25px;
+  font-weight: 700;
+}
+.summary small {
+  display: block;
+  margin-top: 7px;
+  color: #666;
+  font-size: 12px;
+  font-weight: 400;
+}
+.blue,
+.plus {
+  color: #0a1680 !important;
+}
+.red {
+  color: #f0574f !important;
+}
+.purple {
+  color: #65529b;
+}
+.tabs {
+  display: flex;
+  width: 346px;
+  height: 42px;
+  box-sizing: border-box;
+  margin: 27px auto -60px;
+  position: relative;
+  z-index: 2;
+  border: 1px solid #d9dce3;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px #0002;
+}
+.tabs button {
+  flex: 1;
+  border: 0;
+  background: #f4f4f6;
+  padding: 0;
+  color: #999;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+.tabs .active {
+  background: #fff;
+  color: #222;
+  font-weight: 700 !important;
+}
+.card {
+  background: #fff;
+  border: 1px solid #d9dce3;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 2px 4px #0002;
+}
+.calendar-card {
+  height: 798px;
+  padding: 18px 28px 20px;
+  box-sizing: border-box;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+}
+.card h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.filters {
+  display: flex;
+  gap: 7px;
+}
+.filters button {
+  border: 0;
+  border-radius: 20px;
+  padding: 8px 16px;
+  background: #f4f6fb;
+  color: #475569;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+.filters .on {
+  background: #0a1680;
+  color: #fff;
+}
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 10px 0 3px;
+  min-height: 28px;
+  color: #475569;
+  font-size: 14px;
+}
+.month-nav b {
+  color: #222;
+  font-size: 16px;
+  font-weight: 700;
+}
+.month-nav button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #475569;
+  font-family: 'Pretendard', sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1;
+}
+.month-nav button:hover {
+  background: #f0f2f7;
+}
+.week,
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.week b {
+  text-align: center;
+  padding: 7px 8px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+.week b:first-child {
+  color: #f0574f;
+}
+.calendar button {
+  height: 110px;
+  border: 0;
+  border-top: 1px solid #e5e8ee;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 13px 8px;
+  gap: 6px;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+.calendar button:hover {
+  background: #f8faff;
+}
+.calendar .selected span {
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #0a1680;
+  color: #fff;
+}
+.calendar .muted {
+  pointer-events: none;
+}
+.calendar .muted span {
+  visibility: hidden;
+}
+.calendar small {
+  color: #f0574f;
+  font-size: 11px;
+  font-weight: 700;
+}
+.legend {
+  display: flex;
+  gap: 28px;
+  padding: 23px 8px 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 400;
+}
+.legend span:first-child::first-letter {
+  color: #222;
+}
+.legend span:last-child::first-letter {
+  color: #f0574f;
+}
+.list-card {
+  height: 560px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.list-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.list-actions > span {
+  color: #999;
+  font-size: 12px;
+  font-weight: 400;
+}
+.list-filter {
+  margin-top: 12px;
+  flex: none;
+}
+.list-filter button {
+  border: 0;
+  border-radius: 18px;
+  background: #f4f6fb;
+  padding: 8px 14px;
+  color: #475569;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.dropdown-caret {
+  display: inline-flex;
+  align-items: center;
+  height: 12px;
+  font-size: 11px;
+  line-height: 1;
+  transform: translateY(-2px);
+}
+.transaction-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #c9ced8 transparent;
+}
+.transaction-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.transaction-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #c9ced8;
+}
+.date-title {
+  margin: 16px 0 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.transaction {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid #d9dce3;
+  border-radius: 13px;
+  background: #fff;
+  margin-bottom: 8px;
+  text-align: left;
+  box-shadow: 0 2px 4px #0002;
+}
+.transaction i {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #eef2ff;
+  color: #1b2ca3;
+  font-style: normal;
+}
+.transaction span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.transaction span b {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+.transaction small {
+  color: #666;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 17px;
+}
+.transaction strong {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+.insights {
+  display: grid;
+  grid-template-columns: 516px minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 55px;
+}
+.insights .card {
+  height: 212px;
+  padding: 19px 24px 16px;
+  box-sizing: border-box;
+}
+.insights h2 {
+  font-size: 14px;
+}
+.category-body {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  margin-top: 10px;
+}
+.category {
+  position: relative;
+  overflow: hidden;
+}
+.donut {
+  width: 92px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  position: relative;
+  flex: none;
+}
+.donut:after {
+  content: '';
+  position: absolute;
+  inset: 21px;
+  border-radius: 50%;
+  background: #fff;
+}
+.category ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+.category li {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 2px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+.category li b {
+  color: #222;
+  font-weight: 600;
+}
+.category li span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.category li span:before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--category-color);
+}
+.category-insight {
+  position: absolute;
+  right: 24px;
+  bottom: 16px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  background: #fff0ed;
+  color: #475569;
+  padding: 7px 9px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.category-insight strong {
+  color: #f97360;
+  font-weight: 700;
+}
+.category-insight span {
+  font-weight: 700;
+}
+.fixed > strong {
+  display: block;
+  margin: 10px 0 9px;
+  font-size: 28px;
+  font-weight: 700;
+}
+.fixed p {
+  margin: 0;
+  color: #666;
+  font-size: 12px;
+  font-weight: 400;
+}
+.fixed hr {
+  margin: 24px 0 0;
+  border: 0;
+  border-top: 1px solid #e5e8ee;
+}
+.fixed button {
+  float: right;
+  margin-top: 9px;
+  border: 0;
+  background: none;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+.timeline {
+  position: relative;
+  height: 298px;
+  margin-top: 26px;
+  padding: 15px 26px 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.timeline h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+.timeline-chart {
+  width: 100%;
+  height: 224px;
+  margin-top: 7px;
+  overflow: visible;
+}
+.timeline-chart--mobile {
+  display: none;
+}
+.timeline .grid line {
+  stroke: #e7e9ef;
+  stroke-width: 1;
+}
+.timeline .risk {
+  stroke: #ff6d6d;
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+.timeline .goal-line {
+  stroke: #f1b94c;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.timeline polyline {
+  fill: none;
+  stroke-width: 3.5;
+}
+.timeline .now {
+  stroke: #0a1680;
+}
+.timeline .plan {
+  stroke: #93b2f8;
+  stroke-dasharray: 8;
+}
+.timeline-legend {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 400;
+}
+.legend-now {
+  color: #0a1680;
+}
+.legend-plan {
+  color: #93b2f8;
+}
+.legend-goal {
+  color: #f1b94c;
+}
+.axis-y text,
+.axis-x text,
+.risk-label {
+  fill: #94a3b8;
+  font-size: 9px;
+}
+.axis-y text {
+  text-anchor: end;
+}
+.axis-x text {
+  text-anchor: middle;
+}
+.risk-label {
+  text-anchor: end;
+}
+.timeline-label rect {
+  stroke: none;
+}
+.timeline-label text {
+  fill: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+.label-now rect {
+  fill: #0a1680;
+}
+.label-plan rect {
+  fill: #93b2f8;
+}
+.mobile-plan-area {
+  fill: rgba(147, 178, 248, 0.28);
+}
+.mobile-now {
+  fill: none;
+  stroke: #111;
+  stroke-width: 2.5;
+  stroke-dasharray: 6 5;
+}
+.mobile-plan {
+  fill: none;
+  stroke: #93b2f8;
+  stroke-width: 3;
+}
+.mobile-now-point {
+  fill: #111;
+}
+.mobile-plan-point {
+  fill: #93b2f8;
+}
+.mobile-risk-amount,
+.mobile-risk-key text {
+  fill: #475569;
+  font-size: 9px;
+}
+.mobile-risk-key line {
+  stroke: #ff6d6d;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.timeline-note {
+  position: absolute;
+  bottom: 3px;
+  left: 26px;
+  margin: 0;
+  color: #666;
+  font-size: 10px;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #17171766;
+}
+.sheet {
+  position: absolute;
+  right: max(0px, calc((100vw - 1440px) / 2));
+  top: 0;
+  width: 420px;
+  height: 100%;
+  padding: 34px 28px;
+  background: #fcfdff;
+  overflow: auto;
+  box-sizing: border-box;
+  font-family: 'Pretendard', sans-serif;
+}
+.close {
+  position: absolute;
+  right: 28px;
+  top: 38px;
+  border: 0;
+  background: none;
+  color: #666;
+  font-family: inherit;
+  font-size: 28px;
+  line-height: 1;
+}
+.sheet h2 {
+  margin: 18px 0 32px;
+  padding: 0 0 20px;
+  border-bottom: 1px solid #e4e7ed;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.day-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 18px;
+  background: #fff8d9;
+  border-radius: 14px;
+  margin-bottom: 24px;
+}
+.form-label {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.type-toggle {
+  display: flex;
+  border: 1px solid #d9dce3;
+  border-radius: 14px;
+  overflow: hidden;
+  height: 54px;
+  margin-bottom: 28px;
+  background: #fff;
+  box-shadow: 0 2px 4px #0002;
+}
+.sheet .type-toggle button {
+  flex: 1;
+  border: 0;
+  background: #fff;
+  padding: 0 13px;
+  font-family: 'Pretendard', sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+.sheet .type-toggle button strong,
+.sheet .save strong {
+  font-family: 'Pretendard', sans-serif !important;
+  font-weight: 700 !important;
+}
+.sheet .type-toggle button.income {
+  background: #dff8ee !important;
+  border-radius: 12px;
+}
+.sheet .type-toggle button.expense {
+  background: #f9a2a2 !important;
+  border-radius: 12px;
+}
+.sheet label {
+  display: block;
+  position: relative;
+  font-weight: 700;
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+.sheet input,
+.sheet select {
+  width: 100%;
+  height: 58px;
+  border: 1px solid #d9dce3;
+  border-radius: 14px;
+  padding: 0 18px;
+  margin-top: 10px;
+  background: #fff;
+  font-family: inherit;
+  color: #222;
+  font-size: 17px;
+  font-weight: 700;
+  box-sizing: border-box;
+  box-shadow: 0 2px 4px #0002;
+}
+.sheet label > span {
+  position: absolute;
+  right: 18px;
+  bottom: 20px;
+  color: #666;
+}
+.date-field {
+  width: 100%;
+}
+.sheet .save {
+  width: 100%;
+  height: 58px;
+  border: 0;
+  border-radius: 14px;
+  background: #ffeda7;
+  font-family: 'Pretendard', sans-serif !important;
+  font-weight: 700 !important;
+  margin-top: 4px;
+  font-size: 16px !important;
+  box-shadow: 0 2px 4px #0002;
+}
+.delete {
+  float: right;
+  border: 0;
+  background: none;
+  color: #222;
+  font-weight: 700;
+}
 @media (max-width: 767px) {
-  .finance-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; margin: 0 0 10px; }
-  .finance-tabs button { min-width: 0; padding: 9px; }
-  .finance-main, .finance-insights { grid-template-columns: 1fr; gap: 10px; }
-  .calendar-card { padding: 12px; box-shadow: var(--shadow-sm); }
-  .calendar-head { display: none; }
-  .calendar-month { margin-top: 0; }
-  .calendar-grid button { min-height: 54px; padding: 5px; border-color: transparent; }
-  .calendar-grid > strong { padding: 5px; }
-  .calendar-legend { justify-content: flex-start; border-top: 1px solid #eee; padding-top: 8px; }
-  .transaction-card { display: none; }
-  .finance-insights { margin-top: 10px; }
-  .finance-insights article, .timeline-chart { padding: 13px; box-shadow: var(--shadow-sm); }
-  .category-chart__body { grid-template-columns: 105px 1fr; }
-  .timeline-chart { margin-top: 10px; }
-  .timeline-chart svg { height: 135px; }
-  .transaction-page { padding: 14px; }
-  .transaction-page__head .btn { min-height: 34px; padding: 0 12px; font-size: var(--font-caption); }
-  .daily-row { grid-template-columns: 32px minmax(0, 1fr) auto; }
-  .daily-row > button { grid-column: 2 / -1; justify-self: end; }
-  .fixed-row { grid-template-columns: minmax(0, 1fr) auto; }
-  .fixed-row > b, .fixed-row button { justify-self: end; }
-  .modal-backdrop--sheet { align-items: end; padding: 0; }
-  .daily-modal { width: 100%; min-height: 76dvh; padding: 24px 20px; border-radius: 20px 20px 0 0; }
-  .transaction-modal { width: 100%; max-width: 390px; border-radius: 20px; }
-  .fixed-detail-modal { width: 100%; padding: 22px 17px; }
-  .date-memo { grid-template-columns: 1fr; }
+  .finance {
+    width: 100%;
+    padding: 0 0 8px;
+  }
+  .heading,
+  .desktop-add-row {
+    display: none;
+  }
+  .summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-right: 0;
+    gap: 10px;
+  }
+  .summary small {
+    display: none;
+  }
+  .summary article {
+    height: 74px;
+    padding: 14px 12px;
+    border-radius: 14px;
+    box-shadow: 0 2px 4px #0002;
+  }
+  .summary span {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .summary strong {
+    margin-top: 3px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .tabs {
+    width: 100%;
+    margin: 12px 0 8px;
+    border-radius: 999px;
+  }
+  .tabs button {
+    padding: 9px;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+  .mobile-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 8px 9px;
+  }
+  .mobile-toolbar .filters button {
+    padding: 5px 12px;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+  .mobile-toolbar .filters .on {
+    background: #fff0f1;
+    color: #f0574f;
+  }
+  .mobile-toolbar .add-btn {
+    width: auto;
+    height: auto;
+    padding: 6px 16px;
+    background: #999;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+  .calendar-card {
+    height: 468px;
+    padding: 0 8px 10px;
+    border-radius: 14px;
+  }
+  .calendar-card .card-head {
+    display: none;
+  }
+  .month-nav {
+    margin: 0 -8px 3px;
+    padding: 10px 0 8px;
+    border-bottom: 1px solid #e5e8ee;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .month-nav b {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .week b {
+    padding: 6px 2px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .calendar button {
+    height: 67px;
+    padding: 10px 2px;
+    border-top: 0;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    gap: 4px;
+  }
+  .calendar .selected span {
+    min-width: 24px;
+    height: 24px;
+    background: #93b2f8;
+    color: #222;
+  }
+  .calendar small {
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .legend {
+    margin: 0 -8px;
+    padding: 10px 12px;
+    border-top: 1px solid #e5e8ee;
+    font-size: 11px;
+    font-weight: 400;
+  }
+  .list-card {
+    height: 365px;
+    min-height: 0;
+    padding: 12px 10px 16px;
+    border-radius: 14px;
+  }
+  .list-card .card-head h2 {
+    display: none;
+  }
+  .list-card > .card-head {
+    justify-content: flex-end;
+  }
+  .list-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .list-actions .filters {
+    display: none;
+  }
+  .list-actions > span {
+    font-size: 9px;
+  }
+  .list-filter {
+    margin-top: -17px;
+  }
+  .list-filter button {
+    padding: 5px 10px;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+  }
+  .dropdown-caret {
+    font-size: 10px;
+    transform: translateY(-1px);
+  }
+  .list-card .month-nav {
+    margin: 0 -2px 4px;
+  }
+  .date-title {
+    font-size: 12px;
+    font-weight: 700;
+    margin: 10px 0 5px;
+  }
+  .transaction {
+    padding: 8px;
+    border-radius: 11px;
+    margin-bottom: 6px;
+  }
+  .transaction i {
+    width: 28px;
+    height: 28px;
+    font-size: 10px;
+  }
+  .transaction span b,
+  .transaction strong {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .transaction small {
+    font-size: 10px;
+    font-weight: 400;
+  }
+  .insights {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .insights .card {
+    height: auto;
+    padding: 18px 16px;
+    border-radius: 14px;
+  }
+  .insights h2 {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .category-body {
+    gap: 18px;
+  }
+  .donut {
+    width: 92px;
+  }
+  .donut:after {
+    inset: 22px;
+  }
+  .category li {
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .category-insight {
+    position: static;
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .fixed > strong {
+    font-size: 28px;
+  }
+  .fixed p {
+    font-size: 12px;
+  }
+  .fixed button {
+    margin-top: 18px;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+  .timeline {
+    height: 260px;
+    margin-top: 12px;
+    padding: 15px 14px 10px;
+  }
+  .timeline h2 {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .timeline-chart--desktop {
+    display: none;
+  }
+  .timeline-chart--mobile {
+    display: block;
+    height: 185px;
+    margin-top: 4px;
+  }
+  .timeline-chart--mobile .goal-line {
+    stroke-width: 2;
+    stroke-dasharray: none;
+  }
+  .timeline-chart--mobile .risk {
+    stroke-width: 1.5;
+  }
+  .timeline-chart--mobile .axis-y text,
+  .timeline-chart--mobile .axis-x text {
+    font-size: 9px;
+  }
+  .timeline-chart--mobile .timeline-label text {
+    font-size: 9px;
+  }
+  .timeline-legend {
+    gap: 14px;
+    font-size: 10px;
+  }
+  .timeline-note {
+    display: none;
+  }
+  .sheet {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: min(70vh, 760px);
+    padding: 38px 22px 24px;
+    border-radius: 20px 20px 0 0;
+  }
+  .sheet:before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    width: 62px;
+    height: 5px;
+    border-radius: 5px;
+    background: #ccc;
+    transform: translateX(-50%);
+  }
+  .sheet h2 {
+    margin: 10px 0 26px;
+    font-size: 22px;
+  }
+  .sheet .transaction {
+    padding: 12px;
+  }
+  .sheet .transaction i {
+    width: 38px;
+    height: 38px;
+  }
+  .sheet .transaction span b,
+  .sheet .transaction strong {
+    font-size: 14px;
+  }
+  .sheet .transaction small {
+    font-size: 11px;
+  }
+  .day-total {
+    padding: 18px;
+  }
+  .sheet input,
+  .sheet select {
+    height: 56px;
+  }
+  .save {
+    height: 56px;
+  }
 }
 </style>

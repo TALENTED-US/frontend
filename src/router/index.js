@@ -26,6 +26,9 @@ const routes = [
     children: [
       { path: '', name: 'dashboard', component: () => import('@/features/dashboard/pages/DashboardPage.vue') },
       { path: 'finance', name: 'finance', component: () => import('@/features/finance/pages/FinancePage.vue') },
+      { path: 'finance/fixed', name: 'fixedExpenses', component: () => import('@/features/finance/pages/FixedExpensePage.vue') },
+      { path: 'finance/fixed/add', name: 'fixedExpenseAdd', component: () => import('@/features/finance/pages/FixedExpensePage.vue') },
+      { path: 'finance/fixed/delete', name: 'fixedExpenseDelete', component: () => import('@/features/finance/pages/FixedExpensePage.vue') },
       { path: 'simulation', name: 'simulation', component: () => import('@/features/simulation/pages/SimulationPage.vue') },
       { path: 'simulation/:category(expense|income|policy|finance)', name: 'simulationCategory', component: () => import('@/features/simulation/pages/SimulationCategoryPage.vue') },
       { path: 'timeline', name: 'timeline', component: () => import('@/features/timeline/pages/TimelinePage.vue') },
@@ -72,6 +75,9 @@ router.afterEach((to) => {
   const titles = {
     dashboard: '홈',
     finance: '내 재정',
+    fixedExpenses: '고정지출',
+    fixedExpenseAdd: '고정지출 추가',
+    fixedExpenseDelete: '고정지출 삭제',
     simulation: '시뮬레이션',
     timeline: '타임라인',
     search: '검색',
