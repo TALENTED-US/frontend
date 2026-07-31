@@ -40,24 +40,25 @@ function isMenuActive(to) {
   z-index: 20;
   inset: 0 auto 0 max(0px, calc((100vw - 1440px) / 2));
   width: var(--sidebar-width);
-  padding: 32px 28px;
+  padding: 32px 24px;
   background: #fbfcff;
 }
 
 .sidebar__nav {
   display: grid;
-  gap: 9px;
+  gap: 10px;
   margin-top: 58px;
 }
 
 .sidebar__link {
   display: flex;
   align-items: center;
-  height: 42px;
-  padding: 0 16px;
+  min-height: 48px;
+  padding: 8px 18px;
   border-radius: 9px;
   color: #353535;
-  font-size: 14px;
+  font-size: var(--font-ui);
+  line-height: 1.4;
 }
 
 .sidebar__link:hover {

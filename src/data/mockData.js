@@ -26,6 +26,7 @@ export const myData = {
 }
 
 export const dashboard = {
+  initialAssets: 3000000,
   totalAssets: 3000000,
   liquidAssets: 2240000,
   monthlyIncome: 0,

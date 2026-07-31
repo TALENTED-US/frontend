@@ -85,7 +85,7 @@ function changePassword() {
 .password-change-page__back {
   margin-bottom: 54px;
   color: #666;
-  font-size: 17px;
+  font-size: var(--font-card-title);
   font-weight: 800;
 }
 
@@ -96,14 +96,14 @@ function changePassword() {
 
 .password-change-form h1 {
   color: #111;
-  font-size: 36px;
+  font-size: var(--font-display);
   line-height: 1.25;
 }
 
 .password-change-form > p {
   margin-top: 10px;
   color: #6d6d73;
-  font-size: 16px;
+  font-size: var(--font-card-title);
 }
 
 .verified-account {
@@ -124,7 +124,7 @@ function changePassword() {
 
 .verified-account strong {
   color: #111;
-  font-size: 15px;
+  font-size: var(--font-body);
 }
 
 .password-change-form label {
@@ -132,7 +132,7 @@ function changePassword() {
   gap: 10px;
   margin-top: 38px;
   color: #111;
-  font-size: 13px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 
@@ -148,14 +148,14 @@ function changePassword() {
   border-radius: 12px;
   background: #fff;
   color: #111;
-  font-size: 15px;
+  font-size: var(--font-body);
 }
 
 .password-error {
   display: block;
   margin-top: 10px;
   color: #e34c4c;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .password-submit {
@@ -165,7 +165,7 @@ function changePassword() {
   border-radius: 12px;
   background: #ffeba0;
   color: #111;
-  font-size: 15px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 
@@ -175,11 +175,11 @@ function changePassword() {
   }
 
   .password-change-form h1 {
-    font-size: 26px;
+    font-size: var(--font-page-title);
   }
 
   .password-change-form > p {
-    font-size: 13px;
+    font-size: var(--font-body);
     line-height: 1.5;
   }
 

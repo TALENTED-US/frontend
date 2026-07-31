@@ -415,17 +415,17 @@ function setAllNotifications(value) {
 <style scoped>
 .detail-back {
   color: #666;
-  font-size: 20px;
+  font-size: var(--font-section-title);
   font-weight: 800;
 }
 .detail-page > h1.desktop-only {
   margin-top: 26px;
-  font-size: 22px;
+  font-size: var(--font-section-title);
 }
 .detail-description {
   margin-top: 2px;
   color: #777;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .mobile-section-title {
   padding: 12px 15px;
@@ -433,7 +433,7 @@ function setAllNotifications(value) {
   border-radius: 22px;
   background: #fff;
   box-shadow: 0 2px 4px rgb(15 23 42 / 12%);
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .identity-row {
@@ -471,7 +471,7 @@ function setAllNotifications(value) {
   border-radius: 50%;
   background: #49362c;
   color: #fff;
-  font-size: 9px;
+  font-size: var(--font-caption);
 }
 .nickname-control {
   display: flex;
@@ -480,7 +480,7 @@ function setAllNotifications(value) {
 }
 .nickname-control strong {
   color: #0a1680;
-  font-size: 18px;
+  font-size: var(--font-card-title);
 }
 .nickname-control input {
   width: 190px;
@@ -492,7 +492,7 @@ function setAllNotifications(value) {
 }
 .nickname-control button {
   color: #666;
-  font-size: 16px;
+  font-size: var(--font-card-title);
 }
 
 .form-card,
@@ -522,7 +522,7 @@ function setAllNotifications(value) {
   grid-column: 1 / -1;
   margin-bottom: 5px;
   color: #52d2a1;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .form-card label,
 .job-card label,
@@ -530,7 +530,7 @@ function setAllNotifications(value) {
   display: grid;
   gap: 5px;
   color: #555;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 .form-card input,
@@ -545,7 +545,7 @@ function setAllNotifications(value) {
   background: white;
   box-shadow: 0 3px 4px rgb(15 23 42 / 10%);
   color: #222;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 .form-card input:disabled {
   color: #8b8d97;
@@ -557,7 +557,7 @@ function setAllNotifications(value) {
 }
 .verify-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 70px;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
   gap: 12px;
 }
 .verify-row button {
@@ -572,13 +572,13 @@ function setAllNotifications(value) {
   border-radius: 13px;
   background: #ffeca4;
   box-shadow: 0 3px 4px rgb(15 23 42 / 12%);
-  font-size: 16px;
+  font-size: var(--font-card-title);
   font-weight: 800;
 }
 .save-message {
   margin: 12px 3px -10px;
   color: #0f9d66;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .info-logout,
 .info-withdraw {
@@ -589,7 +589,7 @@ function setAllNotifications(value) {
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 3px 4px rgb(15 23 42 / 10%);
-  font-size: 15px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 .job-card select {
@@ -625,7 +625,7 @@ function setAllNotifications(value) {
 }
 .job-card legend {
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 .segmented-control {
@@ -651,7 +651,7 @@ function setAllNotifications(value) {
 
 .toggle-card {
   display: flex;
-  min-height: 66px;
+  min-height: 76px;
   align-items: center;
   justify-content: space-between;
   margin-top: 20px;
@@ -664,12 +664,12 @@ function setAllNotifications(value) {
 }
 .toggle-card strong,
 .toggle-list strong {
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 .toggle-card small,
 .toggle-list small {
   color: #777;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 .toggle-card input,
 .toggle-list input {
@@ -709,7 +709,7 @@ function setAllNotifications(value) {
 }
 .toggle-list label {
   display: flex;
-  min-height: 66px;
+  min-height: 76px;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #e5e5e5;
@@ -720,7 +720,7 @@ function setAllNotifications(value) {
 .toggle-list__caption {
   padding-top: 12px;
   color: #777;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 
 .security-card,
@@ -731,7 +731,7 @@ function setAllNotifications(value) {
 .security-card h2,
 .devices-card h2,
 .accounts-card h2 {
-  font-size: 15px;
+  font-size: var(--font-body);
 }
 .password-button {
   width: 100%;
@@ -757,12 +757,12 @@ function setAllNotifications(value) {
 .devices-card header button,
 .accounts-card header button {
   color: #ff5e61;
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 .device-row,
 .account-row {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   min-height: 64px;
@@ -783,19 +783,19 @@ function setAllNotifications(value) {
 }
 .device-row strong,
 .account-row strong {
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 .device-row small,
 .account-row small {
   color: #777;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 .device-row b {
   padding: 3px 9px;
   border-radius: 999px;
   background: #def7e8;
   color: #15925f;
-  font-size: 9px;
+  font-size: var(--font-caption);
 }
 
 .accounts-card {
@@ -808,14 +808,14 @@ function setAllNotifications(value) {
 .refresh-status {
   margin-top: 14px;
   color: #16986a;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 700;
   text-align: right;
 }
 .account-count {
   margin-top: 13px;
   color: #888;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 .account-row i {
   display: grid;
@@ -827,17 +827,17 @@ function setAllNotifications(value) {
   color: #0a1680;
 }
 .account-row {
-  grid-template-columns: 32px 1fr auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
 }
 .account-row > button {
   color: #ff5e61;
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 .add-account {
   width: 100%;
   min-height: 42px;
   color: #555;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 700;
 }
 .delete-data {
@@ -849,15 +849,15 @@ function setAllNotifications(value) {
   color: #ff5e61;
 }
 .delete-data h2 {
-  font-size: 15px;
+  font-size: var(--font-body);
 }
 .delete-data p {
   margin-top: 4px;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 .delete-data button {
   margin-top: 18px;
-  font-size: 11px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 
@@ -871,18 +871,18 @@ function setAllNotifications(value) {
   border-radius: 999px;
   background: #fff0f1;
   color: #f0574f;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 .withdraw-warning h2 {
   margin-top: 14px;
-  font-size: 18px;
+  font-size: var(--font-card-title);
 }
 .withdraw-warning p,
 .withdraw-warning small {
   display: block;
   margin-top: 6px;
   color: #777;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 .withdraw-password {
   margin-top: 20px;
@@ -896,7 +896,7 @@ function setAllNotifications(value) {
   border-radius: 12px;
   background: var(--accent);
   color: #262626;
-  font-size: 13px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 .withdraw-password__row button:disabled {
@@ -909,7 +909,7 @@ function setAllNotifications(value) {
 .withdraw-error,
 .withdraw-success {
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--font-body);
   font-weight: 700;
 }
 .withdraw-error {
@@ -931,19 +931,19 @@ function setAllNotifications(value) {
 }
 .withdraw-character h2 {
   margin-top: 8px;
-  font-size: 17px;
+  font-size: var(--font-card-title);
 }
 .withdraw-character p {
   margin-top: 4px;
   color: #777;
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 .withdraw-confirm {
   display: block;
   margin: 18px auto 0;
   color: #727b8c;
   text-decoration: underline;
-  font-size: 14px;
+  font-size: var(--font-body);
   font-weight: 700;
 }
 
@@ -991,14 +991,14 @@ function setAllNotifications(value) {
   }
   .nickname-control strong {
     color: #222;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
   .nickname-control input {
     width: 170px;
     height: 38px;
   }
   .nickname-control button {
-    font-size: 14px;
+    font-size: var(--font-body);
   }
   .form-card {
     gap: 9px;
@@ -1007,7 +1007,7 @@ function setAllNotifications(value) {
     border-radius: 17px;
   }
   .info-note {
-    font-size: 11px;
+    font-size: var(--font-small);
   }
   .form-card input,
   .job-card input,
@@ -1017,7 +1017,7 @@ function setAllNotifications(value) {
   }
   .form-card label,
   .job-card label {
-    font-size: 11px;
+    font-size: var(--font-small);
   }
   .job-card select {
     padding-right: 48px;
@@ -1028,16 +1028,16 @@ function setAllNotifications(value) {
     gap: 8px;
   }
   .verify-row button {
-    font-size: 11px;
+    font-size: var(--font-small);
   }
   .primary-action {
     min-height: 49px;
     margin-top: 16px;
     border-radius: 18px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
   .save-message {
-    font-size: 10px;
+    font-size: var(--font-caption);
   }
   .job-card {
     gap: 15px;
@@ -1051,7 +1051,7 @@ function setAllNotifications(value) {
   .segmented-control button {
     min-height: 43px;
     border-radius: 12px;
-    font-size: 13px;
+    font-size: var(--font-body);
   }
   .toggle-card {
     min-height: 62px;
@@ -1069,11 +1069,11 @@ function setAllNotifications(value) {
   }
   .toggle-card strong,
   .toggle-list strong {
-    font-size: 13px;
+    font-size: var(--font-body);
   }
   .toggle-card small,
   .toggle-list small {
-    font-size: 10px;
+    font-size: var(--font-caption);
   }
   .security-card,
   .devices-card {
@@ -1088,13 +1088,13 @@ function setAllNotifications(value) {
     min-height: 44px;
     margin-top: 25px;
     border-radius: 22px;
-    font-size: 12px;
+    font-size: var(--font-small);
   }
   .devices-card {
     margin-top: 14px;
   }
   .devices-card h2 {
-    font-size: 14px;
+    font-size: var(--font-body);
   }
   .device-row {
     min-height: 65px;
@@ -1108,10 +1108,10 @@ function setAllNotifications(value) {
     min-height: 68px;
   }
   .account-row strong {
-    font-size: 12px;
+    font-size: var(--font-small);
   }
   .account-row small {
-    font-size: 9px;
+    font-size: var(--font-caption);
   }
   .withdraw-warning {
     margin-top: 10px;
@@ -1119,11 +1119,11 @@ function setAllNotifications(value) {
     border-radius: 17px;
   }
   .withdraw-warning h2 {
-    font-size: 16px;
+    font-size: var(--font-card-title);
   }
   .withdraw-password {
     margin-top: 20px;
-    font-size: 11px;
+    font-size: var(--font-small);
   }
   .withdraw-password input {
     height: 48px;
@@ -1135,10 +1135,10 @@ function setAllNotifications(value) {
   }
   .withdraw-password__row button {
     border-radius: 14px;
-    font-size: 11px;
+    font-size: var(--font-small);
   }
   .withdraw-confirm {
-    font-size: 13px;
+    font-size: var(--font-body);
   }
   .withdraw-character {
     margin-top: 40px;

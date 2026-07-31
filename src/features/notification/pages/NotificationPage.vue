@@ -62,7 +62,7 @@ function readAll() {
   min-height: 36px;
   border-radius: 999px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .notification-tools button.active {
@@ -73,7 +73,7 @@ function readAll() {
 .notification-tools span {
   margin-left: auto;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 
 .notification-layout {
@@ -118,13 +118,13 @@ function readAll() {
 .notification-item p,
 .notification-item time {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 
 .notification-item h2 {
   margin: 3px 0;
   color: var(--primary);
-  font-size: 16px;
+  font-size: var(--font-card-title);
 }
 
 .notification-guide {
@@ -135,13 +135,13 @@ function readAll() {
 
 .notification-guide h2 {
   color: var(--primary);
-  font-size: 17px;
+  font-size: var(--font-card-title);
 }
 
 .notification-guide p {
   margin-top: 26px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--font-body);
   line-height: 1.8;
 }
 
@@ -149,7 +149,7 @@ function readAll() {
   display: inline-block;
   margin-top: 30px;
   color: var(--primary);
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 

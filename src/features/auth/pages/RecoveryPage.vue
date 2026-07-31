@@ -225,7 +225,7 @@ function resetPassword() {
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--primary);
-  font-size: 10px;
+  font-size: var(--font-caption);
   font-weight: 800;
 }
 
@@ -245,21 +245,21 @@ function resetPassword() {
 
 .eyebrow {
   color: #e6a518;
-  font-size: 11px;
+  font-size: var(--font-small);
   font-weight: 700;
 }
 
 .recovery-content h1 {
   margin-top: 8px;
   color: var(--primary);
-  font-size: 28px;
+  font-size: var(--font-page-title);
   line-height: 1.25;
 }
 
 .description {
   margin-top: 8px;
   color: #777;
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 
 .simple-verification {
@@ -282,7 +282,7 @@ function resetPassword() {
 .simple-verification span {
   display: block;
   color: #222;
-  font-size: 20px;
+  font-size: var(--font-section-title);
   font-weight: 800;
   line-height: 1;
 }
@@ -302,7 +302,7 @@ function resetPassword() {
   margin-top: 30px;
   color: #777;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .recovery-field {
@@ -310,7 +310,7 @@ function resetPassword() {
   gap: 8px;
   margin-top: 36px;
   color: var(--primary);
-  font-size: 10px;
+  font-size: var(--font-caption);
   font-weight: 800;
 }
 
@@ -326,7 +326,7 @@ function resetPassword() {
   border-radius: 10px;
   background: var(--surface);
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--font-small);
   font-weight: 400;
 }
 
@@ -341,7 +341,7 @@ function resetPassword() {
 
 .field-error {
   color: var(--danger);
-  font-size: 10px;
+  font-size: var(--font-caption);
   font-weight: 600;
 }
 
@@ -349,7 +349,7 @@ function resetPassword() {
   display: block;
   margin-top: 12px;
   color: #777;
-  font-size: 9px;
+  font-size: var(--font-caption);
 }
 
 .verified-account {
@@ -364,7 +364,7 @@ function resetPassword() {
   border-radius: 10px;
   background: var(--primary-soft);
   color: #747b8d;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .verified-account strong {
@@ -384,7 +384,7 @@ function resetPassword() {
   border-radius: 10px;
   background: var(--accent);
   color: #222;
-  font-size: 11px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 
@@ -393,7 +393,7 @@ function resetPassword() {
   margin-top: 17px;
   color: var(--primary);
   text-align: center;
-  font-size: 9px;
+  font-size: var(--font-caption);
 }
 
 .text-link.left {
@@ -412,12 +412,12 @@ function resetPassword() {
 .result-box small,
 .result-box span {
   color: #777;
-  font-size: 9px;
+  font-size: var(--font-caption);
 }
 
 .result-box strong {
   color: var(--primary);
-  font-size: 17px;
+  font-size: var(--font-card-title);
 }
 
 @media (max-width: 767px) {
@@ -445,7 +445,7 @@ function resetPassword() {
   .mobile-header strong {
     color: #222;
     text-align: center;
-    font-size: 16px;
+    font-size: var(--font-card-title);
     font-weight: 800;
   }
 
@@ -456,7 +456,7 @@ function resetPassword() {
     align-items: center;
     justify-content: flex-start;
     color: #222;
-    font-size: 27px;
+    font-size: var(--font-page-title);
     line-height: 1;
   }
 
@@ -467,17 +467,17 @@ function resetPassword() {
   }
 
   .eyebrow {
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .recovery-content h1 {
     margin-top: 8px;
     color: #222;
-    font-size: 24px;
+    font-size: var(--font-page-title);
   }
 
   .description {
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .simple-verification {
@@ -487,45 +487,45 @@ function resetPassword() {
   }
 
   .simple-verification span {
-    font-size: 18px;
+    font-size: var(--font-card-title);
   }
 
   .verification-note {
     margin-top: 28px;
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .recovery-field {
     margin-top: 42px;
     color: #222;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .recovery-field input {
     height: 48px;
     border-radius: 24px;
-    font-size: 13px;
+    font-size: var(--font-body);
   }
 
   .field-error,
   .helper-text {
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .primary-button {
     min-height: 50px;
     border-radius: 25px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .text-link {
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .verified-account {
     min-height: 46px;
     margin-top: 42px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .result-box {

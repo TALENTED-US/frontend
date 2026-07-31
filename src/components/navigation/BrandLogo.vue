@@ -31,7 +31,7 @@ defineProps({
 }
 
 .brand-logo__name {
-  font-size: 17px;
+  font-size: var(--font-card-title);
   font-weight: 900;
 }
 </style>

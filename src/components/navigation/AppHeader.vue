@@ -109,7 +109,7 @@ function goBackFromMyPageDetail() {
 .app-header__back {
   margin-right: 5px;
   color: #222;
-  font-size: 25px;
+  font-size: var(--font-page-title);
   line-height: 1;
 }
 .popover-anchor {
@@ -118,7 +118,7 @@ function goBackFromMyPageDetail() {
 .header-chip {
   position: relative;
   display: inline-flex;
-  min-height: 40px;
+  min-height: 46px;
   align-items: center;
   gap: 7px;
   padding: 0 13px;
@@ -126,7 +126,7 @@ function goBackFromMyPageDetail() {
   border-radius: 10px;
   background: white;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .header-chip.active {
   background: var(--primary-soft);
@@ -170,17 +170,17 @@ function goBackFromMyPageDetail() {
   border-bottom: 1px solid var(--border);
 }
 .header-popover h2 {
-  font-size: 17px;
+  font-size: var(--font-card-title);
 }
 .header-popover header a {
   color: #666;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 .header-popover > a {
   display: grid;
   align-items: center;
   gap: 12px;
-  min-height: 66px;
+  min-height: 72px;
   padding: 10px 0;
 }
 .header-popover > a div {
@@ -189,25 +189,25 @@ function goBackFromMyPageDetail() {
 }
 .header-popover strong {
   color: var(--primary);
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .header-popover small {
   color: #777;
-  font-size: 9px;
+  font-size: var(--font-caption);
 }
 .notification-popover > header {
   padding-bottom: 13px;
 }
 .notification-popover h2 {
   color: #242424;
-  font-size: 22px;
+  font-size: var(--font-section-title);
 }
 .notification-popover header a {
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .notification-popover > a {
   grid-template-columns: 8px minmax(0, 1fr) 34px;
-  min-height: 73px;
+  min-height: 82px;
   padding: 12px 14px;
   border-radius: 12px;
 }
@@ -219,14 +219,14 @@ function goBackFromMyPageDetail() {
   align-self: start;
   margin-top: 5px;
   color: var(--danger);
-  font-size: 16px;
+  font-size: var(--font-card-title);
   line-height: 1;
 }
 .notification-popover strong {
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 .notification-popover small {
-  font-size: 11px;
+  font-size: var(--font-small);
   line-height: 1.5;
 }
 .notification-popover time {
@@ -234,23 +234,23 @@ function goBackFromMyPageDetail() {
   padding-top: 3px;
   color: #777;
   text-align: right;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 
 @media (max-width: 767px) {
   .app-header {
-    min-height: 58px;
-    padding: 10px 14px;
+    min-height: 64px;
+    padding: 10px 16px;
     border-bottom: 1px solid #e7e7e7;
   }
   .app-header__title {
     color: var(--primary);
-    font-size: 14px;
+    font-size: var(--font-body);
     font-weight: 900;
   }
   .header-chip {
-    min-height: 32px;
-    padding: 6px;
+    min-height: 38px;
+    padding: 7px;
     border: 0;
     background: transparent !important;
     color: #172035;
@@ -260,21 +260,22 @@ function goBackFromMyPageDetail() {
     top: 0;
     right: -1px;
     display: grid;
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     place-items: center;
     border-radius: 50%;
     background: #ef5f78;
     color: white;
-    font-size: 9px;
+    font-size: var(--font-caption);
+    line-height: 1;
   }
   .header-popover {
     position: fixed;
-    top: 58px;
+    top: 64px;
     right: 10px;
     left: 10px;
     width: auto;
-    max-height: calc(100dvh - 80px);
+    max-height: calc(100dvh - 86px);
     overflow: auto;
     padding: 18px;
     border-radius: 14px;
