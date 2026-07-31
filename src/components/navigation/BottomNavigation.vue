@@ -50,11 +50,19 @@ function isMenuActive(to) {
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 3px;
+  gap: 5px;
+  padding: 6px 2px;
   color: #4b4b4b;
 }
 
-.bottom-nav__link small { font-size: 9px; }
+.bottom-nav__link small {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--font-caption);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .bottom-nav__link.active {
   color: var(--primary);

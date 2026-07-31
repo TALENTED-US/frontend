@@ -57,7 +57,7 @@ function completeVerification() {
 
 .password-verification-page__back {
   color: #666;
-  font-size: 17px;
+  font-size: var(--font-card-title);
   font-weight: 800;
 }
 
@@ -68,14 +68,14 @@ function completeVerification() {
 
 .verification-content h1 {
   color: #111;
-  font-size: 36px;
+  font-size: var(--font-display);
   line-height: 1.25;
 }
 
 .verification-content > p {
   margin-top: 10px;
   color: #6d6d73;
-  font-size: 16px;
+  font-size: var(--font-card-title);
 }
 
 .simple-verification {
@@ -96,7 +96,7 @@ function completeVerification() {
 }
 
 .simple-verification span {
-  font-size: 22px;
+  font-size: var(--font-section-title);
   font-weight: 800;
 }
 
@@ -116,7 +116,7 @@ function completeVerification() {
   margin-top: 34px;
   color: #6d6d73;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 @media (max-width: 767px) {
@@ -132,12 +132,12 @@ function completeVerification() {
 
   .verification-content h1 {
     color: #111;
-    font-size: 28px;
+    font-size: var(--font-page-title);
   }
 
   .verification-content > p {
     margin-top: 12px;
-    font-size: 13px;
+    font-size: var(--font-body);
   }
 
   .simple-verification {
@@ -147,12 +147,12 @@ function completeVerification() {
   }
 
   .simple-verification span {
-    font-size: 20px;
+    font-size: var(--font-section-title);
   }
 
   .verification-content > small {
     margin-top: 32px;
-    font-size: 13px;
+    font-size: var(--font-body);
   }
 }
 </style>

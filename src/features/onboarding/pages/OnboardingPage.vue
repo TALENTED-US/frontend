@@ -618,14 +618,14 @@ function next() {
 .stage-heading h1 {
   margin: 0;
   color: var(--flow-blue);
-  font-size: 26px;
+  font-size: var(--font-page-title);
   line-height: 1.25;
 }
 
 .stage-heading p {
   margin: 8px 0 0;
   color: #666;
-  font-size: 14px;
+  font-size: var(--font-body);
   line-height: 1.55;
 }
 
@@ -653,7 +653,7 @@ function next() {
   align-items: center;
   gap: 6px;
   color: var(--flow-blue);
-  font-size: 13px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 
@@ -676,7 +676,7 @@ function next() {
   border-radius: 999px;
   background: white;
   color: #616670;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .choice-pill.selected {
@@ -697,7 +697,7 @@ function next() {
   background: #fff9e5;
   color: #222;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .control:focus,
@@ -717,7 +717,7 @@ select.control {
 
 .field-group small {
   color: #999;
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 
 .date-row {
@@ -738,7 +738,7 @@ select.control {
   border-radius: 12px;
   background: var(--flow-action);
   color: #222;
-  font-size: 15px;
+  font-size: var(--font-body);
   font-weight: 800;
   transition:
     transform 0.16s ease,
@@ -758,7 +758,7 @@ select.control {
 .bottom-helper {
   margin: 10px 0 0;
   color: #777;
-  font-size: 12px;
+  font-size: var(--font-small);
   text-align: center;
 }
 
@@ -779,7 +779,7 @@ select.control {
   padding: 0;
   list-style: none;
   color: #666;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .collect-card li::before {
@@ -803,7 +803,7 @@ select.control {
   border-radius: 13px;
   background: white;
   color: var(--flow-blue);
-  font-size: 15px;
+  font-size: var(--font-body);
   font-weight: 800;
   text-align: left;
   box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
@@ -817,7 +817,7 @@ select.control {
   grid-column: 1 / -1;
   padding: 0 0 14px;
   color: #666;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 400;
 }
 
@@ -830,7 +830,7 @@ select.control {
   padding: 0 18px;
   border-radius: 12px;
   background: #edf2ff;
-  font-size: 13px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 
@@ -856,13 +856,13 @@ input[type='checkbox'] {
 .loading-screen h1 {
   margin: 28px 0 0;
   color: var(--flow-blue);
-  font-size: 25px;
+  font-size: var(--font-page-title);
 }
 
 .loading-screen > p {
   margin: 9px 0 0;
   color: #666;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .loading-status {
@@ -882,13 +882,13 @@ input[type='checkbox'] {
   align-items: center;
   gap: 8px;
   color: #777;
-  font-size: 13px;
+  font-size: var(--font-body);
   text-align: left;
 }
 
 .loading-status strong {
   color: #aaa;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .status-dot {
@@ -898,7 +898,7 @@ input[type='checkbox'] {
   place-items: center;
   border-radius: 50%;
   background: #eceef2;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-style: normal;
 }
 
@@ -938,7 +938,7 @@ input[type='checkbox'] {
 .loading-screen > small {
   margin-top: 16px;
   color: #999;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .split-heading {
@@ -950,7 +950,7 @@ input[type='checkbox'] {
 
 .split-heading > strong {
   padding-top: 9px;
-  font-size: 13px;
+  font-size: var(--font-body);
   white-space: nowrap;
 }
 
@@ -999,7 +999,7 @@ input[type='checkbox'] {
   border-radius: 10px;
   background: #f0f2f5;
   color: #666;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 
@@ -1014,7 +1014,7 @@ input[type='checkbox'] {
 
 .bank-name strong {
   color: var(--flow-blue);
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .bank-name small {
@@ -1024,7 +1024,7 @@ input[type='checkbox'] {
   border-radius: 999px;
   background: #f0f1f3;
   color: #777;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 
 .bank-row.selected .bank-name small {
@@ -1040,7 +1040,7 @@ input[type='checkbox'] {
   border-radius: 50%;
   background: var(--flow-blue);
   color: white;
-  font-size: 14px;
+  font-size: var(--font-body);
   font-style: normal;
 }
 
@@ -1057,7 +1057,7 @@ input[type='checkbox'] {
   justify-content: space-between;
   margin-bottom: 10px;
   color: #777;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .asset-section__header label {
@@ -1103,12 +1103,12 @@ input[type='checkbox'] {
 .asset-card strong,
 .asset-card b {
   color: var(--flow-blue);
-  font-size: 15px;
+  font-size: var(--font-body);
 }
 
 .asset-card small {
   color: #777;
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 
 .asset-card .round-check {
@@ -1120,7 +1120,7 @@ input[type='checkbox'] {
 .selected-balance {
   margin: 28px 0 0;
   color: var(--flow-blue);
-  font-size: 14px;
+  font-size: var(--font-body);
   font-weight: 800;
   text-align: right;
 }
@@ -1142,7 +1142,7 @@ input[type='checkbox'] {
   border-radius: 50%;
   background: #edf2ff;
   color: var(--flow-action);
-  font-size: 45px;
+  font-size: var(--font-display);
   font-weight: 300;
 }
 
@@ -1160,12 +1160,12 @@ input[type='checkbox'] {
   display: flex;
   justify-content: space-between;
   color: #777;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .completion-summary strong {
   color: var(--flow-blue);
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .completion-summary .danger {
@@ -1190,13 +1190,13 @@ input[type='checkbox'] {
 
 .fixed-summary > span {
   color: #666;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .fixed-summary > strong {
   margin-top: 3px;
   color: #222;
-  font-size: 24px;
+  font-size: var(--font-page-title);
 }
 
 .fixed-summary > small {
@@ -1204,13 +1204,13 @@ input[type='checkbox'] {
   top: 18px;
   right: 24px;
   color: #666;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .fixed-guide {
   margin: 22px 0 0;
   color: #666;
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 
 .select-all-fixed {
@@ -1219,7 +1219,7 @@ input[type='checkbox'] {
   justify-content: flex-end;
   gap: 5px;
   margin-top: -20px;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 
@@ -1239,7 +1239,7 @@ input[type='checkbox'] {
   align-items: center;
   justify-content: space-between;
   height: 22px;
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 
 .expense-category span {
@@ -1279,7 +1279,7 @@ input[type='checkbox'] {
   place-items: center;
   border-radius: 9px;
   background: #f0f3ff;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-weight: 800;
 }
 
@@ -1289,13 +1289,13 @@ input[type='checkbox'] {
 
 .expense-name strong,
 .expense-row b {
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 
 .expense-name small {
   margin-top: 2px;
   color: #777;
-  font-size: 10px;
+  font-size: var(--font-caption);
 }
 
 .expense-row input {
@@ -1358,7 +1358,7 @@ input[type='checkbox'] {
     display: block;
     margin-bottom: 20px;
     color: #666;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .mobile-hero-icon {
@@ -1374,11 +1374,11 @@ input[type='checkbox'] {
 
   .stage-heading h1 {
     color: #222;
-    font-size: 24px;
+    font-size: var(--font-page-title);
   }
 
   .stage-heading p {
-    font-size: 13px;
+    font-size: var(--font-body);
   }
 
   .stage-heading--center-mobile {
@@ -1424,7 +1424,7 @@ input[type='checkbox'] {
   .field-label,
   .field-group legend {
     color: #222;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .field-label :deep(.app-icon),
@@ -1457,7 +1457,7 @@ input[type='checkbox'] {
   }
 
   .field-group small {
-    font-size: 10px;
+    font-size: var(--font-caption);
   }
 
   .housing-field {
@@ -1487,12 +1487,12 @@ input[type='checkbox'] {
   .collect-card h2 {
     display: block;
     margin: 0 0 15px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .collect-card ul {
     gap: 11px;
-    font-size: 13px;
+    font-size: var(--font-body);
   }
 
   .collect-card li::before {
@@ -1506,7 +1506,7 @@ input[type='checkbox'] {
     gap: 4px;
     margin: 70px 0 0;
     color: #777;
-    font-size: 11px;
+    font-size: var(--font-small);
   }
 
   .consent-list {
@@ -1545,7 +1545,7 @@ input[type='checkbox'] {
 
   .loading-screen h1 {
     color: #222;
-    font-size: 22px;
+    font-size: var(--font-section-title);
   }
 
   .loading-status {
@@ -1578,7 +1578,7 @@ input[type='checkbox'] {
     padding: 6px 12px;
     border-radius: 999px;
     color: #666;
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .bank-categories button.active {
@@ -1599,7 +1599,7 @@ input[type='checkbox'] {
     padding: 6px 13px;
     border-radius: 999px;
     background: var(--flow-yellow);
-    font-size: 11px;
+    font-size: var(--font-small);
     font-weight: 800;
   }
 
@@ -1621,7 +1621,7 @@ input[type='checkbox'] {
 
   .bank-name strong {
     color: #222;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .bank-row .round-check {
@@ -1665,7 +1665,7 @@ input[type='checkbox'] {
   .asset-card strong,
   .asset-card b {
     color: #222;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .asset-card .round-check {

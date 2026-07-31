@@ -126,7 +126,7 @@ function logout() {
 <style scoped>
 .mypage__title {
   margin-bottom: 28px;
-  font-size: 26px;
+  font-size: var(--font-page-title);
 }
 
 .profile-card,
@@ -139,9 +139,9 @@ function logout() {
 
 .profile-card {
   display: grid;
-  grid-template-columns: 165px minmax(300px, 1fr);
-  gap: 12px 28px;
-  min-height: 330px;
+  grid-template-columns: minmax(165px, 0.28fr) minmax(0, 1fr);
+  gap: 18px 32px;
+  min-height: 350px;
   padding: 28px 30px;
   border-radius: 18px;
 }
@@ -185,16 +185,16 @@ function logout() {
   border-radius: 50%;
   background: #49362c;
   color: #fff;
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 
 .profile-card__user h2 {
-  font-size: 19px;
+  font-size: var(--font-section-title);
 }
 .profile-card__user p {
   margin-top: 4px;
   color: #6b707d;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .profile-card__progress {
@@ -204,7 +204,7 @@ function logout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 .profile-card__level em {
@@ -214,13 +214,13 @@ function logout() {
   background: #def7e8;
   color: #14a669;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--font-small);
   font-style: normal;
 }
 .profile-card__progress > strong {
   display: block;
   margin-top: 3px;
-  font-size: 28px;
+  font-size: var(--font-page-title);
 }
 .progress-row {
   display: flex;
@@ -244,7 +244,7 @@ function logout() {
 }
 .progress-row small {
   color: #73747e;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .profile-card__summary {
@@ -258,20 +258,24 @@ function logout() {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  min-width: 0;
 }
 .profile-card__summary dt {
   color: #6b707d;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 .profile-card__summary dd {
-  font-size: 14px;
+  min-width: 0;
+  max-width: 62%;
+  overflow-wrap: anywhere;
+  font-size: var(--font-body);
   font-weight: 800;
   text-align: right;
 }
 
 .settings-title {
   margin: 28px 0 12px;
-  font-size: 20px;
+  font-size: var(--font-section-title);
 }
 .settings-card {
   padding: 0 24px;
@@ -294,11 +298,11 @@ function logout() {
   gap: 4px;
 }
 .settings-card strong {
-  font-size: 17px;
+  font-size: var(--font-card-title);
 }
 .settings-card small {
   color: #666;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .settings-card .app-icon {
   color: #7a8497;
@@ -309,7 +313,7 @@ function logout() {
   margin-top: 28px;
   border-radius: 14px;
   color: #666;
-  font-size: 15px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 
@@ -326,16 +330,16 @@ function logout() {
   background: #fff;
   box-shadow: 0 3px 4px rgb(15 23 42 / 10%);
   color: #f0574f;
-  font-size: 15px;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 
 @media (max-width: 767px) {
   .profile-card {
-    grid-template-columns: 64px minmax(0, 1fr);
-    gap: 12px 10px;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 14px 12px;
     min-height: auto;
-    padding: 14px 16px 18px;
+    padding: 18px 16px 20px;
     border-radius: 18px;
   }
 
@@ -358,7 +362,7 @@ function logout() {
   .profile-avatar b {
     width: 22px;
     height: 22px;
-    font-size: 9px;
+    font-size: var(--font-caption);
   }
   .profile-card__user {
     grid-column: 1 / -1;
@@ -366,25 +370,25 @@ function logout() {
     margin-top: 2px;
   }
   .profile-card__user h2 {
-    font-size: 15px;
+    font-size: var(--font-body);
   }
   .profile-card__user p {
-    font-size: 11px;
+    font-size: var(--font-small);
   }
   .profile-card__progress {
     grid-column: 2;
     grid-row: 1 / 3;
   }
   .profile-card__level {
-    font-size: 10px;
+    font-size: var(--font-caption);
   }
   .profile-card__level em {
     min-width: 56px;
     padding: 4px 8px;
-    font-size: 9px;
+    font-size: var(--font-caption);
   }
   .profile-card__progress > strong {
-    font-size: 22px;
+    font-size: var(--font-section-title);
   }
   .progress-row {
     gap: 8px;
@@ -394,7 +398,7 @@ function logout() {
     height: 7px;
   }
   .progress-row small {
-    font-size: 10px;
+    font-size: var(--font-caption);
   }
   .profile-card__summary {
     grid-column: 1 / -1;
@@ -403,39 +407,41 @@ function logout() {
   }
   .profile-card__summary dt,
   .profile-card__summary dd {
-    font-size: 12px;
+    font-size: var(--font-small);
   }
   .profile-card__summary dd {
     max-width: 61%;
   }
   .settings-title {
     margin: 14px 0 8px 3px;
-    font-size: 13px;
+    font-size: var(--font-body);
   }
   .settings-card {
     padding: 0 16px;
     border-radius: 18px;
   }
   .settings-card button {
-    min-height: 68px;
+    min-height: 78px;
+    gap: 14px;
+    padding: 10px 0;
   }
   .settings-card strong {
-    font-size: 14px;
+    font-size: var(--font-body);
   }
   .settings-card small {
-    font-size: 10px;
+    font-size: var(--font-caption);
   }
   .logout-button {
     min-height: 48px;
     margin-top: 14px;
     border-radius: 18px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
   .withdraw-button {
     min-height: 48px;
     margin-top: 10px;
     border-radius: 18px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 }
 </style>

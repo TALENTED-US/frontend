@@ -74,7 +74,7 @@ const months = [
   justify-content: space-between;
   padding-bottom: 38px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 
 .chart-content svg {
@@ -92,7 +92,7 @@ const months = [
   padding: 8px;
   border-radius: 999px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .chart-months button.active {
@@ -116,12 +116,12 @@ const months = [
   display: grid;
   gap: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .month-detail > div strong {
   color: var(--primary);
-  font-size: 30px;
+  font-size: var(--font-display);
 }
 
 .month-detail dl {
@@ -133,7 +133,7 @@ const months = [
 .month-detail dl div {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 
 .month-detail dd.income {
@@ -177,7 +177,7 @@ const months = [
 
 .events small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-small);
 }
 
 @media (max-width: 700px) {

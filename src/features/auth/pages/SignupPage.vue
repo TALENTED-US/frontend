@@ -379,7 +379,7 @@ function completeSignup() {
   border: 1px solid #e2e6ef;
   border-radius: 999px;
   color: var(--color-primary, #0a1680);
-  font-size: 14px;
+  font-size: var(--font-body);
   font-weight: 700;
   text-decoration: none;
 }
@@ -401,7 +401,7 @@ function completeSignup() {
 .signup-step h2 {
   margin: 0;
   color: var(--color-primary, #0a1680);
-  font-size: 30px;
+  font-size: var(--font-display);
   font-weight: 800;
   letter-spacing: -0.05em;
 }
@@ -410,7 +410,7 @@ function completeSignup() {
 .section-description {
   margin: 10px 0 0;
   color: var(--color-text-secondary, #666666);
-  font-size: 15px;
+  font-size: var(--font-body);
 }
 
 .progress {
@@ -480,7 +480,7 @@ function completeSignup() {
   border-radius: 50%;
   background: #ffffff;
   color: #9ca3af;
-  font-size: 13px;
+  font-size: var(--font-body);
   font-weight: 700;
 }
 
@@ -497,7 +497,7 @@ function completeSignup() {
 }
 
 .signup-step h2 {
-  font-size: 21px;
+  font-size: var(--font-section-title);
 }
 
 .verification-card {
@@ -530,17 +530,17 @@ function completeSignup() {
 }
 
 .verification-card strong {
-  font-size: 21px;
+  font-size: var(--font-section-title);
 }
 
 .verification-card small {
   color: #655f4e;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .verification-card b {
   color: var(--color-primary, #0a1680);
-  font-size: 30px;
+  font-size: var(--font-display);
   font-weight: 500;
 }
 
@@ -563,7 +563,7 @@ function completeSignup() {
 .verified-row label,
 .form-field > label {
   color: var(--color-primary, #0a1680);
-  font-size: 14px;
+  font-size: var(--font-body);
   font-weight: 700;
 }
 
@@ -584,12 +584,12 @@ function completeSignup() {
   border-radius: 12px;
   background: #f1f4f9;
   color: #637087;
-  font-size: 15px;
+  font-size: var(--font-body);
 }
 
 .verified-row em {
   color: var(--color-primary, #0a1680);
-  font-size: 13px;
+  font-size: var(--font-body);
   font-style: normal;
   font-weight: 700;
 }
@@ -641,7 +641,7 @@ function completeSignup() {
   background: var(--color-accent, #fbedb0);
   color: var(--color-text-body, #222222);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-body);
   font-weight: 700;
 }
 
@@ -658,7 +658,7 @@ function completeSignup() {
 .field-message {
   margin: 0;
   color: #e5484d;
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 
 .field-message.success {
@@ -674,7 +674,7 @@ function completeSignup() {
   background: var(--color-accent, #fbedb0);
   color: var(--color-text-body, #222222);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-card-title);
   font-weight: 800;
 }
 
@@ -697,7 +697,7 @@ function completeSignup() {
   border-radius: 14px;
   background: #eef3ff;
   color: var(--color-primary, #0a1680);
-  font-size: 16px;
+  font-size: var(--font-card-title);
   font-weight: 800;
 }
 
@@ -721,7 +721,7 @@ function completeSignup() {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 .agreement-list .required {
@@ -734,7 +734,7 @@ function completeSignup() {
   background: transparent;
   color: var(--color-text-secondary, #666666);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-body);
 }
 
 input[type='checkbox'] {
@@ -746,7 +746,7 @@ input[type='checkbox'] {
 .already-member {
   margin: 27px 0 0;
   color: var(--color-text-secondary, #666666);
-  font-size: 14px;
+  font-size: var(--font-body);
   text-align: center;
 }
 
@@ -783,7 +783,7 @@ input[type='checkbox'] {
     background: transparent;
     color: var(--muted, #666666);
     cursor: pointer;
-    font-size: 15px;
+    font-size: var(--font-body);
     font-weight: 400;
   }
 
@@ -793,13 +793,13 @@ input[type='checkbox'] {
 
   .signup-heading h1 {
     color: var(--text, #222222);
-    font-size: 24px;
+    font-size: var(--font-page-title);
     letter-spacing: -0.04em;
   }
 
   .signup-heading p {
     margin-top: 5px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .progress {
@@ -809,7 +809,7 @@ input[type='checkbox'] {
   .progress span {
     width: 24px;
     height: 24px;
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .progress::before,
@@ -840,13 +840,13 @@ input[type='checkbox'] {
 
   .signup-step h2 {
     color: var(--text, #222222);
-    font-size: 16px;
+    font-size: var(--font-card-title);
     letter-spacing: -0.03em;
   }
 
   .section-description {
     margin-top: 4px;
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .web-copy {
@@ -870,7 +870,7 @@ input[type='checkbox'] {
   }
 
   .verification-card strong {
-    font-size: 18px;
+    font-size: var(--font-card-title);
   }
 
   .verification-card small,
@@ -890,7 +890,7 @@ input[type='checkbox'] {
   .verified-row p,
   .form-field input {
     height: 52px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .verified-row p {
@@ -899,7 +899,7 @@ input[type='checkbox'] {
   }
 
   .verified-row em {
-    font-size: 12px;
+    font-size: var(--font-small);
   }
 
   .input-with-button,
@@ -909,7 +909,7 @@ input[type='checkbox'] {
 
   .check-button {
     width: 82px;
-    font-size: 13px;
+    font-size: var(--font-body);
   }
 
   .primary-button {
@@ -922,7 +922,7 @@ input[type='checkbox'] {
 
   .agreement-all {
     height: 46px;
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .agreement-list li {
@@ -932,7 +932,7 @@ input[type='checkbox'] {
   .already-member {
     margin-top: 24px;
     color: var(--muted, #666666);
-    font-size: 14px;
+    font-size: var(--font-body);
   }
 
   .already-member a {
@@ -955,7 +955,7 @@ input[type='checkbox'] {
   }
 
   .agreement-list label {
-    font-size: 13px;
+    font-size: var(--font-body);
   }
 }
 </style>
