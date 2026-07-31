@@ -1,5 +1,8 @@
 <script setup>
+import { useRoute } from 'vue-router'
 import BrandLogo from './BrandLogo.vue'
+
+const route = useRoute()
 
 const menus = [
   { to: '/', label: '홈' },
@@ -8,13 +11,23 @@ const menus = [
   { to: '/search', label: '검색' },
   { to: '/mypage', label: '마이페이지' },
 ]
+
+function isMenuActive(to) {
+  if (to === '/') return route.path === '/'
+  return route.path === to || route.path.startsWith(`${to}/`)
+}
 </script>
 
 <template>
   <aside class="sidebar">
     <BrandLogo />
     <nav class="sidebar__nav" aria-label="주요 메뉴">
-      <RouterLink v-for="menu in menus" :key="menu.to" :to="menu.to" class="sidebar__link">
+      <RouterLink
+        v-for="menu in menus"
+        :key="menu.to"
+        :to="menu.to"
+        :class="['sidebar__link', { active: isMenuActive(menu.to) }]"
+      >
         {{ menu.label }}
       </RouterLink>
     </nav>
@@ -51,8 +64,7 @@ const menus = [
   color: var(--primary);
 }
 
-.sidebar__link.router-link-exact-active,
-.sidebar__link.router-link-active:not([href='/']) {
+.sidebar__link.active {
   background: var(--accent);
   color: var(--primary);
   font-weight: 800;

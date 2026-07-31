@@ -20,6 +20,7 @@ const titles = {
   jobInfo: '취업 준비 정보 관리',
   notificationSettings: '알림 설정',
   security: '비밀번호·보안',
+  passwordVerification: '비밀번호 찾기',
   passwordChange: '비밀번호 변경',
   dataManagement: '데이터 관리',
   withdraw: '회원 탈퇴',
@@ -33,7 +34,8 @@ function toggle(name) {
 }
 
 function goBackFromMyPageDetail() {
-  router.push(route.name === 'passwordChange' ? '/mypage/security' : '/mypage')
+  const securityRoutes = ['passwordVerification', 'passwordChange']
+  router.push(securityRoutes.includes(route.name) ? '/mypage/security' : '/mypage')
 }
 </script>
 

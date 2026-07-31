@@ -1,5 +1,8 @@
 <script setup>
+import { useRoute } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+
+const route = useRoute()
 
 const menus = [
   { to: '/', label: '홈', icon: 'home' },
@@ -8,11 +11,21 @@ const menus = [
   { to: '/search', label: '검색', icon: 'search' },
   { to: '/mypage', label: '마이페이지', icon: 'user' },
 ]
+
+function isMenuActive(to) {
+  if (to === '/') return route.path === '/'
+  return route.path === to || route.path.startsWith(`${to}/`)
+}
 </script>
 
 <template>
   <nav class="bottom-nav" aria-label="모바일 주요 메뉴">
-    <RouterLink v-for="menu in menus" :key="menu.to" :to="menu.to" class="bottom-nav__link">
+    <RouterLink
+      v-for="menu in menus"
+      :key="menu.to"
+      :to="menu.to"
+      :class="['bottom-nav__link', { active: isMenuActive(menu.to) }]"
+    >
       <AppIcon :name="menu.icon" :size="19" />
       <small>{{ menu.label }}</small>
     </RouterLink>
@@ -43,8 +56,7 @@ const menus = [
 
 .bottom-nav__link small { font-size: 9px; }
 
-.bottom-nav__link.router-link-exact-active,
-.bottom-nav__link.router-link-active:not([href='/']) {
+.bottom-nav__link.active {
   color: var(--primary);
   font-weight: 800;
 }

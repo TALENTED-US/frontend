@@ -37,6 +37,7 @@ const routes = [
       { path: 'mypage/job', name: 'jobInfo', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
       { path: 'mypage/notifications', name: 'notificationSettings', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
       { path: 'mypage/security', name: 'security', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
+      { path: 'mypage/security/password/verify', name: 'passwordVerification', component: () => import('@/features/mypage/pages/PasswordVerificationPage.vue') },
       { path: 'mypage/security/password', name: 'passwordChange', component: () => import('@/features/mypage/pages/PasswordChangePage.vue') },
       { path: 'mypage/data', name: 'dataManagement', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
       { path: 'mypage/withdraw', name: 'withdraw', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
@@ -51,10 +52,19 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.beforeEach((to) => {
+router.beforeEach((to, from) => {
   const session = useSessionStore()
   if (to.meta.requiresAuth && !session.isAuthenticated) return { name: 'login' }
   if (to.name === 'login' && session.isAuthenticated) return { name: 'dashboard' }
+  if (to.name === 'passwordVerification' && from.name !== 'passwordChange') {
+    session.clearPasswordChangeVerification()
+  }
+  if (to.name === 'passwordChange' && !session.passwordChangeVerified) {
+    return { name: 'passwordVerification' }
+  }
+  if (from.name === 'passwordChange' && to.name !== 'passwordChange') {
+    session.clearPasswordChangeVerification()
+  }
   return true
 })
 
@@ -77,6 +87,7 @@ router.afterEach((to) => {
     jobInfo: '취업 준비 정보 관리',
     notificationSettings: '알림 설정',
     security: '비밀번호·보안',
+    passwordVerification: '비밀번호 찾기',
     passwordChange: '비밀번호 변경',
     dataManagement: '데이터 관리',
     withdraw: '회원 탈퇴',

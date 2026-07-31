@@ -7,8 +7,8 @@ import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
 const session = useSessionStore()
-const email = ref('buttie@example.com')
-const password = ref('buttie123!')
+const email = ref('')
+const password = ref('')
 const keepLogin = ref(false)
 const showPassword = ref(false)
 const error = ref('')
@@ -18,8 +18,22 @@ function submit() {
     error.value = '이메일과 비밀번호를 모두 입력해 주세요.'
     return
   }
-  session.login()
+
+  const result = session.authenticate(email.value, password.value)
+  if (!result.ok) {
+    error.value =
+      result.reason === 'user-not-found'
+        ? '등록되지 않은 사용자입니다.'
+        : '비밀번호가 일치하지 않습니다.'
+    return
+  }
+
+  error.value = ''
   router.push('/')
+}
+
+function clearError() {
+  error.value = ''
 }
 </script>
 
@@ -37,10 +51,31 @@ function submit() {
         <div class="mobile-only"><h1>로그인</h1><p>계속 이어가요</p></div>
 
         <form @submit.prevent="submit">
-          <label><span>이메일</span><input v-model="email" type="email" placeholder="hello@email.com" /></label>
-          <label><span>비밀번호</span><i><input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="비밀번호를 입력하세요" /><button type="button" @click="showPassword = !showPassword"><AppIcon name="eye" :size="18" /></button></i></label>
+          <label
+            ><span>이메일</span
+            ><input
+              v-model="email"
+              type="email"
+              placeholder="hello@email.com"
+              autocomplete="email"
+              :aria-invalid="Boolean(error)"
+              @input="clearError"
+          /></label>
+          <label
+            ><span>비밀번호</span
+            ><i
+              ><input
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                placeholder="비밀번호를 입력하세요"
+                autocomplete="current-password"
+                :aria-invalid="Boolean(error)"
+                @input="clearError"
+              /><button type="button" @click="showPassword = !showPassword"
+                ><AppIcon name="eye" :size="18" /></button></i
+          ></label>
           <label class="keep-login mobile-only"><input v-model="keepLogin" type="checkbox" /> 로그인 유지</label>
-          <p v-if="error" class="login-error">{{ error }}</p>
+          <p v-if="error" class="login-error" role="alert">{{ error }}</p>
           <button class="login-submit" type="submit">로그인</button>
         </form>
 
