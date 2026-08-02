@@ -36,6 +36,7 @@
   --shadow-sm: var(--shadow-figma);
   --shadow-md: 0 12px 30px rgb(15 23 42 / 12%);
   --sidebar-width: 244px;
+  --admin-sidebar-width: 240px;
   --header-height: 78px;
   --bottom-nav-height: 72px;
   --content-width: 1040px;

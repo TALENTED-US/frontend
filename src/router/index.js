@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AppLayout from '@/layouts/AppLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
+import AdminLayout from '@/features/admin/layouts/AdminLayout.vue'
 
 const routes = [
   {
@@ -48,6 +49,31 @@ const routes = [
       { path: 'mypage/security/password', name: 'passwordChange', component: () => import('@/features/mypage/pages/PasswordChangePage.vue') },
       { path: 'mypage/data', name: 'dataManagement', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
       { path: 'mypage/withdraw', name: 'withdraw', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
+    ],
+  },
+  {
+    path: '/admin',
+    component: AdminLayout,
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: { name: 'adminDashboard' } },
+      { path: 'dashboard', name: 'adminDashboard', component: () => import('@/features/admin/pages/AdminDashboardPage.vue') },
+      { path: 'finance-data', name: 'adminFinanceData', meta: { title: '금융데이터 관리 · 계좌' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/cards', name: 'adminFinanceDataCards', meta: { title: '금융데이터 관리 · 카드' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/transactions', name: 'adminFinanceDataTransactions', meta: { title: '금융데이터 관리 · 거래' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/accounts/new', name: 'adminFinanceAccountCreate', meta: { title: '계좌·카드 등록' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/transactions/new', name: 'adminFinanceTransactionCreate', meta: { title: '거래 등록' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/:id/edit', name: 'adminFinanceDataEdit', meta: { title: '금융데이터 수정' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/:id/delete', name: 'adminFinanceDataDelete', meta: { title: '금융데이터 삭제 확인' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/duplicates', name: 'adminFinanceDuplicates', meta: { title: '중복 거래 검수' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data/history', name: 'adminFinanceHistory', meta: { title: '등록·수정 이력' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'policies', name: 'adminPolicies', meta: { title: '정부지원정책 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'policies/new', name: 'adminPolicyForm', meta: { title: '정부지원정책 등록·수정' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'policies/history', name: 'adminPolicyHistory', meta: { title: '정책 변경 이력·검수' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'members', name: 'adminMembers', meta: { title: '회원 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'members/filter', name: 'adminMemberFilter', meta: { title: '회원 관리 · 필터' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'members/:memberId', name: 'adminMemberDetail', meta: { title: '회원 상세 · 상태 변경' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'level', name: 'adminLevel', meta: { title: '경험치 및 버티 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
@@ -106,8 +132,9 @@ router.afterEach((to) => {
     dataManagement: '데이터 관리',
     withdraw: '회원 탈퇴',
     onboarding: '시작하기',
+    adminDashboard: '관리자 대시보드',
   }
-  document.title = `${titles[to.name] || 'Buttie'} | Buttie`
+  document.title = `${titles[to.name] || to.meta.title || 'Buttie'} | Buttie`
 })
 
 export default router
