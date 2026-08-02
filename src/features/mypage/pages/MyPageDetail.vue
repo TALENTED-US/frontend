@@ -1,7 +1,8 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { clearTransactions } from '@/features/finance/financeStore'
 import { useSessionStore } from '@/stores/session'
 import profileImage from '@/assets/images/mypage/buttie-profile.png'
 
@@ -25,13 +26,22 @@ const profileMessage = ref('')
 const dataRefreshMessage = ref('')
 const withdrawError = ref('')
 const withdrawVerified = ref(false)
-const notificationSettings = reactive({
+const notificationDefaults = {
   all: true,
   policy: true,
   finance: true,
   plan: true,
   notice: true,
+}
+let savedNotificationSettings = {}
+try {
+  savedNotificationSettings = JSON.parse(localStorage.getItem('buttie-notification-settings')) || {}
+} catch {}
+const notificationSettings = reactive({
+  ...notificationDefaults,
+  ...savedNotificationSettings,
 })
+const twoFactorEnabled = ref(localStorage.getItem('buttie-two-factor') === 'true')
 
 const regions = [
   '서울특별시',
@@ -73,12 +83,35 @@ const notificationRows = [
   ['notice', '서비스 공지', '업데이트·이벤트 소식'],
 ]
 
-const accounts = [
+const defaultAccounts = [
   { type: '계좌', name: 'KB국민은행 입출금', number: '****-****-2847', amount: '320만원' },
   { type: '계좌', name: 'KB국민은행 적금', number: '****-****-5931', amount: '150만원' },
   { type: '계좌', name: '신한은행 입출금', number: '****-****-7702', amount: '' },
   { type: '카드', name: 'KB국민카드', number: '****-****-4821', amount: '' },
 ]
+let savedAccounts = null
+try {
+  savedAccounts = JSON.parse(localStorage.getItem('buttie-linked-accounts'))
+} catch {}
+const accounts = ref(Array.isArray(savedAccounts) ? savedAccounts : defaultAccounts)
+const accountGroups = computed(() =>
+  ['계좌', '카드'].map((type) => ({
+    type,
+    rows: accounts.value.filter((account) => account.type === type),
+  })),
+)
+
+watch(
+  notificationSettings,
+  (value) => localStorage.setItem('buttie-notification-settings', JSON.stringify(value)),
+  { deep: true },
+)
+watch(twoFactorEnabled, (value) => localStorage.setItem('buttie-two-factor', String(value)))
+watch(
+  accounts,
+  (value) => localStorage.setItem('buttie-linked-accounts', JSON.stringify(value)),
+  { deep: true },
+)
 
 function startNicknameEdit() {
   nicknameDraft.value = session.displayName
@@ -160,10 +193,40 @@ function logout() {
   router.replace('/auth/login')
 }
 
+function verifyContact(type) {
+  profileMessage.value = `${type === 'phone' ? '휴대폰 번호' : '이메일'} 인증이 완료됐어요. (목 인증)`
+}
+
 function setAllNotifications(value) {
   Object.keys(notificationSettings).forEach((key) => {
     notificationSettings[key] = value
   })
+}
+
+function syncAllNotifications() {
+  notificationSettings.all = notificationRows.every(([key]) => notificationSettings[key])
+}
+
+function disconnectAccount(account) {
+  accounts.value = accounts.value.filter((item) => item !== account)
+  dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
+}
+
+function addMockAccount(type) {
+  const next =
+    type === '계좌'
+      ? { type, name: '카카오뱅크 입출금', number: '****-****-1024', amount: '84만원' }
+      : { type, name: '신한카드', number: '****-****-1357', amount: '' }
+  if (!accounts.value.some((account) => account.name === next.name)) accounts.value.push(next)
+  dataRefreshMessage.value = `${next.name} 연결을 추가했습니다. (목 데이터)`
+}
+
+function clearMockData() {
+  if (!window.confirm('연결된 마이데이터 목 정보를 모두 삭제할까요?')) return
+  accounts.value = []
+  clearTransactions()
+  localStorage.removeItem('buttie-mydata')
+  dataRefreshMessage.value = '거래 내역과 연결된 마이데이터 목 정보를 모두 삭제했습니다.'
 }
 </script>
 
@@ -210,13 +273,17 @@ function setAllNotifications(value) {
         <label>
           <span>휴대폰 번호</span>
           <div class="verify-row">
-            <input v-model="form.phone" /><button type="button">인증</button>
+            <input v-model="form.phone" /><button type="button" @click="verifyContact('phone')">
+              인증
+            </button>
           </div>
         </label>
         <label>
           <span>이메일</span>
           <div class="verify-row">
-            <input v-model="form.email" /><button type="button">인증</button>
+            <input v-model="form.email" /><button type="button" @click="verifyContact('email')">
+              인증
+            </button>
           </div>
         </label>
       </article>
@@ -292,7 +359,11 @@ function setAllNotifications(value) {
             ><strong>{{ row[1] }}</strong
             ><small>{{ row[2] }}</small></span
           >
-          <input v-model="notificationSettings[row[0]]" type="checkbox" />
+          <input
+            v-model="notificationSettings[row[0]]"
+            type="checkbox"
+            @change="syncAllNotifications"
+          />
         </label>
       </article>
     </template>
@@ -312,12 +383,12 @@ function setAllNotifications(value) {
         <span
           ><strong>2단계 인증</strong><small>로그인 시 인증번호를 추가로 입력합니다</small></span
         >
-        <input type="checkbox" />
+        <input v-model="twoFactorEnabled" type="checkbox" />
       </label>
       <article class="devices-card">
         <header>
           <h2>최근 로그인 기기</h2>
-          <button type="button">전체 로그아웃</button>
+          <button type="button" @click="logout">전체 로그아웃</button>
         </header>
         <div class="device-row">
           <i /><span><strong>Chrome / MacOS</strong><small>서울 · 2026-07-15 10:32</small></span
@@ -335,10 +406,9 @@ function setAllNotifications(value) {
           <h2>마이데이터 연결</h2>
           <button type="button" @click="refreshMyData">⟳ 새로고침</button>
         </header>
-        <p class="account-count">계좌 · 3</p>
-        <template v-for="(account, index) in accounts" :key="account.name">
-          <p v-if="index === 3" class="account-count">카드 · 1</p>
-          <div class="account-row">
+        <template v-for="group in accountGroups" :key="group.type">
+          <p class="account-count">{{ group.type }} · {{ group.rows.length }}</p>
+          <div v-for="account in group.rows" :key="account.name" class="account-row">
             <i><AppIcon :name="account.type === '카드' ? 'wallet' : 'briefcase'" :size="17" /></i>
             <span>
               <strong>{{ account.name }}</strong>
@@ -348,11 +418,12 @@ function setAllNotifications(value) {
                 ><br />갱신: {{ formatDateTime(session.myDataLastUpdated) }}</small
               >
             </span>
-            <button type="button">해제</button>
+            <button type="button" @click="disconnectAccount(account)">해제</button>
           </div>
-          <button v-if="index === 2" class="add-account" type="button">＋ 계좌 추가 연결</button>
+          <button class="add-account" type="button" @click="addMockAccount(group.type)">
+            ＋ {{ group.type }} 추가 연결
+          </button>
         </template>
-        <button class="add-account" type="button">＋ 카드 추가 연결</button>
         <p v-if="dataRefreshMessage" class="refresh-status" aria-live="polite">
           {{ dataRefreshMessage }}
         </p>
@@ -360,7 +431,7 @@ function setAllNotifications(value) {
       <article class="delete-data desktop-only">
         <h2>⚠ 전체 데이터 삭제</h2>
         <p>모든 거래 내역, 시뮬레이션, 저장 데이터가 영구 삭제됩니다.</p>
-        <button type="button">데이터 전체 삭제</button>
+        <button type="button" @click="clearMockData">데이터 전체 삭제</button>
       </article>
     </template>
 

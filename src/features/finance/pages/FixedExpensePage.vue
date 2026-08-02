@@ -7,12 +7,30 @@ const route = useRoute();
 const router = useRouter();
 const selected = ref([]);
 const query = ref("");
-const fixedMonth = ref("2026-07");
+const dismissedSuggestion = ref(false);
+const fixedCandidateCategories = new Set([
+  "월세",
+  "주거",
+  "구독",
+  "보험",
+  "통신비",
+  "공과금",
+  "교통",
+  "교육",
+]);
+const now = new Date();
+const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+const fixedMonth = ref(currentMonth);
 const money = (value) => new Intl.NumberFormat("ko-KR").format(Math.abs(value));
 const fixedMonthLabel = computed(() => {
   const [year, month] = fixedMonth.value.split("-").map(Number);
   return `${year}년 ${month}월`;
 });
+const fixedPeriodLabel = computed(() =>
+  fixedMonth.value === currentMonth
+    ? "이번 달"
+    : `${Number(fixedMonth.value.split("-")[1])}월`,
+);
 const mode = computed(() =>
   route.name === "fixedExpenseAdd"
     ? "add"
@@ -21,17 +39,63 @@ const mode = computed(() =>
       : "detail",
 );
 const fixedRows = computed(() =>
-  financeTransactions.value.filter((row) => row.fixed && row.amount < 0),
+  financeTransactions.value.filter(
+    (row) => row.fixed && row.amount < 0 && row.date.startsWith(fixedMonth.value),
+  ),
 );
-const candidates = computed(() =>
+const registeredFixedRows = computed(() => {
+  const latestByRule = new Map();
+  financeTransactions.value
+    .filter((row) => row.fixed && row.amount < 0)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .forEach((row) => {
+      const key = `${row.title}|${row.category}`;
+      if (!latestByRule.has(key)) latestByRule.set(key, row);
+    });
+  return [...latestByRule.values()];
+});
+const candidates = computed(() => {
+  const recurringByRule = new Map();
   financeTransactions.value
     .filter(
-      (row) => row.amount < 0 && !row.fixed && row.title.includes(query.value),
+      (row) =>
+        row.amount < 0 &&
+        !row.fixed &&
+        fixedCandidateCategories.has(row.category),
     )
-    .sort((a, b) => b.date.localeCompare(a.date)),
+    .forEach((row) => {
+      const key = `${row.title}|${row.category}`;
+      const rows = recurringByRule.get(key) || [];
+      rows.push(row);
+      recurringByRule.set(key, rows);
+    });
+
+  return [...recurringByRule.values()]
+    .filter((rows) => rows.length >= 2)
+    .map((rows) => {
+      const sorted = [...rows].sort((a, b) => b.date.localeCompare(a.date));
+      return {
+        ...sorted[0],
+        recurringIds: sorted.map((row) => row.id),
+        occurrenceCount: sorted.length,
+      };
+    })
+    .filter((row) => row.title.includes(query.value.trim()))
+    .sort(
+      (a, b) =>
+        b.occurrenceCount - a.occurrenceCount || b.date.localeCompare(a.date),
+    )
+    .slice(0, 15);
+});
+const suggestedRow = computed(() =>
+  dismissedSuggestion.value ? null : candidates.value[0] || null,
 );
 const visibleRows = computed(() =>
-  mode.value === "add" ? candidates.value : fixedRows.value,
+  mode.value === "add"
+    ? candidates.value
+    : mode.value === "delete"
+      ? registeredFixedRows.value
+      : fixedRows.value,
 );
 const allSelected = computed(
   () =>
@@ -64,11 +128,32 @@ function toggleAll() {
 function changeFixedMonth(offset) {
   const [year, month] = fixedMonth.value.split("-").map(Number);
   const next = new Date(year, month - 1 + offset, 1);
-  fixedMonth.value = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  const candidate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  if (candidate <= currentMonth) fixedMonth.value = candidate;
 }
 function submit() {
-  setFixed(selected.value, mode.value === "add");
+  if (mode.value === "delete") {
+    const selectedRules = new Set(
+      registeredFixedRows.value
+        .filter((row) => selected.value.includes(row.id))
+        .map((row) => `${row.title}|${row.category}`),
+    );
+    const recurringIds = financeTransactions.value
+      .filter((row) => selectedRules.has(`${row.title}|${row.category}`))
+      .map((row) => row.id);
+    setFixed(recurringIds, false);
+  } else {
+    const selectedRules = candidates.value.filter((row) =>
+      selected.value.includes(row.id),
+    );
+    setFixed(selectedRules.flatMap((row) => row.recurringIds), true);
+  }
   router.push({ name: "fixedExpenses" });
+}
+function registerSuggestion() {
+  if (!suggestedRow.value) return;
+  setFixed(suggestedRow.value.recurringIds, true);
+  dismissedSuggestion.value = true;
 }
 </script>
 <template>
@@ -95,18 +180,29 @@ function submit() {
       <div class="month">
         <button type="button" aria-label="이전 달" @click="changeFixedMonth(-1)">‹</button>
         <b>{{ fixedMonthLabel }}</b>
-        <button type="button" aria-label="다음 달" @click="changeFixedMonth(1)">›</button>
+        <button
+          type="button"
+          aria-label="다음 달"
+          :disabled="fixedMonth === currentMonth"
+          @click="changeFixedMonth(1)"
+        >›</button>
       </div>
       <div class="total">
-        <span>이번 달 고정지출 합계</span
+        <span>{{ fixedPeriodLabel }} 고정지출 합계</span
         ><small>총 {{ fixedRows.length }}건</small
         ><strong>총 {{ (total / 10000).toFixed(1) }}만원</strong>
       </div>
-      <div class="suggest">
+      <div v-if="suggestedRow" class="suggest">
         <b>고정지출 후보</b
-        ><strong>넷플릭스 · 최근 3개월 12,000원대 결제</strong>
+        ><strong
+          >{{ suggestedRow.title }} · 최근 {{ suggestedRow.occurrenceCount }}회
+          {{ money(suggestedRow.amount) }}원대 결제</strong
+        >
         <p>매달 비슷한 금액이 반복돼요. 고정지출로 등록할까요?</p>
-        <button>아니에요</button><button><strong>고정지출로 등록</strong></button>
+        <button type="button" @click="dismissedSuggestion = true">아니에요</button
+        ><button type="button" @click="registerSuggestion"
+          ><strong>고정지출로 등록</strong></button
+        >
       </div>
     </template>
     <div v-if="mode === 'add'" class="search">
@@ -124,6 +220,9 @@ function submit() {
       </button>
     </div>
     <section class="expense-list">
+      <p v-if="!visibleRows.length" class="empty-message">
+        {{ mode === "delete" ? "삭제할 고정지출이 없어요." : "표시할 거래가 없어요." }}
+      </p>
       <template v-for="[category, rows] in grouped" :key="category">
         <h2>
           <span>●</span>{{ category
@@ -144,8 +243,13 @@ function submit() {
           <i>{{ row.title.slice(0, 1) }}</i
           ><span
             ><strong>{{ row.title }}</strong
-            ><small>{{ row.date.slice(8) }}일 · {{ row.detail }}</small></span
-          ><b>-{{ money(row.amount) }}원</b
+            ><small
+              >{{ row.date.slice(5).replace('-', '월 ') }}일 · {{ row.detail
+              }}<template v-if="row.occurrenceCount">
+                · {{ row.occurrenceCount }}회 반복</template
+              ></small
+            ></span
+          ><b>{{ row.originalAmount || `-${money(row.amount)}원` }}</b
           ><em v-if="mode !== 'detail'">{{
             selected.includes(row.id) ? "✓" : ""
           }}</em>
@@ -323,6 +427,13 @@ function submit() {
   border: 1px solid #d9dce3;
   border-radius: 18px;
   box-shadow: 0 2px 4px #0002;
+}
+.empty-message {
+  margin: 0;
+  padding: 32px 12px;
+  color: #666;
+  text-align: center;
+  font-size: 13px;
 }
 .expense-list h2 {
   display: flex;

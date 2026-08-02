@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   addTransaction,
@@ -9,17 +9,31 @@ import {
 } from '@/features/finance/financeStore'
 
 const router = useRouter()
+const formatLocalIso = (date = new Date()) =>
+  [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+const todayIso = formatLocalIso()
+const currentMonth = todayIso.slice(0, 7)
+const minimumMonth = '1980-01'
+const currentYear = Number(currentMonth.slice(0, 4))
+const currentMonthNumber = Number(currentMonth.slice(5, 7))
+const yearOptions = Array.from({ length: currentYear - 1980 + 1 }, (_, index) => currentYear - index)
+const monthOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 const tab = ref('calendar')
 const filter = ref('all')
-const month = ref('2026-07')
-const selectedDate = ref('2026-07-16')
+const categoryFilter = ref('all')
+const month = ref(currentMonth)
+const selectedDate = ref(todayIso)
 const panel = ref('')
 const editingId = ref(null)
 const form = reactive({
   type: 'expense',
   amount: '',
   category: '식비',
-  date: '2026-07-16',
+  date: todayIso,
   time: '12:10',
   memo: '',
 })
@@ -37,17 +51,35 @@ const formattedDate = computed({
     form.date = String(value).replaceAll('.', '-')
   },
 })
-const monthLabel = computed(() => {
-  const [year, mon] = month.value.split('-').map(Number)
-  return `${year}년 ${mon}월`
+const periodLabel = computed(() =>
+  month.value === currentMonth ? '이번 달' : `${Number(month.value.split('-')[1])}월`,
+)
+const selectedYear = computed({
+  get: () => Number(month.value.slice(0, 4)),
+  set: (year) => setSelectedMonth(year, Number(month.value.slice(5, 7))),
 })
+const selectedMonthNumber = computed({
+  get: () => Number(month.value.slice(5, 7)),
+  set: (selectedMonth) => setSelectedMonth(Number(month.value.slice(0, 4)), selectedMonth),
+})
+const canGoPrevious = computed(() => month.value > minimumMonth)
+const canGoNext = computed(() => month.value < currentMonth)
+
+function setSelectedMonth(year, selectedMonth) {
+  const candidate = `${year}-${String(selectedMonth).padStart(2, '0')}`
+  month.value = candidate < minimumMonth
+    ? minimumMonth
+    : candidate > currentMonth
+      ? currentMonth
+      : candidate
+  selectedDate.value = month.value === currentMonth ? todayIso : `${month.value}-01`
+  panel.value = ''
+}
 
 function changeMonth(offset) {
   const [year, mon] = month.value.split('-').map(Number)
   const next = new Date(year, mon - 1 + offset, 1)
-  month.value = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
-  selectedDate.value = `${month.value}-01`
-  panel.value = ''
+  setSelectedMonth(next.getFullYear(), next.getMonth() + 1)
 }
 
 const monthRows = computed(() =>
@@ -61,7 +93,18 @@ const filteredMonthRows = computed(() =>
       filter.value === 'all' || (filter.value === 'income' ? row.amount > 0 : row.amount < 0),
   ),
 )
-const visibleRows = filteredMonthRows
+const categoryOptions = computed(() => [
+  'all',
+  ...new Set(filteredMonthRows.value.map((row) => row.category)),
+])
+const visibleRows = computed(() =>
+  filteredMonthRows.value.filter(
+    (row) => categoryFilter.value === 'all' || row.category === categoryFilter.value,
+  ),
+)
+watch(categoryOptions, (options) => {
+  if (!options.includes(categoryFilter.value)) categoryFilter.value = 'all'
+})
 const income = computed(() =>
   monthRows.value.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0),
 )
@@ -94,6 +137,9 @@ const categoryColors = {
   구독: '#222222',
   보험: '#8e7cc3',
   교육: '#6fa8dc',
+  의료: '#4db6ac',
+  쇼핑: '#d29b72',
+  여가: '#b07cc6',
 }
 const categoryChartRows = computed(() =>
   categoryTotals.value.map(([name, total], index) => ({
@@ -143,7 +189,7 @@ function openAdd() {
     type: 'income',
     amount: '500000',
     category: '수입',
-    date: '2026-07-16',
+    date: todayIso,
     time: '09:20',
     memo: '',
   })
@@ -187,7 +233,7 @@ function dayLabel(value) {
 }
 function groupLabel(date) {
   const [, m, d] = date.split('-')
-  return `${Number(m)}월 ${Number(d)}일${date === '2026-07-16' ? ' (오늘)' : ''}`
+  return `${Number(m)}월 ${Number(d)}일${date === todayIso ? ' (오늘)' : ''}`
 }
 </script>
 
@@ -202,11 +248,11 @@ function groupLabel(date) {
 
     <div class="summary">
       <article>
-        <span>이번 달 수입</span><strong class="blue">{{ signed(income) }}</strong>
+        <span>{{ periodLabel }} 수입</span><strong class="blue">{{ signed(income) }}</strong>
         <small>지난달 대비 +12%</small>
       </article>
       <article>
-        <span>이번 달 지출</span><strong class="red">-{{ money(expense) }}원</strong>
+        <span>{{ periodLabel }} 지출</span><strong class="red">-{{ money(expense) }}원</strong>
         <small>예상 지출 포함</small>
       </article>
       <article>
@@ -230,7 +276,7 @@ function groupLabel(date) {
             ['expense', '지출만'],
           ]"
           :key="item[0]"
-          :class="{ on: filter === item[0] }"
+          :class="[item[0], { on: filter === item[0] }]"
           @click="filter = filter === item[0] ? 'all' : item[0]"
         >
           {{ item[1] }}
@@ -250,7 +296,7 @@ function groupLabel(date) {
               ['expense', '지출만'],
             ]"
             :key="item[0]"
-            :class="{ on: filter === item[0] }"
+            :class="[item[0], { on: filter === item[0] }]"
             @click="filter = item[0]"
           >
             {{ item[1] }}
@@ -258,9 +304,21 @@ function groupLabel(date) {
         </div>
       </div>
       <div class="month-nav">
-        <button type="button" aria-label="이전 달" @click="changeMonth(-1)">‹</button>
-        <b>{{ monthLabel }}</b>
-        <button type="button" aria-label="다음 달" @click="changeMonth(1)">›</button>
+        <button type="button" aria-label="이전 달" :disabled="!canGoPrevious" @click="changeMonth(-1)">‹</button>
+        <div class="month-selectors">
+          <select v-model.number="selectedYear" aria-label="연도 선택">
+            <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}년</option>
+          </select>
+          <select v-model.number="selectedMonthNumber" aria-label="월 선택">
+            <option
+              v-for="monthOption in monthOptions"
+              :key="monthOption"
+              :value="monthOption"
+              :disabled="selectedYear === currentYear && monthOption > currentMonthNumber"
+            >{{ monthOption }}월</option>
+          </select>
+        </div>
+        <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">›</button>
       </div>
       <div class="week">
         <b v-for="name in ['일', '월', '화', '수', '목', '금', '토']" :key="name">{{ name }}</b>
@@ -293,7 +351,7 @@ function groupLabel(date) {
                 ['expense', '지출만'],
               ]"
               :key="item[0]"
-              :class="{ on: filter === item[0] }"
+              :class="[item[0], { on: filter === item[0] }]"
               @click="filter = item[0]"
             >
               {{ item[1] }}
@@ -303,15 +361,28 @@ function groupLabel(date) {
         </div>
       </div>
       <div class="list-filter">
-        <button>
-          <span>전체 거래</span>
-          <span class="dropdown-caret" aria-hidden="true">⌄</span>
-        </button>
+        <select v-model="categoryFilter" aria-label="거래 분류 선택">
+          <option v-for="category in categoryOptions" :key="category" :value="category">
+            {{ category === 'all' ? '전체 거래' : category }}
+          </option>
+        </select>
       </div>
       <div class="month-nav">
-        <button type="button" aria-label="이전 달" @click="changeMonth(-1)">‹</button>
-        <b>{{ monthLabel }}</b>
-        <button type="button" aria-label="다음 달" @click="changeMonth(1)">›</button>
+        <button type="button" aria-label="이전 달" :disabled="!canGoPrevious" @click="changeMonth(-1)">‹</button>
+        <div class="month-selectors">
+          <select v-model.number="selectedYear" aria-label="거래 목록 연도 선택">
+            <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}년</option>
+          </select>
+          <select v-model.number="selectedMonthNumber" aria-label="거래 목록 월 선택">
+            <option
+              v-for="monthOption in monthOptions"
+              :key="monthOption"
+              :value="monthOption"
+              :disabled="selectedYear === currentYear && monthOption > currentMonthNumber"
+            >{{ monthOption }}월</option>
+          </select>
+        </div>
+        <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">›</button>
       </div>
       <div class="transaction-scroll">
         <template v-for="(row, index) in visibleRows" :key="row.id">
@@ -472,7 +543,7 @@ function groupLabel(date) {
         <template v-if="panel === 'day'">
           <h2>{{ dayLabel(selectedDate) }}</h2>
           <div class="day-total">
-            <span>오늘 합계</span
+            <span>{{ selectedDate === todayIso ? '오늘 합계' : '하루 합계' }}</span
             ><strong>{{ signed(dayRows.reduce((s, r) => s + r.amount, 0)) }}</strong>
           </div>
           <h3>거래 내역</h3>
@@ -700,6 +771,14 @@ button {
   background: #0a1680;
   color: #fff;
 }
+.filters .on.income {
+  background: #246bfd;
+  color: #fff;
+}
+.filters .on.expense {
+  background: #f0574f;
+  color: #fff;
+}
 .month-nav {
   display: flex;
   align-items: center;
@@ -710,10 +789,20 @@ button {
   color: #475569;
   font-size: 14px;
 }
-.month-nav b {
+.month-selectors {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.month-selectors select {
+  border: 0;
+  background: transparent;
   color: #222;
+  font: inherit;
   font-size: 16px;
   font-weight: 700;
+  cursor: pointer;
+  outline-offset: 2px;
 }
 .month-nav button {
   width: 28px;
@@ -731,6 +820,10 @@ button {
 }
 .month-nav button:hover {
   background: #f0f2f7;
+}
+.month-nav button:disabled {
+  cursor: default;
+  opacity: 0.3;
 }
 .week,
 .calendar {
@@ -819,7 +912,7 @@ button {
   margin-top: 12px;
   flex: none;
 }
-.list-filter button {
+.list-filter select {
   border: 0;
   border-radius: 18px;
   background: #f4f6fb;
@@ -828,9 +921,7 @@ button {
   font-size: 12px !important;
   font-weight: 600 !important;
   line-height: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+  cursor: pointer;
 }
 .dropdown-caret {
   display: inline-flex;
@@ -1343,9 +1434,13 @@ button {
     font-size: 12px !important;
     font-weight: 600 !important;
   }
-  .mobile-toolbar .filters .on {
-    background: #fff0f1;
-    color: #f0574f;
+  .mobile-toolbar .filters .on.income {
+    background: #246bfd;
+    color: #fff;
+  }
+  .mobile-toolbar .filters .on.expense {
+    background: #f0574f;
+    color: #fff;
   }
   .mobile-toolbar .add-btn {
     width: auto;
@@ -1370,7 +1465,7 @@ button {
     font-size: 14px;
     font-weight: 700;
   }
-  .month-nav b {
+  .month-selectors select {
     font-size: 14px;
     font-weight: 700;
   }
@@ -1429,7 +1524,7 @@ button {
   .list-filter {
     margin-top: -17px;
   }
-  .list-filter button {
+  .list-filter select {
     padding: 5px 10px;
     font-size: 11px !important;
     font-weight: 600 !important;
