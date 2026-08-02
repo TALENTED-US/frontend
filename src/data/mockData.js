@@ -38,11 +38,17 @@ export const dashboard = {
 }
 
 export const transactions = [
-  { id: 1, date: '2026-07-24', title: '카페 라떼', category: '식비', amount: -5200 },
-  { id: 2, date: '2026-07-24', title: '지하철', category: '교통', amount: -1450 },
-  { id: 3, date: '2026-07-23', title: '넷플릭스', category: '구독', amount: -17000 },
-  { id: 4, date: '2026-07-22', title: '스터디 환급', category: '수입', amount: 50000 },
-  { id: 5, date: '2026-07-21', title: '교재 구매', category: '교육', amount: -32000 },
+  { id: 1, date: '2026-07-16', time: '09:20', title: '급여', category: '급여', payment: '카카오뱅크', amount: 500000, memo: '아르바이트 월급', fixed: false },
+  { id: 2, date: '2026-07-16', time: '12:10', title: '점심 식사', category: '식비', payment: '카드', amount: -12000, memo: '점심 식사', fixed: false },
+  { id: 3, date: '2026-07-16', time: '15:30', title: '커피', category: '식비', payment: '카드', amount: -8000, memo: '카페', fixed: false },
+  { id: 4, date: '2026-07-16', time: '18:10', title: '교통카드', category: '교통', payment: '티머니', amount: -30000, memo: '교통카드 충전', fixed: false },
+  { id: 5, date: '2026-07-15', time: '08:00', title: '교통카드 정기권', category: '교통', payment: '티머니', amount: -55000, memo: '정기권', fixed: true, fixedDay: 1 },
+  { id: 6, date: '2026-07-15', time: '21:00', title: '택시', category: '교통', payment: '카드', amount: -30000, memo: '택시', fixed: false },
+  { id: 7, date: '2026-07-14', time: '09:00', title: '넷플릭스', category: '구독', payment: '카드', amount: -17000, memo: '넷플릭스', fixed: true, fixedDay: 14 },
+  { id: 8, date: '2026-07-10', time: '10:00', title: '헬스장 이용권', category: '기타', payment: '카드', amount: -89000, memo: 'OO피트니스', fixed: true, fixedDay: 10 },
+  { id: 9, date: '2026-07-05', time: '09:00', title: '실비보험', category: '보험', payment: '자동이체', amount: -45000, memo: '삼성화재', fixed: true, fixedDay: 5 },
+  { id: 10, date: '2026-07-01', time: '09:00', title: '월세', category: '주거', payment: '자동이체', amount: -500000, memo: '한빛공인중개사', fixed: true, fixedDay: 1 },
+  { id: 11, date: '2026-06-20', time: '09:00', title: '유튜브 프리미엄', category: '구독', payment: '카드', amount: -14900, memo: '구글', fixed: true, fixedDay: 20 },
 ]
 
 export const simulationOptions = [

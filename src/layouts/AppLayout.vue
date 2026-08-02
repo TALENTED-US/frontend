@@ -26,12 +26,13 @@ import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
 }
 
 .app-shell__body {
+  position: relative;
   min-height: 100dvh;
   margin-left: var(--sidebar-width);
 }
 
 .app-shell__content {
-  padding: 10px clamp(30px, 4vw, 62px) 78px;
+  padding: 0 74px 78px 56px;
 }
 
 @media (max-width: 767px) {
@@ -41,7 +42,7 @@ import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
   }
 
   .app-shell__content {
-    padding: 16px 16px calc(var(--bottom-nav-height) + 26px);
+    padding: 10px 16px calc(var(--bottom-nav-height) + 26px);
   }
 }
 </style>

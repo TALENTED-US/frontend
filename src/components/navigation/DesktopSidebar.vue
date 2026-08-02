@@ -66,7 +66,7 @@ function isMenuActive(to) {
 }
 
 .sidebar__link.active {
-  background: var(--accent);
+  background: #eef0fb;
   color: var(--primary);
   font-weight: 800;
 }

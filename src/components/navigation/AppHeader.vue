@@ -28,6 +28,7 @@ const titles = {
 const title = computed(() => titles[route.name] || '버티')
 const isMyPageDetail = computed(() => route.path.startsWith('/mypage/'))
 const mobileTitle = computed(() => (isMyPageDetail.value ? '마이페이지' : title.value))
+const isFinanceMain = computed(() => route.name === 'finance')
 
 function toggle(name) {
   openPopover.value = openPopover.value === name ? '' : name
@@ -40,7 +41,7 @@ function goBackFromMyPageDetail() {
 </script>
 
 <template>
-  <header class="app-header">
+  <header :class="['app-header', { 'app-header--finance': isFinanceMain }]">
     <button
       v-if="isMyPageDetail"
       class="app-header__back mobile-only"
@@ -59,9 +60,7 @@ function goBackFromMyPageDetail() {
         aria-label="알림"
         @click="toggle('notification')"
       >
-        <AppIcon class="mobile-only" name="bell" :size="19" /><span class="desktop-only"
-          >알림 3</span
-        ><b class="mobile-only header-badge">3</b>
+        <AppIcon name="bell" :size="19" /><b class="header-badge">3</b>
       </button>
       <section v-if="openPopover === 'notification'" class="header-popover notification-popover">
         <header>
@@ -103,6 +102,12 @@ function goBackFromMyPageDetail() {
   background: rgb(251 252 255 / 94%);
   backdrop-filter: blur(10px);
 }
+.app-header--finance {
+  position: absolute;
+  inset: 0 0 auto;
+  background: transparent;
+  backdrop-filter: none;
+}
 .app-header__spacer {
   flex: 1;
 }
@@ -122,11 +127,25 @@ function goBackFromMyPageDetail() {
   align-items: center;
   gap: 7px;
   padding: 0 13px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 10px;
-  background: white;
+  background: transparent;
   color: var(--text);
   font-size: var(--font-small);
+}
+.header-badge {
+  position: absolute;
+  top: 4px;
+  right: 1px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ef5f78;
+  color: white;
+  font-size: 11px;
+  line-height: 1;
 }
 .header-chip.active {
   background: var(--primary-soft);
@@ -243,6 +262,12 @@ function goBackFromMyPageDetail() {
     padding: 10px 16px;
     border-bottom: 1px solid #e7e7e7;
   }
+  .app-header--finance {
+    position: sticky;
+    inset: auto;
+    background: rgb(251 252 255 / 94%);
+    backdrop-filter: blur(10px);
+  }
   .app-header__title {
     color: var(--primary);
     font-size: var(--font-body);
@@ -256,18 +281,11 @@ function goBackFromMyPageDetail() {
     color: #172035;
   }
   .header-badge {
-    position: absolute;
     top: 0;
     right: -1px;
-    display: grid;
     width: 20px;
     height: 20px;
-    place-items: center;
-    border-radius: 50%;
-    background: #ef5f78;
-    color: white;
     font-size: var(--font-caption);
-    line-height: 1;
   }
   .header-popover {
     position: fixed;
