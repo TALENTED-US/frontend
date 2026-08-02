@@ -58,15 +58,8 @@ const routes = [
     children: [
       { path: '', redirect: { name: 'adminDashboard' } },
       { path: 'dashboard', name: 'adminDashboard', component: () => import('@/features/admin/pages/AdminDashboardPage.vue') },
-      { path: 'finance-data', name: 'adminFinanceData', meta: { title: '금융데이터 관리 · 계좌' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/cards', name: 'adminFinanceDataCards', meta: { title: '금융데이터 관리 · 카드' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/transactions', name: 'adminFinanceDataTransactions', meta: { title: '금융데이터 관리 · 거래' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/accounts/new', name: 'adminFinanceAccountCreate', meta: { title: '계좌·카드 등록' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/transactions/new', name: 'adminFinanceTransactionCreate', meta: { title: '거래 등록' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/:id/edit', name: 'adminFinanceDataEdit', meta: { title: '금융데이터 수정' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/:id/delete', name: 'adminFinanceDataDelete', meta: { title: '금융데이터 삭제 확인' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/duplicates', name: 'adminFinanceDuplicates', meta: { title: '중복 거래 검수' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'finance-data/history', name: 'adminFinanceHistory', meta: { title: '등록·수정 이력' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'finance-data', name: 'adminFinanceData', component: () => import('@/features/admin/pages/AdminFinanceDataPage.vue') },
+      { path: 'finance-data/history', name: 'adminFinanceHistory', component: () => import('@/features/admin/pages/AdminFinanceHistoryPage.vue') },
       { path: 'policies', name: 'adminPolicies', meta: { title: '정부지원정책 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
       { path: 'policies/new', name: 'adminPolicyForm', meta: { title: '정부지원정책 등록·수정' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
       { path: 'policies/history', name: 'adminPolicyHistory', meta: { title: '정책 변경 이력·검수' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
@@ -134,6 +127,8 @@ router.afterEach((to) => {
     adminDashboard: '관리자 대시보드',
     adminMembers: '회원 관리',
     adminMemberDetail: '회원 상세 · 상태 변경',
+    adminFinanceData: '금융데이터 관리',
+    adminFinanceHistory: '등록·수정·삭제 이력',
   }
   document.title = `${titles[to.name] || to.meta.title || 'Buttie'} | Buttie`
 })
