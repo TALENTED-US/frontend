@@ -135,7 +135,7 @@ function openFilter() {
 .search-heading { margin-bottom: 42px; }
 .search-heading h1 { color: var(--primary); font-size: var(--font-page-title); line-height: 1.25; }
 .search-heading p { margin-top: 6px; color: #666; font-size: var(--font-body); }
-.search-input { display: flex; height: 56px; padding: 0 15px 0 21px; align-items: center; border-radius: 15px; background: #fff9df; }
+.search-input { display: flex; height: 56px; padding: 0 15px 0 21px; align-items: center; border: 1px solid var(--border); border-radius: 15px; background: #fff; box-shadow: var(--shadow-figma); }
 .search-input input { min-width: 0; flex: 1; font-size: var(--font-body); }
 .search-input button { display: grid; width: 52px; height: 34px; place-items: center; border-radius: 999px; background: var(--primary); color: white; }
 .quick-filters { display: flex; min-height: 54px; align-items: center; gap: 12px; }
@@ -170,7 +170,7 @@ function openFilter() {
   .search-heading { margin: 8px 0 20px; }
   .search-heading h1 { color: #222; font-size: var(--font-page-title); }
   .search-heading p { margin-top: 7px; font-size: var(--font-body); }
-  .search-input { height: 58px; padding-left: 18px; border-radius: 18px; background: #f4f6fb; }
+  .search-input { height: 58px; padding-left: 18px; border-radius: 18px; background: #fff; }
   .search-input input { font-size: var(--font-body); }
   .search-input button { width: 46px; height: 42px; }
   .quick-filters { display: grid; grid-template-columns: 1fr; gap: 9px; padding: 13px 0 8px; }
