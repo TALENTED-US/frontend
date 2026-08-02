@@ -5,6 +5,7 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import { clearTransactions } from '@/features/finance/financeStore'
 import { useSessionStore } from '@/stores/session'
 import profileImage from '@/assets/images/mypage/buttie-profile.png'
+import { enableDeviceNotifications } from '@/features/notification/notificationService'
 
 const route = useRoute()
 const router = useRouter()
@@ -197,14 +198,16 @@ function verifyContact(type) {
   profileMessage.value = `${type === 'phone' ? '휴대폰 번호' : '이메일'} 인증이 완료됐어요. (목 인증)`
 }
 
-function setAllNotifications(value) {
+async function setAllNotifications(value) {
   Object.keys(notificationSettings).forEach((key) => {
     notificationSettings[key] = value
   })
+  if (value) await enableDeviceNotifications()
 }
 
-function syncAllNotifications() {
+async function syncAllNotifications(changedKey) {
   notificationSettings.all = notificationRows.every(([key]) => notificationSettings[key])
+  if (notificationSettings[changedKey]) await enableDeviceNotifications()
 }
 
 function disconnectAccount(account) {
@@ -237,7 +240,15 @@ function clearMockData() {
     </button>
     <h1 class="desktop-only">{{ info[0] }}</h1>
     <p class="desktop-only detail-description">{{ info[1] }}</p>
-    <h1 class="mobile-only mobile-section-title">{{ info[0] }}</h1>
+    <h1
+      class="mobile-only mobile-section-title"
+      :class="{
+        'mobile-section-title--flat':
+          route.name === 'notificationSettings' || route.name === 'dataManagement',
+      }"
+    >
+      {{ info[0] }}
+    </h1>
 
     <template v-if="route.name === 'myInfo'">
       <div class="identity-row">
@@ -362,7 +373,7 @@ function clearMockData() {
           <input
             v-model="notificationSettings[row[0]]"
             type="checkbox"
-            @change="syncAllNotifications"
+            @change="syncAllNotifications(row[0])"
           />
         </label>
       </article>
@@ -505,6 +516,11 @@ function clearMockData() {
   background: #fff;
   box-shadow: 0 2px 4px rgb(15 23 42 / 12%);
   font-size: var(--font-body);
+}
+
+.mobile-section-title--flat {
+  box-shadow: none !important;
+  font-size: var(--font-small);
 }
 
 .identity-row {

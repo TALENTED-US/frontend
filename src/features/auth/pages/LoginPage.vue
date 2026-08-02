@@ -9,7 +9,6 @@ const router = useRouter()
 const session = useSessionStore()
 const email = ref('')
 const password = ref('')
-const keepLogin = ref(false)
 const showPassword = ref(false)
 const error = ref('')
 
@@ -74,7 +73,6 @@ function clearError() {
               /><button type="button" @click="showPassword = !showPassword"
                 ><AppIcon name="eye" :size="18" /></button></i
           ></label>
-          <label class="keep-login mobile-only"><input v-model="keepLogin" type="checkbox" /> 로그인 유지</label>
           <p v-if="error" class="login-error" role="alert">{{ error }}</p>
           <button class="login-submit" type="submit">로그인</button>
         </form>
@@ -87,26 +85,26 @@ function clearError() {
 </template>
 
 <style scoped>
-.login-page { display: grid; grid-template-columns: 35% 65%; width: min(100%, 1440px); min-height: 100dvh; margin: 0 auto; background: #fbfcff; }
-.login-visual { position: relative; padding: 38px 42px; background: #edf2ff; }
+.login-page { display: grid; grid-template-columns: 35% 65%; width: min(100%, 1440px); min-height: 100dvh; margin: 0 auto; background: #fff; }
+.login-visual { position: relative; padding: 38px 42px; border-right: 1px solid #eceef3; background: #fff; }
 .login-visual > div { position: absolute; top: 23%; right: 58px; left: 58px; }
-.login-visual small { color: var(--primary); font-size: var(--font-body); font-weight: 800; }
+.login-visual small { color: #222; font-size: var(--font-body); font-weight: 800; }
 .login-visual h2 { max-width: 380px; margin-top: 18px; font-size: clamp(32px, 2.45vw, 39px); line-height: 1.12; letter-spacing: -0.035em; }
 .login-visual p { max-width: 390px; margin-top: 24px; color: #586174; font-size: var(--font-body); line-height: 1.75; }
-.login-main { position: relative; display: grid; place-items: start center; padding-top: 13.5vh; }
+.login-main { position: relative; display: grid; place-items: start center; padding-top: 13.5vh; background: var(--background); }
 .login-card { width: min(100% - 48px, 506px); }
 .login-card > div:first-child small { color: #e9a818; font-size: var(--font-caption); font-weight: 700; }
-.login-card h1 { margin-top: 10px; color: var(--primary); font-size: var(--font-page-title); line-height: 1.3; }
+.login-card h1 { margin-top: 10px; color: #171717; font-size: var(--font-page-title); line-height: 1.3; }
 .login-card > div:first-child p { margin-top: 5px; color: #777; font-size: var(--font-small); }
 .login-card form { display: grid; gap: 17px; margin-top: 39px; }
-.login-card label { display: grid; gap: 8px; color: var(--primary); font-size: var(--font-small); font-weight: 700; }
+.login-card label { display: grid; gap: 8px; color: #171717; font-size: var(--font-small); font-weight: 700; }
 .login-card label > input,
-.login-card label i { height: 52px; border: 1px solid var(--border); border-radius: 10px; background: white; }
+.login-card label i { height: 52px; border: 1px solid var(--border); border-radius: 10px; background: #fff; box-shadow: var(--shadow-figma); }
 .login-card label > input { padding: 0 17px; }
 .login-card label i { display: flex; align-items: center; overflow: hidden; font-style: normal; }
 .login-card label i input { min-width: 0; flex: 1; height: 100%; padding: 0 17px; }
 .login-card label i button { padding: 12px; color: #777; }
-.login-submit { height: 50px; border-radius: 10px; background: var(--accent); color: #1c1c1c; font-size: var(--font-small); font-weight: 800; }
+.login-submit { height: 50px; border-radius: 10px; background: var(--accent); color: #1c1c1c; box-shadow: var(--shadow-figma); font-size: var(--font-small); font-weight: 800; }
 .login-error { color: var(--danger); font-size: var(--font-caption); }
 .recovery { display: flex; justify-content: center; gap: 22px; margin-top: 11px; color: var(--primary); font-size: var(--font-small); }
 .recovery span { color: #777; }
@@ -114,8 +112,8 @@ function clearError() {
 .signup-link a { color: var(--primary); font-weight: 800; }
 
 @media (max-width: 767px) {
-  .login-page { display: block; width: min(100%, 393px); min-height: 100dvh; margin: 0 auto; padding: 14px 16px; }
-  .login-main { display: block; padding: 0; }
+  .login-page { display: block; width: min(100%, 393px); min-height: 100dvh; margin: 0 auto; padding: 14px 16px; background: #fff; }
+  .login-main { display: block; padding: 0; background: #fff; }
   .mobile-brand { margin-top: 2px; }
   .login-card { width: 100%; margin-top: 125px; padding: 0 28px; }
   .login-card h1 { margin: 0; font-size: var(--font-section-title); }
@@ -123,9 +121,7 @@ function clearError() {
   .login-card form { gap: 10px; margin-top: 20px; }
   .login-card label { gap: 5px; }
   .login-card label > input,
-  .login-card label i { min-height: 50px; height: auto; border: 0; border-radius: 999px; background: #fff9df; }
-  .keep-login { display: flex !important; grid-template-columns: 15px 1fr; align-items: center; gap: 7px !important; color: #333 !important; }
-  .keep-login input { width: 15px !important; height: 15px !important; padding: 0 !important; border: 1px solid #ccc !important; border-radius: 3px !important; background: white !important; }
+  .login-card label i { min-height: 50px; height: auto; border: 1px solid var(--border); border-radius: 999px; background: #fff; }
   .login-submit { min-height: 48px; height: auto; margin-top: 5px; border-radius: 999px; }
   .recovery { margin-top: 9px; color: #555; }
   .signup-link { margin-top: 28px; }

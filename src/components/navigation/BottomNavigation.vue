@@ -65,6 +65,10 @@ function isMenuActive(to) {
 }
 
 .bottom-nav__link.active {
+  margin: 4px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
   color: var(--primary);
   font-weight: 800;
 }

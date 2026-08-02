@@ -1,16 +1,28 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { notifyLatestOncePerDay } from '@/features/notification/notificationService'
+import {
+  markNotificationRead,
+  notificationItems,
+  unreadNotificationCount,
+} from '@/features/notification/notificationStore'
 
 const route = useRoute()
 const router = useRouter()
 const openPopover = ref('')
+const popoverAnchor = ref(null)
+const popoverItems = computed(() => notificationItems.value.filter((item) => !item.read).slice(0, 3))
 const titles = {
   dashboard: '홈',
   finance: '내 재정',
   simulation: '시뮬레이션',
   simulationCategory: '시뮬레이션',
+  simulationNew: '예상 재정 계획 만들기',
+  simulationContinue: '시뮬레이션',
+  simulationPreview: '예상 재정 계획 만들기',
+  simulationConfirm: '시나리오 확정하기',
   timeline: '내 재정',
   search: '검색',
   searchFilter: '정책 상세 필터',
@@ -38,6 +50,24 @@ function goBackFromMyPageDetail() {
   const securityRoutes = ['passwordVerification', 'passwordChange']
   router.push(securityRoutes.includes(route.name) ? '/mypage/security' : '/mypage')
 }
+
+function openNotification(item) {
+  markNotificationRead(item.id)
+  openPopover.value = ''
+}
+
+function closePopoverOnOutsideClick(event) {
+  if (openPopover.value && !popoverAnchor.value?.contains(event.target)) {
+    openPopover.value = ''
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', closePopoverOnOutsideClick)
+  notifyLatestOncePerDay()
+})
+onBeforeUnmount(() => document.removeEventListener('pointerdown', closePopoverOnOutsideClick))
+watch(() => route.fullPath, () => { openPopover.value = '' })
 </script>
 
 <template>
@@ -53,37 +83,34 @@ function goBackFromMyPageDetail() {
     </button>
     <strong class="app-header__title mobile-only">{{ mobileTitle }}</strong>
     <div class="app-header__spacer" />
-    <div class="popover-anchor">
+    <div ref="popoverAnchor" class="popover-anchor">
       <button
         :class="['header-chip', { active: openPopover === 'notification' }]"
         type="button"
         aria-label="알림"
         @click="toggle('notification')"
       >
-        <AppIcon name="bell" :size="19" /><b class="header-badge">3</b>
+        <AppIcon name="bell" :size="19" /><b v-if="unreadNotificationCount" class="header-badge">{{ unreadNotificationCount }}</b>
       </button>
       <section v-if="openPopover === 'notification'" class="header-popover notification-popover">
         <header>
-          <h2>새 알림 3</h2>
+          <h2>새 알림 {{ unreadNotificationCount }}</h2>
           <RouterLink to="/notifications" @click="openPopover = ''">알림함 들어가기</RouterLink>
         </header>
         <RouterLink
-          v-for="item in [
-            ['목표 재설정 경고', '목표 취업일을 다시 확인해 주세요.', '방금'],
-            ['청년 월세 지원 마감', '신청 마감일이 7일 남았어요.', '오늘'],
-            ['생존기간 변동 안내', '이번 달 지출을 반영해 준비 기간을 계산했어요.', '어제'],
-          ]"
-          :key="item[0]"
+          v-for="item in popoverItems"
+          :key="item.id"
           to="/notifications"
-          @click="openPopover = ''"
+          @click="openNotification(item)"
         >
           <i>•</i>
           <div>
-            <strong>{{ item[0] }}</strong
-            ><small>{{ item[1] }}</small>
+            <strong>{{ item.title }}</strong
+            ><small>{{ item.message }}</small>
           </div>
-          <time>{{ item[2] }}</time>
+          <time>{{ item.time }}</time>
         </RouterLink>
+        <p v-if="popoverItems.length === 0" class="notification-popover__empty">새 알림이 없어요.</p>
       </section>
     </div>
   </header>
@@ -254,6 +281,12 @@ function goBackFromMyPageDetail() {
   color: #777;
   text-align: right;
   font-size: var(--font-caption);
+}
+.notification-popover__empty {
+  padding: 36px 0 22px;
+  color: var(--muted);
+  text-align: center;
+  font-size: var(--font-small);
 }
 
 @media (max-width: 767px) {

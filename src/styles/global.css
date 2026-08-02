@@ -83,7 +83,61 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: none;
+  box-shadow: var(--shadow-figma);
+}
+
+/* Figma의 공통 바깥쪽 그림자: X 0, Y 1, blur 5, black 25% */
+#app :where(
+  .card,
+  .summary article,
+  .tabs,
+  .summary-card,
+  .simulation-cta,
+  .goal-card,
+  .profile-card,
+  .settings-card,
+  .form-card,
+  .form-card input,
+  .job-card input,
+  .job-card select,
+  .withdraw-password input,
+  .primary-action,
+  .info-logout,
+  .info-withdraw,
+  .toggle-card,
+  .security-card,
+  .devices-card,
+  .accounts-card,
+  .job-card,
+  .result-card,
+  .flow-card,
+  .accordion,
+  .consent-list,
+  .bank-list,
+  .asset-section,
+  .completion-summary,
+  .fixed-summary,
+  .fixed-page .search,
+  .fixed-page .suggest,
+  .fixed-page .total,
+  .fixed-page .expense-list,
+  .sheet,
+  .sim-hero,
+  .sim-hero__result,
+  .sim-card,
+  .sim-empty,
+  .choice-card,
+  .preview-summary,
+  .preview-panels article,
+  .confirm-group,
+  .expense-overview,
+  .impact-card,
+  .income-form,
+  .qualification-grid article,
+  .policy-list article,
+  .policy-summary
+) {
+  box-shadow: var(--shadow-figma) !important;
 }
 
 .section-title {

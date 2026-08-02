@@ -67,6 +67,7 @@ function isMenuActive(to) {
 
 .sidebar__link.active {
   background: #eef0fb;
+  box-shadow: var(--shadow-figma);
   color: var(--primary);
   font-weight: 800;
 }

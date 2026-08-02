@@ -115,6 +115,17 @@ const grouped = computed(() => {
     ([a], [b]) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b),
   );
 });
+function categoryClass(category) {
+  return (
+    {
+      보험: "category-insurance",
+      구독: "category-subscription",
+      월세: "category-rent",
+      교통: "category-transport",
+      기타: "category-other",
+    }[category] || "category-other"
+  );
+}
 function toggle(id) {
   selected.value = selected.value.includes(id)
     ? selected.value.filter((x) => x !== id)
@@ -224,7 +235,7 @@ function registerSuggestion() {
         {{ mode === "delete" ? "삭제할 고정지출이 없어요." : "표시할 거래가 없어요." }}
       </p>
       <template v-for="[category, rows] in grouped" :key="category">
-        <h2>
+        <h2 :class="categoryClass(category)">
           <span>●</span>{{ category
           }}<b
             >{{
@@ -237,15 +248,18 @@ function registerSuggestion() {
         <button
           v-for="row in rows"
           :key="row.id"
-          :class="{ chosen: selected.includes(row.id) }"
+          :class="[categoryClass(category), { chosen: selected.includes(row.id) }]"
           @click="mode !== 'detail' && toggle(row.id)"
         >
           <i>{{ row.title.slice(0, 1) }}</i
           ><span
             ><strong>{{ row.title }}</strong
             ><small
-              >{{ row.date.slice(5).replace('-', '월 ') }}일 · {{ row.detail
-              }}<template v-if="row.occurrenceCount">
+              ><template v-if="mode === 'detail'"
+                >매월 {{ Number(row.date.slice(8, 10)) }}일 · {{ row.detail }}</template
+              ><template v-else
+                >{{ row.date.slice(5).replace('-', '월 ') }}일 · {{ row.detail }}</template
+              ><template v-if="row.occurrenceCount">
                 · {{ row.occurrenceCount }}회 반복</template
               ></small
             ></span
@@ -561,11 +575,11 @@ footer button:disabled {
 }
 @media (max-width: 767px) {
   .fixed-page {
-    padding: 0 2px 18px;
+    padding: 0 10px;
   }
   .fixed-page > header {
-    margin: 0 -2px 16px;
-    padding: 0 2px 12px;
+    margin: 0 -10px 14px;
+    padding: 0 10px 10px;
     border-bottom: 1px solid #e5e8ee;
   }
   .fixed-page h1 {
@@ -591,7 +605,7 @@ footer button:disabled {
   .suggest {
     display: block;
     padding: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
   .suggest > * {
     display: block;
@@ -610,16 +624,25 @@ footer button:disabled {
   }
   .expense-list {
     border: 0;
-    padding: 0;
-    box-shadow: none;
+    padding: 0 2px;
+    box-shadow: none !important;
   }
   .expense-list h2 {
     font-size: 13px;
-    margin-top: 18px;
+    line-height: 20px;
+    margin: 28px 0 9px;
+  }
+  .expense-list h2:first-child {
+    margin-top: 0;
   }
   .expense-list > button {
-    padding: 11px 10px;
-    border-radius: 13px;
+    min-height: 78px;
+    margin-bottom: 10px;
+    padding: 16px 22px;
+    border-radius: 14px;
+  }
+  .expense-list > button:last-child {
+    margin-bottom: 0;
   }
   .expense-list button strong,
   .expense-list button > b {
@@ -629,18 +652,50 @@ footer button:disabled {
     font-size: 10px;
   }
   .actions {
-    margin: 18px -2px 0;
-    padding: 10px 2px;
-    background: #fff;
+    gap: 10px;
+    margin: 12px 2px 0;
+    padding: 2px 0 0;
+    background: transparent;
+  }
+  .fixed-page--detail .expense-list {
+    margin-top: 0;
+  }
+  .expense-list h2.category-subscription span {
+    color: #222;
+  }
+  .expense-list h2.category-rent span {
+    color: #f4cf63;
+  }
+  .expense-list h2.category-transport span {
+    color: #f49a9a;
+  }
+  .expense-list h2.category-other span {
+    color: #94a3b8;
+  }
+  .expense-list > button.category-subscription i {
+    background: #eef0f7;
+    color: #343a46;
+  }
+  .expense-list > button.category-rent i {
+    background: #fff4d5;
+    color: #e7ad21;
+  }
+  .expense-list > button.category-transport i {
+    background: #fff0f0;
+    color: #ef5350;
+  }
+  .expense-list > button.category-other i {
+    background: #eef1f5;
+    color: #8290a5;
   }
   .actions button {
     padding: 15px 7px;
     font-size: 12px;
   }
   footer {
-    margin: 18px -2px 0;
-    padding: 12px 2px;
-    background: #fff;
+    margin: 10px 0 0;
+    padding: 8px 0;
+    background: transparent;
     font-size: 12px;
   }
   footer button {

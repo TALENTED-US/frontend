@@ -1,14 +1,18 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { notifications as initialNotifications } from '@/data/mockData'
+import {
+  markAllNotificationsRead,
+  markNotificationRead,
+  notificationItems,
+  unreadNotificationCount,
+} from '@/features/notification/notificationStore'
 
-const items = ref(initialNotifications.map((item) => ({ ...item })))
 const unreadOnly = ref(false)
-const visible = computed(() => (unreadOnly.value ? items.value.filter((item) => !item.read) : items.value))
-
-function readAll() {
-  items.value.forEach((item) => (item.read = true))
-}
+const visible = computed(() =>
+  unreadOnly.value
+    ? notificationItems.value.filter((item) => !item.read)
+    : notificationItems.value,
+)
 </script>
 
 <template>
@@ -18,13 +22,20 @@ function readAll() {
         <h1 class="page-title">알림함</h1>
         <p class="page-description">중요한 알림을 한 곳에서 확인하세요.</p>
       </div>
-      <button class="btn btn-outline" type="button" @click="readAll">모두 읽음</button>
+      <button
+        class="btn btn-outline"
+        type="button"
+        :disabled="unreadNotificationCount === 0"
+        @click="markAllNotificationsRead"
+      >모두 읽음</button>
     </header>
 
-    <div class="notification-tools card">
-      <button :class="{ active: !unreadOnly }" @click="unreadOnly = false">전체</button>
-      <button :class="{ active: unreadOnly }" @click="unreadOnly = true">읽지 않음</button>
-      <span>{{ items.filter((item) => !item.read).length }}개의 새 알림</span>
+    <div class="notification-tools">
+      <div class="notification-filter" role="group" aria-label="알림 표시 범위">
+        <button :class="{ active: !unreadOnly }" :aria-pressed="!unreadOnly" @click="unreadOnly = false">전체</button>
+        <button :class="{ active: unreadOnly }" :aria-pressed="unreadOnly" @click="unreadOnly = true">읽지 않음</button>
+      </div>
+      <span>{{ unreadNotificationCount }}개의 새 알림</span>
     </div>
 
     <div class="notification-layout">
@@ -33,7 +44,7 @@ function readAll() {
           v-for="item in visible"
           :key="item.id"
           :class="['notification-item', 'card', { unread: !item.read }]"
-          @click="item.read = true"
+          @click="markNotificationRead(item.id)"
         >
           <span class="notification-dot" />
           <div><small>알림</small><h2>{{ item.title }}</h2><p>{{ item.message }}</p></div>
@@ -54,24 +65,39 @@ function readAll() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  justify-content: space-between;
+  padding: 0;
 }
 
-.notification-tools button {
-  min-width: 100px;
-  min-height: 36px;
+.notification-filter {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  min-width: 230px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f3f5f8;
+}
+
+.notification-filter button {
+  min-width: 108px;
+  min-height: 38px;
   border-radius: 999px;
   color: var(--muted);
   font-size: var(--font-small);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
-.notification-tools button.active {
+.notification-filter button.active {
   background: var(--primary);
   color: white;
+  box-shadow: 0 2px 7px rgb(10 22 128 / 20%);
 }
 
 .notification-tools span {
-  margin-left: auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--primary-soft);
   color: var(--muted);
   font-size: var(--font-small);
 }
@@ -154,6 +180,27 @@ function readAll() {
 }
 
 @media (max-width: 800px) {
+  .notification-tools {
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .notification-filter {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .notification-filter button {
+    min-width: 0;
+  }
+
+  .notification-tools span {
+    display: grid;
+    flex: none;
+    place-items: center;
+    padding: 5px 10px;
+  }
+
   .notification-layout {
     grid-template-columns: 1fr;
   }

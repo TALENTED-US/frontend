@@ -325,6 +325,7 @@ function resetPassword() {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+  box-shadow: var(--shadow-figma);
   color: var(--text);
   font-size: var(--font-small);
   font-weight: 400;

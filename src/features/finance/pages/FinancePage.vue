@@ -7,8 +7,11 @@ import {
   financeTransactions,
   updateTransaction,
 } from '@/features/finance/financeStore'
+import SimulationTimelineChart from '@/features/simulation/components/SimulationTimelineChart.vue'
+import { useSimulationStore } from '@/features/simulation/stores/simulation'
 
 const router = useRouter()
+const simulation = useSimulationStore()
 const formatLocalIso = (date = new Date()) =>
   [
     date.getFullYear(),
@@ -39,6 +42,23 @@ const form = reactive({
 })
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(value))
 const signed = (value) => `${value >= 0 ? '+' : '-'}${money(value)}원`
+const compactCalendarAmount = (value) => {
+  const amount = Math.abs(Number(value) || 0)
+  if (amount < 10000) return String(amount)
+
+  const tenThousands = amount / 10000
+  const compact = Number.isInteger(tenThousands)
+    ? tenThousands
+    : Number(tenThousands.toFixed(1))
+  return `${compact}만`
+}
+const compactWon = (value) => {
+  const tenThousands = Math.abs(Number(value) || 0) / 10000
+  const compact = Number.isInteger(tenThousands)
+    ? tenThousands
+    : Number(tenThousands.toFixed(1))
+  return `${compact}만원`
+}
 const formattedAmount = computed({
   get: () => (form.amount ? money(Number(form.amount)) : ''),
   set: (value) => {
@@ -171,10 +191,10 @@ const days = computed(() => {
     const date = raw < 1 ? '' : raw
     const current = raw >= 1
     const iso = current ? `${month.value}-${String(date).padStart(2, '0')}` : ''
-    const total = current
-      ? filteredMonthRows.value.filter((r) => r.date === iso).reduce((s, r) => s + r.amount, 0)
-      : 0
-    return { date, current, iso, total }
+    const rows = current ? filteredMonthRows.value.filter((r) => r.date === iso) : []
+    const incomeTotal = rows.filter((r) => r.amount > 0).reduce((sum, row) => sum + row.amount, 0)
+    const expenseTotal = rows.filter((r) => r.amount < 0).reduce((sum, row) => sum + Math.abs(row.amount), 0)
+    return { date, current, iso, incomeTotal, expenseTotal }
   })
 })
 
@@ -330,10 +350,11 @@ function groupLabel(date) {
           :class="{ muted: !day.current, selected: selectedDate === day.iso }"
           @click="openDate(day.iso)"
         >
-          <span>{{ day.date }}</span
-          ><small v-if="day.total" :class="{ plus: day.total > 0 }"
-            >{{ day.total > 0 ? '+' : '-' }}{{ Math.round(Math.abs(day.total) / 10000) }}만</small
-          >
+          <span>{{ day.date }}</span>
+          <div class="calendar-amounts">
+            <small v-if="day.incomeTotal" class="plus">{{ compactCalendarAmount(day.incomeTotal) }}</small>
+            <small v-if="day.expenseTotal" class="minus">{{ compactCalendarAmount(day.expenseTotal) }}</small>
+          </div>
         </button>
       </div>
       <div class="legend"><span>● 입금</span><span>● 지출</span></div>
@@ -404,7 +425,7 @@ function groupLabel(date) {
       <section class="card category">
         <h2>카테고리별 지출</h2>
         <div class="category-body">
-          <div class="donut" :style="{ background: donutGradient }"></div>
+          <div class="finance-category-donut" :style="{ background: donutGradient }"></div>
           <ul>
             <li
               v-for="item in categoryChartRows.slice(0, 7)"
@@ -423,7 +444,7 @@ function groupLabel(date) {
       </section>
       <section class="card fixed">
         <h2>고정지출</h2>
-        <strong>{{ (fixedTotal / 10000).toFixed(1) }}만원</strong>
+        <strong>{{ compactWon(fixedTotal) }}</strong>
         <p>고정지출 내역을 한 눈에 볼 수 있어요.</p>
         <p>여기를 눌러서 고정지출을 추가해보세요.</p>
         <hr />
@@ -433,108 +454,20 @@ function groupLabel(date) {
 
     <section class="card timeline">
       <h2>월별 재정 타임라인</h2>
-      <div class="timeline-legend">
-        <span class="legend-now">● 현재 기준</span>
-        <span class="legend-plan">● 시나리오 적용</span>
-        <span class="legend-goal">● 목표 취업 시기</span>
-      </div>
-      <svg
-        class="timeline-chart timeline-chart--desktop"
-        viewBox="0 0 1066 224"
-        role="img"
-        aria-label="월별 재정 변화 그래프"
-      >
-        <g class="grid">
-          <line x1="60" y1="18" x2="1040" y2="18" />
-          <line x1="60" y1="60.5" x2="1040" y2="60.5" />
-          <line x1="60" y1="103" x2="1040" y2="103" />
-          <line x1="60" y1="145.5" x2="1040" y2="145.5" />
-          <line x1="60" y1="188" x2="1040" y2="188" />
-        </g>
-        <g class="axis-y">
-          <text x="52" y="22">300만</text>
-          <text x="52" y="64">225만</text>
-          <text x="52" y="107">150만</text>
-          <text x="52" y="150">75만</text>
-          <text x="52" y="192">0</text>
-        </g>
-        <line class="risk" x1="60" y1="160" x2="1040" y2="160" />
-        <text class="risk-label" x="1038" y="153">위험 잔액 50만</text>
-        <line class="goal-line" x1="632" y1="18" x2="632" y2="188" />
-        <polyline points="60,18 222,78 387,188 550,188 1040,188" class="now" />
-        <polyline points="60,18 223,58 387,102 550,146 713,188 1040,188" class="plan" />
-        <g class="axis-x">
-          <text x="60" y="211">7월</text>
-          <text x="223" y="211">9월</text>
-          <text x="387" y="211">11월</text>
-          <text x="550" y="211">1월</text>
-          <text x="713" y="211">3월</text>
-          <text x="877" y="211">5월</text>
-          <text x="1030" y="211">7월</text>
-        </g>
-        <g class="timeline-label label-now">
-          <rect x="150" y="91" width="122" height="24" rx="12" />
-          <text x="211" y="107">현재 3.8개월</text>
-        </g>
-        <g class="timeline-label label-plan">
-          <rect x="260" y="68" width="140" height="24" rx="12" />
-          <text x="330" y="84">시나리오 6.3개월</text>
-        </g>
-      </svg>
-      <svg
-        class="timeline-chart timeline-chart--mobile"
-        viewBox="0 0 360 205"
-        role="img"
-        aria-label="모바일 월별 재정 변화 그래프"
-      >
-        <g class="grid">
-          <line x1="38" y1="18" x2="334" y2="18" />
-          <line x1="38" y1="54" x2="334" y2="54" />
-          <line x1="38" y1="90" x2="334" y2="90" />
-          <line x1="38" y1="126" x2="334" y2="126" />
-          <line x1="38" y1="162" x2="334" y2="162" />
-        </g>
-        <g class="axis-y">
-          <text x="31" y="22">300만</text>
-          <text x="31" y="58">225만</text>
-          <text x="31" y="94">150만</text>
-          <text x="31" y="130">75만</text>
-          <text x="31" y="166">0</text>
-        </g>
-        <polygon
-          class="mobile-plan-area"
-          points="38,18 100,56 164,82 228,122 291,162 334,162 38,162"
-        />
-        <line class="risk" x1="38" y1="138" x2="334" y2="138" />
-        <text class="mobile-risk-amount" x="342" y="142">50만</text>
-        <line class="goal-line" x1="210" y1="18" x2="210" y2="162" />
-        <polyline class="mobile-now" points="38,18 100,88 146,162" />
-        <polyline class="mobile-plan" points="38,18 100,56 164,82 228,122 291,162" />
-        <circle class="mobile-now-point" cx="146" cy="162" r="4.5" />
-        <circle class="mobile-plan-point" cx="291" cy="162" r="4.5" />
-        <g class="axis-x">
-          <text x="38" y="180">7월</text>
-          <text x="87" y="180">9월</text>
-          <text x="137" y="180">11월</text>
-          <text x="186" y="180">1월</text>
-          <text x="235" y="180">3월</text>
-          <text x="284" y="180">5월</text>
-          <text x="334" y="180">7월</text>
-        </g>
-        <g class="timeline-label label-now">
-          <rect x="47" y="114" width="96" height="20" rx="10" />
-          <text x="95" y="128">현재 3.8개월</text>
-        </g>
-        <g class="timeline-label label-plan">
-          <rect x="91" y="60" width="118" height="20" rx="10" />
-          <text x="150" y="74">시나리오 6.3개월</text>
-        </g>
-        <g class="mobile-risk-key">
-          <line x1="277" y1="197" x2="302" y2="197" />
-          <text x="307" y="201">위험 잔액</text>
-        </g>
-      </svg>
-      <p class="timeline-note">300만원 기준 · 월 고정수입 45만원 적용 시 3.8 → 6.3개월</p>
+      <SimulationTimelineChart
+        :assets="simulation.availableAssets"
+        :monthly-expense="simulation.monthlyExpense"
+        :monthly-income="simulation.monthlyIncome"
+        :target-months="simulation.targetMonths"
+        :current-months="simulation.currentMonths"
+        :expected-months="simulation.expectedMonths"
+        :unknown="!simulation.state.confirmed"
+      />
+      <p class="timeline-note">
+        직전 3개월 월평균 기준 · 현재 {{ simulation.currentMonths }}개월
+        <template v-if="simulation.state.confirmed"> → 시나리오 {{ simulation.expectedMonths }}개월</template>
+        <template v-else> · 시나리오 미설정</template>
+      </p>
     </section>
 
     <div v-if="panel" class="overlay" @click.self="panel = ''">
@@ -1023,14 +956,28 @@ button {
   position: relative;
   overflow: hidden;
 }
-.donut {
+.finance-category-donut {
   width: 92px;
-  aspect-ratio: 1;
+  height: 92px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   position: relative;
   flex: none;
+  overflow: hidden;
 }
-.donut:after {
+.calendar-amounts {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  line-height: 1.2;
+}
+.calendar-amounts .plus {
+  color: #0a1680 !important;
+}
+.calendar-amounts .minus {
+  color: #f0574f;
+}
+.finance-category-donut:after {
   content: '';
   position: absolute;
   inset: 21px;
@@ -1119,11 +1066,24 @@ button {
 }
 .timeline {
   position: relative;
-  height: 298px;
+  min-height: 298px;
+  height: auto;
   margin-top: 26px;
-  padding: 15px 26px 0;
-  overflow: hidden;
+  padding: 15px 26px 30px;
+  overflow: visible;
   box-sizing: border-box;
+}
+.timeline :deep(.timeline-chart) {
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+}
+.timeline :deep(.timeline-chart__plot) {
+  height: 220px;
+}
+.timeline :deep(.timeline-chart__plot svg) {
+  width: 100%;
+  height: 220px !important;
 }
 .timeline h2 {
   font-size: 16px;
@@ -1577,10 +1537,11 @@ button {
   .category-body {
     gap: 18px;
   }
-  .donut {
+  .finance-category-donut {
     width: 92px;
+    height: 92px;
   }
-  .donut:after {
+  .finance-category-donut:after {
     inset: 22px;
   }
   .category li {
@@ -1606,9 +1567,10 @@ button {
     font-weight: 700 !important;
   }
   .timeline {
-    height: 260px;
+    min-height: 260px;
+    height: auto;
     margin-top: 12px;
-    padding: 15px 14px 10px;
+    padding: 15px 14px 22px;
   }
   .timeline h2 {
     font-size: 16px;
@@ -1641,7 +1603,14 @@ button {
     font-size: 10px;
   }
   .timeline-note {
-    display: none;
+    position: static;
+    display: block;
+    margin-top: 8px;
+    font-size: 9px;
+  }
+  .timeline :deep(.timeline-chart__plot),
+  .timeline :deep(.timeline-chart__plot svg) {
+    height: 175px !important;
   }
   .sheet {
     top: auto;

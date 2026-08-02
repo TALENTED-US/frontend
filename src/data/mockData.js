@@ -325,7 +325,7 @@ export const notifications = [
   },
   {
     id: 3,
-    title: '생존기간 변동 안내',
+    title: '버티는 기간 변동 안내',
     message: '이번 달 지출을 반영해 준비 기간을 다시 계산했어요.',
     time: '어제',
     read: false,

@@ -619,6 +619,7 @@ function completeSignup() {
   border: 1px solid #dce2ee;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--shadow-figma);
   color: var(--color-text-body, #222222);
   font: inherit;
   outline: none;
@@ -672,6 +673,7 @@ function completeSignup() {
   border: 0;
   border-radius: 14px;
   background: var(--color-accent, #fbedb0);
+  box-shadow: var(--shadow-figma);
   color: var(--color-text-body, #222222);
   cursor: pointer;
   font-size: var(--font-card-title);

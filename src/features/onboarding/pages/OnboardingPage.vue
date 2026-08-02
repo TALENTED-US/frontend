@@ -41,7 +41,6 @@ const form = ref({
   targetDate: '2027-01-01',
   region: '서울특별시',
   household: 1,
-  housing: '전세',
 })
 
 const banks = [
@@ -295,15 +294,6 @@ function next() {
             <small>본인을 포함한 세대원 수를 입력해주세요</small>
           </label>
 
-          <label class="field-group housing-field">
-            <span class="field-label"><AppIcon name="house" :size="16" /> 주거 형태</span>
-            <select v-model="form.housing" class="control">
-              <option>전세</option>
-              <option>월세</option>
-              <option>자가</option>
-            </select>
-            <small>재정 분석에 활용돼요</small>
-          </label>
         </div>
 
         <button class="primary-cta" type="button" @click="next">다음: 금융 정보 연결</button>
@@ -694,7 +684,8 @@ function next() {
   border: 1px solid #e4ddc5;
   border-radius: 10px;
   outline: none;
-  background: #fff9e5;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
   color: #222;
   font: inherit;
   font-size: var(--font-body);
@@ -724,10 +715,6 @@ select.control {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
-}
-
-.housing-field {
-  display: grid;
 }
 
 .primary-cta {
@@ -1448,7 +1435,7 @@ input[type='checkbox'] {
     border-color: #e1e3e8;
     border-radius: 24px;
     background: white;
-    box-shadow: 0 2px 5px rgb(0 0 0 / 16%);
+    box-shadow: var(--shadow-figma);
   }
 
   .date-row {
@@ -1458,15 +1445,6 @@ input[type='checkbox'] {
 
   .field-group small {
     font-size: var(--font-caption);
-  }
-
-  .housing-field {
-    display: grid;
-  }
-
-  .housing-field .control {
-    border-radius: 8px;
-    box-shadow: none;
   }
 
   .primary-cta {

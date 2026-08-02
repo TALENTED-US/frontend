@@ -7,8 +7,11 @@ import buttieRiskImage from "@/assets/images/dashboard/buttie-melting.png";
 import buttieCautionImage from "@/assets/images/dashboard/buttie-caution.png";
 import buttieStableImage from "@/assets/images/dashboard/buttie-stable.png";
 import { financeTransactions } from "@/features/finance/financeStore";
+import { analyzePreviousCompletedMonths } from "@/features/finance/financeAnalytics";
+import { useSimulationStore } from "@/features/simulation/stores/simulation";
 
 const session = useSessionStore();
+const simulation = useSimulationStore();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const AVERAGE_MONTH_DAYS = 365.2425 / 12;
 
@@ -116,31 +119,53 @@ const preparationMonthsValue = computed(
 const availableAssets = computed(() =>
   Math.max(0, Number(dashboard.liquidAssets ?? dashboard.totalAssets) || 0),
 );
-const currentMonthKey = computed(() =>
-  [
-    today.value.getFullYear(),
-    String(today.value.getMonth() + 1).padStart(2, "0"),
-  ].join("-"),
+const recentFinancialAnalysis = computed(() =>
+  analyzePreviousCompletedMonths(financeTransactions.value, today.value),
 );
-const currentMonthTransactions = computed(() =>
-  financeTransactions.value.filter((row) =>
-    row.date.startsWith(currentMonthKey.value),
-  ),
-);
-const monthlyExpense = computed(() =>
-  currentMonthTransactions.value
-    .filter((row) => row.amount < 0)
-    .reduce((sum, row) => sum + Math.abs(row.amount), 0),
-);
-const monthlyIncome = computed(() =>
-  currentMonthTransactions.value
-    .filter((row) => row.amount > 0)
-    .reduce((sum, row) => sum + row.amount, 0),
-);
+const monthlyExpense = computed(() => recentFinancialAnalysis.value.monthlyExpense);
+const monthlyIncome = computed(() => recentFinancialAnalysis.value.monthlyIncome);
 const survivalMonths = computed(() =>
   monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0,
 );
 const displayedSurvivalMonths = computed(() => survivalMonths.value.toFixed(1));
+const hasConfirmedScenario = computed(() => simulation.state.confirmed);
+const displayedExpectedMonths = computed(() =>
+  hasConfirmedScenario.value ? simulation.expectedMonths.toFixed(1) : "-",
+);
+const confirmedExpenseRows = computed(() =>
+  simulation.state.expenseApplied
+    ? simulation.selectedExpenses.map((item) => ({
+        id: `expense-${item.id}`,
+        icon: item.icon,
+        name: `${item.name} 줄이기`,
+        amount: -item.saving,
+        kind: "expense",
+      }))
+    : [],
+);
+const confirmedIncomeRows = computed(() =>
+  simulation.state.incomes.map((item) => ({
+    id: `income-${item.id}`,
+    icon: "💼",
+    name: item.name,
+    amount: item.amount,
+    kind: "income",
+  })),
+);
+const confirmedPolicyRows = computed(() =>
+  simulation.state.policies.map((item) => ({
+    id: `policy-${item.id}`,
+    icon: "🏛️",
+    name: item.name,
+    amount: item.amount,
+    kind: "policy",
+  })),
+);
+const confirmedScenarioRows = computed(() => [
+  ...confirmedExpenseRows.value,
+  ...confirmedIncomeRows.value,
+  ...confirmedPolicyRows.value,
+]);
 const achievementRate = computed(() => {
   if (remainingMonthsValue.value <= 0) return 100;
   return Math.min(
@@ -241,8 +266,9 @@ const targetMonthText = computed(() =>
 
         <div class="survival-card__metric survival-card__metric--expected">
           <span>예상 버티는 기간</span>
-          <strong>- <i>개월</i></strong>
-          <small>시뮬레이션하면 확인 가능</small>
+          <strong>{{ displayedExpectedMonths }} <i>개월</i></strong>
+          <small v-if="!hasConfirmedScenario">시뮬레이션하면 확인 가능</small>
+          <small v-else>확정 시나리오 기준</small>
         </div>
 
         <div class="survival-card__progress-area">
@@ -293,15 +319,15 @@ const targetMonthText = computed(() =>
           <small>연결 계좌 기준</small>
         </article>
         <article class="summary-card summary-card--income">
-          <span>↗ 이번 달 수입</span>
+          <span>↗ 최근 3개월 월평균 수입</span>
           <strong>{{ formatWon(monthlyIncome, { sign: true }) }}</strong>
         </article>
         <article class="summary-card summary-card--expense">
-          <span>↘ 이번 달 지출</span>
+          <span>↘ 최근 3개월 월평균 지출</span>
           <strong>{{ formatWon(-monthlyExpense) }}</strong>
         </article>
         <article class="summary-card summary-card--cash">
-          <span>순현금흐름<small>(수입-지출)</small></span>
+          <span>월평균 순현금흐름<small>(수입-지출)</small></span>
           <strong>{{ formatWon(netCashFlow) }}</strong>
         </article>
       </div>
@@ -311,7 +337,7 @@ const targetMonthText = computed(() =>
       <section>
         <h2 class="block-title">시뮬레이션 현황</h2>
         <article class="simulation-cta">
-          <div>
+          <div v-if="!hasConfirmedScenario">
             <h3>예상 재정 계획이 아직 없어요</h3>
             <p>
               아르바이트, 지출 절감, 정부지원금을 조합해<br
@@ -320,8 +346,24 @@ const targetMonthText = computed(() =>
               나만의 시나리오를 만들어보세요.
             </p>
           </div>
+          <div v-else class="simulation-cta__confirmed">
+            <div class="simulation-cta__result">
+              <span>현재 버티는 기간</span>
+              <strong>{{ displayedSurvivalMonths }}개월</strong>
+              <i>→</i>
+              <span>예상 버티는 기간</span>
+              <strong>{{ displayedExpectedMonths }}개월</strong>
+              <em>+{{ simulation.addedMonths.toFixed(1) }}개월</em>
+            </div>
+            <ul>
+              <li v-for="item in confirmedScenarioRows" :key="item.id">
+                <span>{{ item.icon }} {{ item.name }}</span>
+                <strong :class="`is-${item.kind}`">{{ formatWon(item.amount, { sign: true }) }}</strong>
+              </li>
+            </ul>
+          </div>
           <RouterLink class="simulation-cta__button" to="/simulation">
-            시뮬레이션 하러가기 <span>→</span>
+            {{ hasConfirmedScenario ? "시나리오 수정하기" : "시뮬레이션 하러가기" }} <span>→</span>
           </RouterLink>
         </article>
       </section>
@@ -388,7 +430,7 @@ const targetMonthText = computed(() =>
   overflow: hidden;
   border-radius: 28px;
   background: rgb(251 237 176 / 54%);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .survival-card__metric {
@@ -703,6 +745,55 @@ const targetMonthText = computed(() =>
   font-weight: 800;
 }
 
+.simulation-cta__confirmed {
+  display: grid;
+  flex: 1;
+  gap: 14px;
+}
+
+.simulation-cta__result {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.simulation-cta__result span {
+  color: #756b62;
+  font-size: var(--font-caption);
+}
+
+.simulation-cta__result strong {
+  color: #573b2c;
+  font-size: var(--font-card-title);
+}
+
+.simulation-cta__result em {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #dff8ee;
+  color: #18a971;
+  font-size: var(--font-caption);
+  font-weight: 800;
+}
+
+.simulation-cta__confirmed ul {
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+
+.simulation-cta__confirmed li {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: var(--font-caption);
+}
+
+.simulation-cta__confirmed li strong.is-expense { color: var(--danger); }
+.simulation-cta__confirmed li strong.is-income { color: #15a66f; }
+.simulation-cta__confirmed li strong.is-policy { color: #8167c9; }
+
 .section-head--goal {
   min-height: 24px;
 }
@@ -884,7 +975,11 @@ const targetMonthText = computed(() =>
   }
 
   .summary-card:not(.summary-card--asset) span {
-    white-space: nowrap;
+    min-width: 0;
+    min-height: 2.8em;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+    white-space: normal;
   }
 
   .summary-card:not(.summary-card--asset) strong {
@@ -913,6 +1008,15 @@ const targetMonthText = computed(() =>
     gap: 13px;
     padding: 22px 18px;
     text-align: center;
+  }
+
+  .simulation-cta__confirmed {
+    width: 100%;
+    text-align: left;
+  }
+
+  .simulation-cta__result {
+    justify-content: center;
   }
 
   .simulation-cta h3 {
