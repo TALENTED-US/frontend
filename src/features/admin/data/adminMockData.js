@@ -167,3 +167,88 @@ export const adminFinanceDataByUser = {
     ],
   },
 }
+
+export const adminPolicyCategories = ['자산형성', '구직활동', '주거', '창업', '교육']
+export const adminPolicyRegions = ['전국', '서울', '경기', '부산']
+
+export const adminPolicies = [
+  {
+    id: 'pol-1',
+    name: '청년내일저축계좌',
+    target: '만 19~34세 근로소득 청년',
+    category: '자산형성',
+    region: '전국',
+    amount: '일시 60만원',
+    period: '2026.07.01 ~ 2026.08.31',
+    status: 'open',
+    source: 'crawl',
+    sourceUrl: '',
+    ageCondition: '만 19~34세',
+    incomeCondition: '연소득 2,600만원 이하',
+    requiredDocs: '소득 증빙서류, 신분증',
+    applyMethod: '복지로 온라인 신청',
+    excludedFromRecommend: false,
+  },
+  {
+    id: 'pol-2',
+    name: '청년구직활동지원금',
+    target: '구직활동 중인 청년',
+    category: '구직활동',
+    region: '전국',
+    amount: '월 30만원 × 6개월',
+    period: '상시',
+    status: 'open',
+    source: 'crawl',
+    sourceUrl: '',
+    ageCondition: '',
+    incomeCondition: '',
+    requiredDocs: '',
+    applyMethod: '',
+    excludedFromRecommend: false,
+  },
+  {
+    id: 'pol-3',
+    name: '청년 전세자금 대출',
+    target: '만 19~34세 무주택 세대주',
+    category: '주거',
+    region: '전국',
+    amount: '최대 2억원',
+    period: '상시',
+    status: 'closing-soon',
+    source: 'manual',
+    sourceUrl: '',
+    ageCondition: '',
+    incomeCondition: '',
+    requiredDocs: '',
+    applyMethod: '',
+    excludedFromRecommend: false,
+  },
+  {
+    id: 'pol-4',
+    name: '국민취업지원제도',
+    target: '취업 준비 중인 청년',
+    category: '구직활동',
+    region: '전국',
+    amount: '월 10만원 × 6개월',
+    period: '상시',
+    status: 'closed',
+    source: 'crawl',
+    sourceUrl: '',
+    ageCondition: '',
+    incomeCondition: '',
+    requiredDocs: '',
+    applyMethod: '',
+    excludedFromRecommend: true,
+  },
+]
+
+export const adminPolicyHistory = [
+  { id: 1, at: '2026-07-16T03:00:00+09:00', summary: '청년내일저축계좌 신청기간 갱신 (크롤링)', type: 'auto' },
+  { id: 2, at: '2026-07-15T14:20:00+09:00', summary: '청년 전세자금 대출 상태 "마감임박"으로 수정', type: 'manual' },
+  { id: 3, at: '2026-07-14T03:00:00+09:00', summary: '국민취업지원제도 상태 "마감"으로 자동 변경', type: 'auto' },
+  { id: 4, at: '2026-07-10T11:02:00+09:00', summary: '청년구직활동지원금 지원금액 수정 (관리자 김재준)', type: 'manual' },
+]
+
+export const adminPolicyReviewQueue = [
+  { id: 'pol-new-1', name: '청년 월세 지원', category: '자산형성', status: 'open', excludedFromRecommend: false },
+]
