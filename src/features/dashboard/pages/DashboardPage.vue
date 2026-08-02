@@ -3,7 +3,10 @@ import { computed } from "vue";
 import { dashboard } from "@/data/mockData";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import { useSessionStore } from "@/stores/session";
-import buttieMeltingImage from "@/assets/images/dashboard/buttie-melting.png";
+import buttieRiskImage from "@/assets/images/dashboard/buttie-melting.png";
+import buttieCautionImage from "@/assets/images/dashboard/buttie-caution.png";
+import buttieStableImage from "@/assets/images/dashboard/buttie-stable.png";
+import { financeTransactions } from "@/features/finance/financeStore";
 
 const session = useSessionStore();
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -113,11 +116,26 @@ const preparationMonthsValue = computed(
 const availableAssets = computed(() =>
   Math.max(0, Number(dashboard.liquidAssets ?? dashboard.totalAssets) || 0),
 );
+const currentMonthKey = computed(() =>
+  [
+    today.value.getFullYear(),
+    String(today.value.getMonth() + 1).padStart(2, "0"),
+  ].join("-"),
+);
+const currentMonthTransactions = computed(() =>
+  financeTransactions.value.filter((row) =>
+    row.date.startsWith(currentMonthKey.value),
+  ),
+);
 const monthlyExpense = computed(() =>
-  Math.max(0, Number(dashboard.monthlyExpense) || 0),
+  currentMonthTransactions.value
+    .filter((row) => row.amount < 0)
+    .reduce((sum, row) => sum + Math.abs(row.amount), 0),
 );
 const monthlyIncome = computed(() =>
-  Math.max(0, Number(dashboard.monthlyIncome) || 0),
+  currentMonthTransactions.value
+    .filter((row) => row.amount > 0)
+    .reduce((sum, row) => sum + row.amount, 0),
 );
 const survivalMonths = computed(() =>
   monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0,
@@ -136,13 +154,35 @@ const achievementRate = computed(() => {
 const shortageMonths = computed(() =>
   Math.max(0, remainingMonthsValue.value - survivalMonths.value),
 );
-const isFinancialRisk = computed(() => shortageMonths.value > 0);
-const statusLabel = computed(() => (isFinancialRisk.value ? "위험" : "안정"));
-const statusMessage = computed(() => {
-  if (!isFinancialRisk.value)
-    return "현재 자산으로 목표 취업일까지 안정적으로 준비할 수 있어요";
-  const shortage = Math.max(1, Math.ceil(shortageMonths.value));
-  return `생존기간이 목표보다 ${shortage}개월 부족해서 버티가 녹고 있어요`;
+const financialStatus = computed(() => {
+  if (achievementRate.value <= 30) {
+    const shortage = Math.max(1, Math.ceil(shortageMonths.value));
+    return {
+      key: "risk",
+      label: "위험",
+      message: `버티는 기간이 목표보다 ${shortage}개월 부족해서 버티가 녹고 있어요`,
+      image: buttieRiskImage,
+      imageAlt: "거의 녹아내린 위험 상태의 버티",
+    };
+  }
+
+  if (achievementRate.value < 80) {
+    return {
+      key: "caution",
+      label: "주의",
+      message: "버티는 기간이 목표보다 조금 부족해 주의가 필요해요",
+      image: buttieCautionImage,
+      imageAlt: "조금 녹아내린 주의 상태의 버티",
+    };
+  }
+
+  return {
+    key: "stable",
+    label: "안정",
+    message: "버티는 기간이 목표를 넉넉히 채워서 걱정 없어요",
+    image: buttieStableImage,
+    imageAlt: "온전한 안정 상태의 버티",
+  };
 });
 
 const initialAssets = computed(() =>
@@ -187,21 +227,20 @@ const targetMonthText = computed(() =>
     </header>
 
     <section class="survival-section" aria-labelledby="survival-title">
-      <h2 id="survival-title" class="mobile-only section-label">생존기간</h2>
+      <h2 id="survival-title" class="mobile-only section-label">버티는 기간</h2>
       <article
         :class="[
           'survival-card',
-          { 'survival-card--stable': !isFinancialRisk },
+          `survival-card--${financialStatus.key}`,
         ]"
       >
         <div class="survival-card__metric survival-card__metric--current">
-          <span class="desktop-only">현재 생존기간</span>
-          <span class="mobile-only">준비 가능 기간</span>
+          <span>버티는 기간</span>
           <strong>{{ displayedSurvivalMonths }} <i>개월</i></strong>
         </div>
 
         <div class="survival-card__metric survival-card__metric--expected">
-          <span>예상 생존기간</span>
+          <span>예상 버티는 기간</span>
           <strong>- <i>개월</i></strong>
           <small>시뮬레이션하면 확인 가능</small>
         </div>
@@ -211,7 +250,7 @@ const targetMonthText = computed(() =>
           <div
             class="survival-card__progress"
             role="progressbar"
-            aria-label="목표 생존기간 충족률"
+            aria-label="목표 버티는 기간 충족률"
             :aria-valuenow="achievementRate"
             aria-valuemin="0"
             aria-valuemax="100"
@@ -227,15 +266,15 @@ const targetMonthText = computed(() =>
         <div class="survival-card__character">
           <span class="survival-card__character-halo" aria-hidden="true" />
           <img
-            :src="buttieMeltingImage"
-            alt="재정 상태에 따라 녹고 있는 버티"
+            :src="financialStatus.image"
+            :alt="financialStatus.imageAlt"
           />
           <b class="survival-card__level survival-card__level--mobile">Lv.1</b>
         </div>
 
         <div class="survival-card__message">
-          <p>{{ statusMessage }}</p>
-          <em>{{ statusLabel }}</em>
+          <p>{{ financialStatus.message }}</p>
+          <em>{{ financialStatus.label }}</em>
         </div>
 
         <b class="survival-card__level survival-card__level--desktop">Lv.1</b>
@@ -519,6 +558,10 @@ const targetMonthText = computed(() =>
   font-size: var(--font-caption);
   font-style: normal;
   font-weight: 800;
+}
+
+.survival-card--caution .survival-card__message em {
+  background: #eea63a;
 }
 
 .survival-card--stable .survival-card__message em {

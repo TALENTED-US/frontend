@@ -1,7 +1,14 @@
 import { computed, reactive } from 'vue'
 import { transactions as seedTransactions } from '@/data/mockData'
 
-const STORAGE_KEY = 'buttie-finance-v2'
+const STORAGE_KEY = 'buttie-finance-v7'
+const PREVIOUS_STORAGE_KEY = 'buttie-finance-v6'
+const storeToday = new Date()
+const TODAY_KEY = [
+  storeToday.getFullYear(),
+  String(storeToday.getMonth() + 1).padStart(2, '0'),
+  String(storeToday.getDate()).padStart(2, '0'),
+].join('-')
 
 const sampleTransactions = [
   { id: 101, date: '2026-07-16', time: '09:20', title: '급여', category: '수입', detail: '카카오뱅크', amount: 500000, memo: '급여', fixed: false },
@@ -18,24 +25,40 @@ const sampleTransactions = [
 ]
 
 function load() {
+  let saved = null
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
-    if (Array.isArray(saved?.transactions)) return saved
+    saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
+    if (saved?.seedDate === TODAY_KEY && Array.isArray(saved?.transactions)) return saved
   } catch {}
+  if (!saved) {
+    try {
+      saved = JSON.parse(localStorage.getItem(PREVIOUS_STORAGE_KEY))
+    } catch {}
+  }
   const richSeed = seedTransactions.some((item) => item.time)
   const normalizedSeed = seedTransactions.map((item) => ({
     ...item,
     category: item.category === '급여' ? '수입' : item.category === '주거' ? '월세' : item.category,
     detail: item.detail || item.payment || '',
   }))
-  return { transactions: richSeed ? normalizedSeed : sampleTransactions }
+  const baseTransactions = richSeed ? normalizedSeed : sampleTransactions
+  const userTransactions = Array.isArray(saved?.transactions)
+    ? saved.transactions.filter((row) => Number(row.id) >= 1_000_000_000_000)
+    : []
+  return {
+    transactions: [...baseTransactions, ...userTransactions],
+    seedDate: TODAY_KEY,
+  }
 }
 
 export const financeState = reactive(load())
 export const financeTransactions = computed(() => financeState.transactions)
 
 function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ transactions: financeState.transactions }))
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ transactions: financeState.transactions, seedDate: TODAY_KEY }),
+  )
 }
 
 export function addTransaction(payload) {
@@ -58,5 +81,10 @@ export function setFixed(ids, fixed) {
   financeState.transactions.forEach((row) => {
     if (ids.includes(row.id)) row.fixed = fixed
   })
+  persist()
+}
+
+export function clearTransactions() {
+  financeState.transactions = []
   persist()
 }
