@@ -202,46 +202,4 @@ onMounted(loadDatasets)
   color: var(--subtle);
   text-align: center;
 }
-
-.admin-finance__detail-backdrop {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-}
-
-.admin-finance__detail {
-  width: 420px;
-  padding: 32px;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-}
-
-.admin-finance__detail h2 {
-  color: var(--text);
-  font-size: var(--font-card-title);
-  font-weight: 800;
-}
-
-.admin-finance__detail p {
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: var(--font-small);
-}
-
-.admin-finance__detail .admin-finance__dataset-stats {
-  margin-top: 16px;
-}
-
-.admin-finance__detail button {
-  margin-top: 24px;
-  padding: 10px 24px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent-strong);
-  color: var(--text);
-  font-weight: 700;
-}
 </style>
