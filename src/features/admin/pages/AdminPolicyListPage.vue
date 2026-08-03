@@ -64,52 +64,58 @@ onMounted(search)
         <option value="closing-soon">마감임박</option>
         <option value="closed">마감</option>
       </select>
-      <button type="submit" class="admin-policies__search">조회</button>
-      <RouterLink to="/admin/policies/new" class="admin-policies__register">정책 등록</RouterLink>
+      <button type="submit" class="admin-policies__search">검색 및 조회</button>
     </form>
 
     <article class="admin-card">
       <div class="admin-policies__list-head">
         <h2>정책 목록</h2>
-        <span>매일 새벽 3시 자동 크롤링 · 마지막 갱신 {{ lastCrawledAt }}</span>
+        <div class="admin-policies__list-head-right">
+          <span>매일 새벽 3시 자동 크롤링 · 마지막 갱신 {{ lastCrawledAt }}</span>
+          <RouterLink to="/admin/policies/new" class="admin-policies__register">정책 등록</RouterLink>
+        </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th>정책명 · 대상</th>
-            <th>지원금</th>
-            <th>신청기간</th>
-            <th>상태 · 출처</th>
-            <th>관리</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="policy in policies" :key="policy.id">
-            <td><input type="checkbox" :checked="selected.includes(policy.id)" @change="toggleSelect(policy.id)" /></td>
-            <td>
-              <p class="strong">{{ policy.name }}</p>
-              <small class="admin-policies__subtext">{{ policy.target }}</small>
-            </td>
-            <td class="strong">{{ policy.amount }}</td>
-            <td>{{ policy.period }}</td>
-            <td>
-              <span :class="['admin-badge', `admin-badge--${policy.status}`]">{{ STATUS_LABEL[policy.status] }}</span>
-              <br />
-              <small class="admin-policies__subtext">{{ SOURCE_LABEL[policy.source] }}</small>
-            </td>
-            <td class="admin-policies__row-actions">
-              <RouterLink :to="`/admin/policies/${policy.id}/edit`">수정</RouterLink>
-              <span>·</span>
-              <button type="button" class="danger" @click="removePolicy(policy)">삭제</button>
-            </td>
-          </tr>
-          <tr v-if="policies.length === 0">
-            <td colspan="6" class="admin-policies__empty">조건에 맞는 정책이 없어요.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="admin-policies__table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>정책명 · 대상</th>
+              <th>지원금</th>
+              <th>신청기간</th>
+              <th>상태 · 출처</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="policy in policies" :key="policy.id">
+              <td><input type="checkbox" :checked="selected.includes(policy.id)" @change="toggleSelect(policy.id)" /></td>
+              <td>
+                <p class="strong">{{ policy.name }}</p>
+                <small class="admin-policies__subtext">{{ policy.target }}</small>
+              </td>
+              <td class="strong">{{ policy.amount }}</td>
+              <td>{{ policy.period }}</td>
+              <td>
+                <span :class="['admin-badge', `admin-badge--${policy.status}`]">{{ STATUS_LABEL[policy.status] }}</span>
+                <br />
+                <small class="admin-policies__subtext">{{ SOURCE_LABEL[policy.source] }}</small>
+              </td>
+              <td class="admin-policies__actions-cell">
+                <div class="admin-policies__row-actions">
+                  <RouterLink :to="`/admin/policies/${policy.id}/edit`">수정</RouterLink>
+                  <span>·</span>
+                  <button type="button" class="danger" @click="removePolicy(policy)">삭제</button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="policies.length === 0">
+              <td colspan="6" class="admin-policies__empty">조건에 맞는 정책이 없어요.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <footer class="admin-policies__footer">
         <p>마감된 정책은 자동으로 추천 목록에서 제외됩니다.</p>
@@ -134,6 +140,7 @@ onMounted(search)
 
 .admin-policies__toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 24px;
 }
@@ -147,17 +154,30 @@ onMounted(search)
 }
 
 .admin-policies__toolbar input {
-  flex: 1;
+  flex: 1 1 200px;
 }
 
-.admin-policies__search,
-.admin-policies__register {
+.admin-policies__toolbar select {
+  flex: 0 1 auto;
+}
+
+.admin-policies__search {
   padding: 10px 20px;
   border: 0;
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-policies__register {
+  padding: 10px 20px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
+  color: #222222;
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -172,8 +192,16 @@ onMounted(search)
 
 .admin-policies__list-head {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-policies__list-head-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .admin-policies__list-head h2 {
@@ -187,9 +215,15 @@ onMounted(search)
   font-size: var(--font-caption);
 }
 
-table {
+.admin-policies__table-wrap {
   width: 100%;
   margin-top: 14px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
   font-size: var(--font-small);
 }
@@ -241,6 +275,10 @@ td.strong {
   color: #94a3b8;
 }
 
+.admin-policies__actions-cell {
+  vertical-align: middle;
+}
+
 .admin-policies__row-actions {
   display: flex;
   align-items: center;
@@ -269,8 +307,10 @@ td.strong {
 
 .admin-policies__footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-top: 14px;
 }
 
