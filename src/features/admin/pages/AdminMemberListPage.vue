@@ -332,9 +332,19 @@ onMounted(() => {
   font-size: var(--font-caption);
 }
 
+.admin-members__filter-panel select {
+  padding-right: 20px;
+}
+
 .admin-members__filter-range {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.admin-members__filter-range input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .admin-members__filter-actions {
