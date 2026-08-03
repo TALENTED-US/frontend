@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import ButtieAvatar from '@/components/ui/ButtieAvatar.vue'
+import buttieLoadingImage from '@/assets/images/onboarding/buttie-loading.png'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
@@ -296,7 +296,9 @@ function next() {
 
         </div>
 
-        <button class="primary-cta" type="button" @click="next">다음: 금융 정보 연결</button>
+        <button class="primary-cta" type="button" @click="next">
+          <strong>다음: 금융 정보 연결</strong>
+        </button>
         <p class="bottom-helper">나중에 마이페이지에서 수정할 수 있어요</p>
       </template>
 
@@ -321,7 +323,9 @@ function next() {
           </ul>
         </div>
 
-        <button class="primary-cta" type="button" @click="next">금융정보 연결하기</button>
+        <button class="primary-cta" type="button" @click="next">
+          <strong>금융정보 연결하기</strong>
+        </button>
         <p class="security-note">
           <AppIcon name="lock" :size="12" /> 금융보안원 인증 · 256-bit 암호화 · 조회 전용
         </p>
@@ -330,7 +334,10 @@ function next() {
       <template v-else-if="step === 3">
         <div class="stage-heading">
           <h1>정보 제공 동의</h1>
-          <p>선택한 2개 금융기관 정보를 불러오기 위해 동의가 필요해요</p>
+          <p class="desktop-copy consent-desktop-copy">선택한 기관 연결을 위해 동의가 필요해요.</p>
+          <p class="mobile-copy consent-mobile-copy">
+            선택한 2개 금융기관 정보를 불러오기 위해 동의가 필요해요
+          </p>
         </div>
 
         <div class="consent-list">
@@ -356,26 +363,25 @@ function next() {
           <span>위 내용에 모두 동의합니다 <strong>[필수]</strong></span>
         </label>
         <button class="primary-cta" type="button" :disabled="!consentChecked" @click="next">
-          인증 진행하기
+          <strong>인증 진행하기</strong>
         </button>
       </template>
 
       <template v-else-if="step === 4">
-        <div class="loading-screen">
-          <ButtieAvatar :size="96" />
-          <h1>마이데이터 불러오는 중</h1>
-          <p>연결 가능한 금융기관을 확인하고 있어요</p>
+        <div class="loading-screen loading-screen--analysis">
+          <img class="loading-buttie" :src="buttieLoadingImage" alt="" />
+          <h1>마이데이터 분석 중</h1>
+          <p>계좌와 거래내역을 불러오고 있어요</p>
           <div class="loading-status">
             <div>
-              <i class="status-dot done">✓</i><span>본인 인증 완료</span><strong>완료</strong>
+              <i class="status-dot done">✓</i><span>계좌 조회 완료</span><strong>3개</strong>
             </div>
             <div>
-              <i class="status-dot working" /><span>금융기관 조회 중...</span
-              ><strong>진행 중</strong>
+              <i class="status-dot working" /><span>거래내역 분석 중…</span><strong>128건</strong>
             </div>
-            <div><i class="status-dot" /><span>연결 정보 준비</span><strong>대기 중</strong></div>
+            <div><i class="status-dot" /><span>재정 현황 계산</span><strong>대기 중</strong></div>
           </div>
-          <div class="progress-track"><span class="progress-track__fetch" /></div>
+          <div class="progress-track"><span /></div>
           <small>완료되면 자동으로 다음 화면으로 이동해요</small>
         </div>
       </template>
@@ -391,17 +397,16 @@ function next() {
 
         <input v-model="bankSearch" class="bank-search" placeholder="금융기관 검색" />
 
-        <div class="bank-categories">
-          <button class="active" type="button">전체</button>
-          <button type="button">시중은행</button>
-          <button type="button">지방은행</button>
-          <button type="button">특수·협동</button>
-          <button type="button">인터넷전문</button>
-        </div>
-
         <div class="selected-chips">
-          <button v-for="bank in selectedBanks" :key="bank" type="button" @click="toggleBank(bank)">
-            {{ bank }} ×
+          <button
+            v-for="bank in selectedBanks"
+            :key="bank"
+            type="button"
+            :title="bank"
+            @click="toggleBank(bank)"
+          >
+            <span class="selected-chip__name">{{ bank }}</span>
+            <span class="selected-chip__remove" aria-hidden="true">×</span>
           </button>
         </div>
 
@@ -429,7 +434,7 @@ function next() {
           :disabled="!selectedBanks.length"
           @click="next"
         >
-          선택 완료 ({{ selectedBanks.length }}개)
+          <strong>선택 완료 ({{ selectedBanks.length }}개)</strong>
         </button>
       </template>
 
@@ -487,13 +492,13 @@ function next() {
 
         <p class="selected-balance">총 선택 잔액: {{ selectedBalance.toLocaleString() }}원</p>
         <button class="primary-cta" type="button" :disabled="!selectedAccountCount" @click="next">
-          선택 완료 ({{ selectedAccountCount }}개)
+          <strong>선택 완료 ({{ selectedAccountCount }}개)</strong>
         </button>
       </template>
 
       <template v-else-if="step === 7">
-        <div class="loading-screen">
-          <ButtieAvatar :size="96" />
+        <div class="loading-screen loading-screen--analysis">
+          <img class="loading-buttie" :src="buttieLoadingImage" alt="" />
           <h1>마이데이터 분석 중</h1>
           <p>계좌와 거래내역을 불러오고 있어요</p>
           <div class="loading-status">
@@ -522,7 +527,9 @@ function next() {
             <span>연결 계좌 <strong>3개</strong></span>
             <span>월평균 지출 <strong class="danger">80만원</strong></span>
           </div>
-          <button class="primary-cta" type="button" @click="next">고정지출 확인하기 →</button>
+          <button class="primary-cta" type="button" @click="next">
+            <strong>고정지출 확인하기 →</strong>
+          </button>
           <p class="bottom-helper">연결한 데이터를 분석해 고정지출을 확인해요</p>
         </div>
       </template>
@@ -562,7 +569,7 @@ function next() {
         </div>
 
         <button class="primary-cta fixed-cta" type="button" @click="next">
-          확인 완료하고 홈으로 →
+          <strong>확인 완료하고 홈으로 →</strong>
         </button>
         <p class="bottom-helper">체크를 해제한 항목은 고정지출에 반영되지 않아요.</p>
       </template>
@@ -626,6 +633,16 @@ function next() {
 .job-form {
   display: grid;
   gap: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  filter: none;
+}
+
+.primary-cta strong {
+  font-family: Pretendard, sans-serif;
+  font-weight: 800;
 }
 
 .field-group {
@@ -666,7 +683,10 @@ function next() {
   border-radius: 999px;
   background: white;
   color: #616670;
+  box-shadow: var(--shadow-figma);
+  font-family: Pretendard, sans-serif;
   font-size: var(--font-body);
+  font-weight: 400;
 }
 
 .choice-pill.selected {
@@ -727,6 +747,7 @@ select.control {
   color: #222;
   font-size: var(--font-body);
   font-weight: 800;
+  box-shadow: var(--shadow-figma);
   transition:
     transform 0.16s ease,
     filter 0.16s ease;
@@ -800,6 +821,11 @@ select.control {
   align-self: center;
 }
 
+.accordion > span:first-child {
+  font-family: Pretendard, sans-serif;
+  font-weight: 800;
+}
+
 .accordion small {
   grid-column: 1 / -1;
   padding: 0 0 14px;
@@ -833,34 +859,51 @@ input[type='checkbox'] {
 
 .loading-screen {
   display: flex;
-  min-height: 610px;
+  min-height: 775px;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 54px;
   text-align: center;
 }
 
+.loading-buttie {
+  display: block;
+  width: 171px;
+  height: 171px;
+  object-fit: cover;
+}
+
 .loading-screen h1 {
-  margin: 28px 0 0;
-  color: var(--flow-blue);
-  font-size: var(--font-page-title);
+  margin: 24px 0 0;
+  color: #222;
+  font-family: Pretendard, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 24px;
 }
 
 .loading-screen > p {
   margin: 9px 0 0;
   color: #666;
-  font-size: var(--font-body);
+  font-size: 13px;
+  line-height: 16px;
 }
 
 .loading-status {
   display: grid;
-  width: 100%;
-  gap: 14px;
-  margin-top: 34px;
-  padding: 18px 22px;
+  width: min(400px, 100%);
+  gap: 13px;
+  min-height: 150px;
+  margin-top: 29px;
+  padding: 20px 24px;
   border: 1px solid #e0e3ea;
   border-radius: 15px;
   background: white;
+}
+
+.loading-screen--analysis .loading-status div:first-child strong {
+  color: #fcb01d;
 }
 
 .loading-status div {
@@ -868,14 +911,27 @@ input[type='checkbox'] {
   grid-template-columns: 20px 1fr auto;
   align-items: center;
   gap: 8px;
-  color: #777;
-  font-size: var(--font-body);
+  color: #222;
+  font-size: 13px;
   text-align: left;
 }
 
 .loading-status strong {
-  color: #aaa;
-  font-size: var(--font-small);
+  color: #999;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.loading-status div:nth-child(2) span {
+  font-weight: 700;
+}
+
+.loading-status div:nth-child(3) {
+  color: #b0b0b0;
+}
+
+.loading-status div:nth-child(3) strong {
+  color: #b0b0b0;
 }
 
 .status-dot {
@@ -901,31 +957,26 @@ input[type='checkbox'] {
 }
 
 .progress-track {
-  width: 100%;
-  height: 14px;
-  margin-top: 32px;
-  padding: 4px;
+  width: min(400px, 100%);
+  height: 46px;
+  margin-top: 24px;
+  padding: 8px;
   border-radius: 999px;
   background: #fff8d8;
 }
 
 .progress-track span {
   display: block;
-  width: 64%;
+  width: 60%;
   height: 100%;
   border-radius: inherit;
   background: #ffb21a;
-  animation: progress 1.7s ease-in-out infinite alternate;
-}
-
-.progress-track__fetch {
-  width: 42% !important;
 }
 
 .loading-screen > small {
-  margin-top: 16px;
+  margin-top: 28px;
   color: #999;
-  font-size: var(--font-small);
+  font-size: 13px;
 }
 
 .split-heading {
@@ -946,10 +997,6 @@ input[type='checkbox'] {
   background: white;
 }
 
-.bank-categories {
-  display: none;
-}
-
 .selected-chips {
   display: none;
 }
@@ -958,6 +1005,17 @@ input[type='checkbox'] {
   display: grid;
   gap: 10px;
   margin-top: 20px;
+  border: 0;
+  background: transparent;
+  box-shadow: none !important;
+  filter: none;
+}
+
+#app .onboarding-page--step-5 .bank-list {
+  border: 0;
+  background: transparent;
+  box-shadow: none !important;
+  filter: none;
 }
 
 .bank-row {
@@ -970,6 +1028,8 @@ input[type='checkbox'] {
   border: 1px solid #dfe1e7;
   border-radius: 12px;
   background: white;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 14%);
+  filter: none;
   text-align: left;
 }
 
@@ -1035,6 +1095,11 @@ input[type='checkbox'] {
   margin-top: 38px;
 }
 
+#app .onboarding-page .asset-section {
+  box-shadow: none !important;
+  filter: none;
+}
+
 .asset-section + .asset-section {
   margin-top: 22px;
 }
@@ -1074,7 +1139,7 @@ input[type='checkbox'] {
   border-radius: 13px;
   background: white;
   text-align: left;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  box-shadow: var(--shadow-figma);
 }
 
 .asset-card.selected {
@@ -1141,6 +1206,7 @@ input[type='checkbox'] {
   border: 1px solid #dfe1e7;
   border-radius: 14px;
   background: white;
+  box-shadow: var(--shadow-figma);
 }
 
 .completion-summary span {
@@ -1159,6 +1225,15 @@ input[type='checkbox'] {
   color: #ff4e51;
 }
 
+.completion-screen .primary-cta {
+  box-shadow: var(--shadow-figma);
+}
+
+.completion-screen .primary-cta strong {
+  font-family: Pretendard, sans-serif;
+  font-weight: 800;
+}
+
 .fixed-heading {
   padding-bottom: 20px;
   border-bottom: 1px solid #e2e5eb;
@@ -1172,7 +1247,7 @@ input[type='checkbox'] {
   border: 1px solid #dfe1e7;
   border-radius: 14px;
   background: white;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
+  box-shadow: var(--shadow-figma);
 }
 
 .fixed-summary > span {
@@ -1208,6 +1283,10 @@ input[type='checkbox'] {
   margin-top: -20px;
   font-size: var(--font-small);
   font-weight: 800;
+}
+
+.onboarding-page--step-6 .primary-cta {
+  box-shadow: var(--shadow-figma);
 }
 
 .select-all-fixed input {
@@ -1252,7 +1331,7 @@ input[type='checkbox'] {
   border: 1px solid #dfe1e7;
   border-radius: 12px;
   background: white;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 7%);
+  box-shadow: var(--shadow-figma);
 }
 
 .expense-row.selected {
@@ -1292,6 +1371,12 @@ input[type='checkbox'] {
 
 .fixed-cta {
   margin-top: 35px;
+  box-shadow: var(--shadow-figma);
+}
+
+.fixed-cta strong {
+  font-family: Pretendard, sans-serif;
+  font-weight: 800;
 }
 
 @keyframes spin {
@@ -1300,28 +1385,212 @@ input[type='checkbox'] {
   }
 }
 
-@keyframes progress {
-  to {
-    width: 84%;
-  }
-}
-
 @media (min-width: 768px) {
+  .onboarding-page--step-1 .stage-heading h1,
+  .onboarding-page--step-1 .field-label,
+  .onboarding-page--step-1 .field-group legend {
+    color: #222;
+  }
+
+  .onboarding-page--step-1 .choice-pill.selected {
+    border-color: var(--flow-yellow);
+    background: var(--flow-yellow);
+    color: #222;
+    font-weight: 800;
+  }
+
+  .onboarding-page--step-1 .primary-cta {
+    background: var(--flow-yellow);
+  }
+
+  .onboarding-page--step-2 .onboarding-stage {
+    padding-top: 185px;
+  }
+
+  .onboarding-page--step-2 .mobile-hero-icon {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    place-items: center;
+    margin: 0 auto 18px;
+    border-radius: 14px;
+    background: var(--flow-yellow);
+    color: #222;
+  }
+
+  .onboarding-page--step-2 .stage-heading {
+    text-align: center;
+  }
+
+  .onboarding-page--step-2 .stage-heading h1 {
+    color: #222;
+  }
+
+  .onboarding-page--step-2 .desktop-copy {
+    display: none;
+  }
+
+  .onboarding-page--step-2 .mobile-copy--finance {
+    display: block;
+    line-height: 1.7;
+  }
+
+  .onboarding-page--step-2 .collect-card {
+    margin-top: 18px;
+    padding: 24px 30px;
+    border: 1px solid #e4e6eb;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .onboarding-page--step-2 .collect-card h2 {
+    display: block;
+    margin: 0 0 14px;
+    color: #222;
+    font-size: var(--font-body);
+  }
+
+  .onboarding-page--step-2 .collect-card .app-only {
+    display: list-item;
+  }
+
+  .onboarding-page--step-2 .collect-card li::before {
+    color: #f6ad18;
+  }
+
+  .onboarding-page--step-2 .primary-cta {
+    margin-top: 18px;
+    background: var(--flow-yellow);
+  }
+
+  .onboarding-page--step-2 .security-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin: 14px 0 0;
+    color: #777;
+    font-size: var(--font-small);
+  }
+
+  .onboarding-page--step-3 .stage-heading {
+    text-align: center;
+  }
+
+  .onboarding-page--step-3 .stage-heading h1 {
+    color: #222;
+  }
+
+  .onboarding-page--step-3 .consent-list {
+    margin-top: 58px;
+  }
+
+  .onboarding-page--step-3 .accordion {
+    color: #222;
+  }
+
+  .onboarding-page--step-3 .primary-cta {
+    margin-top: 25px;
+    background: var(--flow-yellow);
+  }
+
   .onboarding-page--step-5 .onboarding-stage,
   .onboarding-page--step-6 .onboarding-stage {
     padding-top: 165px;
   }
 
-  .onboarding-page--step-2 .primary-cta {
-    margin-top: 48px;
+  .onboarding-page--step-5 .stage-heading h1,
+  .onboarding-page--step-5 .bank-name strong {
+    color: #222;
   }
 
-  .onboarding-page--step-3 .primary-cta {
-    margin-top: 25px;
+  .onboarding-page--step-5 .bank-row.selected {
+    background: #fff9df;
+  }
+
+  .onboarding-page--step-5 .bank-row .round-check {
+    background: #666;
+  }
+
+  .onboarding-page--step-5 .sticky-cta {
+    background: var(--flow-yellow);
+    color: #222;
+  }
+
+  .onboarding-page--step-6 .stage-heading h1,
+  .onboarding-page--step-6 .asset-card strong,
+  .onboarding-page--step-6 .asset-card b,
+  .onboarding-page--step-6 .selected-balance {
+    color: #222;
+  }
+
+  .onboarding-page--step-6 .asset-card.selected {
+    border-color: transparent;
+    background: #fff9df;
+  }
+
+  .onboarding-page--step-6 .asset-card .round-check {
+    background: #666;
+  }
+
+  .onboarding-page--step-6 .primary-cta {
+    background: var(--flow-yellow);
+    color: #222;
   }
 
   .onboarding-page--step-8 .stage-heading {
     order: -1;
+  }
+
+  .onboarding-page--step-8 .completion-check {
+    background: var(--flow-yellow);
+    color: #f7aa16;
+  }
+
+  .onboarding-page--step-8 .stage-heading h1,
+  .onboarding-page--step-8 .completion-summary strong {
+    color: #222;
+  }
+
+  .onboarding-page--step-8 .completion-summary .danger {
+    color: #ff4e51;
+  }
+
+  .onboarding-page--step-8 .primary-cta {
+    background: var(--flow-yellow);
+    color: #222;
+  }
+
+  .onboarding-page--step-9 .stage-heading h1,
+  .onboarding-page--step-9 .fixed-summary > strong,
+  .onboarding-page--step-9 .expense-category,
+  .onboarding-page--step-9 .expense-category strong,
+  .onboarding-page--step-9 .expense-name strong,
+  .onboarding-page--step-9 .expense-row b,
+  .onboarding-page--step-9 .select-all-fixed {
+    color: #222;
+  }
+
+  .onboarding-page--step-9 .fixed-summary {
+    background: #f7f8fb;
+  }
+
+  .onboarding-page--step-9 .expense-row {
+    background: #fff;
+  }
+
+  .onboarding-page--step-9 .expense-row.selected {
+    background: #fff8d8;
+  }
+
+  .onboarding-page--step-9 .expense-row input,
+  .onboarding-page--step-9 .select-all-fixed input {
+    accent-color: #666;
+  }
+
+  .onboarding-page--step-9 .fixed-cta {
+    background: var(--flow-yellow);
+    color: #222;
   }
 }
 
@@ -1406,6 +1675,11 @@ input[type='checkbox'] {
     gap: 22px;
     margin-top: -2px;
     padding: 48px 24px 22px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none !important;
+    filter: none;
   }
 
   .field-label,
@@ -1452,7 +1726,7 @@ input[type='checkbox'] {
     margin-top: 50px;
     border-radius: 14px;
     background: var(--flow-yellow);
-    box-shadow: 0 2px 4px rgb(0 0 0 / 16%);
+    box-shadow: var(--shadow-figma);
   }
 
   .collect-card {
@@ -1518,23 +1792,43 @@ input[type='checkbox'] {
   .loading-screen {
     min-height: calc(100dvh - 62px);
     justify-content: flex-start;
-    padding-top: 160px;
+    padding-top: 122px;
+  }
+
+  .loading-buttie {
+    width: 171px;
+    height: 171px;
   }
 
   .loading-screen h1 {
+    margin-top: 10px;
     color: #222;
-    font-size: var(--font-section-title);
+    font-size: 20px;
+    line-height: 24px;
   }
 
   .loading-status {
-    margin-top: 28px;
-    padding: 18px;
+    width: 100%;
+    min-height: 124px;
+    margin-top: 18px;
+    padding: 16px 20px;
   }
 
   .progress-track {
-    height: 54px;
+    width: 100%;
+    height: 52px;
+    margin-top: 32px;
     padding: 20px 16px;
     border-radius: 14px;
+  }
+
+  .progress-track span {
+    width: 65%;
+  }
+
+  .loading-screen > small {
+    margin-top: 18px;
+    font-size: 12px;
   }
 
   .bank-search {
@@ -1543,54 +1837,66 @@ input[type='checkbox'] {
     box-shadow: none;
   }
 
-  .bank-categories {
-    display: flex;
-    gap: 5px;
-    margin-top: 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .bank-categories button {
-    flex: none;
-    padding: 6px 12px;
-    border-radius: 999px;
-    color: #666;
-    font-size: var(--font-small);
-  }
-
-  .bank-categories button.active {
-    background: var(--flow-yellow);
-    color: #222;
-    font-weight: 800;
-  }
-
   .selected-chips {
     display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
     gap: 8px;
+    width: 100%;
+    min-width: 0;
     margin-top: 10px;
     padding-bottom: 14px;
     border-bottom: 1px solid #e3e5e9;
+    overflow: visible;
   }
 
   .selected-chips button {
-    padding: 6px 13px;
+    display: inline-flex;
+    flex: 0 1 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 7px 12px;
     border-radius: 999px;
     background: var(--flow-yellow);
     font-size: var(--font-small);
     font-weight: 800;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .selected-chip__name {
+    min-width: 0;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .selected-chip__remove {
+    flex: none;
+    font-size: 14px;
+    line-height: 1;
   }
 
   .bank-list {
     gap: 12px;
     margin-top: 14px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none !important;
+    filter: none;
   }
 
   .bank-row {
     min-height: 88px;
     padding: 14px 18px;
     border-radius: 16px;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 13%);
+    box-shadow: 0 2px 5px rgb(0 0 0 / 14%);
+    filter: none;
   }
 
   .bank-row.selected {
@@ -1611,6 +1917,13 @@ input[type='checkbox'] {
     bottom: 10px;
     z-index: 3;
     margin-top: 24px;
+    font-family: Pretendard, sans-serif;
+    font-weight: 800;
+  }
+
+  .sticky-cta strong {
+    font-family: Pretendard, sans-serif;
+    font-weight: 800;
   }
 
   .asset-section {

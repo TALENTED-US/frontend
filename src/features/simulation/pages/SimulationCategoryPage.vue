@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import '@/features/simulation/styles/simulation.css'
@@ -8,6 +8,11 @@ const route = useRoute()
 const router = useRouter()
 const simulation = useSimulationStore()
 const category = computed(() => route.params.category)
+
+watch(category, (value) => {
+  if (value === 'expense') simulation.initializeExpensesFromAnalysis()
+}, { immediate: true })
+
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
 const analyzedMonth = computed(() => {
   const months = simulation.expenseMonths
