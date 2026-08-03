@@ -336,3 +336,44 @@ export const adminPolicyHistory = [
 export const adminPolicyReviewQueue = [
   { id: 'pol-new-1', name: '청년 월세 지원', category: '자산형성', status: 'open', excludedFromRecommend: false },
 ]
+
+export const adminLevelStats = {
+  grantCount: 142,
+  revokeCount: 356,
+  accuracy: 94.6,
+  questCompleteUsers: 318,
+}
+
+export const adminFinancialStates = [
+  { key: 'stable', label: '안정', color: '#22c55e', description: '목표 이상 달성' },
+  { key: 'caution', label: '주의', color: '#f59e0b', description: '목표 대비 3개월 이내 부족' },
+  { key: 'risk', label: '위험', color: '#ef4444', description: '목표 대비 3개월 이상 부족' },
+]
+
+export const adminLevels = [
+  { level: 1, exp: 0 },
+  { level: 2, exp: 50 },
+  { level: 3, exp: 100 },
+  { level: 4, exp: 250 },
+  { level: 5, exp: 500 },
+]
+
+export const adminActiveLevel = 5
+
+export const adminQuestCategories = [
+  { id: 'q1', category: '지출줄이기', tone: 'danger', example: '"식비 5만원 줄이기" · 소비 카테고리별 절약 목표 달성 시', exp: 30, active: true },
+  { id: 'q2', category: '수입늘리기', tone: 'warning', example: '"주말 카페 아르바이트" · 정기 수입 항목 등록 시', exp: 30, active: true },
+  { id: 'q3', category: '수입늘리기', tone: 'warning', example: '"프로젝트 원고료" · 일회성 수입 항목 등록 시', exp: 15, active: true },
+  { id: 'q4', category: '정책혜택', tone: 'purple', example: '"청년내일저축계좌" · 추천 정책 신청 완료 시', exp: 50, active: true },
+]
+
+export const adminRewardHistory = [
+  { id: 1, at: '2026-07-23T14:32:00+09:00', member: 'jijun01 · 김재준', reason: '소비 리포트 확인 완료', delta: 40, actor: '시스템 자동' },
+  { id: 2, at: '2026-07-23T13:10:00+09:00', member: 'seoyeon01 · 이서연', reason: '지급 오류로 인한 회수', delta: -40, actor: '관리자 김재준' },
+]
+
+export const adminRewardErrors = [
+  { id: 'err1', member: 'jijun01 · 김재준', reason: '퀘스트 완료 처리 후 EXP 미지급', at: '2026-07-23T15:10:00+09:00', exp: 40, type: 'under' },
+  { id: 'err2', member: 'minsu22 · 민수', reason: '중복 완료 처리로 EXP 초과 지급', at: '2026-07-22T11:32:00+09:00', exp: 30, type: 'over' },
+  { id: 'err3', member: 'soyeon88 · 소연', reason: '자동 지급 로직 오류로 EXP 누락', at: '2026-07-21T09:05:00+09:00', exp: 50, type: 'under' },
+]
