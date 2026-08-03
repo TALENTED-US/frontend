@@ -17,6 +17,7 @@ const form = reactive({
   period: '',
   sourceUrl: '',
   status: 'open',
+  recommendStatus: 'active',
   ageCondition: '',
   incomeCondition: '',
   requiredDocs: '',
@@ -33,7 +34,7 @@ async function save() {
   if (isEdit.value) {
     await updateAdminPolicy(route.params.policyId, { ...form })
   } else {
-    await createAdminPolicy({ ...form, excludedFromRecommend: form.status === 'closed' })
+    await createAdminPolicy({ ...form })
   }
   router.push('/admin/policies')
 }
@@ -89,6 +90,14 @@ onMounted(load)
             <option value="open">모집중</option>
             <option value="closing-soon">마감임박</option>
             <option value="closed">마감</option>
+          </select>
+        </label>
+        <label>
+          추천 여부
+          <select v-model="form.recommendStatus">
+            <option value="active">추천중</option>
+            <option value="auto-excluded">자동 제외(마감)</option>
+            <option value="manual-excluded">수동 제외(오류)</option>
           </select>
         </label>
       </div>

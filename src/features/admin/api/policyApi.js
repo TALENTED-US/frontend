@@ -37,7 +37,7 @@ export function getAdminPolicy(policyId) {
 export function createAdminPolicy(payload) {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const record = { id: `pol-${Date.now()}`, source: 'manual', excludedFromRecommend: false, ...payload }
+      const record = { id: `pol-${Date.now()}`, source: 'manual', recommendStatus: 'active', ...payload }
       adminPolicies.unshift(record)
       adminPolicyHistory.unshift({
         id: Date.now(),
@@ -80,15 +80,16 @@ export function deleteAdminPolicy(policyId) {
   })
 }
 
-export function setAdminPoliciesExcluded(policyIds, excluded) {
-  return new Promise((resolve) => {
+export function setAdminPolicyRecommendStatus(policyId, recommendStatus) {
+  return new Promise((resolve, reject) => {
     setTimeout(() => {
-      adminPolicies
-        .filter((policy) => policyIds.includes(policy.id))
-        .forEach((policy) => {
-          policy.excludedFromRecommend = excluded
-        })
-      resolve({ ok: true })
+      const policy = adminPolicies.find((item) => item.id === policyId)
+      if (!policy) {
+        reject(new Error('policy not found'))
+        return
+      }
+      policy.recommendStatus = recommendStatus
+      resolve(structuredClone(policy))
     }, 200)
   })
 }

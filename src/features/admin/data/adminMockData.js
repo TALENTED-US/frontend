@@ -190,10 +190,85 @@ export const adminMembers = [
   },
 ]
 
-export const adminFinanceDatasets = [
-  { key: 'jobseeker-basic', label: '취업준비생 기본 세트' },
-  { key: 'jobseeker-active', label: '구직활동 활발 세트' },
-  { key: 'employed-transition', label: '재직·이직 준비 세트' },
+export const adminFinancePersonaDatasets = [
+  {
+    key: 'independent-renter',
+    name: '독립 자취생 (월세/고정비 부담형)',
+    description: '월세, 공과금 등 거대 고정비 중심으로 잔고 소진 방지가 시급한 버티기 유형',
+    accountCount: 2,
+    cardCount: 1,
+    transactionCount: 32,
+    createdAt: '2026-06-01',
+    updatedAt: '2026-07-20',
+    records: [
+      { id: 'rec-1', type: 'account', institution: 'KB국민은행', detail: '입출금 계좌', amount: 1850000, status: 'connected' },
+      { id: 'rec-2', type: 'card', institution: '카카오뱅크 체크카드', detail: '생활비 지출용', amount: null, status: 'normal' },
+      { id: 'rec-3', type: 'transaction', institution: '행복공인중개사', detail: '2026.07.01 · 지출(월세)', amount: -550000, status: 'normal' },
+      { id: 'rec-4', type: 'transaction', institution: '한국전력공사', detail: '2026.07.05 · 지출(공과금)', amount: -68000, status: 'normal' },
+      { id: 'rec-5', type: 'transaction', institution: '아르바이트 급여', detail: '2026.07.14 · 수입', amount: 450000, status: 'normal' },
+    ],
+    appliedMembers: [
+      { userId: 'jijun01', email: 'user@email.com', nickname: '재준', appliedAt: '2026-07-16', updatedAt: '2026-07-20' },
+      { userId: 'minsu02', email: 'minsu@email.com', nickname: '민수', appliedAt: '2026-07-10', updatedAt: '2026-07-18' },
+    ],
+  },
+  {
+    key: 'reemployment-after-resign',
+    name: '퇴사 후 재취업 (실업급여/지출 다이어트형)',
+    description: '이전 직장 지출 습관 축소 및 실업급여 기반 지출 구조조정 유형',
+    accountCount: 3,
+    cardCount: 2,
+    transactionCount: 41,
+    createdAt: '2026-06-05',
+    updatedAt: '2026-07-18',
+    records: [
+      { id: 'rec-1', type: 'account', institution: '신한은행', detail: '입출금 계좌', amount: 980000, status: 'connected' },
+      { id: 'rec-2', type: 'card', institution: '신한카드', detail: '생활비 지출용', amount: null, status: 'normal' },
+      { id: 'rec-3', type: 'transaction', institution: '고용노동부', detail: '2026.07.01 · 수입(실업급여)', amount: 1200000, status: 'normal' },
+      { id: 'rec-4', type: 'transaction', institution: '지하철 정기권', detail: '2026.07.03 · 지출(교통비)', amount: -55000, status: 'normal' },
+    ],
+    appliedMembers: [
+      { userId: 'hyunwoo55', email: 'hyunwoo@email.com', nickname: '현우', appliedAt: '2026-07-12', updatedAt: '2026-07-18' },
+    ],
+  },
+  {
+    key: 'first-job-preparer',
+    name: '첫 취업 준비생 (응시료/학원비 중심)',
+    description: '부모님 지원·용돈 및 토익, 자격증 응시료, 스터디카페 비용 중심 유형',
+    accountCount: 2,
+    cardCount: 1,
+    transactionCount: 26,
+    createdAt: '2026-06-10',
+    updatedAt: '2026-07-15',
+    records: [
+      { id: 'rec-1', type: 'account', institution: '카카오뱅크', detail: '입출금 계좌', amount: 620000, status: 'connected' },
+      { id: 'rec-2', type: 'card', institution: '토스뱅크 체크카드', detail: '학원비 · 응시료용', amount: null, status: 'normal' },
+      { id: 'rec-3', type: 'transaction', institution: '부모님 용돈', detail: '2026.07.01 · 수입', amount: 300000, status: 'normal' },
+      { id: 'rec-4', type: 'transaction', institution: '토익 응시료', detail: '2026.07.08 · 지출(응시료)', amount: -52000, status: 'normal' },
+    ],
+    appliedMembers: [
+      { userId: 'yuri_kim', email: 'yuri@email.com', nickname: '유리', appliedAt: '2026-07-05', updatedAt: '2026-07-15' },
+    ],
+  },
+  {
+    key: 'regional-jobseeker',
+    name: '지방 상경 취준생 (교통/면접비 중심)',
+    description: 'KTX·고속버스 이동 교통비, 서울 면접 체류 및 숙박비 중심 유형',
+    accountCount: 3,
+    cardCount: 2,
+    transactionCount: 35,
+    createdAt: '2026-06-15',
+    updatedAt: '2026-07-19',
+    records: [
+      { id: 'rec-1', type: 'account', institution: '우리은행', detail: '입출금 계좌', amount: 740000, status: 'connected' },
+      { id: 'rec-2', type: 'card', institution: '우리카드', detail: '숙박비 지출용', amount: null, status: 'normal' },
+      { id: 'rec-3', type: 'transaction', institution: 'KTX', detail: '2026.07.02 · 지출(교통비)', amount: -45000, status: 'normal' },
+      { id: 'rec-4', type: 'transaction', institution: '게스트하우스', detail: '2026.07.09 · 지출(숙박비)', amount: -38000, status: 'normal' },
+    ],
+    appliedMembers: [
+      { userId: 'dohyun77', email: 'dohyun@email.com', nickname: '도현', appliedAt: '2026-07-08', updatedAt: '2026-07-19' },
+    ],
+  },
 ]
 
 export const adminFinanceDataByUser = {
@@ -271,7 +346,7 @@ export const adminPolicies = [
     incomeCondition: '연소득 2,600만원 이하',
     requiredDocs: '소득 증빙서류, 신분증',
     applyMethod: '복지로 온라인 신청',
-    excludedFromRecommend: false,
+    recommendStatus: 'active',
   },
   {
     id: 'pol-2',
@@ -288,7 +363,7 @@ export const adminPolicies = [
     incomeCondition: '',
     requiredDocs: '',
     applyMethod: '',
-    excludedFromRecommend: false,
+    recommendStatus: 'active',
   },
   {
     id: 'pol-3',
@@ -305,7 +380,7 @@ export const adminPolicies = [
     incomeCondition: '',
     requiredDocs: '',
     applyMethod: '',
-    excludedFromRecommend: false,
+    recommendStatus: 'active',
   },
   {
     id: 'pol-4',
@@ -322,7 +397,7 @@ export const adminPolicies = [
     incomeCondition: '',
     requiredDocs: '',
     applyMethod: '',
-    excludedFromRecommend: true,
+    recommendStatus: 'auto-excluded',
   },
 ]
 

@@ -1,34 +1,34 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { adminPolicyCategories, adminPolicyRegions } from '@/features/admin/data/adminMockData'
-import { deleteAdminPolicy, getAdminPolicies, setAdminPoliciesExcluded } from '@/features/admin/api/policyApi'
+import { deleteAdminPolicy, getAdminPolicies, setAdminPolicyRecommendStatus } from '@/features/admin/api/policyApi'
 
 const STATUS_LABEL = { open: '모집중', 'closing-soon': '마감임박', closed: '마감' }
 const SOURCE_LABEL = { crawl: '크롤링 자동 수집', manual: '수동 등록' }
+const RECOMMEND_LABEL = { active: '추천중', 'auto-excluded': '자동 제외(마감)', 'manual-excluded': '수동 제외(오류)' }
 
 const keyword = ref('')
 const category = ref('all')
 const region = ref('all')
 const status = ref('all')
 const policies = ref([])
-const selected = ref([])
 
 async function search() {
   policies.value = await getAdminPolicies({ keyword: keyword.value, category: category.value, region: region.value, status: status.value })
-  selected.value = []
 }
 
-function toggleSelect(id) {
-  selected.value = selected.value.includes(id) ? selected.value.filter((item) => item !== id) : [...selected.value, id]
+function resetFilters() {
+  keyword.value = ''
+  category.value = 'all'
+  region.value = 'all'
+  status.value = 'all'
+  search()
 }
 
-async function excludeSelected() {
-  if (selected.value.length === 0) return
-  await setAdminPoliciesExcluded(selected.value, true)
-  policies.value.forEach((policy) => {
-    if (selected.value.includes(policy.id)) policy.excludedFromRecommend = true
-  })
-  selected.value = []
+async function toggleRecommendExcluded(policy, excluded) {
+  const recommendStatus = excluded ? 'manual-excluded' : 'active'
+  await setAdminPolicyRecommendStatus(policy.id, recommendStatus)
+  policy.recommendStatus = recommendStatus
 }
 
 async function removePolicy(policy) {
@@ -50,6 +50,7 @@ onMounted(search)
 
     <form class="admin-policies__toolbar" @submit.prevent="search">
       <input v-model="keyword" type="text" placeholder="정책명 검색" />
+      <button type="button" class="admin-policies__reset" @click="resetFilters">초기화</button>
       <select v-model="category">
         <option value="all">전체 카테고리</option>
         <option v-for="option in adminPolicyCategories" :key="option" :value="option">{{ option }}</option>
@@ -80,17 +81,17 @@ onMounted(search)
         <table>
           <thead>
             <tr>
-              <th></th>
               <th>정책명 · 대상</th>
               <th>지원금</th>
               <th>신청기간</th>
-              <th>상태 · 출처</th>
+              <th>상태</th>
+              <th>수동 제외</th>
+              <th>추천 여부</th>
               <th>관리</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="policy in policies" :key="policy.id">
-              <td><input type="checkbox" :checked="selected.includes(policy.id)" @change="toggleSelect(policy.id)" /></td>
               <td>
                 <p class="strong">{{ policy.name }}</p>
                 <small class="admin-policies__subtext">{{ policy.target }}</small>
@@ -102,6 +103,16 @@ onMounted(search)
                 <br />
                 <small class="admin-policies__subtext">{{ SOURCE_LABEL[policy.source] }}</small>
               </td>
+              <td>
+                <input
+                  type="checkbox"
+                  :checked="policy.recommendStatus === 'manual-excluded'"
+                  @change="toggleRecommendExcluded(policy, $event.target.checked)"
+                />
+              </td>
+              <td>
+                <span :class="['admin-badge', `admin-badge--rec-${policy.recommendStatus}`]">{{ RECOMMEND_LABEL[policy.recommendStatus] }}</span>
+              </td>
               <td class="admin-policies__actions-cell">
                 <div class="admin-policies__row-actions">
                   <RouterLink :to="`/admin/policies/${policy.id}/edit`">수정</RouterLink>
@@ -111,15 +122,14 @@ onMounted(search)
               </td>
             </tr>
             <tr v-if="policies.length === 0">
-              <td colspan="6" class="admin-policies__empty">조건에 맞는 정책이 없어요.</td>
+              <td colspan="7" class="admin-policies__empty">조건에 맞는 정책이 없어요.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <footer class="admin-policies__footer">
-        <p>마감된 정책은 자동으로 추천 목록에서 제외됩니다.</p>
-        <button type="button" :disabled="selected.length === 0" @click="excludeSelected">선택 항목 추천 제외</button>
+        <p>마감된 정책은 자동으로 추천 목록에서 제외됩니다. 체크박스를 선택하면 즉시 수동으로 추천에서 제외돼요.</p>
       </footer>
     </article>
   </section>
@@ -167,6 +177,17 @@ onMounted(search)
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-policies__reset {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--font-small);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -275,6 +296,21 @@ td.strong {
   color: #94a3b8;
 }
 
+.admin-badge--rec-active {
+  background: #dcfce7;
+  color: #22c55e;
+}
+
+.admin-badge--rec-auto-excluded {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.admin-badge--rec-manual-excluded {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
 .admin-policies__actions-cell {
   vertical-align: middle;
 }
@@ -317,19 +353,5 @@ td.strong {
 .admin-policies__footer p {
   color: var(--subtle);
   font-size: var(--font-caption);
-}
-
-.admin-policies__footer button {
-  padding: 8px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: var(--font-small);
-  font-weight: 700;
-}
-
-.admin-policies__footer button:disabled {
-  opacity: 0.5;
 }
 </style>
