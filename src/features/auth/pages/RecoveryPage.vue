@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
+import recoverySuccessCheck from '@/assets/auth-recovery-success-check.svg'
 import { user } from '@/data/mockData'
 
 const route = useRoute()
@@ -11,15 +12,27 @@ const isId = computed(() => route.name === 'find-id')
 const isDirectPasswordChange = computed(
   () => route.name === 'find-password' && route.query.mode === 'change',
 )
-const step = ref(isDirectPasswordChange.value ? 3 : 1)
+const hasDirectIdResult = computed(
+  () => isId.value && ['success', 'not-found'].includes(String(route.query.result)),
+)
+const step = ref(isDirectPasswordChange.value ? 3 : hasDirectIdResult.value ? 2 : 1)
+const idResultStatus = ref(route.query.result === 'not-found' ? 'not-found' : 'success')
+const isIdResult = computed(() => isId.value && step.value === 2)
+const isIdNotFound = computed(() => isIdResult.value && idResultStatus.value === 'not-found')
 const accountId = ref(isDirectPasswordChange.value ? user.email : '')
 const password = ref('')
 const passwordConfirm = ref('')
+const showPassword = ref(false)
+const showPasswordConfirm = ref(false)
 const accountError = ref('')
 const passwordError = ref('')
 const isMobileViewport = ref(false)
 
 const normalizedMockEmail = user.email.toLowerCase()
+const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/
+const canChangePassword = computed(
+  () => password.value.length > 0 && passwordConfirm.value.length > 0,
+)
 let mobileMediaQuery
 
 function syncViewport(event) {
@@ -37,15 +50,18 @@ onBeforeUnmount(() => {
 })
 
 function resetFlow() {
-  step.value = isDirectPasswordChange.value ? 3 : 1
+  step.value = isDirectPasswordChange.value ? 3 : hasDirectIdResult.value ? 2 : 1
+  idResultStatus.value = route.query.result === 'not-found' ? 'not-found' : 'success'
   accountId.value = isDirectPasswordChange.value ? user.email : ''
   password.value = ''
   passwordConfirm.value = ''
+  showPassword.value = false
+  showPasswordConfirm.value = false
   accountError.value = ''
   passwordError.value = ''
 }
 
-watch(() => [route.name, route.query.mode], resetFlow)
+watch(() => [route.name, route.query.mode, route.query.result], resetFlow)
 
 function goBack() {
   if (step.value > 1) {
@@ -57,7 +73,19 @@ function goBack() {
 }
 
 function completeSimpleVerification() {
-  step.value = isId.value ? 2 : 3
+  if (isId.value) {
+    idResultStatus.value = route.query.result === 'not-found' ? 'not-found' : 'success'
+    step.value = 2
+    return
+  }
+
+  step.value = 3
+}
+
+function retryIdLookup() {
+  idResultStatus.value = 'success'
+  step.value = 1
+  router.replace('/auth/find-id')
 }
 
 function nextPassword() {
@@ -73,8 +101,6 @@ function nextPassword() {
 }
 
 function resetPassword() {
-  const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/
-
   if (!passwordPattern.test(password.value)) {
     passwordError.value = '영문·숫자·특수문자를 포함해 8자 이상 입력해 주세요.'
     return
@@ -100,12 +126,24 @@ function resetPassword() {
       </nav>
     </header>
 
-    <header v-else class="mobile-header">
+    <header v-else class="mobile-header" :class="{ 'result-mobile-header': isIdResult }">
       <button type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">‹</button>
       <strong>{{ isId ? '아이디 찾기' : '비밀번호 찾기' }}</strong>
     </header>
 
-    <section class="recovery-content">
+    <section
+      class="recovery-content"
+      :class="{
+        'id-result-content': isIdResult,
+        'password-content': !isId,
+        'password-entry-content': !isId && step === 1,
+      }"
+    >
+      <div v-if="isIdResult && !isMobileViewport" class="desktop-recovery-titlebar">
+        <button type="button" aria-label="뒤로가기" @click="goBack">‹</button>
+        <strong>아이디 찾기</strong>
+      </div>
+
       <p class="eyebrow">ACCOUNT RECOVERY</p>
 
       <template v-if="isId && step === 1">
@@ -119,16 +157,46 @@ function resetPassword() {
       </template>
 
       <template v-else-if="isId">
-        <h1>아이디를 찾았어요</h1>
-        <p class="description">간편 본인인증으로 확인된 계정입니다.</p>
+        <template v-if="isIdNotFound">
+          <h1 class="failure-title">일치하는 계정이 없습니다</h1>
+          <p class="description failure-description">
+            입력하신 정보와 일치하는 계정을<br />찾을 수 없어요.
+          </p>
 
-        <article class="result-box">
-          <small>가입 아이디</small>
-          <strong>{{ user.email }}</strong>
-          <span>가입일 2026.07.01</span>
-        </article>
-        <RouterLink class="primary-button" to="/auth/login">로그인하기</RouterLink>
-        <RouterLink class="text-link" to="/auth/find-password">비밀번호도 찾을까요? ›</RouterLink>
+          <div class="result-failure-icon" aria-hidden="true">?</div>
+
+          <article class="failure-guide">
+            <strong>이런 경우를 확인해보세요</strong>
+            <p>· 입력한 정보가 정확한가요?</p>
+            <p>· 아직 회원가입을 하지 않으셨나요?</p>
+          </article>
+
+          <div class="result-actions">
+            <RouterLink class="primary-button" to="/auth/signup">회원가입하기</RouterLink>
+            <button type="button" class="secondary-button retry-button" @click="retryIdLookup">
+              다시 시도하기
+            </button>
+          </div>
+        </template>
+
+        <template v-else>
+          <h1>아이디 찾기 결과</h1>
+          <p class="description">본인 확인이 완료되었습니다.</p>
+
+          <div class="result-success-icon" aria-hidden="true">
+            <img :src="recoverySuccessCheck" alt="" />
+          </div>
+
+          <article class="result-box">
+            <small>아이디</small>
+            <strong>{{ user.email }}</strong>
+          </article>
+
+          <div class="result-actions">
+            <RouterLink class="primary-button" to="/auth/login">로그인하기</RouterLink>
+            <RouterLink class="secondary-button" to="/auth/find-password">비밀번호 찾기</RouterLink>
+          </div>
+        </template>
       </template>
 
       <template v-else-if="step === 1">
@@ -150,9 +218,12 @@ function resetPassword() {
         <small class="helper-text">
           소셜 계정으로 가입했다면 해당 서비스에서 비밀번호를 재설정해 주세요.
         </small>
-        <button type="button" class="primary-button" @click="nextPassword">다음</button>
-        <RouterLink class="text-link left" to="/auth/find-id">
-          아이디가 기억나지 않으세요? 아이디 찾기 ›
+        <button type="button" class="primary-button next-button" @click="nextPassword">
+          <strong>다음</strong>
+        </button>
+        <RouterLink class="text-link password-id-link" to="/auth/find-id">
+          <span>아이디가 기억나지 않으세요?</span>
+          <strong>아이디 찾기 ›</strong>
         </RouterLink>
       </template>
 
@@ -174,29 +245,64 @@ function resetPassword() {
           <span>ID</span>
           <strong>{{ accountId }}</strong>
         </div>
-        <label class="recovery-field">
+        <label class="recovery-field password-field">
           <span>새 비밀번호</span>
-          <input
-            v-model="password"
-            type="password"
-            autocomplete="new-password"
-            placeholder="8자 이상 입력하세요"
-            @input="passwordError = ''"
-          />
+          <span class="password-input-wrap">
+            <input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="new-password"
+              placeholder="8자 이상 입력하세요"
+              @input="passwordError = ''"
+            />
+            <button
+              type="button"
+              class="password-visibility"
+              :aria-label="showPassword ? '새 비밀번호 숨기기' : '새 비밀번호 보기'"
+              :aria-pressed="showPassword"
+              @click="showPassword = !showPassword"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                <circle cx="12" cy="12" r="2.6" />
+              </svg>
+            </button>
+          </span>
         </label>
-        <label class="recovery-field">
+        <label class="recovery-field password-field">
           <span>비밀번호 확인</span>
-          <input
-            v-model="passwordConfirm"
-            type="password"
-            autocomplete="new-password"
-            placeholder="한 번 더 입력하세요"
-            @input="passwordError = ''"
-            @keyup.enter="resetPassword"
-          />
+          <span class="password-input-wrap">
+            <input
+              v-model="passwordConfirm"
+              :type="showPasswordConfirm ? 'text' : 'password'"
+              autocomplete="new-password"
+              placeholder="한 번 더 입력하세요"
+              @input="passwordError = ''"
+              @keyup.enter="canChangePassword && resetPassword()"
+            />
+            <button
+              type="button"
+              class="password-visibility"
+              :aria-label="showPasswordConfirm ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'"
+              :aria-pressed="showPasswordConfirm"
+              @click="showPasswordConfirm = !showPasswordConfirm"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                <circle cx="12" cy="12" r="2.6" />
+              </svg>
+            </button>
+          </span>
           <small v-if="passwordError" class="field-error" role="alert">{{ passwordError }}</small>
         </label>
-        <button type="button" class="primary-button" @click="resetPassword">비밀번호 변경</button>
+        <button
+          type="button"
+          class="primary-button password-change-button"
+          :disabled="!canChangePassword"
+          @click="resetPassword"
+        >
+          <strong>비밀번호 변경</strong>
+        </button>
       </template>
     </section>
   </main>
@@ -224,7 +330,8 @@ function resetPassword() {
   padding: 9px 17px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--primary);
+  box-shadow: var(--shadow-figma);
+  color: #222;
   font-size: var(--font-caption);
   font-weight: 800;
 }
@@ -241,6 +348,46 @@ function resetPassword() {
 .recovery-content {
   width: min(100%, 500px);
   margin: clamp(130px, 18vh, 190px) auto 0;
+}
+
+.recovery-content.id-result-content {
+  width: min(100%, 430px);
+  min-height: 660px;
+  margin-top: clamp(82px, 10vh, 112px);
+}
+
+.desktop-recovery-titlebar {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 22px;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.desktop-recovery-titlebar button {
+  width: 16px;
+  color: #222;
+  font-family: inherit;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.desktop-recovery-titlebar strong {
+  color: #222;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.id-result-content .eyebrow {
+  margin-top: 34px;
+}
+
+.recovery-content.id-result-content h1 {
+  color: #222;
+}
+
+.recovery-content.password-content h1 {
+  color: #222;
 }
 
 .eyebrow {
@@ -340,6 +487,56 @@ function resetPassword() {
   border-color: var(--danger);
 }
 
+.password-content .password-field {
+  color: #222;
+}
+
+.password-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.password-input-wrap input {
+  padding-right: 52px;
+}
+
+.password-visibility {
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #777;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.password-visibility:hover {
+  background: #f4f5f8;
+  color: #222;
+}
+
+.password-visibility:focus-visible {
+  outline: 2px solid rgb(6 23 143 / 24%);
+  outline-offset: 1px;
+}
+
+.password-visibility svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .field-error {
   color: var(--danger);
   font-size: var(--font-caption);
@@ -384,9 +581,110 @@ function resetPassword() {
   place-items: center;
   border-radius: 10px;
   background: var(--accent);
+  box-shadow: var(--shadow-figma);
   color: #222;
   font-size: var(--font-small);
   font-weight: 800;
+}
+
+.password-content .password-change-button {
+  font-weight: 800;
+}
+
+.password-change-button strong {
+  font-weight: 800;
+}
+
+.next-button,
+.next-button strong {
+  font-weight: 800;
+}
+
+.password-change-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.result-success-icon {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  margin: 43px auto 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #fdf2df;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+}
+
+.result-success-icon img {
+  display: block;
+  width: 37px;
+  height: 28px;
+}
+
+.result-failure-icon {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  margin: 43px auto 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0f2f7;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+  color: #999;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.failure-guide {
+  min-height: 90px;
+  margin-top: 38px;
+  padding: 14px 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  background: #f0f2f7;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 25%);
+  color: #666;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.failure-guide strong {
+  display: block;
+  color: #222;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.id-result-content .secondary-button.retry-button {
+  font-family: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.result-actions {
+  margin-top: 26px;
+}
+
+.result-actions .primary-button {
+  margin-top: 0;
+}
+
+.secondary-button {
+  display: grid;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 12px;
+  place-items: center;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  background: #fcfdff;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 25%);
+  color: #222;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .text-link {
@@ -401,24 +699,84 @@ function resetPassword() {
   text-align: left;
 }
 
+.password-id-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #444;
+  text-align: left;
+}
+
+.password-id-link span {
+  font-weight: 400;
+}
+
+.password-id-link strong {
+  color: #222;
+  font-weight: 800;
+}
+
 .result-box {
   display: grid;
   gap: 6px;
-  margin-top: 30px;
-  padding: 20px;
-  border-radius: 11px;
-  background: var(--primary-soft);
+  min-height: 70px;
+  margin-top: 40px;
+  padding: 14px 16px 12px;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  background: #f0f2f7;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
 }
 
-.result-box small,
-.result-box span {
-  color: #777;
-  font-size: var(--font-caption);
+.result-box small {
+  color: #737a8a;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .result-box strong {
-  color: var(--primary);
-  font-size: var(--font-card-title);
+  color: #222;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+  .recovery-content.password-entry-content {
+    width: min(100%, 580px);
+    margin-top: clamp(190px, 22vh, 240px);
+  }
+
+  .password-entry-content .recovery-field {
+    margin-top: 82px;
+    color: #222;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .password-entry-content .recovery-field input {
+    height: 60px;
+    padding: 0 20px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .password-entry-content .helper-text {
+    margin-top: 14px;
+    font-size: 12px;
+  }
+
+  .password-entry-content .primary-button {
+    min-height: 58px;
+    margin-top: 42px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .password-entry-content .password-id-link {
+    margin-top: 28px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 767px) {
@@ -441,6 +799,24 @@ function resetPassword() {
 
   .mobile-header::after {
     content: '';
+  }
+
+  .mobile-header.result-mobile-header {
+    grid-template-columns: 9px 1fr;
+    gap: 24px;
+    padding: 0 20px;
+  }
+
+  .mobile-header.result-mobile-header::after {
+    content: none;
+  }
+
+  .mobile-header.result-mobile-header strong {
+    text-align: left;
+  }
+
+  .mobile-header.result-mobile-header .mobile-back {
+    width: 9px;
   }
 
   .mobile-header strong {
@@ -467,6 +843,14 @@ function resetPassword() {
     padding: 38px 24px 40px;
   }
 
+  .recovery-content.id-result-content {
+    position: relative;
+    width: 100%;
+    min-height: calc(100dvh - 56px);
+    margin: 0;
+    padding: 20px;
+  }
+
   .eyebrow {
     font-size: var(--font-small);
   }
@@ -475,6 +859,34 @@ function resetPassword() {
     margin-top: 8px;
     color: #222;
     font-size: var(--font-page-title);
+  }
+
+  .id-result-content .eyebrow {
+    margin-top: 0;
+  }
+
+  .id-result-content h1 {
+    margin-top: 13px;
+    font-size: 24px;
+    line-height: 29px;
+  }
+
+  .id-result-content .description {
+    margin-top: 4px;
+    color: #666;
+    font-size: 13px;
+    line-height: 15px;
+  }
+
+  .id-result-content .failure-title {
+    margin-top: 18px;
+    font-size: 22px;
+    line-height: 26px;
+  }
+
+  .id-result-content .failure-description {
+    margin-top: 5px;
+    line-height: 20px;
   }
 
   .description {
@@ -523,6 +935,11 @@ function resetPassword() {
     font-size: var(--font-small);
   }
 
+  .password-entry-content .password-id-link {
+    justify-content: center;
+    margin-top: 24px;
+  }
+
   .verified-account {
     min-height: 46px;
     margin-top: 42px;
@@ -531,6 +948,64 @@ function resetPassword() {
 
   .result-box {
     margin-top: 42px;
+  }
+
+  .id-result-content .result-success-icon {
+    position: absolute;
+    top: 243px;
+    left: 50%;
+    width: 68px;
+    height: 68px;
+    margin: 0;
+    transform: translateX(-50%);
+  }
+
+  .id-result-content .result-success-icon img {
+    width: 32px;
+    height: 23px;
+  }
+
+  .id-result-content .result-failure-icon {
+    position: absolute;
+    top: 242px;
+    left: 50%;
+    width: 68px;
+    height: 68px;
+    margin: 0;
+    transform: translateX(-50%);
+  }
+
+  .id-result-content .failure-guide {
+    position: absolute;
+    top: 342px;
+    right: 20px;
+    left: 20px;
+    min-height: 90px;
+    margin: 0;
+  }
+
+  .id-result-content .result-box {
+    position: absolute;
+    top: 345px;
+    right: 20px;
+    left: 20px;
+    margin: 0;
+  }
+
+  .id-result-content .result-actions {
+    position: absolute;
+    right: 20px;
+    bottom: 76px;
+    left: 20px;
+    margin: 0;
+  }
+
+  .id-result-content .primary-button,
+  .id-result-content .secondary-button {
+    min-height: 50px;
+    border-radius: 20px;
+    font-size: 15px;
+    font-weight: 700;
   }
 }
 </style>

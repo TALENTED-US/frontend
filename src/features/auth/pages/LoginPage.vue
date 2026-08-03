@@ -74,7 +74,7 @@ function clearError() {
                 ><AppIcon name="eye" :size="18" /></button></i
           ></label>
           <p v-if="error" class="login-error" role="alert">{{ error }}</p>
-          <button class="login-submit" type="submit">로그인</button>
+          <button class="login-submit" type="submit"><strong>로그인</strong></button>
         </form>
 
         <div class="recovery"><RouterLink to="/auth/find-id">아이디 찾기</RouterLink><span>|</span><RouterLink to="/auth/find-password">비밀번호 찾기</RouterLink></div>
@@ -105,11 +105,13 @@ function clearError() {
 .login-card label i input { min-width: 0; flex: 1; height: 100%; padding: 0 17px; }
 .login-card label i button { padding: 12px; color: #777; }
 .login-submit { height: 50px; border-radius: 10px; background: var(--accent); color: #1c1c1c; box-shadow: var(--shadow-figma); font-size: var(--font-small); font-weight: 800; }
+.login-submit strong { font-weight: 800; }
 .login-error { color: var(--danger); font-size: var(--font-caption); }
-.recovery { display: flex; justify-content: center; gap: 22px; margin-top: 11px; color: var(--primary); font-size: var(--font-small); }
+.recovery { display: flex; justify-content: center; gap: 22px; margin-top: 11px; color: #222; font-size: var(--font-small); }
+.recovery a { color: #222; }
 .recovery span { color: #777; }
 .signup-link { margin-top: 18px; color: #777; text-align: center; font-size: var(--font-small); }
-.signup-link a { color: var(--primary); font-weight: 800; }
+.signup-link a { color: #222; font-weight: 800; }
 
 @media (max-width: 767px) {
   .login-page { display: block; width: min(100%, 393px); min-height: 100dvh; margin: 0 auto; padding: 14px 16px; background: #fff; }
@@ -123,7 +125,7 @@ function clearError() {
   .login-card label > input,
   .login-card label i { min-height: 50px; height: auto; border: 1px solid var(--border); border-radius: 999px; background: #fff; }
   .login-submit { min-height: 48px; height: auto; margin-top: 5px; border-radius: 999px; }
-  .recovery { margin-top: 9px; color: #555; }
+  .recovery { margin-top: 9px; color: #222; }
   .signup-link { margin-top: 28px; }
 }
 </style>

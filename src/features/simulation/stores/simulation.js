@@ -43,6 +43,7 @@ const defaultState = () => ({
   expenseApplied: false,
   incomes: [],
   policies: [],
+  completedQuestIds: [],
   confirmed: false,
 })
 
@@ -68,7 +69,7 @@ export const useSimulationStore = defineStore('simulation', () => {
       current,
     }))
     const rows = breakdownRows.filter((item) => !NON_REDUCIBLE_EXPENSES.has(item.name)).map(({ id, name, icon, color, current }) => {
-      const previous = existing.find((item) => item.id === name)
+      const previous = existing.find((item) => item.id === name || item.name === name)
       return {
         id,
         name,
@@ -93,6 +94,13 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.expenses = analyzed.rows
     expenseBreakdown.value = analyzed.breakdownRows
     expenseMonths.value = analyzed.monthKeys
+  }
+
+  function initializeExpensesFromAnalysis() {
+    const hasSavedExpensePlan = state.expenseApplied
+      || state.expenses.some((item) => item.selected || Number(item.saving) > 0)
+
+    if (!hasSavedExpensePlan) syncExpenseCategories(false)
   }
   watch(financeTransactions, () => syncExpenseCategories(true), { deep: true, immediate: true })
   const totalAssets = ref(dashboard.totalAssets)
@@ -159,7 +167,16 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
   function removePolicy(id) { state.policies = state.policies.filter((item) => item.id !== id) }
   function resetPolicies() { state.policies = []; state.confirmed = false }
-  function confirmScenario() { state.confirmed = true }
+  function confirmScenario() {
+    state.completedQuestIds = []
+    state.confirmed = true
+  }
+  function toggleQuestCompletion(id) {
+    const completed = new Set(state.completedQuestIds || [])
+    if (completed.has(id)) completed.delete(id)
+    else completed.add(id)
+    state.completedQuestIds = [...completed]
+  }
   function resetScenario() { Object.assign(state, defaultState()) }
 
   return {
@@ -169,6 +186,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     oneTimeIncome, recurringPolicy, oneTimePolicy, monthlyImprovement, addedMonths,
     expectedMonths, expensePreviewMonths, completedCategories, hasDraft, adjustExpense, toggleExpense,
     addIncome, removeIncome, togglePolicy, removePolicy, applyExpenses, resetExpenses,
-    resetIncomes, resetPolicies, confirmScenario, resetScenario,
+    initializeExpensesFromAnalysis,
+    resetIncomes, resetPolicies, confirmScenario, toggleQuestCompletion, resetScenario,
   }
 })

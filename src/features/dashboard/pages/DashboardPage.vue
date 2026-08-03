@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { dashboard } from "@/data/mockData";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import { useSessionStore } from "@/stores/session";
@@ -85,8 +85,28 @@ function formatCompactWon(value) {
   return formatWon(amount);
 }
 
+function formatSignedCompactWon(value) {
+  const amount = Math.round(Number(value) || 0);
+  if (!amount) return formatCompactWon(0);
+  return `${amount > 0 ? "+" : "-"}${formatCompactWon(Math.abs(amount))}`;
+}
+
 function formatMonthLabel(date) {
   return `${String(date.getFullYear()).slice(2)}년 ${date.getMonth() + 1}월`;
+}
+
+function formatDateDots(value) {
+  const date = parseLocalDate(value);
+  if (!date) return "";
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join(".");
+}
+
+function expenseQuestName(name) {
+  return name === "교통" ? "교통비" : name;
 }
 
 const currentUser = computed(() => session.currentUser);
@@ -137,7 +157,8 @@ const confirmedExpenseRows = computed(() =>
     ? simulation.selectedExpenses.map((item) => ({
         id: `expense-${item.id}`,
         icon: item.icon,
-        name: `${item.name} 줄이기`,
+        name: `${expenseQuestName(item.name)} ${formatCompactWon(item.saving)} 줄이기`,
+        subtitle: "",
         amount: -item.saving,
         kind: "expense",
       }))
@@ -148,6 +169,10 @@ const confirmedIncomeRows = computed(() =>
     id: `income-${item.id}`,
     icon: "💼",
     name: item.name,
+    subtitle:
+      item.type === "monthly"
+        ? `정기수입 · 매월 ${parseLocalDate(item.startDate)?.getDate() || 1}일`
+        : `일회성 수입 · ${formatDateDots(item.startDate)}`,
     amount: item.amount,
     kind: "income",
   })),
@@ -157,15 +182,74 @@ const confirmedPolicyRows = computed(() =>
     id: `policy-${item.id}`,
     icon: "🏛️",
     name: item.name,
+    subtitle:
+      item.id === "youth-saving"
+        ? "일시 60만원 · 3년 만기 시 정부지원금"
+        : item.detail || item.description || "정책 혜택",
     amount: item.amount,
     kind: "policy",
   })),
 );
-const confirmedScenarioRows = computed(() => [
+const questTab = ref("active");
+const allQuestRows = computed(() => [
   ...confirmedExpenseRows.value,
   ...confirmedIncomeRows.value,
   ...confirmedPolicyRows.value,
 ]);
+const completedQuestIds = computed(
+  () => new Set(simulation.state.completedQuestIds || []),
+);
+const completedQuestCount = computed(
+  () => allQuestRows.value.filter((item) => completedQuestIds.value.has(item.id)).length,
+);
+const activeQuestCount = computed(
+  () => allQuestRows.value.length - completedQuestCount.value,
+);
+const questGroups = computed(() => [
+  {
+    key: "expense",
+    title: "지출 줄이기",
+    amount: confirmedExpenseRows.value.reduce((sum, item) => sum + item.amount, 0),
+    rows: confirmedExpenseRows.value,
+  },
+  {
+    key: "income",
+    title: "수입 늘리기",
+    amount: confirmedIncomeRows.value.reduce((sum, item) => sum + item.amount, 0),
+    rows: confirmedIncomeRows.value,
+  },
+  {
+    key: "policy",
+    title: "정책 혜택",
+    action: "신청 가능",
+    rows: confirmedPolicyRows.value,
+  },
+]);
+const visibleQuestGroups = computed(() =>
+  questGroups.value
+    .map((group) => ({
+      ...group,
+      rows: group.rows.filter((item) =>
+        questTab.value === "completed"
+          ? completedQuestIds.value.has(item.id)
+          : !completedQuestIds.value.has(item.id),
+      ),
+    }))
+    .filter((group) => group.rows.length),
+);
+const oneTimeBenefitText = computed(() => {
+  const total = simulation.oneTimeIncome + simulation.oneTimePolicy;
+  return total > 0
+    ? `일시 수입·혜택 ${formatCompactWon(total)} 별도`
+    : "정기 반영 금액 기준";
+});
+function isQuestCompleted(id) {
+  return completedQuestIds.value.has(id);
+}
+
+function toggleQuest(id) {
+  simulation.toggleQuestCompletion(id);
+}
 const achievementRate = computed(() => {
   if (remainingMonthsValue.value <= 0) return 100;
   return Math.min(
@@ -334,37 +418,86 @@ const targetMonthText = computed(() =>
     </section>
 
     <div class="dashboard__bottom">
-      <section>
-        <h2 class="block-title">시뮬레이션 현황</h2>
-        <article class="simulation-cta">
-          <div v-if="!hasConfirmedScenario">
-            <h3>예상 재정 계획이 아직 없어요</h3>
-            <p>
-              아르바이트, 지출 절감, 정부지원금을 조합해<br
-                class="desktop-only"
-              />
-              나만의 시나리오를 만들어보세요.
-            </p>
+      <section class="quest-section">
+        <div class="block-heading">
+          <h2>퀘스트 현황</h2>
+          <span v-if="hasConfirmedScenario" class="confirmed-badge">확정됨</span>
+        </div>
+
+        <article v-if="hasConfirmedScenario" class="quest-card">
+          <div class="quest-tabs" role="tablist" aria-label="퀘스트 상태">
+            <button
+              type="button"
+              :class="{ 'is-active': questTab === 'active' }"
+              @click="questTab = 'active'"
+            >
+              진행 중 {{ activeQuestCount }}
+            </button>
+            <button
+              type="button"
+              :class="{ 'is-active': questTab === 'completed' }"
+              @click="questTab = 'completed'"
+            >
+              완료 {{ completedQuestCount }}
+            </button>
           </div>
-          <div v-else class="simulation-cta__confirmed">
-            <div class="simulation-cta__result">
-              <span>현재 버티는 기간</span>
-              <strong>{{ displayedSurvivalMonths }}개월</strong>
-              <i>→</i>
-              <span>예상 버티는 기간</span>
-              <strong>{{ displayedExpectedMonths }}개월</strong>
-              <em>+{{ simulation.addedMonths.toFixed(1) }}개월</em>
+
+          <div v-if="visibleQuestGroups.length" class="quest-groups">
+            <section
+              v-for="group in visibleQuestGroups"
+              :key="group.key"
+              class="quest-group"
+              :class="`quest-group--${group.key}`"
+            >
+              <div class="quest-group__heading">
+                <h3><i aria-hidden="true"></i>{{ group.title }}</h3>
+                <strong v-if="group.amount">
+                  {{ formatSignedCompactWon(group.amount) }}
+                </strong>
+                <strong v-else>{{ group.action }}</strong>
+              </div>
+
+              <button
+                v-for="item in group.rows"
+                :key="item.id"
+                type="button"
+                class="quest-row"
+                :class="[`quest-row--${item.kind}`, { 'is-completed': isQuestCompleted(item.id) }]"
+                :aria-pressed="isQuestCompleted(item.id)"
+                @click="toggleQuest(item.id)"
+              >
+                <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
+                <span class="quest-row__copy">
+                  <strong>{{ item.name }}</strong>
+                  <small v-if="item.subtitle">{{ item.subtitle }}</small>
+                </span>
+                <strong class="quest-row__amount">
+                  {{ formatSignedCompactWon(item.amount) }}
+                </strong>
+                <span class="quest-row__check" aria-hidden="true">
+                  {{ isQuestCompleted(item.id) ? "✓" : "" }}
+                </span>
+              </button>
+            </section>
+          </div>
+          <p v-else class="quest-card__empty">
+            {{ questTab === "completed" ? "완료한 퀘스트가 아직 없어요." : "진행 중인 퀘스트가 없어요." }}
+          </p>
+
+          <footer class="quest-card__footer">
+            <div>
+              <span>월 순지출 개선액 (지출·수입 기준)</span>
+              <strong>{{ formatCompactWon(simulation.monthlyImprovement) }} / 월</strong>
             </div>
-            <ul>
-              <li v-for="item in confirmedScenarioRows" :key="item.id">
-                <span>{{ item.icon }} {{ item.name }}</span>
-                <strong :class="`is-${item.kind}`">{{ formatWon(item.amount, { sign: true }) }}</strong>
-              </li>
-            </ul>
-          </div>
-          <RouterLink class="simulation-cta__button" to="/simulation">
-            {{ hasConfirmedScenario ? "시나리오 수정하기" : "시뮬레이션 하러가기" }} <span>→</span>
-          </RouterLink>
+            <p>{{ oneTimeBenefitText }}</p>
+            <RouterLink to="/simulation">시나리오 수정하기 <span>→</span></RouterLink>
+          </footer>
+        </article>
+
+        <article v-else class="quest-empty">
+          <h3>진행 중인 퀘스트가 아직 없어요</h3>
+          <p>지출 절감, 수입, 정책 혜택을 조합해 나만의 시나리오를 만들어보세요.</p>
+          <RouterLink to="/simulation/new">시뮬레이션 하러가기 <span>→</span></RouterLink>
         </article>
       </section>
 
@@ -807,6 +940,7 @@ const targetMonthText = computed(() =>
   border: 1px solid var(--border);
   border-radius: 16px;
   background: white;
+  box-shadow: var(--shadow-sm);
 }
 
 .goal-card > div {
@@ -837,6 +971,296 @@ const targetMonthText = computed(() =>
   color: #606a7a;
   font-size: var(--font-caption);
   line-height: 1;
+}
+
+.dashboard__bottom {
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  align-items: start;
+}
+
+.block-heading {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.block-heading h2 {
+  font-size: var(--font-section-title);
+  font-weight: 800;
+}
+
+.confirmed-badge {
+  padding: 7px 18px;
+  border-radius: 999px;
+  background: #f4b945;
+  box-shadow: var(--shadow-sm);
+  color: white;
+  font-size: var(--font-small);
+  font-weight: 800;
+}
+
+.quest-card,
+.quest-empty,
+.goal-setting-card {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.quest-card {
+  padding: 22px 24px 18px;
+}
+
+.quest-tabs {
+  display: grid;
+  width: min(72%, 520px);
+  height: 44px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 20px;
+  padding: 3px;
+  border: 1px solid #e1e4ea;
+  border-radius: 999px;
+  background: #f2f3f6;
+}
+
+.quest-tabs button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #9a9da5;
+  font-family: inherit;
+  font-size: var(--font-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quest-tabs button.is-active {
+  background: white;
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.quest-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.quest-group {
+  display: grid;
+  gap: 9px;
+}
+
+.quest-group__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.quest-group__heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--font-body);
+  font-weight: 800;
+}
+
+.quest-group__heading h3 i {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.quest-group--income .quest-group__heading h3 i { background: #3ed79d; }
+.quest-group--policy .quest-group__heading h3 i { background: #8e79cd; }
+
+.quest-group__heading > strong {
+  color: var(--danger);
+  font-size: var(--font-body);
+  font-weight: 800;
+}
+
+.quest-group--income .quest-group__heading > strong { color: #23bb82; }
+.quest-group--policy .quest-group__heading > strong { color: #8e79cd; }
+
+.quest-row {
+  display: grid;
+  width: 100%;
+  min-height: 62px;
+  grid-template-columns: 42px minmax(0, 1fr) auto 34px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid #e5e7ec;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quest-row--expense { background: #fff2f2; }
+.quest-row--income { background: #ecfbf5; }
+.quest-row--policy { background: #f6f3fc; }
+
+.quest-row.is-completed {
+  opacity: .62;
+}
+
+.quest-row__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #e1e4e9;
+  border-radius: 50%;
+  background: white;
+  font-size: 17px;
+}
+
+.quest-row__copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.quest-row__copy strong,
+.quest-row__amount {
+  font-size: var(--font-body);
+  font-weight: 800;
+}
+
+.quest-row__copy small {
+  overflow: hidden;
+  color: #727985;
+  font-size: var(--font-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-row__amount {
+  color: var(--danger);
+  white-space: nowrap;
+}
+
+.quest-row--income .quest-row__amount { color: #23bb82; }
+.quest-row--policy .quest-row__amount { color: #8e79cd; }
+
+.quest-row__check {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid #cfdae7;
+  border-radius: 10px;
+  background: white;
+  color: white;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.quest-row.is-completed .quest-row__check {
+  border-color: #666;
+  background: #666;
+}
+
+.quest-card__empty {
+  display: grid;
+  min-height: 210px;
+  place-items: center;
+  color: #858b95;
+  font-weight: 700;
+}
+
+.quest-card__footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 4px 18px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #e4e6ea;
+}
+
+.quest-card__footer > div {
+  display: contents;
+}
+
+.quest-card__footer span,
+.quest-card__footer p {
+  color: #818793;
+  font-size: var(--font-small);
+}
+
+.quest-card__footer strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: var(--font-card-title);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.quest-card__footer a {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: var(--font-small);
+  font-weight: 800;
+}
+
+.quest-empty {
+  display: grid;
+  min-height: 260px;
+  place-content: center;
+  gap: 10px;
+  padding: 28px;
+  text-align: center;
+}
+
+.quest-empty h3 { font-weight: 800; }
+.quest-empty p { max-width: 420px; color: #727985; line-height: 1.6; }
+.quest-empty a { margin-top: 8px; color: var(--accent-strong); font-weight: 800; }
+
+.block-heading--goal a {
+  color: #6f7580;
+  font-size: var(--font-small);
+  font-weight: 700;
+}
+
+.goal-setting-card {
+  display: grid;
+  min-height: 246px;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px 24px;
+  align-content: center;
+  padding: 30px 26px;
+}
+
+.goal-setting-card > div {
+  display: grid;
+  gap: 8px;
+}
+
+.goal-setting-card span {
+  color: #7c8390;
+  font-size: var(--font-small);
+}
+
+.goal-setting-card strong {
+  font-size: var(--font-card-title);
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 @media (max-width: 767px) {
@@ -1050,6 +1474,78 @@ const targetMonthText = computed(() =>
 
   .goal-card strong {
     font-size: var(--font-body);
+  }
+
+  .dashboard__bottom {
+    gap: 22px;
+  }
+
+  .block-heading {
+    min-height: 34px;
+    margin-bottom: 10px;
+  }
+
+  .block-heading h2 {
+    font-size: 22px;
+  }
+
+  .confirmed-badge {
+    padding: 7px 16px;
+  }
+
+  .quest-card {
+    padding: 14px 12px 16px;
+    border-radius: 22px;
+  }
+
+  .quest-tabs {
+    width: 100%;
+    height: 52px;
+    margin-bottom: 16px;
+  }
+
+  .quest-groups {
+    gap: 20px;
+  }
+
+  .quest-row {
+    min-height: 84px;
+    grid-template-columns: 48px minmax(0, 1fr) auto 34px;
+    gap: 10px;
+    padding: 12px 13px;
+    border-radius: 18px;
+  }
+
+  .quest-row__icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .quest-row__copy strong,
+  .quest-row__amount {
+    font-size: 16px;
+  }
+
+  .quest-row__copy small {
+    white-space: normal;
+  }
+
+  .quest-card__footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .quest-card__footer strong {
+    font-size: 20px;
+  }
+
+  .goal-setting-card {
+    min-height: 190px;
+    gap: 24px 18px;
+    padding: 22px 20px;
+  }
+
+  .goal-setting-card strong {
+    font-size: 18px;
   }
 }
 

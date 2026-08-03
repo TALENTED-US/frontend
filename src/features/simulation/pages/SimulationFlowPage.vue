@@ -16,7 +16,7 @@ const categories = [
   { key: 'policy', icon: '🏛️', title: '정책 혜택', summary: simulation.state.policies.length ? `정책지원금 ${simulation.state.policies.length}` : '정부지원금 등', description: '멤버십 나에게 맞는 정책 확인하기', class: 'yellow' },
 ]
 
-function confirm() { simulation.confirmScenario(); router.push('/simulation') }
+function confirm() { simulation.confirmScenario(); router.push('/') }
 function reset() { simulation.resetScenario(); router.push('/simulation/new') }
 </script>
 
