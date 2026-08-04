@@ -671,6 +671,20 @@ td button {
   font-size: var(--font-small);
 }
 
+.admin-level__toolbar select {
+  padding-right: 36px;
+
+  /* 브라우저 기본 토글 화살표 제거 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* 커스텀 토글 아이콘(▾) 넣기 및 위치 조절 */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+
 .admin-level__toolbar input[type='text'] {
   flex: 1 1 0;
   min-width: 140px;
