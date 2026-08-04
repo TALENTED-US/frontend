@@ -246,8 +246,6 @@ onMounted(async () => {
 <template>
   <section class="admin-finance">
     <div class="admin-finance__content">
-      <p class="admin-finance__breadcrumb">관리자 &gt; 금융데이터 관리</p>
-
       <header class="admin-finance__header">
         <h1>금융데이터 관리</h1>
         <p>사용자별 테스트용 Mock 금융 데이터를 한곳에서 조회하고 관리하세요.</p>
@@ -420,15 +418,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.admin-finance__breadcrumb {
-  color: var(--muted);
-  font-size: var(--font-small);
-}
-
-.admin-finance__header {
-  margin-top: 24px;
-}
-
 .admin-finance__header h1 {
   color: var(--text);
   font-size: var(--font-page-title);
@@ -732,8 +721,8 @@ onMounted(async () => {
 
 .admin-finance__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-top: 24px;
 }
 
@@ -744,7 +733,8 @@ onMounted(async () => {
 }
 
 .admin-finance__dataset {
-  padding: 24px;
+  min-width: 0;
+  padding: 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -753,29 +743,30 @@ onMounted(async () => {
 
 .admin-finance__dataset h3 {
   color: var(--text);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 800;
+  line-height: var(--line-height-tight);
 }
 
 .admin-finance__dataset-desc {
-  margin-top: 12px;
+  margin-top: 10px;
   color: var(--muted);
-  font-size: var(--font-small);
+  font-size: var(--font-caption);
   line-height: var(--line-height-body);
 }
 
 .admin-finance__dataset-stats {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 14px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: var(--font-small);
+  font-size: var(--font-caption);
 }
 
 .admin-finance__dataset-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .admin-finance__dataset-actions button,
@@ -784,12 +775,14 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   flex: 1;
-  padding: 8px 16px;
+  min-width: 0;
+  padding: 8px 6px;
   border-radius: var(--radius-sm);
-  font-size: var(--font-small);
+  font-size: var(--font-caption);
   font-weight: 700;
   text-align: center;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .admin-finance__dataset-actions .primary {
