@@ -61,6 +61,7 @@ const routes = [
       { path: 'finance-data', name: 'adminFinanceData', component: () => import('@/features/admin/pages/AdminFinanceDataPage.vue') },
       { path: 'finance-data/history', name: 'adminFinanceHistory', component: () => import('@/features/admin/pages/AdminFinanceHistoryPage.vue') },
       { path: 'finance-data/datasets/create', name: 'adminFinanceDatasetCreate', component: () => import('@/features/admin/pages/AdminFinanceDatasetCreatePage.vue') },
+      { path: 'finance-data/members/:memberId', name: 'adminFinanceMemberDetail', component: () => import('@/features/admin/pages/AdminFinanceMemberDetailPage.vue') },
       { path: 'finance-data/:datasetKey', name: 'adminFinanceDatasetDetail', component: () => import('@/features/admin/pages/AdminFinanceDatasetDetailPage.vue') },
       { path: 'policies', name: 'adminPolicies', component: () => import('@/features/admin/pages/AdminPolicyListPage.vue') },
       { path: 'policies/new', name: 'adminPolicyCreate', component: () => import('@/features/admin/pages/AdminPolicyFormPage.vue') },
