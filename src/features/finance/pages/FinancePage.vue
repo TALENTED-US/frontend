@@ -32,6 +32,7 @@ const month = ref(currentMonth)
 const selectedDate = ref(todayIso)
 const panel = ref('')
 const editingId = ref(null)
+const selectedTransaction = ref(null)
 const form = reactive({
   type: 'expense',
   amount: '',
@@ -204,6 +205,7 @@ function openDate(iso) {
   panel.value = 'day'
 }
 function openAdd() {
+  selectedTransaction.value = null
   editingId.value = null
   Object.assign(form, {
     type: 'income',
@@ -214,6 +216,11 @@ function openAdd() {
     memo: '',
   })
   panel.value = 'form'
+}
+function openDetail(row) {
+  selectedTransaction.value = row
+  editingId.value = null
+  panel.value = 'detail'
 }
 function openEdit(row) {
   editingId.value = row.id
@@ -226,6 +233,9 @@ function openEdit(row) {
     memo: row.memo || row.title,
   })
   panel.value = 'form'
+}
+function editSelectedTransaction() {
+  if (selectedTransaction.value) openEdit(selectedTransaction.value)
 }
 function save() {
   if (!Number(form.amount) || !form.date) return
@@ -254,6 +264,11 @@ function dayLabel(value) {
 function groupLabel(date) {
   const [, m, d] = date.split('-')
   return `${Number(m)}월 ${Number(d)}일${date === todayIso ? ' (오늘)' : ''}`
+}
+function detailDateLabel(row) {
+  if (!row?.date) return '-'
+  const [year, monthNumber, day] = row.date.split('-')
+  return `${year}년 ${Number(monthNumber)}월 ${Number(day)}일 ${row.time || ''}`.trim()
 }
 </script>
 
@@ -357,7 +372,7 @@ function groupLabel(date) {
           </div>
         </button>
       </div>
-      <div class="legend"><span>● 입금</span><span>● 지출</span></div>
+      <div class="legend"><span>입금</span><span>지출</span></div>
     </section>
 
     <section v-else class="card list-card">
@@ -410,7 +425,7 @@ function groupLabel(date) {
           <h3 v-if="index === 0 || visibleRows[index - 1].date !== row.date" class="date-title">
             {{ groupLabel(row.date) }}
           </h3>
-          <button class="transaction" @click="openEdit(row)">
+          <button class="transaction" @click="openDetail(row)">
             <i>{{ row.title.slice(0, 1) }}</i
             ><span
               ><b>{{ row.title }}</b
@@ -480,12 +495,50 @@ function groupLabel(date) {
             ><strong>{{ signed(dayRows.reduce((s, r) => s + r.amount, 0)) }}</strong>
           </div>
           <h3>거래 내역</h3>
-          <button v-for="row in dayRows" :key="row.id" class="transaction" @click="openEdit(row)">
+          <button v-for="row in dayRows" :key="row.id" class="transaction" @click="openDetail(row)">
             <i>{{ row.title.slice(0, 1) }}</i
             ><span
               ><b>{{ row.title }}</b
               ><small>{{ row.detail }} · {{ row.time }}</small></span
             ><strong :class="{ plus: row.amount > 0 }">{{ signed(row.amount) }}</strong>
+          </button>
+        </template>
+        <template v-else-if="panel === 'detail' && selectedTransaction">
+          <h2>거래 상세</h2>
+          <div class="transaction-detail__summary">
+            <i>{{ selectedTransaction.title.slice(0, 1) }}</i>
+            <div>
+              <span>{{ selectedTransaction.amount > 0 ? '수입' : '지출' }}</span>
+              <strong>{{ selectedTransaction.title }}</strong>
+            </div>
+            <b :class="{ plus: selectedTransaction.amount > 0 }">
+              {{ signed(selectedTransaction.amount) }}
+            </b>
+          </div>
+          <dl class="transaction-detail__list">
+            <div>
+              <dt>거래 일시</dt>
+              <dd>{{ detailDateLabel(selectedTransaction) }}</dd>
+            </div>
+            <div>
+              <dt>카테고리</dt>
+              <dd>{{ selectedTransaction.category || '-' }}</dd>
+            </div>
+            <div>
+              <dt>결제 수단</dt>
+              <dd>{{ selectedTransaction.detail || selectedTransaction.payment || '-' }}</dd>
+            </div>
+            <div>
+              <dt>메모</dt>
+              <dd>{{ selectedTransaction.memo || '-' }}</dd>
+            </div>
+            <div>
+              <dt>거래 구분</dt>
+              <dd>{{ selectedTransaction.fixed ? '정기 거래' : '일반 거래' }}</dd>
+            </div>
+          </dl>
+          <button class="detail-edit" type="button" @click="editSelectedTransaction">
+            <strong>수정하기</strong>
           </button>
         </template>
         <template v-else>
@@ -672,7 +725,8 @@ button {
   box-shadow: 0 2px 4px #0002;
 }
 .calendar-card {
-  height: 798px;
+  min-height: 798px;
+  height: auto;
   padding: 18px 28px 20px;
   box-sizing: border-box;
 }
@@ -817,10 +871,18 @@ button {
   font-size: 12px;
   font-weight: 400;
 }
-.legend span:first-child::first-letter {
-  color: #222;
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
-.legend span:last-child::first-letter {
+.legend span::before {
+  content: '●';
+}
+.legend span:first-child::before {
+  color: #246bfd;
+}
+.legend span:last-child::before {
   color: #f0574f;
 }
 .list-card {
@@ -1253,6 +1315,97 @@ button {
   border-radius: 14px;
   margin-bottom: 24px;
 }
+.transaction-detail__summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e4e7ed;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 8px #0000001f;
+}
+.transaction-detail__summary i {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  background: #f0f3ff;
+  color: #0a1680;
+  font-style: normal;
+  font-weight: 700;
+}
+.transaction-detail__summary div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.transaction-detail__summary div span {
+  color: #777;
+  font-size: 12px;
+}
+.transaction-detail__summary div strong {
+  overflow: hidden;
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.transaction-detail__summary > b {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 17px;
+}
+.transaction-detail__summary > b.plus {
+  color: #0a1680;
+}
+.transaction-detail__list {
+  margin: 0 0 24px;
+  padding: 4px 20px;
+  border: 1px solid #e4e7ed;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 8px #00000014;
+}
+.transaction-detail__list > div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 17px 0;
+  border-bottom: 1px solid #edf0f4;
+}
+.transaction-detail__list > div:last-child {
+  border-bottom: 0;
+}
+.transaction-detail__list dt,
+.transaction-detail__list dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+.transaction-detail__list dt {
+  color: #777;
+}
+.transaction-detail__list dd {
+  color: #222;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.detail-edit {
+  width: 100%;
+  height: 58px;
+  border: 0;
+  border-radius: 14px;
+  background: #ffeda7;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 16px;
+  box-shadow: 0 3px 8px #00000024;
+}
+.detail-edit strong {
+  font-weight: 800;
+}
 .form-label {
   margin: 0 0 12px;
   font-size: 14px;
@@ -1411,7 +1564,8 @@ button {
     font-weight: 600 !important;
   }
   .calendar-card {
-    height: 468px;
+    min-height: 0;
+    height: auto;
     padding: 0 8px 10px;
     border-radius: 14px;
   }

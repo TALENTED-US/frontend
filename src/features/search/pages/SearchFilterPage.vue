@@ -128,9 +128,9 @@ function applyFilters() {
 
 <style scoped>
 .filter-page { padding-bottom: 5px; }
-.filter-back { color: var(--primary); font-size: var(--font-section-title); font-weight: 900; }
+.filter-back { color: #222; font-size: var(--font-section-title); font-weight: 900; }
 .filter-page > p { margin-top: 5px; color: #777; font-size: var(--font-small); }
-.filter-tip { margin-top: 18px; padding: 13px 18px; border-radius: 10px; background: var(--success-soft); color: var(--primary); font-size: var(--font-small); }
+.filter-tip { margin-top: 18px; padding: 13px 18px; border-radius: 10px; background: var(--accent); box-shadow: var(--shadow-figma); color: #222; font-size: var(--font-small); }
 .filter-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 25px 45px; margin-top: 27px; }
 .filter-groups section { display: grid; gap: 11px; align-content: start; }
 .group-0 { grid-column: 1; grid-row: 1; }
@@ -142,31 +142,31 @@ function applyFilters() {
 .group-5 { grid-column: 2; grid-row: 2; }
 .group-6 { grid-column: 2; grid-row: 3; }
 .group-7 { grid-column: 2; grid-row: 4; }
-.filter-groups h2 { color: var(--primary); font-size: var(--font-body); }
+.filter-groups h2 { color: #222; font-size: var(--font-body); }
 .filter-groups section > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.filter-groups button { min-width: 88px; padding: 8px 15px; border: 1px solid var(--border); border-radius: 999px; color: #666; font-size: var(--font-caption); }
-.filter-groups button.active { border-color: transparent; background: #eef2ff; color: var(--primary); font-weight: 800; }
-.amount-filter input { min-width: 260px; flex: 1; accent-color: var(--primary); }
-.amount-filter strong { flex: none; color: var(--primary); font-size: var(--font-caption); }
+.filter-groups button { min-width: 88px; padding: 8px 15px; border: 1px solid #eceef3; border-radius: 999px; background: white; box-shadow: var(--shadow-figma); color: #555; font-size: var(--font-caption); }
+.filter-groups button.active { border-color: #f1b94c; background: var(--accent); color: #222; font-weight: 800; }
+.amount-filter input { min-width: 260px; flex: 1; accent-color: var(--accent-strong); }
+.amount-filter strong { flex: none; color: #222; font-size: var(--font-caption); }
 .filter-page > footer { position: sticky; bottom: 0; display: grid; grid-template-columns: 120px 1fr; gap: 20px; margin-top: 55px; padding: 14px 0; background: var(--background); }
 .filter-page > footer button { min-height: 50px; color: #777; font-size: var(--font-small); }
-.filter-page > footer button:last-child { border-radius: 11px; background: var(--accent-strong); color: var(--primary); font-weight: 800; }
+.filter-page > footer button:last-child { border-radius: 11px; background: var(--accent); box-shadow: var(--shadow-figma); color: #222; font-weight: 800; }
 
 @media (max-width: 767px) {
   .filter-page { padding-top: 5px; padding-bottom: 74px; }
   .filter-back { color: #222; font-size: var(--font-card-title); }
   .filter-page > p { font-size: var(--font-caption); }
-  .filter-tip { margin-top: 16px; background: #fff0b4; font-size: var(--font-caption); }
+  .filter-tip { margin-top: 16px; background: var(--accent); font-size: var(--font-caption); }
   .filter-groups { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 20px; }
   .filter-groups section { gap: 9px; }
   .filter-groups section[class] { grid-column: 1; grid-row: auto; }
   .filter-groups h2 { color: #222; font-size: var(--font-body); }
   .filter-groups button { min-width: 0; padding: 8px 14px; font-size: var(--font-caption); }
-  .filter-groups button.active { border-color: #f4bf40; background: #fff8df; color: #222; }
+  .filter-groups button.active { border-color: #f4bf40; background: var(--accent); color: #222; }
   .amount-filter { grid-row: 6 !important; }
   .amount-filter input { min-width: 0; }
   .filter-page > footer { position: fixed; z-index: 30; right: 0; bottom: var(--bottom-nav-height); left: 0; grid-template-columns: 80px 1fr; margin: 0; padding: 13px 18px; border-top: 1px solid var(--border); background: white; }
   .filter-page > footer button { min-height: 48px; }
-  .filter-page > footer button:last-child { background: #fff0b4; color: #222; box-shadow: var(--shadow-sm); }
+  .filter-page > footer button:last-child { background: var(--accent); color: #222; box-shadow: var(--shadow-figma); }
 }
 </style>
