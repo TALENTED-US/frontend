@@ -140,7 +140,7 @@ onMounted(loadDatasets)
 
       <article class="admin-card admin-finance__user-card">
         <div class="admin-finance__section-head">
-          <h2>사용자 목록</h2>
+          <h2>사용자별 금융데이터 조회</h2>
         </div>
 
         <div class="admin-finance__user-toolbar">
@@ -150,6 +150,7 @@ onMounted(loadDatasets)
             <option v-for="dataset in datasets" :key="dataset.key" :value="dataset.key">{{ dataset.name }}</option>
             <option value="">미지정</option>
           </select>
+          <button type="button" class="admin-finance__user-search-btn">검색</button>
         </div>
 
         <div class="admin-finance__table-wrap">
@@ -167,10 +168,7 @@ onMounted(loadDatasets)
             </thead>
             <tbody>
               <tr v-for="user in filteredUsers" :key="user.userId">
-                <td>
-                  <p class="strong">{{ user.nickname }}</p>
-                  <small class="admin-finance__member-sub">{{ user.userId }} · {{ user.email }}</small>
-                </td>
+                <td class="strong">{{ user.userId }} · {{ user.email }} · {{ user.nickname }}</td>
                 <td>
                   <div class="admin-finance__assign-cell">
                     <select :value="selectedKeyFor(user)" @change="onSelectDataset(user, $event.target.value)">
@@ -237,10 +235,10 @@ onMounted(loadDatasets)
 .admin-card {
   margin-top: 24px;
   padding: 24px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-figma);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
 }
 
 .admin-card h2 {
@@ -268,40 +266,63 @@ onMounted(loadDatasets)
   font-weight: 800;
 }
 
+.admin-finance__user-card .admin-finance__section-head h2 {
+  color: #000000;
+}
+
 .admin-finance__user-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 10px;
   margin-top: 16px;
 }
 
 .admin-finance__user-toolbar input {
-  flex: 1;
-  min-width: 220px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
+  width: 320px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
   border-radius: var(--radius-sm);
-  font-size: var(--font-small);
+  background: #ffffff;
+  font-size: var(--font-caption);
+}
+
+.admin-finance__user-toolbar input::placeholder {
+  color: #9ca3af;
 }
 
 .admin-finance__user-toolbar select {
-  padding: 10px 36px 10px 14px;
-  border: 1px solid var(--border);
+  width: 160px;
+  padding: 8px 34px 8px 12px;
+  border: 1px solid #e5e7eb;
   border-radius: var(--radius-sm);
-  font-size: var(--font-small);
+  background-color: #ffffff;
+  font-size: var(--font-caption);
 
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 14px center;
+  background-position: right 12px center;
+}
+
+.admin-finance__user-search-btn {
+  padding: 8px 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
+  color: var(--text);
+  font-size: var(--font-caption);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .admin-finance__table-wrap {
   width: 100%;
+  max-height: 382px;
   margin-top: 16px;
   overflow-x: auto;
+  overflow-y: auto;
 }
 
 .admin-finance__table-wrap table {
@@ -312,31 +333,42 @@ onMounted(loadDatasets)
 }
 
 .admin-finance__table-wrap th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
   font-size: var(--font-caption);
+  font-weight: 700;
   text-align: left;
 }
 
 .admin-finance__table-wrap td {
   padding: 12px 8px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
   vertical-align: middle;
 }
 
 .admin-finance__table-wrap td.strong,
 .admin-finance__table-wrap td p.strong {
-  color: var(--text);
+  color: #1f2937;
   font-weight: 700;
 }
 
-.admin-finance__member-sub {
-  display: block;
-  margin-top: 2px;
-  color: var(--subtle);
-  font-size: var(--font-caption);
+.admin-finance__table-wrap tbody tr:hover {
+  background: #fffbea;
+}
+
+.admin-finance__table-wrap th:nth-child(3),
+.admin-finance__table-wrap th:nth-child(4),
+.admin-finance__table-wrap th:nth-child(5),
+.admin-finance__table-wrap td:nth-child(3),
+.admin-finance__table-wrap td:nth-child(4),
+.admin-finance__table-wrap td:nth-child(5) {
+  text-align: center;
 }
 
 .admin-finance__assign-cell {
@@ -348,8 +380,9 @@ onMounted(loadDatasets)
 .admin-finance__assign-cell select {
   min-width: 190px;
   padding: 8px 32px 8px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid #e5e7eb;
   border-radius: var(--radius-sm);
+  background-color: #ffffff;
   font-size: var(--font-caption);
 
   -webkit-appearance: none;
