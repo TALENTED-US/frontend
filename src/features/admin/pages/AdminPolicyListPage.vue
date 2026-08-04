@@ -50,7 +50,6 @@ onMounted(search)
 
     <form class="admin-policies__toolbar" @submit.prevent="search">
       <input v-model="keyword" type="text" placeholder="정책명 검색" />
-      <button type="button" class="admin-policies__reset" @click="resetFilters">초기화</button>
       <select v-model="category">
         <option value="all">전체 카테고리</option>
         <option v-for="option in adminPolicyCategories" :key="option" :value="option">{{ option }}</option>
@@ -65,6 +64,7 @@ onMounted(search)
         <option value="closing-soon">마감임박</option>
         <option value="closed">마감</option>
       </select>
+      <button type="button" class="admin-policies__reset" @click="resetFilters">초기화</button>
       <button type="submit" class="admin-policies__search">검색 및 조회</button>
     </form>
 
@@ -188,15 +188,15 @@ onMounted(search)
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 700 !important;
   white-space: nowrap;
 }
 
 .admin-policies__reset {
   padding: 10px 16px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: none;
   color: var(--muted);
   font-size: var(--font-small);
   font-weight: 700;
@@ -209,7 +209,7 @@ onMounted(search)
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: #222222;
-  font-weight: 400;
+  font-weight: 700;
   white-space: nowrap;
 }
 

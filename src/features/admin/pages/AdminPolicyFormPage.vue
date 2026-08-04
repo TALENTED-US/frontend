@@ -173,7 +173,7 @@ onMounted(load)
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 700 !important;
 }
 
 .admin-card {

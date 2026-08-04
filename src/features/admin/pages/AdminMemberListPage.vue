@@ -289,7 +289,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 700 !important;
 }
 
 .admin-members__filter {
@@ -411,6 +411,7 @@ onMounted(() => {
 .admin-members__filter-actions .primary {
   background: var(--accent-strong);
   color: var(--text);
+  font-weight: 700 !important;
 }
 
 .admin-card {

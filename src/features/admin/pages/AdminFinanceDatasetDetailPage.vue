@@ -13,18 +13,39 @@ import {
 } from '@/features/admin/api/financeDataApi'
 
 const TYPE_LABEL = { account: '계좌', card: '카드', transaction: '거래' }
-const STATUS_LABEL = { connected: '연결됨', normal: '정상' }
+const STATUS_LABEL = { connected: '연결됨', disconnected: '연결 끊김', pending: '연결 전' }
 
 const route = useRoute()
 const dataset = ref(null)
 const allDatasets = ref([])
 const recordModal = ref(null) // { mode: 'create' | 'edit', record }
 const memberModal = ref(null) // { mode: 'assign' | 'reassign', member }
-const recordForm = reactive({ type: 'account', institution: '', detail: '', amount: '', status: 'normal' })
+const recordForm = reactive({ type: 'account', institution: '', detail: '', amount: '', status: 'pending' })
 const assignKeyword = ref('')
 const reassignTargetKey = ref('')
+const activeType = ref('all')
+
+const allMembers = [{ userId: 'jijun01', email: 'user@email.com', nickname: '재준' }]
 
 const otherDatasets = computed(() => allDatasets.value.filter((item) => item.key !== dataset.value?.key))
+
+function isMemberApplied(userId) {
+  return dataset.value?.appliedMembers?.some((member) => member.userId === userId) ?? false
+}
+
+const filteredRecords = computed(() => {
+  if (!dataset.value) return []
+  if (activeType.value === 'all') return dataset.value.records
+  return dataset.value.records.filter((record) => record.type === activeType.value)
+})
+
+function displayStatus(record) {
+  if (record.status === 'connected' || record.status === 'disconnected' || record.status === 'pending') return record.status
+  const charSum = String(record.id)
+    .split('')
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  return charSum % 2 === 0 ? 'disconnected' : 'pending'
+}
 
 async function load() {
   dataset.value = await getAdminFinancePersonaDataset(route.params.datasetKey)
@@ -46,12 +67,12 @@ function amountClass(record) {
 }
 
 function openCreateRecord(type) {
-  Object.assign(recordForm, { type, institution: '', detail: '', amount: '', status: 'normal' })
+  Object.assign(recordForm, { type, institution: '', detail: '', amount: '', status: 'pending' })
   recordModal.value = { mode: 'create' }
 }
 
 function openEditRecord(record) {
-  Object.assign(recordForm, { type: record.type, institution: record.institution, detail: record.detail, amount: record.amount ?? '', status: record.status })
+  Object.assign(recordForm, { type: record.type, institution: record.institution, detail: record.detail, amount: record.amount ?? '', status: displayStatus(record) })
   recordModal.value = { mode: 'edit', record }
 }
 
@@ -138,11 +159,11 @@ onMounted(load)
         </div>
       </div>
 
-      <div class="admin-finance-detail__summary">
-        <span class="admin-finance-detail__summary-total">전체 {{ dataset.accountCount + dataset.cardCount + dataset.transactionCount }}</span>
-        <span>계좌 {{ dataset.accountCount }}</span>
-        <span>카드 {{ dataset.cardCount }}</span>
-        <span>거래 {{ dataset.transactionCount }}</span>
+      <div class="admin-finance-detail__tabs">
+        <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'all' }]" @click="activeType = 'all'">전체</button>
+        <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'account' }]" @click="activeType = 'account'">계좌</button>
+        <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'card' }]" @click="activeType = 'card'">카드</button>
+        <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'transaction' }]" @click="activeType = 'transaction'">거래</button>
       </div>
 
       <div class="admin-finance-detail__table-wrap">
@@ -158,19 +179,19 @@ onMounted(load)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="record in dataset.records" :key="record.id">
+            <tr v-for="record in filteredRecords" :key="record.id">
               <td><span :class="['admin-badge', `admin-badge--type-${record.type}`]">{{ TYPE_LABEL[record.type] }}</span></td>
               <td class="strong">{{ record.institution }}</td>
               <td>{{ record.detail }}</td>
               <td :class="['strong', amountClass(record)]">{{ amountText(record) }}</td>
-              <td><span :class="['admin-badge', `admin-badge--status-${record.status}`]">{{ STATUS_LABEL[record.status] }}</span></td>
+              <td><span :class="['admin-badge', `admin-badge--status-${displayStatus(record)}`]">{{ STATUS_LABEL[displayStatus(record)] }}</span></td>
               <td class="admin-finance-detail__row-actions">
                 <button type="button" @click="openEditRecord(record)">수정</button>
                 <span>·</span>
                 <button type="button" class="danger" @click="removeRecord(record)">삭제</button>
               </td>
             </tr>
-            <tr v-if="dataset.records.length === 0">
+            <tr v-if="filteredRecords.length === 0">
               <td colspan="6" class="admin-finance-detail__empty">등록된 금융 데이터가 없어요.</td>
             </tr>
           </tbody>
@@ -244,8 +265,9 @@ onMounted(load)
         <label>
           상태
           <select v-model="recordForm.status">
-            <option value="normal">정상</option>
             <option value="connected">연결됨</option>
+            <option value="disconnected">연결 끊김</option>
+            <option value="pending">연결 전</option>
           </select>
         </label>
         <div class="admin-finance-detail__modal-actions">
@@ -258,13 +280,26 @@ onMounted(load)
     <div v-if="memberModal?.mode === 'assign'" class="admin-finance-detail__modal-backdrop">
       <div class="admin-finance-detail__modal">
         <h2>회원 지정</h2>
-        <label>
-          회원 ID · 이메일 · 닉네임
-          <input v-model="assignKeyword" type="text" placeholder="예: jijun01" />
-        </label>
+        <ul class="admin-finance-detail__member-list">
+          <li
+            v-for="member in allMembers"
+            :key="member.userId"
+            :class="[
+              'admin-finance-detail__member-item',
+              { selected: assignKeyword === member.userId, applied: isMemberApplied(member.userId) },
+            ]"
+            @click="!isMemberApplied(member.userId) && (assignKeyword = member.userId)"
+          >
+            <div>
+              <p class="strong">{{ member.nickname }}</p>
+              <small>{{ member.userId }} · {{ member.email }}</small>
+            </div>
+            <span v-if="isMemberApplied(member.userId)" class="admin-finance-detail__member-status">적용 중</span>
+          </li>
+        </ul>
         <div class="admin-finance-detail__modal-actions">
           <button type="button" class="ghost" @click="closeMemberModal">취소</button>
-          <button type="button" class="primary" @click="submitAssign">지정</button>
+          <button type="button" class="primary" :disabled="!assignKeyword" @click="submitAssign">지정</button>
         </div>
       </div>
     </div>
@@ -367,25 +402,27 @@ onMounted(load)
   white-space: nowrap;
 }
 
-.admin-finance-detail__summary {
+.admin-finance-detail__tabs {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   margin-top: 16px;
 }
 
-.admin-finance-detail__summary-total {
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--accent-strong);
-  color: var(--text);
+.admin-finance-detail__tab {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
   font-size: var(--font-small);
   font-weight: 700;
 }
 
-.admin-finance-detail__summary span:not(.admin-finance-detail__summary-total) {
-  color: var(--muted);
-  font-size: var(--font-small);
+.admin-finance-detail__tab.active {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: var(--text);
 }
 
 .admin-finance-detail__table-wrap {
@@ -456,9 +493,14 @@ td.strong {
   color: #3b82f6;
 }
 
-.admin-badge--status-normal {
-  background: #dcfce7;
-  color: #22c55e;
+.admin-badge--status-disconnected {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.admin-badge--status-pending {
+  background: #f1f5f9;
+  color: #94a3b8;
 }
 
 .admin-finance-detail__row-actions {
@@ -533,6 +575,55 @@ td.strong {
   margin-top: 8px;
   color: var(--muted);
   font-size: var(--font-small);
+}
+
+.admin-finance-detail__member-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.admin-finance-detail__member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.admin-finance-detail__member-item p {
+  color: var(--text);
+  font-size: var(--font-small);
+  font-weight: 700;
+}
+
+.admin-finance-detail__member-item small {
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.admin-finance-detail__member-item.selected {
+  border-color: var(--accent-strong);
+  background: var(--accent);
+}
+
+.admin-finance-detail__member-item.applied {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-finance-detail__member-status {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #22c55e;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .admin-finance-detail__modal label {

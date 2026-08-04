@@ -271,8 +271,8 @@ onMounted(async () => {
           <option value="grant">지급</option>
           <option value="revoke">회수</option>
         </select>
-        <button type="submit">조회</button>
         <button type="button" class="admin-level__reset" @click="resetRewardFilters">초기화</button>
+        <button type="submit">조회</button>
       </form>
 
       <article class="admin-card">
@@ -490,7 +490,7 @@ onMounted(async () => {
   background: var(--accent-strong);
   color: var(--text);
   font-size: var(--font-small);
-  font-weight: 700;
+  font-weight: 700 !important;
   white-space: nowrap;
 }
 
@@ -696,15 +696,15 @@ td button {
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 700 !important;
   white-space: nowrap;
 }
 
 .admin-level__reset {
   padding: 10px 16px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: none;
   color: var(--muted);
   font-size: var(--font-small);
   font-weight: 700;

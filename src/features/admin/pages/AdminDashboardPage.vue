@@ -58,17 +58,20 @@ onMounted(loadStats)
 
     <form class="admin-dashboard__range" @submit.prevent>
       <h2 class="admin-dashboard__range-title">조회 기간</h2>
-      <div class="admin-dashboard__presets">
-        <button type="button" @click="applyPreset('all')">전체 기간</button>
-        <button type="button" @click="applyPreset('year')">올해</button>
-        <button type="button" @click="applyPreset('month')">이번달</button>
+      <div class="admin-dashboard__range-box">
+        <div class="admin-dashboard__presets">
+          <button type="button" @click="applyPreset('all')">전체 기간</button>
+          <button type="button" @click="applyPreset('year')">올해</button>
+          <button type="button" @click="applyPreset('month')">이번달</button>
+        </div>
+        <div class="admin-dashboard__range-inputs">
+          <input v-model="fromDate" type="date" />
+          <span class="admin-dashboard__range-sep">~</span>
+          <input v-model="toDate" type="date" />
+        </div>
+        <button type="button" class="admin-dashboard__reset" @click="applyPreset('all')">초기화</button>
+        <button type="button" class="admin-dashboard__apply" @click="loadStats">적용</button>
       </div>
-      <div class="admin-dashboard__range-inputs">
-        <input v-model="fromDate" type="date" />
-        <span class="admin-dashboard__range-sep">~</span>
-        <input v-model="toDate" type="date" />
-      </div>
-      <button type="button" class="admin-dashboard__apply" @click="loadStats">적용</button>
     </form>
 
     <template v-if="stats">
@@ -166,10 +169,6 @@ onMounted(loadStats)
   align-items: center;
   gap: 12px;
   margin-top: 24px;
-  padding: 16px 24px;
-  border: 1px solid #e1e1e1;
-  border-radius: var(--radius-md);
-  background: var(--surface);
 }
 
 .admin-dashboard__range-title {
@@ -177,6 +176,17 @@ onMounted(loadStats)
   font-size: var(--font-card-title);
   font-weight: 800;
   white-space: nowrap;
+}
+
+.admin-dashboard__range-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  padding: 16px 24px;
+  border: 1px solid #e1e1e1;
+  border-radius: var(--radius-md);
+  background: var(--surface);
 }
 
 .admin-dashboard__range-inputs {
@@ -218,15 +228,26 @@ onMounted(loadStats)
   background: var(--canvas);
 }
 
-.admin-dashboard__apply {
+.admin-dashboard__reset {
   margin-left: auto;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: #666666;
+  font-size: var(--font-small);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-dashboard__apply {
   padding: 10px 20px;
   border: 0;
   border-radius: var(--radius-sm);
   background: #f1b94c;
   color: #222222;
   font-size: var(--font-small);
-  font-weight: 700;
+  font-weight: 700 !important;
   white-space: nowrap;
 }
 

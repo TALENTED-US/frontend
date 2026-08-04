@@ -54,7 +54,6 @@ onMounted(search)
           <option value="update">수정</option>
           <option value="delete">삭제</option>
         </select>
-        <small>(등록 · 수정 · 삭제)</small>
       </label>
       <button type="submit">조회</button>
     </form>
@@ -138,9 +137,20 @@ onMounted(search)
 
 .admin-finance-history__type-select select {
   padding: 10px 14px;
+  padding-right: 36px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: var(--font-small);
+
+  /* 브라우저 기본 토글 화살표 제거 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* 커스텀 토글 아이콘(▾) 넣기 및 위치 조절 */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
 }
 
 .admin-finance-history__toolbar button {
