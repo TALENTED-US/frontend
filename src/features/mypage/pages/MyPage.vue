@@ -372,6 +372,9 @@ function logout() {
   .profile-avatar {
     grid-row: 1 / 3;
     width: 62px;
+    height: 62px;
+    align-self: start;
+    transform: translateY(18px);
   }
   .profile-avatar__ring {
     width: 62px;

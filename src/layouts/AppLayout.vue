@@ -36,13 +36,24 @@ import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
 }
 
 @media (max-width: 767px) {
+  .app-shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .app-shell__body {
+    height: calc(100dvh - var(--bottom-nav-height));
+    min-height: 0;
     margin-left: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
     background: var(--background);
+    -webkit-overflow-scrolling: touch;
   }
 
   .app-shell__content {
-    padding: 10px 16px calc(var(--bottom-nav-height) + 26px);
+    padding: 10px 16px 26px;
   }
 }
 </style>

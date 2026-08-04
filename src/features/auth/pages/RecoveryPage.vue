@@ -126,8 +126,12 @@ function resetPassword() {
       </nav>
     </header>
 
-    <header v-else class="mobile-header" :class="{ 'result-mobile-header': isIdResult }">
-      <button type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">‹</button>
+    <header
+      v-else
+      class="mobile-header"
+      :class="{ 'result-mobile-header': isIdResult, 'id-mobile-header': isId }"
+    >
+      <button v-if="!isId" type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">‹</button>
       <strong>{{ isId ? '아이디 찾기' : '비밀번호 찾기' }}</strong>
     </header>
 
@@ -140,7 +144,6 @@ function resetPassword() {
       }"
     >
       <div v-if="isIdResult && !isMobileViewport" class="desktop-recovery-titlebar">
-        <button type="button" aria-label="뒤로가기" @click="goBack">‹</button>
         <strong>아이디 찾기</strong>
       </div>
 
@@ -373,7 +376,7 @@ function resetPassword() {
 }
 
 .desktop-recovery-titlebar strong {
-  color: #222;
+  color: #222 !important;
   font-size: 16px;
   font-weight: 700;
 }
@@ -817,6 +820,20 @@ function resetPassword() {
 
   .mobile-header.result-mobile-header .mobile-back {
     width: 9px;
+  }
+
+  .mobile-header.id-mobile-header {
+    grid-template-columns: 1fr;
+    padding: 0 20px;
+  }
+
+  .mobile-header.id-mobile-header::after {
+    content: none;
+  }
+
+  .mobile-header.id-mobile-header strong {
+    color: #222 !important;
+    text-align: left;
   }
 
   .mobile-header strong {

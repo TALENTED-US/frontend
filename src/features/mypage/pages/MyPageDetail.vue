@@ -3,13 +3,25 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { clearTransactions } from '@/features/finance/financeStore'
+import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
+import { useProgressionStore } from '@/stores/progression'
+import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import profileImage from '@/assets/images/mypage/buttie-profile.png'
 import { enableDeviceNotifications } from '@/features/notification/notificationService'
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
+const progression = useProgressionStore()
+const simulation = useSimulationStore()
+
+const profileState = computed(() => {
+  const key = simulation.currentStatus?.key
+  if (key === 'danger' || key === 'risk') return getButtieLevelImage(progression.level, 'danger')
+  if (key === 'caution') return getButtieLevelImage(progression.level, 'caution')
+  return getButtieLevelImage(progression.level, 'stable')
+})
 
 const details = {
   myInfo: ['내 정보', '개인정보를 확인하고 수정해요'],
@@ -127,13 +139,18 @@ function saveProfile() {
     return
   }
 
-  session.updateProfile({ nickname, phone: form.phone, email: form.email })
+  session.updateProfile({ nickname })
   nicknameEditing.value = false
   profileMessage.value = '수정한 정보가 저장되었습니다.'
   router.push('/mypage')
 }
 
 function saveJobProfile() {
+  if (!form.start || !form.goal || form.start > form.goal) {
+    profileMessage.value = '목표 취업일은 준비 시작일 이후로 설정해 주세요.'
+    return
+  }
+
   session.updateProfile({
     jobType: form.jobType,
     startDate: form.start,
@@ -141,6 +158,7 @@ function saveJobProfile() {
     region: form.region,
     family: Number(form.family),
   })
+  profileMessage.value = '취업 준비 정보가 저장되었습니다.'
   router.push('/mypage')
 }
 
@@ -192,10 +210,6 @@ function withdrawAccount() {
 function logout() {
   session.logout()
   router.replace('/auth/login')
-}
-
-function verifyContact(type) {
-  profileMessage.value = `${type === 'phone' ? '휴대폰 번호' : '이메일'} 인증이 완료됐어요. (목 인증)`
 }
 
 async function setAllNotifications(value) {
@@ -253,7 +267,7 @@ function clearMockData() {
     <template v-if="route.name === 'myInfo'">
       <div class="identity-row">
         <div class="detail-avatar">
-          <span><img :src="profileImage" alt="버티 프로필" /></span><b>5</b>
+          <span><img :src="profileState" alt="버티 프로필" /></span><b>{{ progression.level }}</b>
         </div>
         <div class="nickname-control">
           <input
@@ -275,7 +289,7 @@ function clearMockData() {
       </div>
 
       <article class="form-card readonly-card">
-        <p class="info-note">✓ 이름·생년월일은 본인인증 정보로 변경할 수 없어요.</p>
+        <p class="info-note">✓ 이름·생년월일·휴대폰 번호·이메일은 본인인증 정보로 변경할 수 없어요.</p>
         <label><span>이름</span><input v-model="form.name" disabled /></label>
         <label><span>생년월일</span><input v-model="form.birth" disabled /></label>
       </article>
@@ -283,32 +297,16 @@ function clearMockData() {
       <article class="form-card contact-card">
         <label>
           <span>휴대폰 번호</span>
-          <div class="verify-row">
-            <input v-model="form.phone" /><button type="button" @click="verifyContact('phone')">
-              인증
-            </button>
-          </div>
+          <input v-model="form.phone" disabled />
         </label>
         <label>
           <span>이메일</span>
-          <div class="verify-row">
-            <input v-model="form.email" /><button type="button" @click="verifyContact('email')">
-              인증
-            </button>
-          </div>
+          <input v-model="form.email" disabled />
         </label>
       </article>
 
       <p v-if="profileMessage" class="save-message" aria-live="polite">{{ profileMessage }}</p>
       <button class="primary-action" type="button" @click="saveProfile">저장하기</button>
-      <button class="info-logout desktop-only" type="button" @click="logout">로그아웃</button>
-      <button
-        class="info-withdraw desktop-only"
-        type="button"
-        @click="router.push('/mypage/withdraw')"
-      >
-        <AppIcon name="trash" :size="19" /> 회원탈퇴
-      </button>
     </template>
 
     <template v-else-if="route.name === 'jobInfo'">
@@ -332,8 +330,8 @@ function clearMockData() {
             </button>
           </div>
         </fieldset>
-        <label><span>준비 시작일</span><input v-model="form.start" type="date" /></label>
-        <label><span>목표 취업일</span><input v-model="form.goal" type="date" /></label>
+        <label><span>준비 시작일</span><input v-model="form.start" type="date" :max="form.goal" /></label>
+        <label><span>목표 취업일</span><input v-model="form.goal" type="date" :min="form.start" /></label>
         <label>
           <span>거주지</span>
           <select v-model="form.region">
@@ -350,6 +348,7 @@ function clearMockData() {
             inputmode="numeric"
           />
         </label>
+        <p v-if="profileMessage" class="save-message" aria-live="polite">{{ profileMessage }}</p>
         <button class="primary-action" type="button" @click="saveJobProfile">저장하기</button>
       </article>
     </template>
@@ -642,16 +641,6 @@ function clearMockData() {
 .contact-card label {
   max-width: 820px;
 }
-.verify-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
-  gap: 12px;
-}
-.verify-row button {
-  border-radius: 999px;
-  background: #fff1b9;
-  font-weight: 800;
-}
 .primary-action {
   width: 100%;
   min-height: 54px;
@@ -660,24 +649,12 @@ function clearMockData() {
   background: #ffeca4;
   box-shadow: 0 3px 4px rgb(15 23 42 / 12%);
   font-size: var(--font-card-title);
-  font-weight: 800;
+  font-weight: 900;
 }
 .save-message {
   margin: 12px 3px -10px;
   color: #0f9d66;
   font-size: var(--font-small);
-}
-.info-logout,
-.info-withdraw {
-  width: 100%;
-  min-height: 56px;
-  margin-top: 14px;
-  border: 1px solid #e2e3e8;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 3px 4px rgb(15 23 42 / 10%);
-  font-size: var(--font-body);
-  font-weight: 800;
 }
 .job-card select {
   appearance: none;
@@ -686,19 +663,6 @@ function clearMockData() {
   background-repeat: no-repeat;
   background-position: right 28px center;
   background-size: 12px 7px;
-}
-
-.info-logout {
-  color: #666;
-}
-
-.info-withdraw {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-color: #ffaaa9;
-  color: #f0574f;
 }
 
 .job-card {
@@ -726,7 +690,7 @@ function clearMockData() {
   border-radius: 12px;
   background: white;
   box-shadow: 0 3px 4px rgb(15 23 42 / 10%);
-  font-weight: 800;
+  font-weight: 900;
 }
 .segmented-control button.active {
   border-color: #f1b94c;
@@ -827,7 +791,7 @@ function clearMockData() {
   border-radius: 14px;
   background: #e7e7e7;
   box-shadow: 0 3px 4px rgb(15 23 42 / 10%);
-  font-weight: 800;
+  font-weight: 900;
 }
 .security-card {
   min-height: 176px;
@@ -1109,13 +1073,6 @@ function clearMockData() {
   .job-card select {
     padding-right: 48px;
     background-position: right 22px center;
-  }
-  .verify-row {
-    grid-template-columns: minmax(0, 1fr) 48px;
-    gap: 8px;
-  }
-  .verify-row button {
-    font-size: var(--font-small);
   }
   .primary-action {
     min-height: 49px;

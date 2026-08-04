@@ -2,12 +2,18 @@
 import { computed, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { useSessionStore } from '@/stores/session'
 import '@/features/simulation/styles/simulation.css'
 
 const route = useRoute()
 const router = useRouter()
 const simulation = useSimulationStore()
+const session = useSessionStore()
 const category = computed(() => route.params.category)
+const profileDate = (value) => value ? value.replaceAll('-', '.') : '-'
+const jobTypeLabel = computed(() =>
+  session.currentUser.jobType === 'first' ? '첫 취업 준비' : '재취업 준비',
+)
 
 watch(category, (value) => {
   if (value === 'expense') simulation.initializeExpensesFromAnalysis()
@@ -79,8 +85,8 @@ function resetCategory() {
     </template>
 
     <template v-else>
-      <div class="category-page-heading"><div><h1>자격 확인</h1><p class="sim-subtitle">온보딩에서 입력하신 정보로 자동 채워져 있어요.</p></div><button class="category-reset" type="button" @click="resetCategory">정책 선택 초기화</button></div>
-      <div class="qualification-grid"><article><span>생년월일</span><strong>1999.03.15</strong></article><article><span>거주지역</span><strong>서울특별시</strong></article><article><span>취업 준비 상태</span><strong>첫 취업 준비</strong></article><article><span>주거 형태</span><strong>자취 (월세)</strong></article></div>
+      <div class="category-page-heading"><div><h1>자격 확인</h1><p class="sim-subtitle">마이페이지에서 저장한 취업 준비 정보로 자동 채워져 있어요.</p></div><button class="category-reset" type="button" @click="resetCategory">정책 선택 초기화</button></div>
+      <div class="qualification-grid"><article><span>생년월일</span><strong>{{ profileDate(session.currentUser.birth) }}</strong></article><article><span>거주지역</span><strong>{{ session.currentUser.region || '-' }}</strong></article><article><span>취업 준비 상태</span><strong>{{ jobTypeLabel }}</strong></article><article><span>세대원 수</span><strong>{{ session.currentUser.family || '-' }}명</strong></article></div>
       <button class="sim-btn sim-btn--yellow wide">이 정보로 추천받기 →</button>
       <div class="policy-list"><article v-for="(policy, index) in simulation.policyCatalog" :key="policy.id" :class="{ selected: simulation.state.policies.some(item => item.id === policy.id) }" @click="simulation.togglePolicy(policy)"><div><small>{{ index + 1 }}순위 · 추천</small><h2>{{ policy.name }}</h2><p>{{ policy.description }}</p><em>신청 가능</em></div><strong>{{ policy.detail }}</strong><button>{{ simulation.state.policies.some(item => item.id === policy.id) ? '✓' : '+' }}</button></article></div>
       <article class="policy-summary"><h2>선택한 항목 ({{ simulation.state.policies.length }}개)</h2><p v-for="item in simulation.state.policies" :key="item.id"><span>🏛️ {{ item.name }}</span><b>{{ item.detail }}</b></p><footer><span>월 정기 지원 합계</span><strong>+{{ money(simulation.recurringPolicy) }}원 / 월</strong></footer></article>

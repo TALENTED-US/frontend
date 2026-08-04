@@ -157,6 +157,7 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
   border: 0;
   border-radius: 10px;
   background: transparent;
+  box-shadow: var(--shadow-figma);
   color: var(--text);
   font-size: var(--font-small);
 }

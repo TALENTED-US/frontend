@@ -15,6 +15,22 @@ const CATEGORY_META = {
   여가: { icon: '🎮', color: '#f5ae77' }, 기타: { icon: '🧾', color: '#b8bdc8' },
 }
 const NON_REDUCIBLE_EXPENSES = new Set(['월세', '주거'])
+const DAYS_PER_MONTH = 365.2425 / 12
+
+function dateRangeMonths(startValue, endValue) {
+  const startParts = String(startValue || '').split('-').map(Number)
+  const endParts = String(endValue || '').split('-').map(Number)
+  if (
+    startParts.length !== 3
+    || endParts.length !== 3
+    || startParts.some((part) => !part)
+    || endParts.some((part) => !part)
+  ) return 0
+
+  const start = Date.UTC(startParts[0], startParts[1] - 1, startParts[2])
+  const end = Date.UTC(endParts[0], endParts[1] - 1, endParts[2])
+  return Math.max(0, (end - start) / (24 * 60 * 60 * 1000) / DAYS_PER_MONTH)
+}
 
 function remainingMonthsUntil(value) {
   const parts = String(value || '').replaceAll('.', '-').split('-').map(Number)
@@ -46,6 +62,10 @@ const defaultState = () => ({
   completedQuestIds: [],
   confirmed: false,
 })
+const DEFAULT_SCENARIO_MONTHS = dateRangeMonths(
+  defaultState().startDate,
+  defaultState().endDate,
+)
 
 const policyCatalog = [
   { id: 'youth-saving', name: '청년내일저축계좌', description: '3년 만기 시 정부지원금을 받을 수 있어요', amount: 600000, type: 'once', detail: '지원금액: 60만원 (일시)' },
@@ -123,7 +143,22 @@ export const useSimulationStore = defineStore('simulation', () => {
   const monthlyImprovement = computed(() => (state.expenseApplied ? expenseSaving.value : 0) + recurringIncome.value + recurringPolicy.value)
   const scenarioAssets = computed(() => availableAssets.value + oneTimeIncome.value + oneTimePolicy.value)
   const scenarioMonthlyBurn = computed(() => Math.max(1, currentMonthlyBurn.value - monthlyImprovement.value))
-  const expectedMonths = computed(() => Math.min(60, Math.round((scenarioAssets.value / scenarioMonthlyBurn.value) * 10) / 10))
+  const scenarioStartDate = computed(() => session.currentUser.startDate || defaultState().startDate)
+  const scenarioEndDate = computed(() =>
+    session.currentUser.goalDate || session.currentUser.targetDate || defaultState().endDate,
+  )
+  const scenarioPeriodMonths = computed(() =>
+    dateRangeMonths(scenarioStartDate.value, scenarioEndDate.value),
+  )
+  const baseExpectedMonths = computed(() => scenarioAssets.value / scenarioMonthlyBurn.value)
+  const expectedMonths = computed(() => {
+    const baseIncrease = Math.max(0, baseExpectedMonths.value - currentMonths.value)
+    const periodRatio = DEFAULT_SCENARIO_MONTHS > 0
+      ? scenarioPeriodMonths.value / DEFAULT_SCENARIO_MONTHS
+      : 0
+    const adjusted = currentMonths.value + baseIncrease * periodRatio
+    return Math.min(60, Math.round(adjusted * 10) / 10)
+  })
   const currentStatus = computed(() => getStatus(currentMonths.value, targetMonths.value))
   const expectedStatus = computed(() => getStatus(expectedMonths.value, targetMonths.value))
   const expensePreviewMonthlyBurn = computed(() => Math.max(1, currentMonthlyBurn.value - expenseSaving.value))
@@ -177,6 +212,17 @@ export const useSimulationStore = defineStore('simulation', () => {
     else completed.add(id)
     state.completedQuestIds = [...completed]
   }
+  function migrateRecurringQuestCompletions(ids, monthKey) {
+    if (!monthKey || !Array.isArray(ids) || !ids.length) return
+    const recurringIds = new Set(ids)
+    let changed = false
+    const migrated = (state.completedQuestIds || []).map((id) => {
+      if (!recurringIds.has(id)) return id
+      changed = true
+      return `${id}@${monthKey}`
+    })
+    if (changed) state.completedQuestIds = [...new Set(migrated)]
+  }
   function resetScenario() { Object.assign(state, defaultState()) }
 
   return {
@@ -184,9 +230,11 @@ export const useSimulationStore = defineStore('simulation', () => {
     currentStatus, expectedStatus,
     expenseMonths, expenseBreakdown, totalCurrentExpense, selectedExpenses, expenseSaving, recurringIncome,
     oneTimeIncome, recurringPolicy, oneTimePolicy, monthlyImprovement, addedMonths,
-    expectedMonths, expensePreviewMonths, completedCategories, hasDraft, adjustExpense, toggleExpense,
+    expectedMonths, expensePreviewMonths, scenarioStartDate, scenarioEndDate,
+    completedCategories, hasDraft, adjustExpense, toggleExpense,
     addIncome, removeIncome, togglePolicy, removePolicy, applyExpenses, resetExpenses,
     initializeExpensesFromAnalysis,
-    resetIncomes, resetPolicies, confirmScenario, toggleQuestCompletion, resetScenario,
+    resetIncomes, resetPolicies, confirmScenario, toggleQuestCompletion,
+    migrateRecurringQuestCompletions, resetScenario,
   }
 })

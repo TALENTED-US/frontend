@@ -42,7 +42,8 @@ function reset() { simulation.resetScenario(); router.push('/simulation/new') }
     <template v-else-if="step === 'preview'">
       <h1>다른 카테고리도 적용해볼까요?</h1><p class="sim-subtitle">지금까지 적용한 내용으로 버티는 기간이 늘어났어요.</p>
       <article class="preview-summary"><span>예상 버티는 기간</span><p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ simulation.expectedMonths }}개월</strong><em>+{{ simulation.addedMonths }}개월</em></p></article>
-      <div class="period-grid"><label>시작일<input v-model="simulation.state.startDate" type="date" /></label><label>종료일<input v-model="simulation.state.endDate" type="date" /></label></div>
+      <div class="period-grid"><label>시작일<input :value="simulation.scenarioStartDate" type="date" disabled /></label><label>종료일<input :value="simulation.scenarioEndDate" type="date" disabled /></label></div>
+      <p class="period-grid-note">취업 준비 일정은 마이페이지의 취업 준비 정보 관리에서 수정할 수 있어요.</p>
       <h2 class="flow-section-title">적용한 카테고리</h2><div class="category-choice-grid three"><button v-for="category in categories" :key="category.key" :class="['choice-card', category.class]" @click="router.push(`/simulation/${category.key}`)"><i>{{ category.icon }}</i><span><strong>{{ category.title }}</strong><em>{{ category.summary }}</em></span><b>✓</b></button></div>
       <div class="preview-panels"><article><h3>예상 버티는 기간 변화</h3><strong>{{ simulation.currentMonths }}개월 → {{ simulation.expectedMonths }}개월</strong></article><article><h3>카테고리별 기여</h3><p>지출 줄이기 <b>-{{ money(simulation.expenseSaving) }}원/월</b></p><p>수입 늘리기 <b>+{{ money(simulation.recurringIncome + simulation.oneTimeIncome) }}원</b></p><p>정책 혜택 <b>+{{ money(simulation.recurringPolicy + simulation.oneTimePolicy) }}원</b></p></article></div>
       <article class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" /></article>
@@ -59,3 +60,18 @@ function reset() { simulation.resetScenario(); router.push('/simulation/new') }
     </template>
   </section>
 </template>
+
+<style scoped>
+.period-grid input:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+  background: #f5f6f8;
+  color: #666;
+}
+
+.period-grid-note {
+  margin-top: 8px;
+  color: #8a8f9c;
+  font-size: 12px;
+}
+</style>

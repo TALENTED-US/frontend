@@ -2,20 +2,55 @@ import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 
 const STORAGE_KEY = "buttie-progression-v1";
+const JAEJUN_EXP_RESET_KEY = "buttie-progression-jaejun-exp-reset-v1";
+const JAEJUN_EMAIL = "jaejun.kim@email.com";
 const LEVEL_REQUIREMENTS = Object.freeze({
   1: 50,
   2: 100,
   3: 250,
   4: 500,
 });
+const DEFAULT_PROGRESSION = Object.freeze({ level: 1, exp: 5, claimedQuestIds: [] });
+
+function isJaejunAccount() {
+  try {
+    const savedProfile = JSON.parse(localStorage.getItem("buttie-profile") || "null");
+    const email = savedProfile?.email || JAEJUN_EMAIL;
+    return String(email).trim().toLowerCase() === JAEJUN_EMAIL;
+  } catch {
+    return true;
+  }
+}
 
 function loadProgression() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (isJaejunAccount() && localStorage.getItem(JAEJUN_EXP_RESET_KEY) !== "done") {
+      const restored = {
+        ...DEFAULT_PROGRESSION,
+        claimedQuestIds: Array.isArray(saved?.claimedQuestIds) ? saved.claimedQuestIds : [],
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(restored));
+      localStorage.setItem(JAEJUN_EXP_RESET_KEY, "done");
+      return restored;
+    }
+
     if (saved && Number.isFinite(saved.level) && Number.isFinite(saved.exp)) {
+      const level = Math.min(5, Math.max(1, Math.trunc(saved.level)));
+      const exp = Math.max(0, saved.exp);
+      const hasInvalidExp = level === 5
+        ? exp > 0
+        : exp >= LEVEL_REQUIREMENTS[level];
+
+      if (hasInvalidExp) {
+        const restored = { ...DEFAULT_PROGRESSION, claimedQuestIds: [] };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(restored));
+        return restored;
+      }
+
       return {
-        level: Math.min(5, Math.max(1, saved.level)),
-        exp: Math.max(0, saved.exp),
+        level,
+        exp: level === 5 ? 0 : exp,
         claimedQuestIds: Array.isArray(saved.claimedQuestIds) ? saved.claimedQuestIds : [],
       };
     }
@@ -23,7 +58,7 @@ function loadProgression() {
     // Invalid local data falls back to the demo user's initial progression.
   }
 
-  return { level: 1, exp: 5, claimedQuestIds: [] };
+  return { ...DEFAULT_PROGRESSION, claimedQuestIds: [] };
 }
 
 export function calculateQuestExp(amount) {
@@ -32,8 +67,7 @@ export function calculateQuestExp(amount) {
 
 export function formatExp(value) {
   const amount = Math.max(0, Number(value) || 0);
-  if (amount > 0 && amount < 0.001) return "0.001";
-  return Number(amount.toFixed(3)).toString();
+  return Math.round(amount).toString();
 }
 
 export const useProgressionStore = defineStore("progression", () => {
@@ -50,12 +84,19 @@ export const useProgressionStore = defineStore("progression", () => {
   });
 
   function addExp(reward) {
+    if (level.value >= 5) {
+      exp.value = 0;
+      return;
+    }
+
     exp.value += Math.max(0, Number(reward) || 0);
 
     while (level.value < 5 && exp.value >= LEVEL_REQUIREMENTS[level.value]) {
       exp.value -= LEVEL_REQUIREMENTS[level.value];
       level.value += 1;
     }
+
+    if (level.value >= 5) exp.value = 0;
   }
 
   function claimQuest(questId, amount) {
@@ -87,6 +128,18 @@ export const useProgressionStore = defineStore("progression", () => {
     return claimedQuestIds.value.includes(questId);
   }
 
+  function migrateRecurringQuestClaims(ids, monthKey) {
+    if (!monthKey || !Array.isArray(ids) || !ids.length) return;
+    const recurringIds = new Set(ids);
+    let changed = false;
+    const migrated = claimedQuestIds.value.map((id) => {
+      if (!recurringIds.has(id)) return id;
+      changed = true;
+      return `${id}@${monthKey}`;
+    });
+    if (changed) claimedQuestIds.value = [...new Set(migrated)];
+  }
+
   watch(
     [level, exp, claimedQuestIds],
     () => {
@@ -108,5 +161,6 @@ export const useProgressionStore = defineStore("progression", () => {
     claimQuest,
     cancelQuestClaim,
     isQuestClaimed,
+    migrateRecurringQuestClaims,
   };
 });
