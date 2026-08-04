@@ -1,11 +1,27 @@
 <script setup>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { useSessionStore } from '@/stores/session'
-import profileImage from '@/assets/images/mypage/buttie-profile.png'
+import { formatExp, useProgressionStore } from '@/stores/progression'
+import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 
 const router = useRouter()
 const session = useSessionStore()
+const progression = useProgressionStore()
+const simulation = useSimulationStore()
+
+const profileState = computed(() => {
+  const key = simulation.currentStatus?.key
+  if (key === 'danger' || key === 'risk') {
+    return { label: '위험', image: getButtieLevelImage(progression.level, 'danger') }
+  }
+  if (key === 'caution') {
+    return { label: '주의', image: getButtieLevelImage(progression.level, 'caution') }
+  }
+  return { label: '안정', image: getButtieLevelImage(progression.level, 'stable') }
+})
 
 function formatDate(value) {
   return value ? value.replaceAll('-', '.') : '-'
@@ -61,8 +77,8 @@ function logout() {
     <article class="profile-card">
       <div class="profile-card__identity">
         <div class="profile-avatar">
-          <span class="profile-avatar__ring"><img :src="profileImage" alt="버티 프로필" /></span>
-          <b>5</b>
+          <span class="profile-avatar__ring"><img :src="profileState.image" alt="버티 프로필" /></span>
+          <b>{{ progression.level }}</b>
         </div>
         <div class="profile-card__user">
           <h2>{{ session.displayName }}</h2>
@@ -72,12 +88,18 @@ function logout() {
 
       <div class="profile-card__progress">
         <div class="profile-card__level">
-          <span>Lv 5 · 다음 레벨까지 160 EXP</span>
-          <em>안정</em>
+          <span v-if="progression.level < 5">
+            Lv {{ progression.level }} · 다음 레벨까지 {{ formatExp(progression.remainingExp) }} EXP
+          </span>
+          <span v-else>Lv 5 · 최고 레벨</span>
+          <em>{{ profileState.label }}</em>
         </div>
-        <strong>1,240 EXP</strong>
+        <strong>
+          {{ formatExp(progression.exp) }}<template v-if="progression.level < 5"> / {{ formatExp(progression.nextLevelExp) }}</template> EXP
+        </strong>
         <div class="progress-row">
-          <i><span /></i><small>68%</small>
+          <i><span :style="{ width: `${progression.progressPercent}%` }" /></i>
+          <small>{{ Math.round(progression.progressPercent) }}%</small>
         </div>
       </div>
 
@@ -237,10 +259,10 @@ function logout() {
 }
 .progress-row i span {
   display: block;
-  width: 68%;
   height: 100%;
   border-radius: inherit;
   background: #4d352a;
+  transition: width .25s ease;
 }
 .progress-row small {
   color: #73747e;

@@ -3,15 +3,19 @@ import { computed, ref } from "vue";
 import { dashboard } from "@/data/mockData";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import { useSessionStore } from "@/stores/session";
-import buttieRiskImage from "@/assets/images/dashboard/buttie-melting.png";
-import buttieCautionImage from "@/assets/images/dashboard/buttie-caution.png";
-import buttieStableImage from "@/assets/images/dashboard/buttie-stable.png";
+import { getButtieLevelImage } from "@/data/buttieLevelAssets";
 import { financeTransactions } from "@/features/finance/financeStore";
 import { analyzePreviousCompletedMonths } from "@/features/finance/financeAnalytics";
 import { useSimulationStore } from "@/features/simulation/stores/simulation";
+import {
+  calculateQuestExp,
+  formatExp,
+  useProgressionStore,
+} from "@/stores/progression";
 
 const session = useSessionStore();
 const simulation = useSimulationStore();
+const progression = useProgressionStore();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const AVERAGE_MONTH_DAYS = 365.2425 / 12;
 
@@ -247,8 +251,13 @@ function isQuestCompleted(id) {
   return completedQuestIds.value.has(id);
 }
 
-function toggleQuest(id) {
-  simulation.toggleQuestCompletion(id);
+function toggleQuest(item) {
+  if (isQuestCompleted(item.id)) {
+    progression.cancelQuestClaim(item.id, item.amount);
+  } else {
+    progression.claimQuest(item.id, item.amount);
+  }
+  simulation.toggleQuestCompletion(item.id);
 }
 const achievementRate = computed(() => {
   if (remainingMonthsValue.value <= 0) return 100;
@@ -270,7 +279,7 @@ const financialStatus = computed(() => {
       key: "risk",
       label: "위험",
       message: `버티는 기간이 목표보다 ${shortage}개월 부족해서 버티가 녹고 있어요`,
-      image: buttieRiskImage,
+      image: getButtieLevelImage(progression.level, "danger"),
       imageAlt: "거의 녹아내린 위험 상태의 버티",
     };
   }
@@ -280,7 +289,7 @@ const financialStatus = computed(() => {
       key: "caution",
       label: "주의",
       message: "버티는 기간이 목표보다 조금 부족해 주의가 필요해요",
-      image: buttieCautionImage,
+      image: getButtieLevelImage(progression.level, "caution"),
       imageAlt: "조금 녹아내린 주의 상태의 버티",
     };
   }
@@ -289,7 +298,7 @@ const financialStatus = computed(() => {
     key: "stable",
     label: "안정",
     message: "버티는 기간이 목표를 넉넉히 채워서 걱정 없어요",
-    image: buttieStableImage,
+    image: getButtieLevelImage(progression.level, "stable"),
     imageAlt: "온전한 안정 상태의 버티",
   };
 });
@@ -330,6 +339,19 @@ const targetMonthText = computed(() =>
 
 <template>
   <section class="page dashboard">
+    <section class="level-overview" aria-label="레벨 및 경험치">
+      <div>
+        <strong>Lv.{{ progression.level }}</strong>
+        <span v-if="progression.level < 5">
+          다음 레벨까지 {{ formatExp(progression.remainingExp) }} EXP
+        </span>
+        <span v-else>최고 레벨 달성</span>
+      </div>
+      <div class="level-overview__progress">
+        <b>{{ formatExp(progression.exp) }} / {{ formatExp(progression.nextLevelExp) }} EXP</b>
+        <i><span :style="{ width: `${progression.progressPercent}%` }" /></i>
+      </div>
+    </section>
     <header class="dashboard__heading">
       <h1>버티와 함께하는 취준 여정, 지금 확인해 보세요</h1>
       <p>취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
@@ -379,7 +401,7 @@ const targetMonthText = computed(() =>
             :src="financialStatus.image"
             :alt="financialStatus.imageAlt"
           />
-          <b class="survival-card__level survival-card__level--mobile">Lv.1</b>
+          <b class="survival-card__level survival-card__level--mobile">Lv.{{ progression.level }}</b>
         </div>
 
         <div class="survival-card__message">
@@ -387,7 +409,7 @@ const targetMonthText = computed(() =>
           <em>{{ financialStatus.label }}</em>
         </div>
 
-        <b class="survival-card__level survival-card__level--desktop">Lv.1</b>
+        <b class="survival-card__level survival-card__level--desktop">Lv.{{ progression.level }}</b>
       </article>
     </section>
 
@@ -464,12 +486,16 @@ const targetMonthText = computed(() =>
                 class="quest-row"
                 :class="[`quest-row--${item.kind}`, { 'is-completed': isQuestCompleted(item.id) }]"
                 :aria-pressed="isQuestCompleted(item.id)"
-                @click="toggleQuest(item.id)"
+                @click="toggleQuest(item)"
               >
                 <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
                 <span class="quest-row__copy">
                   <strong>{{ item.name }}</strong>
                   <small v-if="item.subtitle">{{ item.subtitle }}</small>
+                  <small class="quest-row__exp">
+                    +{{ formatExp(calculateQuestExp(item.amount)) }} EXP
+                    <template v-if="progression.isQuestClaimed(item.id)"> · 지급 완료</template>
+                  </small>
                 </span>
                 <strong class="quest-row__amount">
                   {{ formatSignedCompactWon(item.amount) }}
@@ -535,6 +561,56 @@ const targetMonthText = computed(() =>
 <style scoped>
 .dashboard {
   padding-bottom: 28px;
+}
+
+.level-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 22px;
+  padding: 18px 24px;
+  border: 1px solid #e2e3e8;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 12%);
+}
+
+.level-overview > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.level-overview > div:first-child strong { font-size: 22px; }
+.level-overview > div:first-child span { color: #6b7280; font-size: var(--font-small); }
+
+.level-overview__progress {
+  display: grid;
+  width: min(520px, 55%);
+  gap: 7px;
+}
+
+.level-overview__progress b {
+  color: #51392e;
+  font-size: var(--font-small);
+  text-align: right;
+}
+
+.level-overview__progress i {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e3e3e3;
+}
+
+.level-overview__progress i span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #51392e;
+  transition: width .25s ease;
 }
 
 .dashboard__heading {
@@ -1147,6 +1223,11 @@ const targetMonthText = computed(() =>
   white-space: nowrap;
 }
 
+.quest-row__copy .quest-row__exp {
+  color: #8b5f18;
+  font-weight: 800;
+}
+
 .quest-row__amount {
   color: var(--danger);
   white-space: nowrap;
@@ -1264,6 +1345,21 @@ const targetMonthText = computed(() =>
 }
 
 @media (max-width: 767px) {
+  .level-overview {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+  }
+
+  .level-overview > div:first-child {
+    justify-content: space-between;
+  }
+
+  .level-overview__progress {
+    width: 100%;
+  }
+
   .dashboard {
     padding-bottom: 8px;
   }
