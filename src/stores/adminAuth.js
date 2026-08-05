@@ -4,7 +4,7 @@ import { defineStore } from 'pinia'
 // 관리자 로그인 API가 준비되기 전까지 사용하는 임시 Mock 인증입니다.
 // TODO: 관리자 로그인 API 연결 후 Mock 인증 로직 제거
 const USE_MOCK_ADMIN_AUTH = true
-const MOCK_ADMIN_CREDENTIALS = { id: 'admin', password: 'admin1234' }
+const MOCK_ADMIN_CREDENTIALS = { id: 'admin', password: 'qwer@1234' }
 
 const ADMIN_TOKEN_KEY = 'adminAccessToken'
 const ADMIN_USER_KEY = 'adminUser'
