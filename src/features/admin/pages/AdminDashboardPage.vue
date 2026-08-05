@@ -57,20 +57,22 @@ onMounted(loadStats)
     </header>
 
     <form class="admin-dashboard__range" @submit.prevent>
-      <h2 class="admin-dashboard__range-title">조회 기간</h2>
       <div class="admin-dashboard__range-box">
-        <div class="admin-dashboard__presets">
-          <button type="button" @click="applyPreset('all')">전체 기간</button>
-          <button type="button" @click="applyPreset('year')">올해</button>
-          <button type="button" @click="applyPreset('month')">이번달</button>
-        </div>
+        <h2 class="admin-dashboard__range-title">조회 기간</h2>
         <div class="admin-dashboard__range-inputs">
           <input v-model="fromDate" type="date" />
           <span class="admin-dashboard__range-sep">~</span>
           <input v-model="toDate" type="date" />
         </div>
-        <button type="button" class="admin-dashboard__reset" @click="applyPreset('all')">초기화</button>
-        <button type="button" class="admin-dashboard__apply" @click="loadStats">적용</button>
+        <div class="admin-dashboard__presets">
+          <button type="button" @click="applyPreset('all')">전체 기간</button>
+          <button type="button" @click="applyPreset('year')">올해</button>
+          <button type="button" @click="applyPreset('month')">이번달</button>
+        </div>
+        <button type="button" class="admin-dashboard__reset" @click="applyPreset('all')">
+          초기화
+        </button>
+        <button type="button" class="admin-dashboard__apply" @click="loadStats">조회</button>
       </div>
     </form>
 
@@ -88,7 +90,9 @@ onMounted(loadStats)
               <p v-if="metric.note" class="admin-card__note">{{ metric.note }}</p>
             </div>
             <p class="admin-card__value" :style="{ color: metric.color }">{{ metric.value }}</p>
-            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">{{ caption }}</p>
+            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">
+              {{ caption }}
+            </p>
           </article>
         </div>
       </div>
@@ -98,7 +102,11 @@ onMounted(loadStats)
           <article class="admin-card admin-card--trend">
             <h2>전체 회원·마이데이터 연결·시뮬레이션 생성·계획 확정 추이</h2>
             <ul class="admin-dashboard__legend">
-              <li v-for="line in stats.trend.series" :key="line.key">
+              <li
+                v-for="line in stats.trend.series"
+                :key="line.key"
+                :style="['마이데이터 연결', '계획 확정'].includes(line.label) ? { fontSize: 'calc(var(--font-caption) + 1px)' } : null"
+              >
                 <i :style="{ background: line.color }" />{{ line.label }}
               </li>
             </ul>
@@ -145,7 +153,9 @@ onMounted(loadStats)
               <p v-if="metric.note" class="admin-card__note">{{ metric.note }}</p>
             </div>
             <p class="admin-card__value" :style="{ color: metric.color }">{{ metric.value }}</p>
-            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">{{ caption }}</p>
+            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">
+              {{ caption }}
+            </p>
           </article>
         </div>
       </div>
@@ -154,6 +164,17 @@ onMounted(loadStats)
 </template>
 
 <style scoped>
+.admin-dashboard {
+  font-family: 'Pretendard', sans-serif;
+}
+
+.admin-dashboard button,
+.admin-dashboard input,
+.admin-dashboard select,
+.admin-dashboard textarea {
+  font-family: inherit;
+}
+
 .admin-dashboard__header h1 {
   color: #222222;
   font-size: var(--font-page-title);
@@ -175,22 +196,26 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__range-title {
-  color: #222222;
-  font-size: var(--font-card-title);
-  font-weight: 800;
+  color: #333333;
+  font-size: 15px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
 .admin-dashboard__range-box {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
-  min-width: 640px;
-  padding: 16px 24px;
-  border: 1px solid #e1e1e1;
-  border-radius: var(--radius-md);
-  background: var(--surface);
+  min-width: 760px;
+  padding: 14px 20px;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.admin-dashboard__range-box > * {
+  flex-shrink: 0;
 }
 
 .admin-dashboard__range-inputs {
@@ -200,15 +225,16 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__range input {
-  padding: 8px 12px;
+  width: 148px;
+  padding: 10px 14px;
   border: 1px solid #e1e1e1;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   color: #222222;
-  font-size: var(--font-small);
+  font-size: 14px;
 }
 
 .admin-dashboard__range-sep {
-  color: #666666;
+  color: #999999;
 }
 
 .admin-dashboard__presets {
@@ -217,40 +243,39 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__presets button {
-  padding: 8px 14px;
-  border: 1px solid #e1e1e1;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: #666666;
-  font-size: var(--font-small);
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #fbedb0;
+  color: #4a4a4a;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .admin-dashboard__presets button:hover {
-  color: #222222;
-  background: var(--canvas);
+  background: #f5e29a;
 }
 
 .admin-dashboard__reset {
   margin-left: auto;
-  padding: 10px 16px;
+  padding: 10px 12px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: none;
-  color: #666666;
-  font-size: var(--font-small);
-  font-weight: 700;
+  color: #999999;
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .admin-dashboard__apply {
-  padding: 10px 20px;
+  padding: 12px 32px;
   border: 0;
-  border-radius: var(--radius-sm);
-  background: #f1b94c;
-  color: #222222;
-  font-size: var(--font-small);
+  border-radius: 12px;
+  background: #fcb01d;
+  color: #1a1a1a;
+  font-size: 14px;
   font-weight: 700 !important;
   white-space: nowrap;
 }
@@ -287,7 +312,7 @@ onMounted(loadStats)
 
 .admin-dashboard__metrics .admin-card__label {
   color: #222222;
-  font-size: var(--font-caption);
+  font-size: calc(var(--font-caption) + 1px);
   font-weight: 600;
 }
 
@@ -295,18 +320,18 @@ onMounted(loadStats)
   flex-shrink: 0;
   max-width: 55%;
   color: #999999;
-  font-size: 10px;
+  font-size: 11px;
   text-align: right;
 }
 
 .admin-dashboard__metrics .admin-card__value {
   margin-top: 6px;
-  font-size: 20px;
+  font-size: 21px;
 }
 
 .admin-dashboard__metrics .admin-card__caption {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .admin-card {
@@ -349,7 +374,7 @@ onMounted(loadStats)
 .admin-card--trend h2,
 .admin-card--logs h2 {
   color: #222222;
-  font-size: var(--font-card-title);
+  font-size: calc(var(--font-card-title) + 1px);
   font-weight: 800;
 }
 
@@ -404,17 +429,22 @@ onMounted(loadStats)
 
 .admin-dashboard__log-main p {
   color: #222222;
-  font-size: var(--font-small);
+  font-size: calc(var(--font-small) + 1px);
 }
 
 .admin-dashboard__log-main small {
   color: #999999;
+  font-size: calc(var(--font-caption) + 1px);
+}
+
+.admin-dashboard__log-row time {
+  font-size: calc(var(--font-caption) + 1px);
 }
 
 .admin-badge {
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-align: center;
 }
@@ -430,15 +460,20 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__retry {
-  display: block;
-  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
   margin-left: auto;
-  padding: 4px 10px;
+  width: 88px;
+  height: 32px;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #93b2f8;
   color: #222222;
-  font-size: 11px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -450,9 +485,8 @@ onMounted(loadStats)
   display: block;
   margin-top: 14px;
   color: #666666;
-  font-size: var(--font-caption);
+  font-size: calc(var(--font-caption) + 1px);
   font-weight: 700;
   text-align: center;
 }
-
 </style>
