@@ -1,10 +1,13 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { dashboard } from "@/data/mockData";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import { useSessionStore } from "@/stores/session";
 import { getButtieLevelImage } from "@/data/buttieLevelAssets";
-import { financeTransactions } from "@/features/finance/financeStore";
+import {
+  financeTransactions,
+  loadTransactions,
+} from "@/features/finance/financeStore";
 import { analyzePreviousCompletedMonths } from "@/features/finance/financeAnalytics";
 import { useSimulationStore } from "@/features/simulation/stores/simulation";
 import {
@@ -16,6 +19,12 @@ import {
 const session = useSessionStore();
 const simulation = useSimulationStore();
 const progression = useProgressionStore();
+
+onMounted(() => {
+  loadTransactions().catch(() => {
+    // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
+  });
+});
 const DAY_MS = 24 * 60 * 60 * 1000;
 const AVERAGE_MONTH_DAYS = 365.2425 / 12;
 const LEVEL_TITLES = Object.freeze({

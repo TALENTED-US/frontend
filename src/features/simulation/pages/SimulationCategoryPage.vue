@@ -22,10 +22,8 @@ watch(category, (value) => {
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
 const analyzedMonth = computed(() => {
   const months = simulation.expenseMonths
-  if (!months.length) return '최근 3개월 월평균 소비'
-  const first = months[0].replace('-', '.')
-  const last = months.at(-1).replace('-', '.')
-  return `최근 3개월 월평균 소비 (${first}~${last})`
+  if (!months.length) return '저번달 월평균 소비'
+  return `저번달 월평균 소비 (${months[0].replace('-', '.')})`
 })
 const donutStyle = computed(() => {
   const total = simulation.totalCurrentExpense || 1
@@ -63,7 +61,7 @@ function resetCategory() {
     <template v-if="category === 'expense'">
       <div class="category-page-heading"><div><h1>소비 카테고리 목표 설정</h1><p class="sim-subtitle">소비 비중을 보고 줄이고 싶은 금액을 직접 입력하세요.</p></div><button class="category-reset" type="button" @click="resetCategory">지출 계획 초기화</button></div>
       <article class="expense-overview">
-        <div><span>{{ analyzedMonth }}</span><strong>{{ money(simulation.totalCurrentExpense) }}원</strong><small>직전 3개월 거래내역 기준</small></div>
+        <div><span>{{ analyzedMonth }}</span><strong>{{ money(simulation.totalCurrentExpense) }}원</strong><small>저번달 거래내역 기준</small></div>
         <div class="donut" :style="donutStyle" aria-label="카테고리별 지출 비중 그래프" />
         <ul>
           <li v-for="item in simulation.expenseBreakdown" :key="item.id">
@@ -72,7 +70,7 @@ function resetCategory() {
         </ul>
       </article>
       <h2 class="flow-section-title">카테고리별 절약 목표 설정</h2><p class="sim-subtitle">+/− 버튼으로 월평균 절약 목표를 바로 정해보세요.</p>
-      <div class="expense-list"><article v-for="item in simulation.state.expenses" :key="item.id"><button :class="['select-circle', { active: item.selected }]" @click="simulation.toggleExpense(item.id)">{{ item.icon }}</button><div><strong>{{ item.name }}</strong><small>최근 3개월 월평균 {{ money(item.current) }}원</small></div><label>월평균 절약 목표 <span><button @click="simulation.adjustExpense(item.id, -10000)">−</button><b>{{ money(item.saving / 10000) }}만원</b><button @click="simulation.adjustExpense(item.id, 10000)">＋</button></span></label></article></div>
+      <div class="expense-list"><article v-for="item in simulation.state.expenses" :key="item.id"><button :class="['select-circle', { active: item.selected }]" @click="simulation.toggleExpense(item.id)">{{ item.icon }}</button><div><strong>{{ item.name }}</strong><small>저번달 월평균 {{ money(item.current) }}원</small></div><label>월평균 절약 목표 <span><button @click="simulation.adjustExpense(item.id, -10000)">−</button><b>{{ money(item.saving / 10000) }}만원</b><button @click="simulation.adjustExpense(item.id, 10000)">＋</button></span></label></article></div>
       <div class="impact-card"><span>입력한 절약 목표 합계</span><strong>{{ money(simulation.expenseSaving) }}원</strong><p>{{ money(simulation.expenseSaving) }}원 절약하면 버티는 기간이 늘어나요 <b>{{ simulation.currentMonths }}개월 → {{ simulation.expensePreviewMonths }}개월</b></p></div>
       <button :disabled="!simulation.selectedExpenses.length || !simulation.expenseSaving" class="sim-btn sim-btn--yellow wide" @click="simulation.applyExpenses(); router.push('/simulation/preview')">절약 목표 적용하기 →</button>
     </template>
