@@ -93,46 +93,48 @@ onMounted(loadStats)
         </div>
       </div>
 
-      <div class="admin-dashboard__panels">
-        <article class="admin-card admin-card--trend">
-          <h2>전체 회원·마이데이터 연결·시뮬레이션 생성·계획 확정 추이</h2>
-          <ul class="admin-dashboard__legend">
-            <li v-for="line in stats.trend.series" :key="line.key">
-              <i :style="{ background: line.color }" />{{ line.label }}
-            </li>
-          </ul>
-          <AdminTrendChart :labels="stats.trend.labels" :series="stats.trend.series" />
-        </article>
+      <div class="admin-dashboard__panels-wrap">
+        <div class="admin-dashboard__panels">
+          <article class="admin-card admin-card--trend">
+            <h2>전체 회원·마이데이터 연결·시뮬레이션 생성·계획 확정 추이</h2>
+            <ul class="admin-dashboard__legend">
+              <li v-for="line in stats.trend.series" :key="line.key">
+                <i :style="{ background: line.color }" />{{ line.label }}
+              </li>
+            </ul>
+            <AdminTrendChart :labels="stats.trend.labels" :series="stats.trend.series" />
+          </article>
 
-        <article class="admin-card admin-card--logs">
-          <h2>최근 운영 현황</h2>
-          <ul class="admin-dashboard__logs">
-            <li v-for="log in stats.operationLogs" :key="log.id">
-              <div class="admin-dashboard__log-row">
-                <div class="admin-dashboard__log-main">
-                  <p>{{ log.title }}</p>
-                  <small v-if="log.reason">{{ log.reason }}</small>
+          <article class="admin-card admin-card--logs">
+            <h2>최근 운영 현황</h2>
+            <ul class="admin-dashboard__logs">
+              <li v-for="log in stats.operationLogs" :key="log.id">
+                <div class="admin-dashboard__log-row">
+                  <div class="admin-dashboard__log-main">
+                    <p>{{ log.title }}</p>
+                    <small v-if="log.reason">{{ log.reason }}</small>
+                  </div>
+                  <span :class="['admin-badge', `admin-badge--${log.status}`]">
+                    {{ log.status === 'success' ? '성공' : '실패' }}
+                  </span>
+                  <time>{{ log.time }}</time>
                 </div>
-                <span :class="['admin-badge', `admin-badge--${log.status}`]">
-                  {{ log.status === 'success' ? '성공' : '실패' }}
-                </span>
-                <time>{{ log.time }}</time>
-              </div>
-              <button
-                v-if="log.retryable"
-                type="button"
-                class="admin-dashboard__retry"
-                :disabled="log.retrying"
-                @click="retryLog(log)"
-              >
-                재실행
-              </button>
-            </li>
-          </ul>
-          <RouterLink to="/admin/finance-data/history" class="admin-dashboard__all-logs">
-            전체 운영 로그 보기 →
-          </RouterLink>
-        </article>
+                <button
+                  v-if="log.retryable"
+                  type="button"
+                  class="admin-dashboard__retry"
+                  :disabled="log.retrying"
+                  @click="retryLog(log)"
+                >
+                  재실행
+                </button>
+              </li>
+            </ul>
+            <RouterLink to="/admin/finance-data/history" class="admin-dashboard__all-logs">
+              전체 운영 로그 보기 →
+            </RouterLink>
+          </article>
+        </div>
       </div>
 
       <div class="admin-dashboard__metric-rows">
@@ -169,6 +171,7 @@ onMounted(loadStats)
   align-items: center;
   gap: 12px;
   margin-top: 24px;
+  overflow-x: auto;
 }
 
 .admin-dashboard__range-title {
@@ -183,6 +186,7 @@ onMounted(loadStats)
   align-items: center;
   gap: 12px;
   flex: 1;
+  min-width: 640px;
   padding: 16px 24px;
   border: 1px solid #e1e1e1;
   border-radius: var(--radius-md);
@@ -255,16 +259,19 @@ onMounted(loadStats)
   display: grid;
   gap: 16px;
   margin-top: 24px;
+  overflow-x: auto;
 }
 
 .admin-dashboard__metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  min-width: 900px;
 }
 
 .admin-dashboard__metrics--pair {
   grid-template-columns: repeat(2, 1fr);
+  min-width: 600px;
 }
 
 .admin-dashboard__metrics .admin-card {
@@ -327,11 +334,16 @@ onMounted(loadStats)
   font-size: var(--font-caption);
 }
 
+.admin-dashboard__panels-wrap {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
 .admin-dashboard__panels {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 16px;
-  margin-top: 16px;
+  min-width: 960px;
 }
 
 .admin-card--trend h2,
@@ -443,20 +455,4 @@ onMounted(loadStats)
   text-align: center;
 }
 
-@media (max-width: 1100px) {
-  .admin-dashboard__metrics:not(.admin-dashboard__metrics--pair) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .admin-dashboard__panels {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .admin-dashboard__metrics,
-  .admin-dashboard__metrics--pair {
-    grid-template-columns: 1fr;
-  }
-}
 </style>
