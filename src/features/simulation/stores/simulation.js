@@ -79,9 +79,12 @@ export const useSimulationStore = defineStore('simulation', () => {
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') } catch { saved = null }
   const state = reactive({ ...defaultState(), ...(saved || {}) })
   const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
+  const previousMonthExpenseAnalysis = computed(() =>
+    analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
+  )
 
   function buildExpenseCategories(existing = state.expenses) {
-    const breakdownRows = recentAnalysis.value.categories.map(({ name, current }) => ({
+    const breakdownRows = previousMonthExpenseAnalysis.value.categories.map(({ name, current }) => ({
       id: name,
       name,
       icon: CATEGORY_META[name]?.icon || CATEGORY_META.기타.icon,
@@ -103,7 +106,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     return {
       rows: rows.length ? rows : defaultState().expenses,
       breakdownRows: breakdownRows.length ? breakdownRows : defaultState().expenses,
-      monthKeys: recentAnalysis.value.monthKeys,
+      monthKeys: previousMonthExpenseAnalysis.value.monthKeys,
     }
   }
 

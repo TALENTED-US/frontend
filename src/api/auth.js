@@ -9,7 +9,7 @@ import {
 export async function loginApi(userEmail, password) {
   try {
     const response = await apiClient.post(
-      '/api/auth/login',
+      'auth/login',
       { userEmail, password },
       { skipUnauthorizedHandler: true },
     )
@@ -25,7 +25,7 @@ export async function logoutApi() {
   const csrfToken = getCookie('csrfToken')
 
   try {
-    const response = await apiClient.delete('/api/auth/logout', {
+    const response = await apiClient.delete('auth/logout', {
       headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : undefined,
     })
     return unwrapApiResponse(response)

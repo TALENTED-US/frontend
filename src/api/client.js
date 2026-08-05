@@ -1,11 +1,15 @@
 import axios from 'axios'
 
 const ACCESS_TOKEN_KEY = 'buttie-access-token'
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || '/backend'
+const normalizedBaseUrl = configuredBaseUrl.endsWith('/api') || configuredBaseUrl.endsWith('/api/')
+  ? `${configuredBaseUrl.replace(/\/+$/, '')}/`
+  : `${configuredBaseUrl.replace(/\/+$/, '')}/api/`
 
 let unauthorizedHandler = null
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/backend',
+  baseURL: normalizedBaseUrl,
   withCredentials: true,
   timeout: 15000,
   headers: {
