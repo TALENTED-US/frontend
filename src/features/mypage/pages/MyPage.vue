@@ -64,8 +64,8 @@ const menuItems = [
   { label: '데이터 관리', description: '금융 연결과 계좌 데이터를 관리해요', to: '/mypage/data' },
 ]
 
-function logout() {
-  session.logout()
+async function logout() {
+  await session.logout()
   router.replace('/auth/login')
 }
 </script>
@@ -77,7 +77,9 @@ function logout() {
     <article class="profile-card">
       <div class="profile-card__identity">
         <div class="profile-avatar">
-          <span class="profile-avatar__ring"><img :src="profileState.image" alt="버티 프로필" /></span>
+          <span class="profile-avatar__ring"
+            ><img :src="profileState.image" alt="버티 프로필"
+          /></span>
           <b>{{ progression.level }}</b>
         </div>
         <div class="profile-card__user">
@@ -95,7 +97,11 @@ function logout() {
           <em>{{ profileState.label }}</em>
         </div>
         <strong>
-          {{ formatExp(progression.exp) }}<template v-if="progression.level < 5"> / {{ formatExp(progression.nextLevelExp) }}</template> EXP
+          {{ formatExp(progression.exp)
+          }}<template v-if="progression.level < 5">
+            / {{ formatExp(progression.nextLevelExp) }}</template
+          >
+          EXP
         </strong>
         <div class="progress-row">
           <i><span :style="{ width: `${progression.progressPercent}%` }" /></i>
@@ -262,7 +268,7 @@ function logout() {
   height: 100%;
   border-radius: inherit;
   background: #4d352a;
-  transition: width .25s ease;
+  transition: width 0.25s ease;
 }
 .progress-row small {
   color: #73747e;
