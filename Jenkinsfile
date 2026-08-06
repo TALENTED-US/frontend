@@ -18,7 +18,7 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sshagent(credentials: ['nginx-ec2-ssh']) {
+                sshagent(credentials: ['spring-ec2-ssh']) {
                     sh '''
                         ssh -o StrictHostKeyChecking=accept-new ubuntu@$NGINX_HOST \
                           "rm -rf ${DEPLOY_DIR:?}/*"
