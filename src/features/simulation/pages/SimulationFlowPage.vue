@@ -1,77 +1,132 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
-import SimulationTimelineChart from '@/features/simulation/components/SimulationTimelineChart.vue'
+import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
+import stableImage from '@/assets/images/dashboard/buttie-stable.png'
 import '@/features/simulation/styles/simulation.css'
 
 const route = useRoute()
 const router = useRouter()
 const simulation = useSimulationStore()
 const step = computed(() => route.meta.simulationStep)
-const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
-const categories = [
-  { key: 'expense', icon: '🪽', title: '지출 줄이기', summary: simulation.state.expenseApplied ? `-${money(simulation.expenseSaving)}원/월 적용됨` : '-10만원/월 적용됨', description: '멤버십 수정하기', class: 'blue' },
-  { key: 'income', icon: '💼', title: '수입 늘리기', summary: simulation.state.incomes.length ? `항목 ${simulation.state.incomes.length}개` : '알바·부업 찾기', description: '멤버십 추가하기', class: 'green' },
-  { key: 'policy', icon: '🏛️', title: '정책 혜택', summary: simulation.state.policies.length ? `정책지원금 ${simulation.state.policies.length}` : '정부지원금 등', description: '멤버십 나에게 맞는 정책 확인하기', class: 'yellow' },
-]
+const startDate = ref(simulation.state.startDate)
+const endDate = ref(simulation.state.endDate)
+const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
+const manwon = (value) => `${money((Number(value) || 0) / 10000)}만원`
+const nextDraftPath = computed(() => {
+  if (!simulation.state.expenseApplied) return '/simulation/expense'
+  if (!simulation.state.incomes.length) return '/simulation/income'
+  if (!simulation.state.policies.length) return '/simulation/policy'
+  return '/simulation/confirm'
+})
 
-function confirm() { simulation.confirmScenario(); router.push('/') }
-function reset() { simulation.resetScenario(); router.push('/simulation/new') }
+onMounted(async () => {
+  const data = await simulation.hydrateDraft()
+  if (data) {
+    startDate.value = simulation.state.startDate
+    endDate.value = simulation.state.endDate
+  }
+})
+
+async function startSimulation() {
+  if (!startDate.value || !endDate.value || endDate.value <= startDate.value) return
+  simulation.prepareNewScenario()
+  simulation.state.startDate = startDate.value
+  simulation.state.endDate = endDate.value
+  const ok = await simulation.beginSimulation()
+  if (ok) router.push('/simulation/expense')
+}
+
+function reset() {
+  simulation.resetScenario()
+  startDate.value = simulation.state.startDate
+  endDate.value = simulation.state.endDate
+  router.push('/simulation/new')
+}
+
+function confirm() {
+  simulation.confirmScenario()
+  router.push('/simulation')
+}
 </script>
 
 <template>
-  <section class="page sim-page sim-flow">
-    <button class="sim-back" type="button" @click="router.push('/simulation')">‹ 시뮬레이션</button>
-
+  <section class="page sim-page sim-wizard" :class="`sim-flow-${step}`">
     <template v-if="step === 'continue'">
-      <h1>이어서 만들어볼까요?</h1><p class="sim-subtitle">지난번 만들던 예상 재정 계획이 그대로 남아있어요.</p>
-      <article class="sim-card continue-card"><div class="sim-section-row"><h2>지금까지 만든 계획</h2><strong>{{ simulation.completedCategories }}/3 카테고리 완료</strong></div><progress :value="simulation.completedCategories" max="3" />
-        <div v-for="(category, index) in categories" :key="category.key" class="continue-row"><i :class="category.class">{{ category.icon }}</i><span><strong>{{ category.title }}</strong><small>{{ index === 0 ? '식비·교통·쇼핑 목표 설정 완료' : index === 1 && simulation.state.incomes.length ? `수입 ${simulation.state.incomes.length}건 등록` : index === 2 && simulation.state.policies.length ? `정책 ${simulation.state.policies.length}건 선택` : '아직 선택한 항목이 없어요' }}</small></span><b :class="{ done: index === 0 || (index === 1 && simulation.state.incomes.length) || (index === 2 && simulation.state.policies.length) }">✓</b></div>
-        <footer><span>여기까지 적용하면</span><strong>{{ simulation.currentMonths }}개월 → {{ simulation.expectedMonths }}개월</strong><b>+{{ simulation.addedMonths }}개월</b></footer>
-      </article>
-      <button class="sim-btn sim-btn--yellow wide" @click="router.push('/simulation/new')">이어서 계속하기 →</button><button class="sim-text-button" @click="reset">처음부터 다시 시작하기</button>
+      <button class="sim-back" type="button" @click="router.push('/simulation')">‹ 시뮬레이션</button>
+      <div class="resume-hero">
+        <img :src="stableImage" alt="다시 찾아온 버티" />
+        <h1>시뮬레이션을 하는 중이었어요.<br />이어서 만드시겠어요?</h1>
+        <p>지금까지 입력한 내용은 안전하게 저장되어 있어요.</p>
+      </div>
+      <div class="wizard-actions vertical">
+        <button class="sim-btn sim-btn--yellow" type="button" @click="router.push(nextDraftPath)">이어서 만들기 →</button>
+        <button class="sim-text-button" type="button" @click="reset">처음부터 다시 시작하기</button>
+      </div>
     </template>
 
     <template v-else-if="step === 'categories'">
-      <h1>카테고리를 선택해주세요</h1><h2 class="flow-section-title">카테고리</h2><p class="sim-subtitle">직접 설정한 재정 계획을 시나리오에 추가할 수 있어요.</p>
-      <div class="category-choice-grid"><button v-for="category in categories" :key="category.key" :class="['choice-card', category.class]" @click="router.push(`/simulation/${category.key}`)"><i>{{ category.icon }}</i><span><strong>{{ category.title }}</strong><em>{{ category.summary }}</em><small>{{ category.description }}</small></span><b>›</b></button></div>
-      <button v-if="simulation.hasDraft" class="sim-btn sim-btn--yellow wide" @click="router.push('/simulation/preview')">현재 계획 미리보기 →</button>
-    </template>
+      <button class="sim-back" type="button" @click="router.push('/simulation')">‹ 시뮬레이션</button>
+      <h1 class="wizard-title">지출을 매달 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</h1>
+      <p class="sim-subtitle">현재 재정 상태를 기준으로 나만의 계획을 만들어보세요.</p>
 
-    <template v-else-if="step === 'preview'">
-      <h1>다른 카테고리도 적용해볼까요?</h1><p class="sim-subtitle">지금까지 적용한 내용으로 버티는 기간이 늘어났어요.</p>
-      <article class="preview-summary"><span>예상 버티는 기간</span><p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ simulation.expectedMonths }}개월</strong><em>+{{ simulation.addedMonths }}개월</em></p></article>
-      <div class="period-grid"><label>시작일<input :value="simulation.scenarioStartDate" type="date" disabled /></label><label>종료일<input :value="simulation.scenarioEndDate" type="date" disabled /></label></div>
-      <p class="period-grid-note">취업 준비 일정은 마이페이지의 취업 준비 정보 관리에서 수정할 수 있어요.</p>
-      <h2 class="flow-section-title">적용한 카테고리</h2><div class="category-choice-grid three"><button v-for="category in categories" :key="category.key" :class="['choice-card', category.class]" @click="router.push(`/simulation/${category.key}`)"><i>{{ category.icon }}</i><span><strong>{{ category.title }}</strong><em>{{ category.summary }}</em></span><b>✓</b></button></div>
-      <div class="preview-panels"><article><h3>예상 버티는 기간 변화</h3><strong>{{ simulation.currentMonths }}개월 → {{ simulation.expectedMonths }}개월</strong></article><article><h3>카테고리별 기여</h3><p>지출 줄이기 <b>-{{ money(simulation.expenseSaving) }}원/월</b></p><p>수입 늘리기 <b>+{{ money(simulation.recurringIncome + simulation.oneTimeIncome) }}원</b></p><p>정책 혜택 <b>+{{ money(simulation.recurringPolicy + simulation.oneTimePolicy) }}원</b></p></article></div>
-      <article class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" /></article>
-      <button class="sim-btn sim-btn--yellow wide" @click="router.push('/simulation/confirm')">이대로 최종 확정하기 →</button>
+      <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
+        <div><img :src="meltingImage" alt="현재 상태의 버티" /><span>현재</span></div>
+        <b>→</b>
+        <div><img :src="stableImage" alt="목표 상태의 버티" /><span>목표</span></div>
+      </div>
+
+      <section class="period-section">
+        <h2>시뮬레이션 기간</h2>
+        <p>오늘부터 목표 취업일까지 자동으로 설정했어요.</p>
+        <div class="period-grid">
+          <label><span>시작일</span><input v-model="startDate" type="date" /></label>
+          <label><span>종료일</span><input v-model="endDate" type="date" /></label>
+        </div>
+        <p v-if="endDate && startDate && endDate <= startDate" class="form-error">종료일은 시작일보다 뒤여야 해요.</p>
+      </section>
+
+      <section class="baseline-report">
+        <div class="section-heading"><h2>현재 재정 리포트</h2><span>최근 거래내역 기준</span></div>
+        <div class="report-grid-compact">
+          <article><span>사용 가능 자산</span><strong>{{ manwon(simulation.availableAssets) }}</strong></article>
+          <article><span>월평균 수입</span><strong class="income">+{{ manwon(simulation.monthlyIncome) }}</strong></article>
+          <article><span>월평균 지출</span><strong class="expense">-{{ manwon(simulation.monthlyExpense) }}</strong></article>
+          <article><span>현재 버티는 기간</span><strong>{{ simulation.currentMonths }}개월</strong></article>
+        </div>
+      </section>
+
+      <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
+      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
+        {{ simulation.syncing ? '불러오는 중…' : '시뮬레이션 시작하기 →' }}
+      </button>
     </template>
 
     <template v-else>
-      <h1>이대로 확정할까요?</h1><p class="sim-subtitle">지금까지 만든 계획</p>
-      <article v-if="simulation.state.expenseApplied" class="confirm-group expense"><div class="sim-section-row"><h2>지출 줄이기</h2><strong>-{{ money(simulation.expenseSaving) }}원</strong></div><div v-for="item in simulation.selectedExpenses" :key="item.id" class="confirm-row"><i>{{ item.icon }}</i><span><strong>{{ item.name }} {{ money(item.saving) }}원 줄이기</strong><small>-{{ money(item.saving) }}원</small></span><button @click="simulation.adjustExpense(item.id, -10000)">−</button><b>{{ money(item.saving) }}원</b><button @click="simulation.adjustExpense(item.id, 10000)">＋</button><button class="trash" @click="simulation.toggleExpense(item.id)">⌫</button></div><button @click="router.push('/simulation/expense')">+ 지출 항목 추가하기</button></article>
-      <article class="confirm-group income"><div class="sim-section-row"><h2>수입 늘리기</h2><strong>+{{ money(simulation.recurringIncome + simulation.oneTimeIncome) }}원</strong></div><div v-for="item in simulation.state.incomes" :key="item.id" class="confirm-row"><i>💰</i><span><strong>{{ item.name }}</strong><small>{{ item.type === 'monthly' ? '정기 수입' : '일회성 수입' }}</small></span><b>+{{ money(item.amount) }}원</b><button class="trash" @click="simulation.removeIncome(item.id)">⌫</button></div><button @click="router.push('/simulation/income')">+ 수입 항목 추가하기</button></article>
-      <article class="confirm-group policy"><div class="sim-section-row"><h2>정책 혜택</h2><strong>신청 가능</strong></div><div v-for="item in simulation.state.policies" :key="item.id" class="confirm-row"><i>🏛️</i><span><strong>{{ item.name }}</strong><small>{{ item.detail }}</small></span><button class="trash" @click="simulation.removePolicy(item.id)">⌫</button></div><button @click="router.push('/simulation/policy')">+ 정책 혜택 추가하기</button></article>
-      <div class="confirm-result"><span>수정 반영 시 예상 결과</span><strong>{{ simulation.currentMonths }}개월 → {{ simulation.expectedMonths }}개월</strong><b>+{{ simulation.addedMonths }}개월</b></div>
-      <button class="sim-btn sim-btn--yellow wide" @click="confirm">재정 계획 확정하기 →</button><button class="sim-text-button danger-text" @click="reset">전체 초기화</button>
+      <button class="sim-back" type="button" @click="router.push('/simulation/policy/preview')">‹ 입력 내용 수정</button>
+      <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
+      <p class="sim-subtitle">항목을 눌러 각 단계로 돌아가 수정할 수 있어요.</p>
+
+      <section class="edit-summary expense">
+        <header><div><i>01</i><h2>지출 줄이기</h2></div><button @click="router.push('/simulation/expense')">수정</button></header>
+        <p v-for="item in simulation.selectedExpenses" :key="item.id"><span>{{ item.icon }} {{ item.name }}</span><strong>-{{ money(item.saving) }}원 / 월</strong></p>
+        <p v-if="!simulation.selectedExpenses.length" class="empty-row">건너뛴 단계예요.</p>
+      </section>
+      <section class="edit-summary income">
+        <header><div><i>02</i><h2>수입 늘리기</h2></div><button @click="router.push('/simulation/income')">수정</button></header>
+        <p v-for="item in simulation.state.incomes" :key="item.id"><span>💰 {{ item.name }}</span><strong>+{{ money(item.amount) }}원</strong></p>
+        <p v-if="!simulation.state.incomes.length" class="empty-row">건너뛴 단계예요.</p>
+      </section>
+      <section class="edit-summary policy">
+        <header><div><i>03</i><h2>정책 혜택</h2></div><button @click="router.push('/simulation/policy')">수정</button></header>
+        <p v-for="item in simulation.state.policies" :key="item.id"><span>🏛️ {{ item.name }}</span><strong>{{ item.detail }}</strong></p>
+        <p v-if="!simulation.state.policies.length" class="empty-row">건너뛴 단계예요.</p>
+      </section>
+
+      <div class="final-result"><span>예상 버티는 기간</span><p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ simulation.expectedMonths }}개월</strong></p><em>+{{ simulation.addedMonths }}개월 연장</em></div>
+      <p class="api-notice neutral">최종 확정 API가 준비되기 전까지 이 결과는 브라우저에 임시 저장됩니다.</p>
+      <button class="sim-btn sim-btn--yellow wide" type="button" @click="confirm">시뮬레이션 확정하기 →</button>
     </template>
   </section>
 </template>
-
-<style scoped>
-.period-grid input:disabled {
-  cursor: not-allowed;
-  opacity: 1;
-  background: #f5f6f8;
-  color: #666;
-}
-
-.period-grid-note {
-  margin-top: 8px;
-  color: #8a8f9c;
-  font-size: 12px;
-}
-</style>

@@ -1,13 +1,23 @@
 <script setup>
+import { nextTick, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppHeader from '@/components/navigation/AppHeader.vue'
 import BottomNavigation from '@/components/navigation/BottomNavigation.vue'
 import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
+
+const route = useRoute()
+const body = ref(null)
+
+watch(() => route.fullPath, async () => {
+  await nextTick()
+  body.value?.scrollTo({ top: 0, behavior: 'instant' })
+})
 </script>
 
 <template>
   <div class="app-shell">
     <DesktopSidebar class="desktop-only" />
-    <div class="app-shell__body">
+    <div ref="body" class="app-shell__body">
       <AppHeader />
       <main class="app-shell__content">
         <RouterView />
