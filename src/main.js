@@ -14,7 +14,16 @@ async function bootstrap() {
   const pinia = createPinia()
 
   app.use(pinia)
-  await useSessionStore(pinia).restoreSession()
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+  const initialPath = basePath && window.location.pathname.startsWith(basePath)
+    ? window.location.pathname.slice(basePath.length) || '/'
+    : window.location.pathname
+  const initialRoute = router.resolve(initialPath)
+  const isProtectedInitialRoute = initialRoute.matched.some((route) => route.meta.requiresAuth)
+
+  await useSessionStore(pinia).restoreSession({
+    reissueIfMissing: isProtectedInitialRoute,
+  })
   app.use(router)
   app.mount('#app')
 }
