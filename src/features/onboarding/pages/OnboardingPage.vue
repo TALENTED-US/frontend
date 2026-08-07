@@ -41,11 +41,11 @@ const form = ref({
   targetDate: '2027-01-01',
   region: '서울특별시',
   household: 1,
+  minimumLivingFund: '',
 })
 
 const banks = [
   { name: 'KB국민은행', mark: 'KB' },
-  { name: 'KB국민카드', mark: 'KB' },
   { name: '신한은행', mark: '신' },
   { name: '우리은행', mark: '우' },
   { name: '하나은행', mark: '하' },
@@ -63,16 +63,9 @@ const accounts = ref([
   {
     name: 'KB국민은행 적금',
     meta: '****-**-****-5931 · 예·적금',
-    amount: 900000,
+    amount: 1200000,
     selected: false,
     kind: 'account',
-  },
-  {
-    name: 'KB국민카드',
-    meta: '****-****-****-4821 · 신용카드',
-    amount: 300000,
-    selected: false,
-    kind: 'card',
   },
 ])
 
@@ -138,6 +131,9 @@ const filteredBanks = computed(() => {
 const selectedAccountCount = computed(
   () => accounts.value.filter((account) => account.selected).length,
 )
+const hasMinimumLivingFund = computed(
+  () => Number(form.value.minimumLivingFund) >= 1,
+)
 
 const selectedBalance = computed(() =>
   accounts.value
@@ -160,7 +156,6 @@ function createGroupSelection(kind) {
 }
 
 const allAccountsSelected = createGroupSelection('account')
-const allCardsSelected = createGroupSelection('card')
 
 const allFixedChecked = computed({
   get: () => fixedExpenses.value.every((item) => item.checked),
@@ -212,7 +207,7 @@ function goBack() {
 }
 
 function next() {
-  if (step.value === 1) step.value = 2
+  if (step.value === 1 && hasMinimumLivingFund.value) step.value = 2
   else if (step.value === 2) step.value = 3
   else if (step.value === 3 && consentChecked.value) step.value = 4
   else if (step.value === 5 && selectedBanks.value.length) step.value = 6
@@ -294,9 +289,28 @@ function next() {
             <small>본인을 포함한 세대원 수를 입력해주세요</small>
           </label>
 
+          <label class="field-group">
+            <span class="field-label"><AppIcon name="wallet" :size="16" /> 최소 생활자금</span>
+            <input
+              v-model.number="form.minimumLivingFund"
+              class="control"
+              type="number"
+              min="1"
+              step="10000"
+              inputmode="numeric"
+              placeholder="최소 생활자금을 입력하세요"
+            />
+            <small>이 금액 이하로 떨어지면 위험 단계로 알려드릴게요</small>
+          </label>
+
         </div>
 
-        <button class="primary-cta" type="button" @click="next">
+        <button
+          class="primary-cta"
+          type="button"
+          :disabled="!hasMinimumLivingFund"
+          @click="next"
+        >
           <strong>다음: 금융 정보 연결</strong>
         </button>
         <p class="bottom-helper">나중에 마이페이지에서 수정할 수 있어요</p>
@@ -316,9 +330,8 @@ function next() {
         <div class="flow-card collect-card">
           <h2>수집하는 정보</h2>
           <ul>
-            <li>계좌잔액 · 입출금내역</li>
-            <li>카드 이용내역</li>
-            <li class="app-only">대출 · 상환 현황</li>
+            <li>계좌별 잔액</li>
+            <li>입출금내역</li>
             <li>반복지출 자동 인식</li>
           </ul>
         </div>
@@ -343,7 +356,7 @@ function next() {
         <div class="consent-list">
           <button
             v-for="item in [
-              ['items', '수집 항목', '계좌 잔액, 입출금 내역, 카드 이용 내역'],
+              ['items', '수집 항목', '계좌별 잔액, 입출금 내역, 반복지출 자동 인식'],
               ['purpose', '수집 목적', '재정 현황 분석 및 맞춤형 취업 준비 계획 제공'],
               ['retention', '보유 기간', '서비스 이용 기간 또는 동의 철회 시까지'],
             ]"
@@ -374,7 +387,7 @@ function next() {
           <p>계좌와 거래내역을 불러오고 있어요</p>
           <div class="loading-status">
             <div>
-              <i class="status-dot done">✓</i><span>계좌 조회 완료</span><strong>3개</strong>
+              <i class="status-dot done">✓</i><span>계좌 조회 완료</span><strong>2개</strong>
             </div>
             <div>
               <i class="status-dot working" /><span>거래내역 분석 중…</span><strong>128건</strong>
@@ -440,8 +453,8 @@ function next() {
 
       <template v-else-if="step === 6">
         <div class="stage-heading">
-          <h1>계좌·카드 선택</h1>
-          <p>분석에 사용할 계좌·카드를 선택하세요.</p>
+          <h1>계좌 선택</h1>
+          <p>분석에 사용할 계좌를 선택하세요.</p>
         </div>
 
         <div class="asset-section">
@@ -451,29 +464,6 @@ function next() {
           </div>
           <button
             v-for="account in accounts.filter((item) => item.kind === 'account')"
-            :key="account.name"
-            class="asset-card"
-            :class="{ selected: account.selected }"
-            type="button"
-            @click="account.selected = !account.selected"
-          >
-            <span>
-              <strong>{{ account.name }}</strong>
-              <small>{{ account.meta }}</small>
-              <small class="app-only">갱신 2026-07-15 10:32</small>
-            </span>
-            <b>{{ account.amount.toLocaleString() }}원</b>
-            <i v-if="account.selected" class="round-check">✓</i>
-          </button>
-        </div>
-
-        <div class="asset-section">
-          <div class="asset-section__header">
-            <span>카드 · 1</span>
-            <label>전체 선택 <input v-model="allCardsSelected" type="checkbox" /></label>
-          </div>
-          <button
-            v-for="account in accounts.filter((item) => item.kind === 'card')"
             :key="account.name"
             class="asset-card"
             :class="{ selected: account.selected }"
@@ -503,7 +493,7 @@ function next() {
           <p>계좌와 거래내역을 불러오고 있어요</p>
           <div class="loading-status">
             <div>
-              <i class="status-dot done">✓</i><span>계좌 조회 완료</span><strong>3개</strong>
+              <i class="status-dot done">✓</i><span>계좌 조회 완료</span><strong>2개</strong>
             </div>
             <div>
               <i class="status-dot working" /><span>거래내역 분석 중...</span><strong>128건</strong>
@@ -524,7 +514,7 @@ function next() {
           </div>
           <div class="completion-summary">
             <span>총 자산 <strong>3,000,000원</strong></span>
-            <span>연결 계좌 <strong>3개</strong></span>
+            <span>연결 계좌 <strong>2개</strong></span>
             <span>월평균 지출 <strong class="danger">80만원</strong></span>
           </div>
           <button class="primary-cta" type="button" @click="next">
