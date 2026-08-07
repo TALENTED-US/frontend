@@ -7,6 +7,8 @@ const normalizedBaseUrl = configuredBaseUrl.endsWith('/api') || configuredBaseUr
   : `${configuredBaseUrl.replace(/\/+$/, '')}/api/`
 
 let unauthorizedHandler = null
+let accessTokenReissueHandler = null
+let accessTokenReissuePromise = null
 
 export const apiClient = axios.create({
   baseURL: normalizedBaseUrl,
@@ -35,6 +37,10 @@ export function getCookie(name) {
 
 export function setUnauthorizedHandler(handler) {
   unauthorizedHandler = handler
+}
+
+export function setAccessTokenReissueHandler(handler) {
+  accessTokenReissueHandler = handler
 }
 
 export function unwrapApiResponse(response) {
@@ -69,10 +75,38 @@ export function normalizeApiError(error) {
 }
 
 apiClient.interceptors.request.use((config) => {
+  if (config.skipAuthorization) {
+    if (typeof config.headers?.delete === 'function') config.headers.delete('Authorization')
+    else if (config.headers) delete config.headers.Authorization
+    return config
+  }
+
   const token = getAccessToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
+
+function reissueAccessTokenOnce() {
+  if (!accessTokenReissuePromise) {
+    accessTokenReissuePromise = Promise.resolve()
+      .then(() => accessTokenReissueHandler())
+      .then((accessToken) => {
+        if (!accessToken) throw new Error('Access Token을 재발급하지 못했습니다.')
+        setAccessToken(accessToken)
+        return accessToken
+      })
+      .catch((error) => {
+        setAccessToken('')
+        unauthorizedHandler?.()
+        throw error
+      })
+      .finally(() => {
+        accessTokenReissuePromise = null
+      })
+  }
+
+  return accessTokenReissuePromise
+}
 
 apiClient.interceptors.response.use(
   (response) => {
@@ -82,11 +116,34 @@ apiClient.interceptors.response.use(
     }
     return response
   },
-  (error) => {
-    if (error.response?.status === 401 && !error.config?.skipUnauthorizedHandler) {
+  async (error) => {
+    const config = error.config
+    const shouldHandleUnauthorized =
+      error.response?.status === 401 && !config?.skipUnauthorizedHandler
+    const canReissue =
+      shouldHandleUnauthorized &&
+      !config?.skipAuthRefresh &&
+      !config?._accessTokenRetry &&
+      typeof accessTokenReissueHandler === 'function'
+
+    if (canReissue) {
+      config._accessTokenRetry = true
+
+      try {
+        const accessToken = await reissueAccessTokenOnce()
+        config.headers = config.headers || {}
+        config.headers.Authorization = `Bearer ${accessToken}`
+        return apiClient(config)
+      } catch (reissueError) {
+        return Promise.reject(reissueError)
+      }
+    }
+
+    if (shouldHandleUnauthorized) {
       setAccessToken('')
       unauthorizedHandler?.()
     }
+
     return Promise.reject(error)
   },
 )

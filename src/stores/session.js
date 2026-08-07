@@ -1,7 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { loginApi, logoutApi } from '@/api/auth'
-import { getAccessToken, setAccessToken, setUnauthorizedHandler } from '@/api/client'
+import { loginApi, logoutApi, reissueAccessTokenApi } from '@/api/auth'
+import {
+  getAccessToken,
+  setAccessToken,
+  setAccessTokenReissueHandler,
+  setUnauthorizedHandler,
+} from '@/api/client'
 import { getEmploymentPreparationApi, getMyProfileApi } from '@/api/user'
 import { mockCredentials, myData, user } from '@/data/mockData'
 import { useProgressionStore } from '@/stores/progression'
@@ -92,6 +97,14 @@ export const useSessionStore = defineStore('session', () => {
     setAccessToken('')
   }
 
+  function handleUnauthorized() {
+    clearAuthState()
+
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+    const loginPath = `${basePath}/auth/login`
+    if (window.location.pathname !== loginPath) window.location.assign(loginPath)
+  }
+
   function syncProgression(profile) {
     const level = Number(profile?.buttieLevel)
     const exp = Number(profile?.buttieTotalExp)
@@ -161,10 +174,13 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function restoreSession() {
-    if (isMockMode || !getAccessToken()) return
+  async function restoreSession({ reissueIfMissing = false } = {}) {
+    if (isMockMode) return
+    if (!getAccessToken() && !reissueIfMissing) return
+
     isRestoring.value = true
     try {
+      if (!getAccessToken()) await reissueAccessTokenApi()
       await loadCurrentUser()
       isAuthenticated.value = true
     } catch (error) {
@@ -225,7 +241,8 @@ export const useSessionStore = defineStore('session', () => {
     localStorage.setItem('buttie-mydata', JSON.stringify(myData))
   }
 
-  setUnauthorizedHandler(clearAuthState)
+  setAccessTokenReissueHandler(reissueAccessTokenApi)
+  setUnauthorizedHandler(handleUnauthorized)
 
   return {
     isAuthenticated,

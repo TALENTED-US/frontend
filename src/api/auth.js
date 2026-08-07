@@ -33,3 +33,27 @@ export async function logoutApi() {
     throw normalizeApiError(error)
   }
 }
+
+export async function reissueAccessTokenApi() {
+  try {
+    const response = await apiClient.get('auth/reissue', {
+      skipAuthorization: true,
+      skipAuthRefresh: true,
+      skipUnauthorizedHandler: true,
+    })
+    const result = unwrapApiResponse(response)
+    const accessToken = result?.accessToken
+
+    if (!accessToken) {
+      const error = new Error('Access Token을 재발급하지 못했습니다.')
+      error.code = 'TOKEN_REISSUE_FAILED'
+      error.status = response?.status
+      throw error
+    }
+
+    setAccessToken(accessToken)
+    return accessToken
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
