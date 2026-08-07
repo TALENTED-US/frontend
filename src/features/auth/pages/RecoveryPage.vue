@@ -4,22 +4,23 @@ import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import recoverySuccessCheck from '@/assets/auth-recovery-success-check.svg'
 import { user } from '@/data/mockData'
+import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
+import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
 
 const route = useRoute()
 const router = useRouter()
 
 const isId = computed(() => route.name === 'find-id')
-const isDirectPasswordChange = computed(
-  () => route.name === 'find-password' && route.query.mode === 'change',
+const verificationPurpose = computed(() =>
+  isId.value
+    ? IDENTITY_VERIFICATION_PURPOSE.FIND_EMAIL
+    : IDENTITY_VERIFICATION_PURPOSE.RESET_PASSWORD,
 )
-const hasDirectIdResult = computed(
-  () => isId.value && ['success', 'not-found'].includes(String(route.query.result)),
-)
-const step = ref(isDirectPasswordChange.value ? 3 : hasDirectIdResult.value ? 2 : 1)
-const idResultStatus = ref(route.query.result === 'not-found' ? 'not-found' : 'success')
+const step = ref(1)
+const idResultStatus = ref('success')
 const isIdResult = computed(() => isId.value && step.value === 2)
 const isIdNotFound = computed(() => isIdResult.value && idResultStatus.value === 'not-found')
-const accountId = ref(isDirectPasswordChange.value ? user.email : '')
+const accountId = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
 const showPassword = ref(false)
@@ -27,6 +28,14 @@ const showPasswordConfirm = ref(false)
 const accountError = ref('')
 const passwordError = ref('')
 const isMobileViewport = ref(false)
+const {
+  isVerifying,
+  verificationError,
+  verificationNotice,
+  startIdentityVerification,
+  restoreIdentityVerificationRedirect,
+  resetIdentityVerification,
+} = useIdentityVerification(verificationPurpose)
 
 const normalizedMockEmail = user.email.toLowerCase()
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/
@@ -39,10 +48,16 @@ function syncViewport(event) {
   isMobileViewport.value = event.matches
 }
 
-onMounted(() => {
+onMounted(async () => {
   mobileMediaQuery = window.matchMedia('(max-width: 767px)')
   syncViewport(mobileMediaQuery)
   mobileMediaQuery.addEventListener('change', syncViewport)
+
+  const verification = await restoreIdentityVerificationRedirect()
+  if (!isId.value && verification?.context?.accountId) {
+    accountId.value = verification.context.accountId
+    step.value = 2
+  }
 })
 
 onBeforeUnmount(() => {
@@ -50,9 +65,9 @@ onBeforeUnmount(() => {
 })
 
 function resetFlow() {
-  step.value = isDirectPasswordChange.value ? 3 : hasDirectIdResult.value ? 2 : 1
-  idResultStatus.value = route.query.result === 'not-found' ? 'not-found' : 'success'
-  accountId.value = isDirectPasswordChange.value ? user.email : ''
+  step.value = 1
+  idResultStatus.value = 'success'
+  accountId.value = ''
   password.value = ''
   passwordConfirm.value = ''
   showPassword.value = false
@@ -61,10 +76,17 @@ function resetFlow() {
   passwordError.value = ''
 }
 
-watch(() => [route.name, route.query.mode, route.query.result], resetFlow)
+watch(
+  () => route.name,
+  () => {
+    resetIdentityVerification()
+    resetFlow()
+  },
+)
 
 function goBack() {
   if (step.value > 1) {
+    resetIdentityVerification()
     step.value -= 1
     return
   }
@@ -72,17 +94,18 @@ function goBack() {
   router.push('/auth/login')
 }
 
-function completeSimpleVerification() {
-  if (isId.value) {
-    idResultStatus.value = route.query.result === 'not-found' ? 'not-found' : 'success'
-    step.value = 2
-    return
-  }
-
-  step.value = 3
+async function completeSimpleVerification() {
+  await startIdentityVerification(
+    isId.value
+      ? {}
+      : {
+          accountId: accountId.value,
+        },
+  )
 }
 
 function retryIdLookup() {
+  resetIdentityVerification()
   idResultStatus.value = 'success'
   step.value = 1
   router.replace('/auth/find-id')
@@ -131,7 +154,9 @@ function resetPassword() {
       class="mobile-header"
       :class="{ 'result-mobile-header': isIdResult, 'id-mobile-header': isId }"
     >
-      <button v-if="!isId" type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">‹</button>
+      <button v-if="!isId" type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">
+        ‹
+      </button>
       <strong>{{ isId ? '아이디 찾기' : '비밀번호 찾기' }}</strong>
     </header>
 
@@ -153,10 +178,21 @@ function resetPassword() {
         <h1>아이디 찾기</h1>
         <p class="description">간편 본인인증을 완료하면 아이디를 안내해 드려요.</p>
 
-        <button type="button" class="simple-verification" @click="completeSimpleVerification">
-          <span>간편 본인인증</span>
+        <button
+          type="button"
+          class="simple-verification"
+          :disabled="isVerifying"
+          @click="completeSimpleVerification"
+        >
+          <span>{{ isVerifying ? '본인인증 요청 중...' : '간편 본인인증' }}</span>
         </button>
         <small class="verification-note">인증 완료 후 다음 단계로 진행할 수 있어요.</small>
+        <p v-if="verificationError" class="verification-feedback error" role="alert">
+          {{ verificationError }}
+        </p>
+        <p v-else-if="verificationNotice" class="verification-feedback" role="status">
+          {{ verificationNotice }}
+        </p>
       </template>
 
       <template v-else-if="isId">
@@ -234,10 +270,21 @@ function resetPassword() {
         <h1>비밀번호 찾기</h1>
         <p class="description">간편 본인인증으로 본인 확인을 진행해 주세요.</p>
 
-        <button type="button" class="simple-verification" @click="completeSimpleVerification">
-          <span>간편 본인인증</span>
+        <button
+          type="button"
+          class="simple-verification"
+          :disabled="isVerifying"
+          @click="completeSimpleVerification"
+        >
+          <span>{{ isVerifying ? '본인인증 요청 중...' : '간편 본인인증' }}</span>
         </button>
         <small class="verification-note">인증 완료 후 다음 단계로 진행할 수 있어요.</small>
+        <p v-if="verificationError" class="verification-feedback error" role="alert">
+          {{ verificationError }}
+        </p>
+        <p v-else-if="verificationNotice" class="verification-feedback" role="status">
+          {{ verificationNotice }}
+        </p>
       </template>
 
       <template v-else>
@@ -442,6 +489,12 @@ function resetPassword() {
   transform: translateY(-1px);
 }
 
+.simple-verification:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
 .simple-verification:focus-visible {
   outline: 3px solid rgb(6 23 143 / 18%);
   outline-offset: 2px;
@@ -453,6 +506,18 @@ function resetPassword() {
   color: #777;
   text-align: center;
   font-size: var(--font-small);
+}
+
+.verification-feedback {
+  margin-top: 14px;
+  color: #566581;
+  font-size: var(--font-small);
+  line-height: 1.55;
+  text-align: center;
+}
+
+.verification-feedback.error {
+  color: #e65353;
 }
 
 .recovery-field {

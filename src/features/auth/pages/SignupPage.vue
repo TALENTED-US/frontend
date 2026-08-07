@@ -1,19 +1,24 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
+import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
+import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
 
 const router = useRouter()
 
 const step = ref(1)
 const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
-
-const verifiedUser = {
-  name: '김재준',
-  birthDate: '2000.01.01',
-  phone: '010-1234-5678',
-}
+const verifiedUser = ref(null)
+const {
+  isVerifying,
+  verificationError,
+  verificationNotice,
+  startIdentityVerification,
+  restoreIdentityVerificationRedirect,
+  resetIdentityVerification,
+} = useIdentityVerification(IDENTITY_VERIFICATION_PURPOSE.SIGNUP)
 
 const form = reactive({
   email: '',
@@ -65,11 +70,17 @@ const requiredAgreed = computed(() => {
   return agreements.terms && agreements.privacy && agreements.age
 })
 
-function startVerification() {
-  step.value = 2
+onMounted(async () => {
+  await restoreIdentityVerificationRedirect()
+})
+
+async function startVerification() {
+  await startIdentityVerification()
 }
 
 function goBack() {
+  resetIdentityVerification()
+
   if (step.value > 1) {
     step.value -= 1
     return
@@ -192,13 +203,24 @@ function completeSignup() {
         <p class="section-description web-copy">간편 본인인증으로 본인 확인을 진행해주세요.</p>
         <p class="section-description app-copy">인증 수단을 선택하면 포트원 본인인증이 진행돼요</p>
 
-        <button type="button" class="verification-card" @click="startVerification">
+        <button
+          type="button"
+          class="verification-card"
+          :disabled="isVerifying"
+          @click="startVerification"
+        >
           <span>
-            <strong>간편 본인인증</strong>
+            <strong>{{ isVerifying ? '본인인증 요청 중...' : '간편 본인인증' }}</strong>
             <small>간편하게 인증하세요.</small>
           </span>
           <b aria-hidden="true">›</b>
         </button>
+        <p v-if="verificationError" class="verification-feedback error" role="alert">
+          {{ verificationError }}
+        </p>
+        <p v-else-if="verificationNotice" class="verification-feedback" role="status">
+          {{ verificationNotice }}
+        </p>
       </section>
 
       <section v-else-if="step === 2" class="signup-step account-step">
@@ -207,15 +229,15 @@ function completeSignup() {
         <div class="verified-information" aria-label="본인인증 정보">
           <div class="verified-row verified-row--half">
             <label>이름</label>
-            <p>{{ verifiedUser.name }}</p>
+            <p>{{ verifiedUser?.name || '서버 확인 후 표시됩니다.' }}</p>
           </div>
           <div class="verified-row verified-row--half">
             <label>생년월일</label>
-            <p>{{ verifiedUser.birthDate }}</p>
+            <p>{{ verifiedUser?.birthDate || '서버 확인 후 표시됩니다.' }}</p>
           </div>
           <div class="verified-row verified-row--full">
             <label>휴대전화 번호</label>
-            <p>{{ verifiedUser.phone }}</p>
+            <p>{{ verifiedUser?.phone || '서버 확인 후 표시됩니다.' }}</p>
           </div>
         </div>
 
@@ -260,7 +282,9 @@ function completeSignup() {
                 @click="showPassword = !showPassword"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z" />
+                  <path
+                    d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"
+                  />
                   <circle cx="12" cy="12" r="2.5" />
                   <path v-if="showPassword" d="m4 4 16 16" />
                 </svg>
@@ -288,7 +312,9 @@ function completeSignup() {
                 @click="showPasswordConfirm = !showPasswordConfirm"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z" />
+                  <path
+                    d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"
+                  />
                   <circle cx="12" cy="12" r="2.5" />
                   <path v-if="showPasswordConfirm" d="m4 4 16 16" />
                 </svg>
@@ -536,6 +562,24 @@ function completeSignup() {
 .verification-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 24px rgb(34 34 34 / 12%);
+}
+
+.verification-card:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
+.verification-feedback {
+  margin-top: 16px;
+  color: #566581;
+  font-size: var(--font-small);
+  line-height: 1.55;
+  text-align: center;
+}
+
+.verification-feedback.error {
+  color: #e65353;
 }
 
 .verification-card span {
