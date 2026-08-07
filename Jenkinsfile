@@ -32,28 +32,26 @@ pipeline {
     }
     post {
     success {
-        withCredentials([string(
-            credentialsId: 'slack-webhook-fe',
-            variable: 'SLACK_WEBHOOK'
-        )]) {
+        withCredentials([
+            string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')
+        ]) {
             sh """
                 curl -sS -X POST \
                   -H 'Content-Type: application/json' \
-                  --data '{"text":"✅ Buttie Frontend 배포 성공\\n빌드: #${env.BUILD_NUMBER}\\n로그: ${env.BUILD_URL}console"}' \
+                  --data '{"text":"✅ Buttie Backend 배포 성공\\n빌드: #${env.BUILD_NUMBER}\\n로그: ${env.BUILD_URL}console"}' \
                   "\$SLACK_WEBHOOK"
             """
         }
     }
 
     failure {
-        withCredentials([string(
-            credentialsId: 'slack-webhook-fe',
-            variable: 'SLACK_WEBHOOK'
-        )]) {
+        withCredentials([
+            string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')
+        ]) {
             sh """
                 curl -sS -X POST \
                   -H 'Content-Type: application/json' \
-                  --data '{"text":"❌ Buttie Frontend 배포 실패\\n빌드: #${env.BUILD_NUMBER}\\n로그: ${env.BUILD_URL}console"}' \
+                  --data '{"text":"❌ Buttie Backend 배포 실패\\n빌드: #${env.BUILD_NUMBER}\\n로그: ${env.BUILD_URL}console"}' \
                   "\$SLACK_WEBHOOK"
             """
         }
