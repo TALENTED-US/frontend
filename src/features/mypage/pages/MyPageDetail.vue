@@ -86,6 +86,7 @@ const form = reactive({
   goal: session.currentUser.goalDate,
   region: session.currentUser.region,
   family: session.currentUser.family,
+  minimumLivingFund: session.currentUser.minimumLivingFund ?? '',
   password: '',
 })
 
@@ -149,12 +150,18 @@ function saveJobProfile() {
     return
   }
 
+  if (!Number.isFinite(Number(form.minimumLivingFund)) || Number(form.minimumLivingFund) < 1) {
+    profileMessage.value = '최소 생활자금은 1원 이상 입력해 주세요.'
+    return
+  }
+
   session.updateProfile({
     jobType: form.jobType,
     startDate: form.start,
     goalDate: form.goal,
     region: form.region,
     family: Number(form.family),
+    minimumLivingFund: Number(form.minimumLivingFund),
   })
   profileMessage.value = '취업 준비 정보가 저장되었습니다.'
   router.push('/mypage')
@@ -345,6 +352,19 @@ function clearMockData() {
         <label>
           <span>세대원 수</span>
           <input v-model.number="form.family" type="number" min="1" max="99" inputmode="numeric" />
+        </label>
+        <label>
+          <span class="job-field-heading">
+            <span>최소 생활자금</span>
+            <small>설정한 금액에 도달하면 알려드려요</small>
+          </span>
+          <input
+            v-model.number="form.minimumLivingFund"
+            type="number"
+            min="1"
+            inputmode="numeric"
+            placeholder="최소 생활자금을 입력하세요"
+          />
         </label>
         <p v-if="profileMessage" class="save-message" aria-live="polite">{{ profileMessage }}</p>
         <button class="primary-action" type="button" @click="saveJobProfile">저장하기</button>
@@ -635,6 +655,18 @@ function clearMockData() {
   color: #8b8d97;
   background: #fff;
   opacity: 1;
+}
+.job-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.job-field-heading small {
+  color: #8b8d97;
+  font-size: var(--font-caption);
+  font-weight: 500;
+  text-align: right;
 }
 .contact-card label {
   max-width: 820px;
@@ -1067,6 +1099,12 @@ function clearMockData() {
   .form-card label,
   .job-card label {
     font-size: var(--font-small);
+  }
+  .job-field-heading {
+    align-items: flex-start;
+  }
+  .job-field-heading small {
+    max-width: 190px;
   }
   .job-card select {
     padding-right: 48px;
