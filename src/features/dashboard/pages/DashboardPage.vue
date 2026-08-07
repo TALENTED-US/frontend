@@ -666,7 +666,7 @@ const targetMonthText = computed(() =>
               <strong>{{ formatCompactWon(simulation.monthlyImprovement) }} / 월</strong>
             </div>
             <p>{{ oneTimeBenefitText }}</p>
-            <RouterLink to="/simulation">시나리오 수정하기 <span>→</span></RouterLink>
+            <RouterLink to="/simulation/edit">시나리오 수정하기 <span>→</span></RouterLink>
           </footer>
         </article>
 

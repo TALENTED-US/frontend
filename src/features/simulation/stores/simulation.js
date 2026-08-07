@@ -75,6 +75,7 @@ const defaultState = () => ({
   policies: [],
   completedQuestIds: [],
   confirmed: false,
+  draftStarted: false,
   ignoreRemoteDraft: false,
 })
 const DEFAULT_SCENARIO_MONTHS = dateRangeMonths(
@@ -196,7 +197,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.incomes.length > 0,
     state.policies.length > 0,
   ].filter(Boolean).length)
-  const hasDraft = computed(() => completedCategories.value > 0)
+  const hasDraft = computed(() => state.draftStarted || completedCategories.value > 0)
 
   watch(state, (value) => localStorage.setItem(STORAGE_KEY, JSON.stringify(value)), { deep: true })
 
@@ -246,6 +247,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   function confirmScenario() {
     state.completedQuestIds = []
     state.confirmed = true
+    state.draftStarted = false
   }
   function toggleQuestCompletion(id) {
     const completed = new Set(state.completedQuestIds || [])
@@ -279,6 +281,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.policies = []
     state.completedQuestIds = []
     state.confirmed = false
+    state.draftStarted = true
     state.ignoreRemoteDraft = true
     remoteReport.value = null
     syncError.value = ''

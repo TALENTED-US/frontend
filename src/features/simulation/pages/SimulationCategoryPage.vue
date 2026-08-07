@@ -14,7 +14,7 @@ const category = computed(() => route.params.category)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
 const goalAmount = (value) => Number(value) % 10000 === 0 ? `${money(Number(value) / 10000)}만원` : `${money(value)}원`
 const stepNumber = computed(() => ({ expense: 1, income: 2, policy: 3 })[category.value])
-const title = computed(() => ({ expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 혜택' })[category.value])
+const title = computed(() => ({ expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 맞춤 추천' })[category.value])
 const backPath = computed(() => ({ expense: '/simulation/new', income: '/simulation/expense/preview', policy: '/simulation/income/preview' })[category.value])
 const profileDate = (value) => value ? value.replaceAll('-', '.') : '-'
 const jobTypeLabel = computed(() => session.currentUser.jobType === 'first' ? '첫 취업 준비' : '재취업 준비')
@@ -24,6 +24,7 @@ const selectedExpenseId = ref('식비')
 const expenseAmount = ref('')
 const activeExpense = computed(() => simulation.state.expenses.find((item) => item.id === selectedExpenseId.value) || simulation.state.expenses[0])
 const visibleBreakdown = computed(() => simulation.expenseBreakdown.slice(0, 4))
+const policyCount = computed(() => simulation.state.policies.length)
 
 watch(category, (value) => {
   if (value === 'expense') simulation.initializeExpensesFromAnalysis()
@@ -69,6 +70,17 @@ function editIncome(item) {
 function deleteIncome(id) {
   simulation.removeIncome(id)
   if (editingIncomeId.value === id) resetIncomeForm()
+}
+
+function resetPolicies() {
+  simulation.resetPolicies()
+}
+
+function scrollToPolicies() {
+  document.querySelector('.policy-catalog-scroll')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
 }
 
 const incomeIcon = (item) => item.type === 'monthly' ? '♨' : '▦'
@@ -118,7 +130,7 @@ function skip() {
 
 <template>
   <section class="page sim-page sim-wizard sim-category-page">
-    <button class="sim-back" type="button" @click="router.push(backPath)">‹ {{ title }}</button>
+    <button class="sim-back desktop-only" type="button" @click="router.push(backPath)">‹ {{ title }}</button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <span v-for="(label, index) in ['01 지출 줄이기', '02 수입 늘리기', '03 정책 맞춤 추천']" :key="label" :class="{ active: index + 1 === stepNumber, done: index + 1 < stepNumber }">{{ label }}<i /></span>
     </div>
@@ -176,14 +188,432 @@ function skip() {
     </template>
 
     <template v-else>
-      <h1 class="wizard-title">내가 받을 수 있는<br />정책 혜택도 반영해볼까요?</h1>
-      <p class="sim-subtitle">취업 준비 정보를 기준으로 신청 가능한 정책을 모았어요.</p>
-      <div class="qualification-grid compact"><article><span>생년월일</span><strong>{{ profileDate(session.currentUser.birth) }}</strong></article><article><span>거주지역</span><strong>{{ session.currentUser.region || '-' }}</strong></article><article><span>준비 상태</span><strong>{{ jobTypeLabel }}</strong></article><article><span>가구원 수</span><strong>{{ session.currentUser.family || '-' }}명</strong></article></div>
-      <section v-if="simulation.state.policies.length" class="selected-policies"><h2>선택한 정책</h2><article v-for="item in simulation.state.policies" :key="item.id"><div><strong>{{ item.name }}</strong><small>{{ item.detail }}</small></div><button @click="simulation.removePolicy(item.id)">×</button></article></section>
-      <section class="policy-list wizard-policy-list"><div class="section-heading"><h2>조건에 맞는 정책</h2><span>{{ simulation.policyCatalog.length }}개</span></div><article v-for="policy in simulation.policyCatalog" :key="policy.id" :class="{ selected: simulation.state.policies.some(item => item.id === policy.id) }"><div><small>신청 가능</small><h2>{{ policy.name }}</h2><p>{{ policy.description }}</p><em>{{ policy.detail }}</em></div><button @click="simulation.togglePolicy(policy)">{{ simulation.state.policies.some(item => item.id === policy.id) ? '✓' : '+' }}</button></article></section>
-      <div class="wizard-actions"><button class="sim-text-button" @click="skip">건너뛰기</button><button class="sim-btn sim-btn--yellow" :disabled="!simulation.state.policies.length || simulation.syncing" @click="apply('policy')">결과 확인하기 →</button></div>
+      <h1 class="wizard-title">나에게 맞는 정책을 찾아보세요</h1>
+
+      <section class="policy-qualification">
+        <div class="policy-section-heading">
+          <div><h2>자격 확인</h2><p>온보딩에서 입력한 정보로 자동 채워져 있어요.</p></div>
+          <button type="button" @click="resetPolicies">↻&nbsp; 초기화</button>
+        </div>
+        <div class="policy-condition-grid">
+          <article><span>거주지역</span><strong>{{ session.currentUser.region || '-' }}</strong></article>
+          <article><span>취업 준비 상태</span><strong>{{ jobTypeLabel }}</strong></article>
+          <article><span>가구원 수</span><strong>{{ session.currentUser.family || '-' }}명</strong></article>
+        </div>
+        <button class="policy-filter-button" type="button" @click="scrollToPolicies">이 정보로 필터링하기 →</button>
+      </section>
+
+      <section class="policy-selected-card">
+        <div class="policy-selected-heading"><h2><i />추가한 정책</h2><span>총 {{ policyCount }}개</span></div>
+        <p v-if="!policyCount" class="policy-selected-empty">선택한 정책이 없어요</p>
+        <div v-else class="policy-selected-list">
+          <article v-for="item in simulation.state.policies" :key="item.id">
+            <i>⚖</i>
+            <div><strong>{{ item.name }}</strong><small>{{ item.description }}</small></div>
+            <b>{{ item.detail }}</b>
+            <button type="button" @click="simulation.removePolicy(item.id)">삭제</button>
+          </article>
+        </div>
+        <footer>
+          <p><span>월 정기 지원 합계</span><strong>+{{ goalAmount(simulation.recurringPolicy) }} / 월</strong></p>
+          <p><span>일시 지원 합계</span><strong>+{{ goalAmount(simulation.oneTimePolicy) }}</strong></p>
+        </footer>
+      </section>
+
+      <section class="policy-catalog-scroll">
+        <div class="policy-catalog-heading"><h2>내 조건에 맞는 정책 모두 보기</h2><span>{{ simulation.policyCatalog.length }}개</span></div>
+        <div class="policy-catalog-list">
+          <article v-for="policy in simulation.policyCatalog" :key="policy.id" :class="{ selected: simulation.state.policies.some(item => item.id === policy.id) }">
+            <div><h2>{{ policy.name }}</h2><p>{{ policy.description }}</p></div>
+            <button type="button" @click="simulation.togglePolicy(policy)">{{ simulation.state.policies.some(item => item.id === policy.id) ? '✓ 추가됨' : '+ 추가하기' }}</button>
+            <small>자세히 보기 ⌄</small><strong>{{ policy.detail }}</strong>
+          </article>
+        </div>
+      </section>
+
+      <button class="sim-btn sim-btn--yellow wide" :disabled="!policyCount || simulation.syncing" type="button" @click="apply('policy')">최종 결과 보기</button>
     </template>
 
     <p v-if="simulation.syncError" class="api-notice">서버 저장에 실패했지만 입력 내용은 이 브라우저에 보관했어요. {{ simulation.syncError }}</p>
   </section>
 </template>
+
+<style scoped>
+.sim-category-page > .wizard-progress-tabs {
+  position: sticky;
+  z-index: 30;
+  top: var(--header-height);
+  margin: -4px -18px 28px;
+  padding: 10px 18px 14px;
+  background: rgb(252 253 255 / 96%);
+  box-shadow: 0 1px 0 rgb(20 30 60 / 7%);
+  backdrop-filter: blur(8px);
+}
+
+.sim-category-page > .wizard-progress-tabs span {
+  font-size: 11px;
+}
+
+.sim-category-page > .wizard-progress-tabs span.active {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.expense-analysis-body ul {
+  gap: 9px;
+}
+
+.expense-analysis-body li {
+  font-size: 12px;
+}
+
+.expense-analysis-body li > strong {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.expense-analysis-body li small {
+  font-size: 10px;
+}
+
+.policy-qualification {
+  margin-top: 26px;
+}
+
+.policy-section-heading,
+.policy-selected-heading,
+.policy-catalog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.policy-section-heading h2,
+.policy-selected-heading h2,
+.policy-catalog-heading h2 {
+  font-size: 16px;
+}
+
+.policy-section-heading p {
+  margin-top: 4px;
+  color: #8e95a2;
+  font-size: 10px;
+}
+
+.policy-section-heading button {
+  flex: none;
+  color: #ef6262;
+  font-size: 10px;
+}
+
+.policy-condition-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.policy-condition-grid article {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 13px;
+  background: #f7f6fc;
+}
+
+.policy-condition-grid span {
+  color: #8d93a0;
+  font-size: 9px;
+}
+
+.policy-condition-grid strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policy-filter-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: #ffeca4;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 12%);
+}
+
+.policy-selected-card {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #e2e4e9;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 12%);
+}
+
+.policy-selected-heading {
+  align-items: center;
+}
+
+.policy-selected-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.policy-selected-heading i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8e79cd;
+}
+
+.policy-selected-heading span,
+.policy-catalog-heading span {
+  color: #8e79cd;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.policy-selected-empty {
+  min-height: 70px;
+  display: grid;
+  place-items: center;
+  color: #777e8b;
+  font-size: 12px;
+}
+
+.policy-selected-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.policy-selected-list article {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 11px;
+  background: #f6f3fc;
+}
+
+.policy-selected-list article > i {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: #8e79cd;
+  font-style: normal;
+}
+
+.policy-selected-list article > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.policy-selected-list article strong,
+.policy-selected-list article b {
+  font-size: 10px;
+}
+
+.policy-selected-list article small {
+  overflow: hidden;
+  color: #8a8f9a;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policy-selected-list article button {
+  grid-column: 3;
+  color: #ef6262;
+  font-size: 9px;
+}
+
+.policy-selected-card footer {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e7e8ec;
+}
+
+.policy-selected-card footer p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #777e89;
+  font-size: 10px;
+}
+
+.policy-selected-card footer strong {
+  color: #222;
+  font-size: 11px;
+}
+
+.policy-catalog-scroll {
+  max-height: 440px;
+  margin-top: 16px;
+  padding: 16px 10px 16px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 17px;
+  background: #f7f6fc;
+  scrollbar-color: #c6c9d2 transparent;
+  scrollbar-width: thin;
+}
+
+.policy-catalog-heading {
+  position: sticky;
+  z-index: 1;
+  top: -16px;
+  align-items: center;
+  margin: -16px -10px 12px -12px;
+  padding: 16px 12px 10px;
+  background: #f7f6fc;
+}
+
+.policy-catalog-list {
+  display: grid;
+  gap: 10px;
+}
+
+.policy-catalog-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e2e4e9;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(20 30 60 / 7%);
+}
+
+.policy-catalog-list article.selected {
+  border-color: #a995df;
+  background: #fcfaff;
+}
+
+.policy-catalog-list h2 {
+  font-size: 13px;
+}
+
+.policy-catalog-list p {
+  margin-top: 4px;
+  color: #858c99;
+  font-size: 9px;
+}
+
+.policy-catalog-list button {
+  align-self: start;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f6f3fc;
+  color: #8e79cd;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.policy-catalog-list article > small {
+  color: #6f7580;
+  font-size: 9px;
+}
+
+.policy-catalog-list article > strong {
+  justify-self: end;
+  font-size: 11px;
+}
+
+@media (min-width: 768px) {
+  .sim-category-page > .wizard-progress-tabs {
+    margin-right: 0;
+    margin-left: 0;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .sim-category-page > .wizard-progress-tabs span {
+    font-size: 13px;
+  }
+
+  .sim-category-page > .wizard-progress-tabs span.active {
+    font-size: 15px;
+  }
+
+  .expense-analysis-body li,
+  .expense-analysis-body li > strong {
+    font-size: 13px;
+  }
+
+  .expense-analysis-body li small {
+    font-size: 11px;
+  }
+
+  .policy-section-heading h2,
+  .policy-selected-heading h2,
+  .policy-catalog-heading h2 {
+    font-size: 18px;
+  }
+
+  .policy-section-heading p,
+  .policy-section-heading button {
+    font-size: 12px;
+  }
+
+  .policy-condition-grid article {
+    padding: 16px;
+  }
+
+  .policy-condition-grid span {
+    font-size: 11px;
+  }
+
+  .policy-condition-grid strong,
+  .policy-filter-button {
+    font-size: 14px;
+  }
+
+  .policy-selected-card,
+  .policy-catalog-scroll {
+    padding: 22px;
+  }
+
+  .policy-selected-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .policy-catalog-heading {
+    top: -22px;
+    margin: -22px -22px 16px;
+    padding: 22px 22px 12px;
+  }
+
+  .policy-catalog-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .policy-catalog-list h2 {
+    font-size: 15px;
+  }
+
+  .policy-catalog-list p,
+  .policy-catalog-list button,
+  .policy-catalog-list article > small {
+    font-size: 11px;
+  }
+
+  .policy-catalog-list article > strong {
+    font-size: 13px;
+  }
+}
+</style>

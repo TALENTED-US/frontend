@@ -55,7 +55,7 @@ const arrowPath = (before, after) => {
 
 <template>
   <section class="page sim-page sim-wizard preview-page">
-    <button class="sim-back" type="button" @click="router.push(`/simulation/${category}`)">‹ 미리보기</button>
+    <button class="sim-back desktop-only" type="button" @click="router.push(`/simulation/${category}`)">‹ 미리보기</button>
     <div class="wizard-progress-tabs"><span v-for="(label, index) in ['01 지출 줄이기', '02 수입 늘리기', '03 정책 맞춤 추천']" :key="label" :class="{ active: index + 1 === meta.step, done: index + 1 < meta.step }">{{ label }}<i /></span></div>
     <h1 class="wizard-title">{{ meta.title }}<br />버티는 기간이 얼마나 늘어날까요?</h1>
 
@@ -87,3 +87,42 @@ const arrowPath = (before, after) => {
     <div v-else class="wizard-actions vertical"><button class="sim-btn sim-btn--yellow" @click="router.push('/simulation/confirm')">시뮬레이션 확인하기 →</button><button class="sim-text-button" @click="router.push('/simulation/confirm')">입력 내용 수정하기</button></div>
   </section>
 </template>
+
+<style scoped>
+.preview-page > .wizard-progress-tabs {
+  position: sticky;
+  z-index: 30;
+  top: var(--header-height);
+  margin: -4px -18px 28px;
+  padding: 10px 18px 14px;
+  background: rgb(252 253 255 / 96%);
+  box-shadow: 0 1px 0 rgb(20 30 60 / 7%);
+  backdrop-filter: blur(8px);
+}
+
+.preview-page > .wizard-progress-tabs span {
+  font-size: 11px;
+}
+
+.preview-page > .wizard-progress-tabs span.active {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+@media (min-width: 768px) {
+  .preview-page > .wizard-progress-tabs {
+    margin-right: 0;
+    margin-left: 0;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .preview-page > .wizard-progress-tabs span {
+    font-size: 13px;
+  }
+
+  .preview-page > .wizard-progress-tabs span.active {
+    font-size: 15px;
+  }
+}
+</style>

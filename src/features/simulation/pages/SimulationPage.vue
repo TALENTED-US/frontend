@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
@@ -19,6 +19,7 @@ const statusImages = { danger: meltingImage, caution: cautionImage, safe: stable
 const currentStatusImage = computed(() => statusImages[simulation.currentStatus.key])
 const expectedStatusImage = computed(() => statusImages[simulation.expectedStatus.key])
 const questTab = ref('active')
+const showNewSimulationModal = ref(false)
 const compactWon = (value) => {
   const amount = Math.max(0, Math.round(Number(value) || 0))
   return amount >= 10000 && amount % 10000 === 0 ? `${money(amount / 10000)}만원` : `${money(amount)}원`
@@ -82,8 +83,19 @@ function toggleQuest(item) {
 }
 
 function start() {
-  router.push(simulation.hasDraft ? '/simulation/continue' : '/simulation/new')
+  if (simulation.state.confirmed) router.push('/simulation/edit')
+  else router.push(simulation.hasDraft ? '/simulation/continue' : '/simulation/new')
 }
+
+function createNewSimulation() {
+  simulation.resetScenario()
+  showNewSimulationModal.value = false
+  router.push('/simulation/new')
+}
+
+onMounted(() => {
+  if (!simulation.state.confirmed && simulation.hasDraft) router.replace('/simulation/continue')
+})
 </script>
 
 <template>
@@ -128,11 +140,13 @@ function start() {
           </div>
           <p v-else class="simulation-quest-empty-row">{{ questTab === 'completed' ? '완료한 퀘스트가 없어요.' : '진행 중인 퀘스트가 없어요.' }}</p>
         </section>
-        <footer class="simulation-quest-footer"><span>월 순지출 개선액 (지출·수입 기준)</span><strong>{{ compactWon(simulation.monthlyImprovement) }} / 월</strong><p>{{ oneTimeBenefitText }}</p><button type="button" @click="start">시나리오 수정하기 →</button></footer>
+        <footer class="simulation-quest-footer">
+          <span>월 순지출 개선액 (지출·수입 기준)</span><strong>{{ compactWon(simulation.monthlyImprovement) }} / 월</strong><p>{{ oneTimeBenefitText }}</p>
+          <button type="button" @click="start">시나리오 수정하기 →</button>
+          <button class="simulation-quest-create-new" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
+        </footer>
       </article>
     </section>
-    <section v-else class="sim-quests"><h2>퀘스트 <small>(To Do List)</small></h2><button class="sim-empty" type="button" @click="start"><strong>아직 확정된 시나리오가 없어요</strong><span>시뮬레이션을 실행하고 계획을 확정하면 여기에 실행 목표가 표시돼요.</span></button></section>
-
     <section class="sim-report">
       <h2>현재 재정 리포트</h2>
       <div class="sim-report-grid">
@@ -140,7 +154,25 @@ function start() {
       </div>
     </section>
 
-    <article class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" :unknown="!simulation.state.confirmed" /></article>
+    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" /></article>
+
+    <div
+      v-if="showNewSimulationModal"
+      class="simulation-new-modal"
+      role="presentation"
+      @click.self="showNewSimulationModal = false"
+      @keydown.esc="showNewSimulationModal = false"
+    >
+      <section role="dialog" aria-modal="true" aria-labelledby="new-simulation-main-title">
+        <span class="simulation-new-modal__icon" aria-hidden="true">!</span>
+        <h2 id="new-simulation-main-title">새 시뮬레이션을 만들까요?</h2>
+        <p>새 시뮬레이션을 생성하면 기존에 확정된 시뮬레이션이 삭제됩니다.<br />그래도 다시 생성하시겠습니까?</p>
+        <div>
+          <button type="button" @click="showNewSimulationModal = false">취소</button>
+          <button type="button" @click="createNewSimulation">새로 만들기</button>
+        </div>
+      </section>
+    </div>
   </section>
 </template>
 
@@ -195,6 +227,21 @@ function start() {
 .simulation-quest-footer span,.simulation-quest-footer p { color: #818793; font-size: 12px; }
 .simulation-quest-footer strong { grid-column: 2; grid-row: 1 / span 2; font-size: 18px; white-space: nowrap; }
 .simulation-quest-footer button { grid-column: 1 / -1; justify-self: center; margin-top: 7px; font-size: 13px; font-weight: 800; }
+.simulation-quest-footer .simulation-quest-create-new { margin-top: 5px; color: #777e89; font-size: 12px; text-decoration: underline; }
+
+.simulation-new-modal { position: fixed; z-index: 1000; inset: 0; display: grid; padding: 24px; place-items: center; background: rgb(18 22 30 / 48%); }
+.simulation-new-modal > section { width: min(100%, 390px); padding: 28px 24px 22px; border-radius: 20px; background: #fff; box-shadow: 0 18px 48px rgb(10 15 25 / 24%); text-align: center; }
+.simulation-new-modal__icon { display: grid; width: 46px; height: 46px; margin: 0 auto 16px; place-items: center; border-radius: 50%; background: #fff3d2; color: #e7a21b; font-size: 24px; font-weight: 900; }
+.simulation-new-modal h2 { font-size: 19px; }
+.simulation-new-modal p { margin-top: 12px; color: #737a87; font-size: 12px; line-height: 1.65; }
+.simulation-new-modal section > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.simulation-new-modal section > div button { min-height: 48px; border-radius: 12px; background: #f2f3f6; color: #666d78; font-size: 14px; font-weight: 800; }
+.simulation-new-modal section > div button:last-child { background: #ffeca4; color: #222; }
+
+@media (min-width: 768px) {
+  .simulation-new-modal h2 { font-size: 21px; }
+  .simulation-new-modal p { font-size: 14px; }
+}
 
 @media (max-width: 767px) {
   .sim-hero__copy .desktop-cta { display: none; }
