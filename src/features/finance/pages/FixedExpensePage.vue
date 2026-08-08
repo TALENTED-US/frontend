@@ -622,7 +622,7 @@ footer button:disabled {
     padding: 16px 0 8px;
     font-size: 12px;
   }
-  .expense-list {
+  .fixed-page .expense-list {
     border: 0;
     padding: 0 2px;
     box-shadow: none !important;
@@ -640,6 +640,7 @@ footer button:disabled {
     margin-bottom: 10px;
     padding: 16px 22px;
     border-radius: 14px;
+    box-shadow: 0 2px 4px #0002;
   }
   .expense-list > button:last-child {
     margin-bottom: 0;

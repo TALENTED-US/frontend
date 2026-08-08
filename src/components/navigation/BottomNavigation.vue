@@ -36,9 +36,9 @@ function isMenuActive(to) {
 .bottom-nav {
   position: fixed;
   z-index: 30;
-  right: max(0px, calc((100vw - 1440px) / 2));
+  right: 0;
   bottom: 0;
-  left: max(0px, calc((100vw - 1440px) / 2));
+  left: 0;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   height: var(--bottom-nav-height);

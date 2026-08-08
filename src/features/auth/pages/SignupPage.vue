@@ -1,19 +1,24 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
+import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
+import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
 
 const router = useRouter()
 
 const step = ref(1)
 const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
-
-const verifiedUser = {
-  name: '김재준',
-  birthDate: '2000.01.01',
-  phone: '010-1234-5678',
-}
+const verifiedUser = ref(null)
+const {
+  isVerifying,
+  verificationError,
+  verificationNotice,
+  startIdentityVerification,
+  restoreIdentityVerificationRedirect,
+  resetIdentityVerification,
+} = useIdentityVerification(IDENTITY_VERIFICATION_PURPOSE.SIGNUP)
 
 const form = reactive({
   email: '',
@@ -65,11 +70,17 @@ const requiredAgreed = computed(() => {
   return agreements.terms && agreements.privacy && agreements.age
 })
 
-function startVerification() {
-  step.value = 2
+onMounted(async () => {
+  await restoreIdentityVerificationRedirect()
+})
+
+async function startVerification() {
+  await startIdentityVerification()
 }
 
 function goBack() {
+  resetIdentityVerification()
+
   if (step.value > 1) {
     step.value -= 1
     return
@@ -166,7 +177,7 @@ function completeSignup() {
   <main class="signup-page">
     <header class="signup-header">
       <BrandLogo />
-      <RouterLink class="login-link" to="/auth/login">로그인</RouterLink>
+      <RouterLink v-if="step !== 3" class="login-link" to="/auth/login">로그인</RouterLink>
     </header>
 
     <section class="signup-content" aria-labelledby="signup-title">
@@ -192,13 +203,24 @@ function completeSignup() {
         <p class="section-description web-copy">간편 본인인증으로 본인 확인을 진행해주세요.</p>
         <p class="section-description app-copy">인증 수단을 선택하면 포트원 본인인증이 진행돼요</p>
 
-        <button type="button" class="verification-card" @click="startVerification">
+        <button
+          type="button"
+          class="verification-card"
+          :disabled="isVerifying"
+          @click="startVerification"
+        >
           <span>
-            <strong>간편 본인인증</strong>
+            <strong>{{ isVerifying ? '본인인증 요청 중...' : '간편 본인인증' }}</strong>
             <small>간편하게 인증하세요.</small>
           </span>
           <b aria-hidden="true">›</b>
         </button>
+        <p v-if="verificationError" class="verification-feedback error" role="alert">
+          {{ verificationError }}
+        </p>
+        <p v-else-if="verificationNotice" class="verification-feedback" role="status">
+          {{ verificationNotice }}
+        </p>
       </section>
 
       <section v-else-if="step === 2" class="signup-step account-step">
@@ -207,18 +229,15 @@ function completeSignup() {
         <div class="verified-information" aria-label="본인인증 정보">
           <div class="verified-row verified-row--half">
             <label>이름</label>
-            <p>{{ verifiedUser.name }}</p>
+            <p>{{ verifiedUser?.name || '서버 확인 후 표시됩니다.' }}</p>
           </div>
           <div class="verified-row verified-row--half">
             <label>생년월일</label>
-            <p>{{ verifiedUser.birthDate }}</p>
+            <p>{{ verifiedUser?.birthDate || '서버 확인 후 표시됩니다.' }}</p>
           </div>
           <div class="verified-row verified-row--full">
             <label>휴대전화 번호</label>
-            <p>
-              {{ verifiedUser.phone }}
-              <em>본인인증 완료</em>
-            </p>
+            <p>{{ verifiedUser?.phone || '서버 확인 후 표시됩니다.' }}</p>
           </div>
         </div>
 
@@ -233,7 +252,9 @@ function completeSignup() {
                 placeholder="hello@email.com"
                 @input="invalidate('email')"
               />
-              <button type="button" class="check-button" @click="checkEmail">중복확인</button>
+              <button type="button" class="check-button" @click="checkEmail">
+                <strong>중복확인</strong>
+              </button>
             </div>
             <p
               v-if="errors.email"
@@ -260,7 +281,13 @@ function completeSignup() {
                 :aria-label="showPassword ? '비밀번호 숨기기' : '비밀번호 보기'"
                 @click="showPassword = !showPassword"
               >
-                {{ showPassword ? '숨김' : '보기' }}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"
+                  />
+                  <circle cx="12" cy="12" r="2.5" />
+                  <path v-if="showPassword" d="m4 4 16 16" />
+                </svg>
               </button>
             </div>
             <p v-if="errors.password" class="field-message">
@@ -284,7 +311,13 @@ function completeSignup() {
                 :aria-label="showPasswordConfirm ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'"
                 @click="showPasswordConfirm = !showPasswordConfirm"
               >
-                {{ showPasswordConfirm ? '숨김' : '보기' }}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"
+                  />
+                  <circle cx="12" cy="12" r="2.5" />
+                  <path v-if="showPasswordConfirm" d="m4 4 16 16" />
+                </svg>
               </button>
             </div>
             <p v-if="errors.confirm" class="field-message">
@@ -303,7 +336,9 @@ function completeSignup() {
                 placeholder="2~10자"
                 @input="invalidate('nickname')"
               />
-              <button type="button" class="check-button" @click="checkNickname">중복확인</button>
+              <button type="button" class="check-button" @click="checkNickname">
+                <strong>중복확인</strong>
+              </button>
             </div>
             <p
               v-if="errors.nickname"
@@ -314,7 +349,7 @@ function completeSignup() {
             </p>
           </div>
 
-          <button class="primary-button" type="submit">다음 단계</button>
+          <button class="primary-button" type="submit"><strong>다음 단계</strong></button>
         </form>
       </section>
 
@@ -342,7 +377,7 @@ function completeSignup() {
           :disabled="!requiredAgreed"
           @click="completeSignup"
         >
-          가입 완료
+          <strong>가입 완료</strong>
         </button>
       </section>
 
@@ -374,11 +409,15 @@ function completeSignup() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 72px;
+  width: 76px;
   height: 40px;
+  box-sizing: border-box;
+  padding: 0;
   border: 1px solid #e2e6ef;
   border-radius: 999px;
-  color: var(--color-primary, #0a1680);
+  box-shadow: 0 1px 5px rgb(0 0 0 / 25%);
+  color: #222222;
+  font-family: Pretendard, sans-serif;
   font-size: var(--font-body);
   font-weight: 700;
   text-decoration: none;
@@ -400,7 +439,7 @@ function completeSignup() {
 .signup-heading h1,
 .signup-step h2 {
   margin: 0;
-  color: var(--color-primary, #0a1680);
+  color: #222222;
   font-size: var(--font-display);
   font-weight: 800;
   letter-spacing: -0.05em;
@@ -485,8 +524,8 @@ function completeSignup() {
 }
 
 .progress .active span {
-  border-color: var(--color-primary, #0a1680);
-  background: var(--color-primary, #0a1680);
+  border-color: #f2b544;
+  background: #f2b544;
   color: #ffffff;
 }
 
@@ -503,17 +542,18 @@ function completeSignup() {
 .verification-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
-  min-height: 140px;
+  min-height: 96px;
   margin-top: 28px;
-  padding: 28px 30px;
-  border: 0;
-  border-radius: 18px;
-  background: var(--color-accent, #fbedb0);
+  padding: 24px 30px;
+  border: 1px solid #e2e6ef;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 25%);
   color: var(--color-text-body, #222222);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
@@ -522,6 +562,24 @@ function completeSignup() {
 .verification-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 24px rgb(34 34 34 / 12%);
+}
+
+.verification-card:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
+.verification-feedback {
+  margin-top: 16px;
+  color: #566581;
+  font-size: var(--font-small);
+  line-height: 1.55;
+  text-align: center;
+}
+
+.verification-feedback.error {
+  color: #e65353;
 }
 
 .verification-card span {
@@ -534,14 +592,11 @@ function completeSignup() {
 }
 
 .verification-card small {
-  color: #655f4e;
-  font-size: var(--font-body);
+  display: none;
 }
 
 .verification-card b {
-  color: var(--color-primary, #0a1680);
-  font-size: var(--font-display);
-  font-weight: 500;
+  display: none;
 }
 
 .verified-information {
@@ -562,7 +617,7 @@ function completeSignup() {
 
 .verified-row label,
 .form-field > label {
-  color: var(--color-primary, #0a1680);
+  color: #222222;
   font-size: var(--font-body);
   font-weight: 700;
 }
@@ -576,13 +631,14 @@ function completeSignup() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 56px;
+  min-height: 46px;
   box-sizing: border-box;
   margin: 0;
   padding: 0 18px;
   border: 1px solid #dce2ee;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #f1f4f9;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 25%);
   color: #637087;
   font-size: var(--font-body);
 }
@@ -613,11 +669,11 @@ function completeSignup() {
 .form-field input {
   width: 100%;
   min-width: 0;
-  height: 54px;
+  height: 48px;
   box-sizing: border-box;
   padding: 0 17px;
   border: 1px solid #dce2ee;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #ffffff;
   box-shadow: var(--shadow-figma);
   color: var(--color-text-body, #222222);
@@ -638,7 +694,7 @@ function completeSignup() {
 .visibility-button {
   flex: 0 0 auto;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--color-accent, #fbedb0);
   color: var(--color-text-body, #222222);
   cursor: pointer;
@@ -648,12 +704,27 @@ function completeSignup() {
 
 .check-button {
   width: 92px;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 25%);
+  font-family: Pretendard, sans-serif;
+  font-weight: 700;
 }
 
 .visibility-button {
-  width: 58px;
-  background: #f2f4f8;
-  color: var(--color-primary, #0a1680);
+  z-index: 1;
+  width: 48px;
+  margin-left: -58px;
+  background: transparent;
+  color: #777777;
+}
+
+.visibility-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .field-message {
@@ -676,7 +747,19 @@ function completeSignup() {
   box-shadow: var(--shadow-figma);
   color: var(--color-text-body, #222222);
   cursor: pointer;
+  font-family: Pretendard, sans-serif;
   font-size: var(--font-card-title);
+  font-weight: 700;
+}
+
+.account-form > .primary-button,
+.terms-step > .primary-button {
+  font-weight: 800;
+}
+
+.check-button strong,
+.primary-button strong {
+  font-family: Pretendard, sans-serif;
   font-weight: 800;
 }
 
@@ -698,7 +781,7 @@ function completeSignup() {
   padding: 0 18px;
   border-radius: 14px;
   background: #eef3ff;
-  color: var(--color-primary, #0a1680);
+  color: #222222;
   font-size: var(--font-card-title);
   font-weight: 800;
 }
@@ -742,7 +825,7 @@ function completeSignup() {
 input[type='checkbox'] {
   width: 18px;
   height: 18px;
-  accent-color: var(--color-primary, #0a1680);
+  accent-color: #777777;
 }
 
 .already-member {
@@ -754,7 +837,7 @@ input[type='checkbox'] {
 
 .already-member a {
   margin-left: 4px;
-  color: var(--color-primary, #0a1680);
+  color: #222222;
   font-weight: 800;
   text-decoration: none;
 }

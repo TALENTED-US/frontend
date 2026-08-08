@@ -133,30 +133,30 @@ function openFilter() {
 <style scoped>
 .search-page { padding-top: 8px; }
 .search-heading { margin-bottom: 42px; }
-.search-heading h1 { color: var(--primary); font-size: var(--font-page-title); line-height: 1.25; }
+.search-heading h1 { color: #222; font-size: var(--font-page-title); line-height: 1.25; }
 .search-heading p { margin-top: 6px; color: #666; font-size: var(--font-body); }
-.search-input { display: flex; height: 56px; padding: 0 15px 0 21px; align-items: center; border: 1px solid var(--border); border-radius: 15px; background: #fff; box-shadow: var(--shadow-figma); }
+.search-input { display: flex; height: 56px; padding: 0 15px 0 21px; align-items: center; border: 1px solid #eceef3; border-radius: 15px; background: #f7f8fb; box-shadow: var(--shadow-figma); }
 .search-input input { min-width: 0; flex: 1; font-size: var(--font-body); }
-.search-input button { display: grid; width: 52px; height: 34px; place-items: center; border-radius: 999px; background: var(--primary); color: white; }
-.quick-filters { display: flex; min-height: 54px; align-items: center; gap: 12px; }
+.search-input button { display: grid; width: 52px; height: 34px; place-items: center; border-radius: 999px; background: #222; box-shadow: var(--shadow-figma); color: white; }
+.quick-filters { display: flex; min-height: 54px; align-items: center; gap: 12px; margin: 16px 0 10px; }
 .filter-chips { display: flex; min-width: 0; flex: 1; flex-wrap: wrap; gap: 12px; }
-.filter-chip { display: inline-flex; min-width: 86px; flex: none; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 999px; background: #eff3ff; color: var(--primary); font-size: var(--font-small); font-weight: 700; cursor: default; user-select: none; }
-.filter-button { display: grid; width: 40px; height: 34px; margin-left: auto; place-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 9px; background: white; }
-.filter-button span { position: relative; display: block; width: 19px; height: 2px; background: var(--primary); }
-.filter-button span::after { position: absolute; top: -3px; width: 7px; height: 7px; border: 2px solid var(--primary); border-radius: 50%; background: white; content: ''; }
+.filter-chip { display: inline-flex; min-width: 86px; flex: none; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 999px; background: var(--accent); box-shadow: var(--shadow-figma); color: #222; font-size: var(--font-small); font-weight: 800; cursor: default; user-select: none; }
+.filter-button { display: grid; width: 40px; height: 34px; margin-left: auto; place-content: center; gap: 4px; border: 1px solid #eceef3; border-radius: 9px; background: white; box-shadow: var(--shadow-figma); }
+.filter-button span { position: relative; display: block; width: 19px; height: 2px; background: #222; }
+.filter-button span::after { position: absolute; top: -3px; width: 7px; height: 7px; border: 2px solid #222; border-radius: 50%; background: white; content: ''; }
 .filter-button span:nth-child(1)::after, .filter-button span:nth-child(3)::after { left: 3px; }
 .filter-button span:nth-child(2)::after { right: 3px; }
 .result-heading { display: flex; justify-content: space-between; align-items: center; margin: 0 0 13px; }
-.result-heading h2 { color: var(--primary); font-size: var(--font-card-title); }
+.result-heading h2 { color: #222; font-size: var(--font-card-title); }
 .result-heading span { color: #777; font-size: var(--font-small); }
 .result-list { display: grid; gap: 16px; }
-.result-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, auto) 16px; min-height: 124px; align-items: center; gap: 22px; padding: 22px 24px; border: 1px solid var(--border); border-radius: 15px; background: white; color: inherit; transition: border-color .15s ease, transform .15s ease; }
+.result-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, auto) 16px; min-height: 124px; align-items: center; gap: 22px; padding: 22px 24px; border: 1px solid #eceef3; border-radius: 15px; background: white; box-shadow: var(--shadow-figma); color: inherit; transition: border-color .15s ease, transform .15s ease; }
 .result-card:hover { border-color: var(--primary-soft); transform: translateY(-1px); }
 .result-card > div { display: grid; gap: 10px; }
-.result-card h3 { color: var(--primary); font-size: var(--font-card-title); }
+.result-card h3 { color: #222; font-size: var(--font-card-title); }
 .result-card p, .result-card small { color: #777; font-size: var(--font-small); }
 .result-card > div:nth-child(2) { justify-items: end; }
-.result-card strong { color: var(--primary); font-size: var(--font-card-title); }
+.result-card strong { color: #222; font-size: var(--font-card-title); }
 .empty-search { display: grid; min-height: 370px; place-content: center; justify-items: center; gap: 10px; text-align: center; }
 .empty-search > span { display: grid; width: 106px; height: 106px; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); }
 .empty-search h2 { color: var(--primary); font-size: var(--font-section-title); }
@@ -170,13 +170,13 @@ function openFilter() {
   .search-heading { margin: 8px 0 20px; }
   .search-heading h1 { color: #222; font-size: var(--font-page-title); }
   .search-heading p { margin-top: 7px; font-size: var(--font-body); }
-  .search-input { height: 58px; padding-left: 18px; border-radius: 18px; background: #fff; }
+  .search-input { height: 58px; padding-left: 18px; border-radius: 18px; background: #f7f8fb; }
   .search-input input { font-size: var(--font-body); }
   .search-input button { width: 46px; height: 42px; }
-  .quick-filters { display: grid; grid-template-columns: 1fr; gap: 9px; padding: 13px 0 8px; }
+  .quick-filters { display: grid; grid-template-columns: 1fr; gap: 9px; margin: 14px 0 10px; padding: 0 0 8px; }
   .filter-chips { gap: 9px; overflow: visible; }
-  .filter-chip { min-width: auto; padding: 10px 19px; background: #fff0b4; color: #222; font-size: var(--font-small); }
-  .filter-button { position: static; width: 38px; margin-left: 0; justify-self: end; border: 0; background: var(--background); }
+  .filter-chip { min-width: auto; padding: 10px 19px; background: var(--accent); color: #222; font-size: var(--font-small); }
+  .filter-button { position: static; width: 38px; margin-left: 0; justify-self: end; border: 1px solid #eceef3; background: white; }
   .result-heading { margin-top: 2px; }
   .result-heading h2 { color: #222; font-size: var(--font-card-title); }
   .result-list { gap: 16px; }

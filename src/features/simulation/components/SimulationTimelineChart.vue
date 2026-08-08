@@ -9,6 +9,7 @@ const props = defineProps({
   currentMonths: { type: Number, default: 2.8 },
   expectedMonths: { type: Number, default: 0 },
   unknown: { type: Boolean, default: false },
+  previewMode: { type: Boolean, default: false },
 })
 
 const scenarioMonths = computed(() => props.unknown ? '?' : Number(props.expectedMonths || props.currentMonths).toFixed(1))
@@ -35,11 +36,12 @@ const monthLabels = computed(() => {
 </script>
 
 <template>
-  <div class="timeline-chart">
+  <div :class="['timeline-chart', { 'is-preview': previewMode }]">
     <div class="timeline-chart__legend" aria-hidden="true">
       <span><i class="current" />현재 기준</span>
       <span><i class="scenario" />시나리오 적용</span>
       <span><i class="target" />목표 취업 시기</span>
+      <span v-if="previewMode"><i class="minimum" />최소 생활자금</span>
     </div>
     <div class="timeline-chart__plot">
       <svg viewBox="0 0 600 260" role="img" aria-label="현재 기준과 시나리오 적용 후 월별 재정 타임라인">
@@ -94,6 +96,7 @@ const monthLabels = computed(() => {
 .timeline-chart__legend i { width: 9px; height: 9px; border-radius: 50%; background: #06178f; }
 .timeline-chart__legend .scenario { background: #8facf5; }
 .timeline-chart__legend .target { background: #f4b63c; }
+.timeline-chart__legend .minimum { width: 18px; height: 0; border-top: 2px dashed #ef6464; border-radius: 0; background: transparent; }
 .timeline-chart__plot { width: 100%; margin-top: 8px; overflow: hidden; border: 1px solid #e2e6ef; border-radius: 15px; background: #fbfcff; }
 svg { width: 100%; height: auto !important; }
 .chart-grid path { fill: none; stroke: #e4e9f2; stroke-width: 1; }
@@ -111,6 +114,16 @@ svg { width: 100%; height: auto !important; }
 .current-badge rect { fill: #06178f; }.scenario-badge rect { fill: #8facf5; }
 .current-badge text, .scenario-badge text { fill: white; font-size: 13px; font-weight: 800; text-anchor: middle; }
 .question { fill: #111; font-size: 48px; font-weight: 900; text-anchor: middle; }
+.timeline-chart.is-preview { display: flex; flex-direction: column; }
+.timeline-chart.is-preview .timeline-chart__plot { order: 1; }
+.timeline-chart.is-preview .timeline-chart__legend { order: 2; margin-top: 12px; }
+.timeline-chart.is-preview .timeline-chart__legend .current { background: #999; }
+.timeline-chart.is-preview .timeline-chart__legend .target { background: #12249f; }
+.timeline-chart.is-preview .current-line { stroke: #999; stroke-width: 3; }
+.timeline-chart.is-preview .current-dot { fill: #999; }
+.timeline-chart.is-preview .goal-line { stroke: #12249f; }
+.timeline-chart.is-preview .current-badge rect { fill: #999; }
+.timeline-chart.is-preview .danger-label { display: none; }
 @media (max-width: 767px) {
   .timeline-chart__legend { gap: 10px 14px; font-size: 11px; }
   .timeline-chart__plot { border-radius: 12px; }
