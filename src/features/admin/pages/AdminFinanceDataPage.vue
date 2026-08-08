@@ -44,7 +44,6 @@ const users = computed(() => {
         nickname: member.nickname,
         datasetKey: dataset.key,
         accountCount: dataset.accountCount,
-        cardCount: dataset.cardCount,
         transactionCount: dataset.transactionCount,
         updatedAt: member.updatedAt || member.appliedAt,
       })
@@ -58,7 +57,6 @@ const users = computed(() => {
         nickname: member.nickname,
         datasetKey: '',
         accountCount: 0,
-        cardCount: 0,
         transactionCount: 0,
         updatedAt: member.updatedAt,
       })
@@ -160,7 +158,6 @@ onMounted(loadDatasets)
                 <th>회원 정보</th>
                 <th>현재 적용 세트</th>
                 <th>계좌</th>
-                <th>카드</th>
                 <th>거래</th>
                 <th>최근 적용일</th>
                 <th>관리</th>
@@ -179,7 +176,6 @@ onMounted(loadDatasets)
                   </div>
                 </td>
                 <td>{{ user.accountCount }}</td>
-                <td>{{ user.cardCount }}</td>
                 <td>{{ user.transactionCount }}</td>
                 <td>{{ user.updatedAt || '-' }}</td>
                 <td class="admin-finance__row-actions">
@@ -187,7 +183,7 @@ onMounted(loadDatasets)
                 </td>
               </tr>
               <tr v-if="filteredUsers.length === 0">
-                <td colspan="7" class="admin-finance__member-empty">조건에 맞는 회원이 없어요.</td>
+                <td colspan="6" class="admin-finance__member-empty">조건에 맞는 회원이 없어요.</td>
               </tr>
             </tbody>
           </table>
@@ -204,7 +200,7 @@ onMounted(loadDatasets)
           <h3>{{ dataset.name }}</h3>
           <p class="admin-finance__dataset-desc">{{ dataset.description }}</p>
           <p class="admin-finance__dataset-stats">
-            계좌 {{ dataset.accountCount }} · 카드 {{ dataset.cardCount }} · 거래 {{ dataset.transactionCount }}
+            계좌 {{ dataset.accountCount }} · 거래 {{ dataset.transactionCount }}
           </p>
           <div class="admin-finance__dataset-actions">
             <RouterLink :to="`/admin/finance-data/${dataset.key}`" class="primary">상세보기</RouterLink>
@@ -327,7 +323,7 @@ onMounted(loadDatasets)
 
 .admin-finance__table-wrap table {
   width: 100%;
-  min-width: 760px;
+  min-width: 660px;
   border-collapse: collapse;
   font-size: var(--font-small);
 }
@@ -364,10 +360,8 @@ onMounted(loadDatasets)
 
 .admin-finance__table-wrap th:nth-child(3),
 .admin-finance__table-wrap th:nth-child(4),
-.admin-finance__table-wrap th:nth-child(5),
 .admin-finance__table-wrap td:nth-child(3),
-.admin-finance__table-wrap td:nth-child(4),
-.admin-finance__table-wrap td:nth-child(5) {
+.admin-finance__table-wrap td:nth-child(4) {
   text-align: center;
 }
 
