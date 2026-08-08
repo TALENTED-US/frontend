@@ -664,9 +664,9 @@ onMounted(async () => {
 
 <style scoped>
 .finance {
-  width: calc(100% + 15px);
+  width: 100%;
   max-width: 1066px;
-  margin: 0;
+  margin: 0 auto;
   padding-top: 59px;
   color: #222;
   font-weight: 400;
@@ -1369,20 +1369,25 @@ button {
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
   background: #17171766;
+  box-sizing: border-box;
 }
 .sheet {
-  position: absolute;
-  right: max(0px, calc((100vw - 1440px) / 2));
-  top: 0;
-  width: 420px;
-  height: 100%;
+  position: relative;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 48px);
   padding: 34px 28px;
+  border: 1px solid #e4e7ed;
+  border-radius: 20px;
   background: #fcfdff;
   overflow: auto;
   box-sizing: border-box;
   font-family: 'Pretendard', sans-serif;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 22%);
 }
 .close {
   position: absolute;
@@ -1872,24 +1877,13 @@ button {
     height: 175px !important;
   }
   .sheet {
-    top: auto;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: min(70vh, 760px);
-    padding: 38px 22px 24px;
-    border-radius: 20px 20px 0 0;
+    width: min(100%, 440px);
+    max-height: calc(100vh - 32px);
+    padding: 34px 22px 24px;
+    border-radius: 20px;
   }
-  .sheet:before {
-    content: '';
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    width: 62px;
-    height: 5px;
-    border-radius: 5px;
-    background: #ccc;
-    transform: translateX(-50%);
+  .overlay {
+    padding: 16px;
   }
   .sheet h2 {
     margin: 10px 0 26px;
