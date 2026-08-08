@@ -14,6 +14,11 @@ const category = computed(() => route.params.category)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
 const goalAmount = (value) => Number(value) % 10000 === 0 ? `${money(Number(value) / 10000)}만원` : `${money(value)}원`
 const stepNumber = computed(() => ({ expense: 1, income: 2, policy: 3 })[category.value])
+const wizardSteps = [
+  { label: '01 지출 줄이기', to: '/simulation/expense' },
+  { label: '02 수입 늘리기', to: '/simulation/income' },
+  { label: '03 정책 맞춤 추천', to: '/simulation/policy' },
+]
 const title = computed(() => ({ expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 맞춤 추천' })[category.value])
 const backPath = computed(() => ({ expense: '/simulation/new', income: '/simulation/expense/preview', policy: '/simulation/income/preview' })[category.value])
 const profileDate = (value) => value ? value.replaceAll('-', '.') : '-'
@@ -72,10 +77,6 @@ function deleteIncome(id) {
   if (editingIncomeId.value === id) resetIncomeForm()
 }
 
-function resetPolicies() {
-  simulation.resetPolicies()
-}
-
 function scrollToPolicies() {
   document.querySelector('.policy-catalog-scroll')?.scrollIntoView({
     behavior: 'smooth',
@@ -132,7 +133,17 @@ function skip() {
   <section class="page sim-page sim-wizard sim-category-page">
     <button class="sim-back desktop-only" type="button" @click="router.push(backPath)">‹ {{ title }}</button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
-      <span v-for="(label, index) in ['01 지출 줄이기', '02 수입 늘리기', '03 정책 맞춤 추천']" :key="label" :class="{ active: index + 1 === stepNumber, done: index + 1 < stepNumber }">{{ label }}<i /></span>
+      <RouterLink
+        v-for="(step, index) in wizardSteps"
+        :key="step.to"
+        :to="step.to"
+        class="wizard-progress-link"
+        :aria-current="index + 1 === stepNumber ? 'step' : undefined"
+      >
+        <span :class="{ active: index + 1 === stepNumber, done: index + 1 < stepNumber }">
+          {{ step.label }}<i />
+        </span>
+      </RouterLink>
     </div>
 
     <template v-if="category === 'expense'">
@@ -193,7 +204,6 @@ function skip() {
       <section class="policy-qualification">
         <div class="policy-section-heading">
           <div><h2>자격 확인</h2><p>온보딩에서 입력한 정보로 자동 채워져 있어요.</p></div>
-          <button type="button" @click="resetPolicies">↻&nbsp; 초기화</button>
         </div>
         <div class="policy-condition-grid">
           <article><span>거주지역</span><strong>{{ session.currentUser.region || '-' }}</strong></article>
@@ -250,8 +260,22 @@ function skip() {
   backdrop-filter: blur(8px);
 }
 
+.wizard-progress-link {
+  display: block;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.wizard-progress-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #f4ad1d;
+  outline-offset: 4px;
+}
+
 .sim-category-page > .wizard-progress-tabs span {
   font-size: 11px;
+  cursor: pointer;
 }
 
 .sim-category-page > .wizard-progress-tabs span.active {

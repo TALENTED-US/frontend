@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/navigation/AppHeader.vue'
 import BottomNavigation from '@/components/navigation/BottomNavigation.vue'
@@ -7,6 +7,7 @@ import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
 
 const route = useRoute()
 const body = ref(null)
+const isSimulationContinue = computed(() => route.name === 'simulationContinue')
 
 watch(() => route.fullPath, async () => {
   await nextTick()
@@ -18,8 +19,8 @@ watch(() => route.fullPath, async () => {
   <div class="app-shell">
     <DesktopSidebar class="desktop-only" />
     <div ref="body" class="app-shell__body">
-      <AppHeader />
-      <main class="app-shell__content">
+      <AppHeader :class="{ 'app-shell__header--continue': isSimulationContinue }" />
+      <main class="app-shell__content" :class="{ 'app-shell__content--continue': isSimulationContinue }">
         <RouterView />
       </main>
     </div>
@@ -29,9 +30,8 @@ watch(() => route.fullPath, async () => {
 
 <style scoped>
 .app-shell {
-  width: min(100%, 1440px);
+  width: 100%;
   min-height: 100dvh;
-  margin: 0 auto;
   background: var(--background);
 }
 
@@ -64,6 +64,17 @@ watch(() => route.fullPath, async () => {
 
   .app-shell__content {
     padding: 10px 16px 26px;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-shell__header--continue {
+    display: none;
+  }
+
+  .app-shell__content--continue {
+    min-height: 100dvh;
+    padding: 0;
   }
 }
 </style>
