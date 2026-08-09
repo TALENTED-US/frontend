@@ -164,12 +164,21 @@ export async function setFixed(ids, fixed) {
     financeState.loading = true
     financeState.error = ''
     try {
-      if (fixed) {
-        await Promise.all(ids.map((id) => registerFixedTransactionApi(id)))
-      } else {
-        await Promise.all(ids.map((id) => deleteFixedExpenseApi(id)))
-      }
+      const uniqueIds = [...new Set(ids)]
+      const results = await Promise.allSettled(
+        uniqueIds.map((id) =>
+          fixed ? registerFixedTransactionApi(id) : deleteFixedExpenseApi(id),
+        ),
+      )
       await Promise.all([loadTransactions(true), loadFixedExpenses(true)])
+
+      const failed = results.find((result) => result.status === 'rejected')
+      if (failed) {
+        financeState.error =
+          failed.reason?.message ||
+          (fixed ? '고정지출을 등록하지 못했습니다.' : '고정지출을 삭제하지 못했습니다.')
+        return false
+      }
       return true
     } catch (error) {
       financeState.error =
