@@ -2,11 +2,15 @@ import { computed, reactive } from 'vue'
 import { transactions as seedTransactions } from '@/data/mockData'
 import {
   createTransactionApi,
+  deleteFixedExpenseApi,
   deleteTransactionApi,
+  getFixedExpensesApi,
   getTransactionsApi,
+  mapFixedExpenseResponse,
   mapTransactionResponse,
   registerFixedTransactionApi,
   updateTransactionApi,
+  updateTransactionMemoApi,
 } from '@/api/transactions'
 
 const STORAGE_KEY = 'buttie-finance-v7'
@@ -67,6 +71,27 @@ export const financeState = reactive(
 )
 export const financeTransactions = computed(() => financeState.transactions)
 
+export const fixedExpenseState = reactive({ items: [], loading: false, loaded: false, error: '' })
+export const fixedExpenses = computed(() => fixedExpenseState.items)
+
+export async function loadFixedExpenses(force = false) {
+  if (USE_MOCK_API || (fixedExpenseState.loaded && !force)) return fixedExpenseState.items
+
+  fixedExpenseState.loading = true
+  fixedExpenseState.error = ''
+  try {
+    const rows = await getFixedExpensesApi()
+    fixedExpenseState.items = Array.isArray(rows) ? rows.map(mapFixedExpenseResponse) : []
+    fixedExpenseState.loaded = true
+    return fixedExpenseState.items
+  } catch (error) {
+    fixedExpenseState.error = error.message || '고정지출 목록을 불러오지 못했습니다.'
+    throw error
+  } finally {
+    fixedExpenseState.loading = false
+  }
+}
+
 function persist() {
   localStorage.setItem(
     STORAGE_KEY,
@@ -115,6 +140,14 @@ export async function updateTransaction(id, payload) {
   await loadTransactions(true)
 }
 
+export async function updateTransactionMemo(id, memo) {
+  const result = await updateTransactionMemoApi(id, memo)
+  const nextMemo = result?.transactionMemo ?? memo
+  const item = financeState.transactions.find((row) => row.id === id)
+  if (item) item.memo = nextMemo
+  return nextMemo
+}
+
 export async function deleteTransaction(id) {
   if (USE_MOCK_API) {
     financeState.transactions = financeState.transactions.filter((row) => row.id !== id)
@@ -127,15 +160,20 @@ export async function deleteTransaction(id) {
 }
 
 export async function setFixed(ids, fixed) {
-  if (!USE_MOCK_API && fixed) {
+  if (!USE_MOCK_API) {
     financeState.loading = true
     financeState.error = ''
     try {
-      await Promise.all(ids.map((id) => registerFixedTransactionApi(id)))
-      await loadTransactions(true)
+      if (fixed) {
+        await Promise.all(ids.map((id) => registerFixedTransactionApi(id)))
+      } else {
+        await Promise.all(ids.map((id) => deleteFixedExpenseApi(id)))
+      }
+      await Promise.all([loadTransactions(true), loadFixedExpenses(true)])
       return true
     } catch (error) {
-      financeState.error = error.message || '고정지출을 등록하지 못했습니다.'
+      financeState.error =
+        error.message || (fixed ? '고정지출을 등록하지 못했습니다.' : '고정지출을 삭제하지 못했습니다.')
       return false
     } finally {
       financeState.loading = false

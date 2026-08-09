@@ -1,7 +1,12 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { financeTransactions, setFixed } from "@/features/finance/financeStore";
+import {
+  financeTransactions,
+  fixedExpenses,
+  loadFixedExpenses,
+  setFixed,
+} from "@/features/finance/financeStore";
 
 const route = useRoute();
 const router = useRouter();
@@ -39,21 +44,9 @@ const mode = computed(() =>
       : "detail",
 );
 const fixedRows = computed(() =>
-  financeTransactions.value.filter(
-    (row) => row.fixed && row.amount < 0 && row.date.startsWith(fixedMonth.value),
-  ),
+  fixedExpenses.value.filter((row) => row.date.startsWith(fixedMonth.value)),
 );
-const registeredFixedRows = computed(() => {
-  const latestByRule = new Map();
-  financeTransactions.value
-    .filter((row) => row.fixed && row.amount < 0)
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .forEach((row) => {
-      const key = `${row.title}|${row.category}`;
-      if (!latestByRule.has(key)) latestByRule.set(key, row);
-    });
-  return [...latestByRule.values()];
-});
+const registeredFixedRows = computed(() => fixedExpenses.value);
 const candidates = computed(() => {
   const recurringByRule = new Map();
   financeTransactions.value
@@ -144,15 +137,7 @@ function changeFixedMonth(offset) {
 }
 function submit() {
   if (mode.value === "delete") {
-    const selectedRules = new Set(
-      registeredFixedRows.value
-        .filter((row) => selected.value.includes(row.id))
-        .map((row) => `${row.title}|${row.category}`),
-    );
-    const recurringIds = financeTransactions.value
-      .filter((row) => selectedRules.has(`${row.title}|${row.category}`))
-      .map((row) => row.id);
-    setFixed(recurringIds, false);
+    setFixed(selected.value, false);
   } else {
     const selectedRules = candidates.value.filter((row) =>
       selected.value.includes(row.id),
@@ -166,6 +151,11 @@ function registerSuggestion() {
   setFixed(suggestedRow.value.recurringIds, true);
   dismissedSuggestion.value = true;
 }
+onMounted(async () => {
+  try {
+    await loadFixedExpenses();
+  } catch {}
+});
 </script>
 <template>
   <section :class="['fixed-page', `fixed-page--${mode}`]">

@@ -9,6 +9,7 @@ import {
   financeTransactions,
   loadTransactions,
   updateTransaction,
+  updateTransactionMemo,
 } from '@/features/finance/financeStore'
 import SimulationTimelineChart from '@/features/simulation/components/SimulationTimelineChart.vue'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
@@ -38,6 +39,9 @@ const editingId = ref(null)
 const selectedTransaction = ref(null)
 const actionError = ref('')
 const isSaving = ref(false)
+const isEditingMemo = ref(false)
+const memoDraft = ref('')
+const isSavingMemo = ref(false)
 const form = reactive({
   type: 'expense',
   amount: '',
@@ -227,6 +231,7 @@ async function openDetail(row) {
   selectedTransaction.value = row
   editingId.value = null
   actionError.value = ''
+  isEditingMemo.value = false
   panel.value = 'detail'
   const transactionId = String(row.apiId || row.id || '')
   // 현재 목록 API는 암호화 ID를 반환하지만 상세 API는 숫자 ID를 요구합니다.
@@ -275,6 +280,37 @@ function editSelectedTransaction() {
     return
   }
   openEdit(selectedTransaction.value)
+}
+function startMemoEdit() {
+  if (!selectedTransaction.value) return
+  actionError.value = ''
+  memoDraft.value = selectedTransaction.value.memo || ''
+  isEditingMemo.value = true
+}
+function cancelMemoEdit() {
+  isEditingMemo.value = false
+}
+async function saveMemo() {
+  if (!selectedTransaction.value || isSavingMemo.value) return
+  const transactionId = String(
+    selectedTransaction.value.apiId || selectedTransaction.value.id || '',
+  )
+  if (!/^\d+$/.test(transactionId)) {
+    actionError.value =
+      '현재 서버에서 이 거래의 메모 수정용 식별자를 제공하지 않아 수정할 수 없습니다.'
+    return
+  }
+  actionError.value = ''
+  isSavingMemo.value = true
+  try {
+    const nextMemo = await updateTransactionMemo(transactionId, memoDraft.value)
+    selectedTransaction.value = { ...selectedTransaction.value, memo: nextMemo }
+    isEditingMemo.value = false
+  } catch (error) {
+    actionError.value = error.message || '메모를 수정하지 못했습니다.'
+  } finally {
+    isSavingMemo.value = false
+  }
 }
 async function save() {
   if (!Number(form.amount) || !form.date) return
@@ -600,7 +636,17 @@ onMounted(async () => {
             </div>
             <div>
               <dt>메모</dt>
-              <dd>{{ selectedTransaction.memo || '-' }}</dd>
+              <dd v-if="!isEditingMemo" class="memo-view">
+                <span>{{ selectedTransaction.memo || '-' }}</span>
+                <button type="button" class="memo-edit-trigger" @click="startMemoEdit">수정</button>
+              </dd>
+              <dd v-else class="memo-edit">
+                <input v-model="memoDraft" placeholder="메모 (선택)" :disabled="isSavingMemo" />
+                <span class="memo-edit-actions">
+                  <button type="button" :disabled="isSavingMemo" @click="saveMemo">저장</button>
+                  <button type="button" :disabled="isSavingMemo" @click="cancelMemoEdit">취소</button>
+                </span>
+              </dd>
             </div>
             <div>
               <dt>거래 구분</dt>
@@ -1502,6 +1548,37 @@ button {
   color: #222;
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+.memo-view {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.memo-edit-trigger {
+  flex-shrink: 0;
+  border: 0;
+  background: none;
+  color: #777;
+  font-weight: 700;
+  font-size: 13px;
+}
+.memo-edit input {
+  height: 40px !important;
+  margin-top: 0 !important;
+  font-size: 14px !important;
+}
+.memo-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.memo-edit-actions button {
+  border: 0;
+  background: none;
+  color: #222;
+  font-weight: 700;
+  font-size: 13px;
 }
 .detail-edit {
   width: 100%;

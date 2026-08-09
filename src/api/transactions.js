@@ -94,3 +94,36 @@ export function registerFixedTransactionApi(transactionId) {
     apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/fixed`),
   )
 }
+
+export function mapFixedExpenseResponse(row) {
+  const { date, time } = splitTransactionAt(row?.transactionAt)
+  return {
+    id: row?.transactionId,
+    apiId: row?.transactionId,
+    date,
+    time,
+    title: row?.transactionContent || '고정지출',
+    category: apiCategoryToUi[row?.expenseCategory] || '기타',
+    detail: '고정지출',
+    amount: -Math.abs(Number(row?.transactionAmount) || 0),
+    memo: '',
+    fixed: true,
+    expenseCategory: row?.expenseCategory,
+  }
+}
+
+export function getFixedExpensesApi() {
+  return requestResult(() => apiClient.get('transactions/fixed'))
+}
+
+export function deleteFixedExpenseApi(transactionId) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/fixed/delete`),
+  )
+}
+
+export function updateTransactionMemoApi(transactionId, memo) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/memo`, { memo }),
+  )
+}
