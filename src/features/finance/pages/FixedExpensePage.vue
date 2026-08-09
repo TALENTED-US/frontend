@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   financeTransactions,
@@ -43,9 +43,10 @@ const mode = computed(() =>
       ? "delete"
       : "detail",
 );
-const fixedRows = computed(() =>
-  fixedExpenses.value.filter((row) => row.date.startsWith(fixedMonth.value)),
-);
+watch(mode, () => {
+  selected.value = [];
+});
+const fixedRows = computed(() => fixedExpenses.value);
 const registeredFixedRows = computed(() => fixedExpenses.value);
 const candidates = computed(() => {
   const recurringByRule = new Map();
