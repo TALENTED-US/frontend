@@ -8,8 +8,8 @@ const menus = [
   { to: '/admin/members', label: '회원 관리' },
   { to: '/admin/finance-data', label: '금융데이터 관리' },
   { to: '/admin/policies', label: '정부지원정책 관리' },
+  { to: '/admin/level', label: '경험치 및 버티 관리' },
 ]
-const rewardMenu = { to: '/admin/level', label: '리워드 관리' }
 
 function isMenuActive(to) {
   return route.path === to || route.path.startsWith(`${to}/`)
@@ -30,12 +30,6 @@ function isMenuActive(to) {
         :class="['admin-sidebar__link', { active: isMenuActive(menu.to) }]"
       >
         {{ menu.label }}
-      </RouterLink>
-      <RouterLink
-        :to="rewardMenu.to"
-        :class="['admin-sidebar__link', 'admin-sidebar__link--muted', { active: isMenuActive(rewardMenu.to) }]"
-      >
-        {{ rewardMenu.label }}
       </RouterLink>
     </nav>
   </aside>
@@ -100,9 +94,5 @@ function isMenuActive(to) {
   background: var(--accent);
   color: var(--text);
   font-weight: 700;
-}
-
-.admin-sidebar__link--muted:not(.active) {
-  color: var(--subtle);
 }
 </style>

@@ -72,9 +72,8 @@ const routes = [
       { path: 'policies', name: 'adminPolicies', meta: { title: '정부지원정책 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
       { path: 'policies/new', name: 'adminPolicyForm', meta: { title: '정부지원정책 등록·수정' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
       { path: 'policies/history', name: 'adminPolicyHistory', meta: { title: '정책 변경 이력·검수' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'members', name: 'adminMembers', meta: { title: '회원 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'members/filter', name: 'adminMemberFilter', meta: { title: '회원 관리 · 필터' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'members/:memberId', name: 'adminMemberDetail', meta: { title: '회원 상세 · 상태 변경' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'members', name: 'adminMembers', component: () => import('@/features/admin/pages/AdminMemberListPage.vue') },
+      { path: 'members/:memberId', name: 'adminMemberDetail', component: () => import('@/features/admin/pages/AdminMemberDetailPage.vue') },
       { path: 'level', name: 'adminLevel', meta: { title: '경험치 및 버티 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
     ],
   },
@@ -136,6 +135,8 @@ router.afterEach((to) => {
     withdraw: '회원 탈퇴',
     onboarding: '시작하기',
     adminDashboard: '관리자 대시보드',
+    adminMembers: '회원 관리',
+    adminMemberDetail: '회원 상세 · 상태 변경',
   }
   document.title = `${titles[to.name] || to.meta.title || 'Buttie'} | Buttie`
 })
