@@ -68,7 +68,7 @@ const routes = [
       { path: 'policies/history', name: 'adminPolicyHistory', component: () => import('@/features/admin/pages/AdminPolicyHistoryPage.vue') },
       { path: 'members', name: 'adminMembers', component: () => import('@/features/admin/pages/AdminMemberListPage.vue') },
       { path: 'members/:memberId', name: 'adminMemberDetail', component: () => import('@/features/admin/pages/AdminMemberDetailPage.vue') },
-      { path: 'level', name: 'adminLevel', meta: { title: '경험치 및 버티 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'level', name: 'adminLevel', component: () => import('@/features/admin/pages/AdminLevelPage.vue') },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
@@ -137,6 +137,7 @@ router.afterEach((to) => {
     adminPolicyCreate: '정책 등록·수정',
     adminPolicyEdit: '정책 등록·수정',
     adminPolicyHistory: '정책 변경 이력·검수',
+    adminLevel: '경험치 및 버티 관리',
   }
   document.title = `${titles[to.name] || to.meta.title || 'Buttie'} | Buttie`
 })
