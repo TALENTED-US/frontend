@@ -17,15 +17,17 @@ import AdminSidebar from '@/features/admin/components/AdminSidebar.vue'
 
 <style scoped>
 .admin-shell {
-  width: min(100%, 1440px);
+  display: flex;
+  width: 1440px;
+  min-width: 1440px;
   min-height: 100dvh;
-  margin: 0 auto;
   background: var(--background);
 }
 
 .admin-shell__body {
+  flex: 1;
+  min-width: 0;
   min-height: 100dvh;
-  margin-left: var(--admin-sidebar-width);
 }
 
 .admin-shell__content {
