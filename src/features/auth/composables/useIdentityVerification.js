@@ -1,13 +1,11 @@
 import { ref, unref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { verifyIdentityApi } from '@/api/auth'
 import {
   clearPendingIdentityVerification,
   readIdentityVerificationRedirect,
   requestIdentityVerification,
 } from '@/features/auth/services/identityVerification'
-
-const SERVER_VERIFICATION_PENDING_MESSAGE =
-  '본인인증 요청이 완료되었습니다. 서버 확인 API가 연결되면 다음 단계로 진행할 수 있습니다.'
 
 export function useIdentityVerification(purpose) {
   const route = useRoute()
@@ -19,10 +17,22 @@ export function useIdentityVerification(purpose) {
 
   const currentPurpose = () => unref(purpose)
 
-  function markPortOneCompleted(verification) {
-    completedVerification.value = verification
+  async function confirmIdentityVerification(verification) {
+    const verificationResult = await verifyIdentityApi(verification.identityVerificationId)
+    const completed = {
+      ...verification,
+      identityVerificationToken: verificationResult?.token || '',
+      verifiedCustomer: verificationResult?.verifiedCustomer || null,
+    }
+
+    if (!completed.identityVerificationToken) {
+      throw new Error('본인인증 확인 토큰을 받지 못했습니다. 다시 시도해 주세요.')
+    }
+
+    completedVerification.value = completed
     verificationError.value = ''
-    verificationNotice.value = SERVER_VERIFICATION_PENDING_MESSAGE
+    verificationNotice.value = '본인인증이 완료되었습니다.'
+    return completed
   }
 
   async function startIdentityVerification(context = {}) {
@@ -40,7 +50,9 @@ export function useIdentityVerification(purpose) {
         context,
       })
 
-      if (!result.redirected) markPortOneCompleted(result.verification)
+      if (!result.redirected) {
+        result.verification = await confirmIdentityVerification(result.verification)
+      }
       return result
     } catch (error) {
       verificationError.value = error.message
@@ -58,8 +70,7 @@ export function useIdentityVerification(purpose) {
 
     try {
       const verification = readIdentityVerificationRedirect(route.query, currentPurpose())
-      if (verification) markPortOneCompleted(verification)
-      return verification
+      return verification ? await confirmIdentityVerification(verification) : null
     } catch (error) {
       verificationError.value = error.message
       return null
