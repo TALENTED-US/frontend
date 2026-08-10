@@ -120,11 +120,9 @@ watch(
   { deep: true },
 )
 watch(twoFactorEnabled, (value) => localStorage.setItem('buttie-two-factor', String(value)))
-watch(
-  accounts,
-  (value) => localStorage.setItem('buttie-linked-accounts', JSON.stringify(value)),
-  { deep: true },
-)
+watch(accounts, (value) => localStorage.setItem('buttie-linked-accounts', JSON.stringify(value)), {
+  deep: true,
+})
 
 function startNicknameEdit() {
   nicknameDraft.value = session.displayName
@@ -201,14 +199,14 @@ function verifyWithdrawalPassword() {
   withdrawVerified.value = true
 }
 
-function withdrawAccount() {
+async function withdrawAccount() {
   if (!withdrawVerified.value) return
-  session.logout()
+  await session.logout()
   router.replace('/auth/login')
 }
 
-function logout() {
-  session.logout()
+async function logout() {
+  await session.logout()
   router.replace('/auth/login')
 }
 
@@ -289,7 +287,9 @@ function clearMockData() {
       </div>
 
       <article class="form-card readonly-card">
-        <p class="info-note">✓ 이름·생년월일·휴대폰 번호·이메일은 본인인증 정보로 변경할 수 없어요.</p>
+        <p class="info-note">
+          ✓ 이름·생년월일·휴대폰 번호·이메일은 본인인증 정보로 변경할 수 없어요.
+        </p>
         <label><span>이름</span><input v-model="form.name" disabled /></label>
         <label><span>생년월일</span><input v-model="form.birth" disabled /></label>
       </article>
@@ -330,8 +330,12 @@ function clearMockData() {
             </button>
           </div>
         </fieldset>
-        <label><span>준비 시작일</span><input v-model="form.start" type="date" :max="form.goal" /></label>
-        <label><span>목표 취업일</span><input v-model="form.goal" type="date" :min="form.start" /></label>
+        <label
+          ><span>준비 시작일</span><input v-model="form.start" type="date" :max="form.goal"
+        /></label>
+        <label
+          ><span>목표 취업일</span><input v-model="form.goal" type="date" :min="form.start"
+        /></label>
         <label>
           <span>거주지</span>
           <select v-model="form.region">
@@ -340,13 +344,7 @@ function clearMockData() {
         </label>
         <label>
           <span>세대원 수</span>
-          <input
-            v-model.number="form.family"
-            type="number"
-            min="1"
-            max="99"
-            inputmode="numeric"
-          />
+          <input v-model.number="form.family" type="number" min="1" max="99" inputmode="numeric" />
         </label>
         <p v-if="profileMessage" class="save-message" aria-live="polite">{{ profileMessage }}</p>
         <button class="primary-action" type="button" @click="saveJobProfile">저장하기</button>
@@ -453,8 +451,8 @@ function clearMockData() {
         <small>일부 정보는 법령상 보관 기준에 따라 처리돼요.</small>
       </article>
       <label class="withdraw-password"
-        ><span>비밀번호를 다시 입력해주세요</span
-        ><div class="withdraw-password__row">
+        ><span>비밀번호를 다시 입력해주세요</span>
+        <div class="withdraw-password__row">
           <input
             v-model="form.password"
             type="password"

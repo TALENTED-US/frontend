@@ -18,9 +18,10 @@ import AdminSidebar from '@/features/admin/components/AdminSidebar.vue'
 <style scoped>
 .admin-shell {
   display: flex;
+  width: 1440px;
   min-width: 1440px;
   min-height: 100dvh;
-  background: #ffffff;
+  background: var(--background);
 }
 
 .admin-shell__body {

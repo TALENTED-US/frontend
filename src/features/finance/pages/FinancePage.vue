@@ -1,10 +1,13 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { getTransactionDetailApi } from '@/api/transactions'
 import {
   addTransaction,
   deleteTransaction,
+  financeState,
   financeTransactions,
+  loadTransactions,
   updateTransaction,
 } from '@/features/finance/financeStore'
 import SimulationTimelineChart from '@/features/simulation/components/SimulationTimelineChart.vue'
@@ -33,6 +36,8 @@ const selectedDate = ref(todayIso)
 const panel = ref('')
 const editingId = ref(null)
 const selectedTransaction = ref(null)
+const actionError = ref('')
+const isSaving = ref(false)
 const form = reactive({
   type: 'expense',
   amount: '',
@@ -205,6 +210,7 @@ function openDate(iso) {
   panel.value = 'day'
 }
 function openAdd() {
+  actionError.value = ''
   selectedTransaction.value = null
   editingId.value = null
   Object.assign(form, {
@@ -217,12 +223,36 @@ function openAdd() {
   })
   panel.value = 'form'
 }
-function openDetail(row) {
+async function openDetail(row) {
   selectedTransaction.value = row
   editingId.value = null
+  actionError.value = ''
   panel.value = 'detail'
+  const transactionId = String(row.apiId || row.id || '')
+  // 현재 목록 API는 암호화 ID를 반환하지만 상세 API는 숫자 ID를 요구합니다.
+  // 숫자 ID가 없을 때는 불필요한 400 요청 대신 목록 응답으로 상세를 표시합니다.
+  if (!/^\d+$/.test(transactionId)) return
+  try {
+    const detail = await getTransactionDetailApi(transactionId)
+    const [date = row.date, rawTime = row.time] = String(detail?.transactionAt || '').split('T')
+    selectedTransaction.value = {
+      ...row,
+      date,
+      time: rawTime ? rawTime.slice(0, 5) : row.time,
+      title: detail?.transactionContent || row.title,
+      memo: detail?.transactionMemo || row.memo,
+      amount:
+        detail?.transactionAmount == null
+          ? row.amount
+          : Math.abs(Number(detail.transactionAmount)) * (row.amount > 0 ? 1 : -1),
+    }
+  } catch (error) {
+    // 현재 목록 API의 암호화 ID와 상세 API의 숫자 ID 규격이 달라 목록 응답을 상세에 사용합니다.
+    if (error.status !== 400) actionError.value = error.message
+  }
 }
 function openEdit(row) {
+  actionError.value = ''
   editingId.value = row.id
   Object.assign(form, {
     type: row.amount > 0 ? 'income' : 'expense',
@@ -235,9 +265,18 @@ function openEdit(row) {
   panel.value = 'form'
 }
 function editSelectedTransaction() {
-  if (selectedTransaction.value) openEdit(selectedTransaction.value)
+  if (!selectedTransaction.value) return
+  const transactionId = String(
+    selectedTransaction.value.apiId || selectedTransaction.value.id || '',
+  )
+  if (!/^\d+$/.test(transactionId)) {
+    actionError.value =
+      '현재 서버에서 이 거래의 수정용 식별자를 제공하지 않아 수정할 수 없습니다.'
+    return
+  }
+  openEdit(selectedTransaction.value)
 }
-function save() {
+async function save() {
   if (!Number(form.amount) || !form.date) return
   const payload = {
     date: form.date,
@@ -248,13 +287,30 @@ function save() {
     memo: form.memo,
     amount: Math.abs(Number(form.amount)) * (form.type === 'income' ? 1 : -1),
   }
-  if (editingId.value) updateTransaction(editingId.value, payload)
-  else addTransaction(payload)
-  panel.value = ''
+  actionError.value = ''
+  isSaving.value = true
+  try {
+    if (editingId.value) await updateTransaction(editingId.value, payload)
+    else await addTransaction(payload)
+    panel.value = ''
+  } catch (error) {
+    actionError.value = error.message || '거래를 저장하지 못했습니다.'
+  } finally {
+    isSaving.value = false
+  }
 }
-function remove() {
-  if (editingId.value) deleteTransaction(editingId.value)
-  panel.value = ''
+async function remove() {
+  if (!editingId.value || isSaving.value) return
+  actionError.value = ''
+  isSaving.value = true
+  try {
+    await deleteTransaction(editingId.value)
+    panel.value = ''
+  } catch (error) {
+    actionError.value = error.message || '거래를 삭제하지 못했습니다.'
+  } finally {
+    isSaving.value = false
+  }
 }
 function dayLabel(value) {
   if (!value) return ''
@@ -270,6 +326,12 @@ function detailDateLabel(row) {
   const [year, monthNumber, day] = row.date.split('-')
   return `${year}년 ${Number(monthNumber)}월 ${Number(day)}일 ${row.time || ''}`.trim()
 }
+
+onMounted(async () => {
+  try {
+    await loadTransactions()
+  } catch {}
+})
 </script>
 
 <template>
@@ -295,6 +357,13 @@ function detailDateLabel(row) {
         <small>수입 − 지출</small>
       </article>
     </div>
+    <p v-if="financeState.loading && !financeState.loaded" class="finance-state">
+      거래 내역을 불러오는 중이에요.
+    </p>
+    <p v-else-if="financeState.error" class="finance-state finance-state--error">
+      {{ financeState.error }}
+      <button type="button" @click="loadTransactions(true)">다시 시도</button>
+    </p>
     <div class="desktop-add-row">
       <button class="add-btn" @click="openAdd">＋ 거래 추가</button>
     </div>
@@ -488,6 +557,7 @@ function detailDateLabel(row) {
     <div v-if="panel" class="overlay" @click.self="panel = ''">
       <aside class="sheet">
         <button class="close" @click="panel = ''">×</button>
+        <p v-if="actionError" class="sheet-error">{{ actionError }}</p>
         <template v-if="panel === 'day'">
           <h2>{{ dayLabel(selectedDate) }}</h2>
           <div class="day-total">
@@ -557,7 +627,7 @@ function detailDateLabel(row) {
               <strong>지출</strong>
             </button>
           </div>
-          <button v-if="editingId" class="delete" @click="remove">삭제</button>
+          <button v-if="editingId" class="delete" :disabled="isSaving" @click="remove">삭제</button>
           <label
             >금액<input v-model="formattedAmount" type="text" inputmode="numeric" /><span>원</span></label
           >
@@ -575,9 +645,15 @@ function detailDateLabel(row) {
             >거래일<input v-model="formattedDate" type="text" inputmode="numeric"
           /></label>
           <label>메모<input v-model="form.memo" placeholder="메모 (선택)" /></label>
-          <button class="save" @click="save">
+          <button class="save" :disabled="isSaving" @click="save">
             <strong>{{
-              editingId ? '변경사항 저장' : form.type === 'income' ? '수입 저장' : '지출 저장'
+              isSaving
+                ? '저장 중...'
+                : editingId
+                  ? '변경사항 저장'
+                  : form.type === 'income'
+                    ? '수입 저장'
+                    : '지출 저장'
             }}</strong>
           </button>
         </template>
@@ -588,9 +664,9 @@ function detailDateLabel(row) {
 
 <style scoped>
 .finance {
-  width: calc(100% + 15px);
+  width: 100%;
   max-width: 1066px;
-  margin: 0;
+  margin: 0 auto;
   padding-top: 59px;
   color: #222;
   font-weight: 400;
@@ -611,6 +687,26 @@ function detailDateLabel(row) {
   margin: 7px 0 0;
   color: #666;
   font-size: 13px;
+}
+.finance-state {
+  margin: 10px 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f4f6fb;
+  color: #566074;
+  font-size: 13px;
+}
+.finance-state--error {
+  background: #fff1f1;
+  color: #d04444;
+}
+.finance-state button {
+  margin-left: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 800;
+  text-decoration: underline;
 }
 .mobile-toolbar {
   display: none;
@@ -1273,20 +1369,25 @@ button {
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
   background: #17171766;
+  box-sizing: border-box;
 }
 .sheet {
-  position: absolute;
-  right: max(0px, calc((100vw - 1440px) / 2));
-  top: 0;
-  width: 420px;
-  height: 100%;
+  position: relative;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 48px);
   padding: 34px 28px;
+  border: 1px solid #e4e7ed;
+  border-radius: 20px;
   background: #fcfdff;
   overflow: auto;
   box-sizing: border-box;
   font-family: 'Pretendard', sans-serif;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 22%);
 }
 .close {
   position: absolute;
@@ -1306,6 +1407,15 @@ button {
   font-size: 24px;
   font-weight: 700;
   line-height: 1.3;
+}
+.sheet-error {
+  margin: 0 32px 14px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff1f1;
+  color: #d04444;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .day-total {
   display: flex;
@@ -1767,24 +1877,13 @@ button {
     height: 175px !important;
   }
   .sheet {
-    top: auto;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: min(70vh, 760px);
-    padding: 38px 22px 24px;
-    border-radius: 20px 20px 0 0;
+    width: min(100%, 440px);
+    max-height: calc(100vh - 32px);
+    padding: 34px 22px 24px;
+    border-radius: 20px;
   }
-  .sheet:before {
-    content: '';
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    width: 62px;
-    height: 5px;
-    border-radius: 5px;
-    background: #ccc;
-    transform: translateX(-50%);
+  .overlay {
+    padding: 16px;
   }
   .sheet h2 {
     margin: 10px 0 26px;

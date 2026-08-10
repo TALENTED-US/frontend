@@ -18,8 +18,9 @@ const titles = {
   dashboard: '홈',
   finance: '내 재정',
   simulation: '시뮬레이션',
+  simulationEdit: '시뮬레이션 수정하기',
   simulationCategory: '시뮬레이션',
-  simulationNew: '예상 재정 계획 만들기',
+  simulationNew: '시뮬레이션 시작하기',
   simulationContinue: '시뮬레이션',
   simulationPreview: '예상 재정 계획 만들기',
   simulationConfirm: '시나리오 확정하기',
@@ -39,7 +40,22 @@ const titles = {
 }
 const title = computed(() => titles[route.name] || '버티')
 const isMyPageDetail = computed(() => route.path.startsWith('/mypage/'))
-const mobileTitle = computed(() => (isMyPageDetail.value ? '마이페이지' : title.value))
+const isSimulationStart = computed(() => route.name === 'simulationNew')
+const isSimulationEdit = computed(() => route.name === 'simulationEdit')
+const isSimulationContinue = computed(() => route.name === 'simulationContinue')
+const isSimulationCategory = computed(() => route.name === 'simulationCategory')
+const isSimulationPreview = computed(() => route.name === 'simulationCategoryPreview')
+const hasMobileBack = computed(
+  () => isMyPageDetail.value || isSimulationStart.value || isSimulationEdit.value || isSimulationContinue.value || isSimulationCategory.value || isSimulationPreview.value,
+)
+const mobileTitle = computed(() => {
+  if (isMyPageDetail.value) return '마이페이지'
+  if (isSimulationPreview.value) return '미리보기'
+  if (isSimulationCategory.value) {
+    return { expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 맞춤 추천' }[route.params.category] || '시뮬레이션'
+  }
+  return title.value
+})
 const isFinanceMain = computed(() => route.name === 'finance')
 
 function toggle(name) {
@@ -49,6 +65,22 @@ function toggle(name) {
 function goBackFromMyPageDetail() {
   const securityRoutes = ['passwordVerification', 'passwordChange']
   router.push(securityRoutes.includes(route.name) ? '/mypage/security' : '/mypage')
+}
+
+function goBack() {
+  if (isSimulationStart.value) router.push('/simulation')
+  else if (isSimulationEdit.value) router.push('/simulation')
+  else if (isSimulationContinue.value) router.push('/')
+  else if (isSimulationPreview.value) router.push(`/simulation/${route.params.category}`)
+  else if (isSimulationCategory.value) {
+    const previousPath = {
+      expense: '/simulation/new',
+      income: '/simulation/expense/preview',
+      policy: '/simulation/income/preview',
+    }[route.params.category]
+    router.push(previousPath || '/simulation')
+  }
+  else goBackFromMyPageDetail()
 }
 
 function openNotification(item) {
@@ -73,11 +105,11 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
 <template>
   <header :class="['app-header', { 'app-header--finance': isFinanceMain }]">
     <button
-      v-if="isMyPageDetail"
+      v-if="hasMobileBack"
       class="app-header__back mobile-only"
       type="button"
-      aria-label="마이페이지로 돌아가기"
-      @click="goBackFromMyPageDetail"
+      :aria-label="isSimulationStart || isSimulationEdit || isSimulationContinue ? '시뮬레이션에서 나가기' : isSimulationCategory || isSimulationPreview ? '이전 시뮬레이션 단계로 돌아가기' : '마이페이지로 돌아가기'"
+      @click="goBack"
     >
       ‹
     </button>
@@ -303,7 +335,7 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
     backdrop-filter: blur(10px);
   }
   .app-header__title {
-    color: var(--primary);
+    color: var(--text);
     font-size: var(--font-body);
     font-weight: 900;
   }

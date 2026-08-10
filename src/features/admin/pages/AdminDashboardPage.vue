@@ -57,20 +57,22 @@ onMounted(loadStats)
     </header>
 
     <form class="admin-dashboard__range" @submit.prevent>
-      <h2 class="admin-dashboard__range-title">조회 기간</h2>
       <div class="admin-dashboard__range-box">
-        <div class="admin-dashboard__presets">
-          <button type="button" @click="applyPreset('all')">전체 기간</button>
-          <button type="button" @click="applyPreset('year')">올해</button>
-          <button type="button" @click="applyPreset('month')">이번달</button>
-        </div>
+        <h2 class="admin-dashboard__range-title">조회 기간</h2>
         <div class="admin-dashboard__range-inputs">
           <input v-model="fromDate" type="date" />
           <span class="admin-dashboard__range-sep">~</span>
           <input v-model="toDate" type="date" />
         </div>
-        <button type="button" class="admin-dashboard__reset" @click="applyPreset('all')">초기화</button>
-        <button type="button" class="admin-dashboard__apply" @click="loadStats">적용</button>
+        <div class="admin-dashboard__presets">
+          <button type="button" @click="applyPreset('all')">전체 기간</button>
+          <button type="button" @click="applyPreset('year')">올해</button>
+          <button type="button" @click="applyPreset('month')">이번달</button>
+        </div>
+        <button type="button" class="admin-dashboard__reset" @click="applyPreset('all')">
+          초기화
+        </button>
+        <button type="button" class="admin-dashboard__apply" @click="loadStats">조회</button>
       </div>
     </form>
 
@@ -88,51 +90,56 @@ onMounted(loadStats)
               <p v-if="metric.note" class="admin-card__note">{{ metric.note }}</p>
             </div>
             <p class="admin-card__value" :style="{ color: metric.color }">{{ metric.value }}</p>
-            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">{{ caption }}</p>
+            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">
+              {{ caption }}
+            </p>
           </article>
         </div>
       </div>
 
-      <div class="admin-dashboard__panels">
-        <article class="admin-card admin-card--trend">
-          <h2>전체 회원·마이데이터 연결·시뮬레이션 생성·계획 확정 추이</h2>
-          <ul class="admin-dashboard__legend">
-            <li v-for="line in stats.trend.series" :key="line.key">
-              <i :style="{ background: line.color }" />{{ line.label }}
-            </li>
-          </ul>
-          <AdminTrendChart :labels="stats.trend.labels" :series="stats.trend.series" />
-        </article>
+       <div class="admin-dashboard__metric-rows">
+        <div class="admin-dashboard__metrics admin-dashboard__metrics--pair">
+          <article
+            v-for="metric in stats.questMetricRow"
+            :key="metric.key"
+            class="admin-card"
+          >
+            <div class="admin-card__head">
+              <p class="admin-card__label">{{ metric.label }}</p>
+              <p v-if="metric.note" class="admin-card__note">{{ metric.note }}</p>
+            </div>
 
-        <article class="admin-card admin-card--logs">
-          <h2>최근 운영 현황</h2>
-          <ul class="admin-dashboard__logs">
-            <li v-for="log in stats.operationLogs" :key="log.id">
-              <div class="admin-dashboard__log-row">
-                <div class="admin-dashboard__log-main">
-                  <p>{{ log.title }}</p>
-                  <small v-if="log.reason">{{ log.reason }}</small>
-                </div>
-                <span :class="['admin-badge', `admin-badge--${log.status}`]">
-                  {{ log.status === 'success' ? '성공' : '실패' }}
-                </span>
-                <time>{{ log.time }}</time>
-              </div>
-              <button
-                v-if="log.retryable"
-                type="button"
-                class="admin-dashboard__retry"
-                :disabled="log.retrying"
-                @click="retryLog(log)"
-              >
-                재실행
-              </button>
-            </li>
-          </ul>
-          <RouterLink to="/admin/finance-data/history" class="admin-dashboard__all-logs">
-            전체 운영 로그 보기 →
-          </RouterLink>
-        </article>
+            <p
+              class="admin-card__value"
+              :style="{ color: metric.color }"
+            >
+              {{ metric.value }}
+            </p>
+
+            <p
+              v-for="(caption, idx) in metric.captions"
+              :key="idx"
+              class="admin-card__caption"
+            >
+              {{ caption }}
+            </p>
+          </article>
+        </div>
+      </div>
+
+      <div class="admin-dashboard__metric-rows">
+        <div class="admin-dashboard__metrics admin-dashboard__metrics--pair">
+          <article v-for="metric in stats.questMetricRow" :key="metric.key" class="admin-card">
+            <div class="admin-card__head">
+              <p class="admin-card__label">{{ metric.label }}</p>
+              <p v-if="metric.note" class="admin-card__note">{{ metric.note }}</p>
+            </div>
+            <p class="admin-card__value" :style="{ color: metric.color }">{{ metric.value }}</p>
+            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">
+              {{ caption }}
+            </p>
+          </article>
+        </div>
       </div>
 
       <div class="admin-dashboard__metric-rows">
@@ -152,6 +159,17 @@ onMounted(loadStats)
 </template>
 
 <style scoped>
+.admin-dashboard {
+  font-family: 'Pretendard', sans-serif;
+}
+
+.admin-dashboard button,
+.admin-dashboard input,
+.admin-dashboard select,
+.admin-dashboard textarea {
+  font-family: inherit;
+}
+
 .admin-dashboard__header h1 {
   color: #222222;
   font-size: var(--font-page-title);
@@ -169,24 +187,30 @@ onMounted(loadStats)
   align-items: center;
   gap: 12px;
   margin-top: 24px;
+  overflow-x: auto;
 }
 
 .admin-dashboard__range-title {
-  color: #222222;
-  font-size: var(--font-card-title);
-  font-weight: 800;
+  color: #333333;
+  font-size: 15px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
 .admin-dashboard__range-box {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
-  padding: 16px 24px;
-  border: 1px solid #e1e1e1;
-  border-radius: var(--radius-md);
-  background: var(--surface);
+  min-width: 760px;
+  padding: 14px 20px;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.admin-dashboard__range-box > * {
+  flex-shrink: 0;
 }
 
 .admin-dashboard__range-inputs {
@@ -196,15 +220,16 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__range input {
-  padding: 8px 12px;
+  width: 148px;
+  padding: 10px 14px;
   border: 1px solid #e1e1e1;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   color: #222222;
-  font-size: var(--font-small);
+  font-size: 14px;
 }
 
 .admin-dashboard__range-sep {
-  color: #666666;
+  color: #999999;
 }
 
 .admin-dashboard__presets {
@@ -213,40 +238,39 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__presets button {
-  padding: 8px 14px;
-  border: 1px solid #e1e1e1;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: #666666;
-  font-size: var(--font-small);
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #fbedb0;
+  color: #4a4a4a;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .admin-dashboard__presets button:hover {
-  color: #222222;
-  background: var(--canvas);
+  background: #f5e29a;
 }
 
 .admin-dashboard__reset {
   margin-left: auto;
-  padding: 10px 16px;
+  padding: 10px 12px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: none;
-  color: #666666;
-  font-size: var(--font-small);
-  font-weight: 700;
+  color: #999999;
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .admin-dashboard__apply {
-  padding: 10px 20px;
+  padding: 12px 32px;
   border: 0;
-  border-radius: var(--radius-sm);
-  background: #f1b94c;
-  color: #222222;
-  font-size: var(--font-small);
+  border-radius: 12px;
+  background: #fcb01d;
+  color: #1a1a1a;
+  font-size: 14px;
   font-weight: 700 !important;
   white-space: nowrap;
 }
@@ -255,6 +279,54 @@ onMounted(loadStats)
   display: grid;
   gap: 16px;
   margin-top: 24px;
+  overflow-x: auto;
+}
+
+.admin-dashboard__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  min-width: 900px;
+}
+
+.admin-dashboard__metrics--pair {
+  grid-template-columns: repeat(2, 1fr);
+  min-width: 600px;
+}
+
+.admin-dashboard__metrics .admin-card {
+  padding: 14px 16px;
+}
+
+.admin-dashboard__metrics .admin-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-dashboard__metrics .admin-card__label {
+  color: #222222;
+  font-size: calc(var(--font-caption) + 1px);
+  font-weight: 600;
+}
+
+.admin-dashboard__metrics .admin-card__note {
+  flex-shrink: 0;
+  max-width: 55%;
+  color: #999999;
+  font-size: 11px;
+  text-align: right;
+}
+
+.admin-dashboard__metrics .admin-card__value {
+  margin-top: 6px;
+  font-size: 21px;
+}
+
+.admin-dashboard__metrics .admin-card__caption {
+  margin-top: 4px;
+  font-size: 12px;
 }
 
 .admin-dashboard__metrics {
@@ -327,17 +399,22 @@ onMounted(loadStats)
   font-size: var(--font-caption);
 }
 
+.admin-dashboard__panels-wrap {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
 .admin-dashboard__panels {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 16px;
-  margin-top: 16px;
+  min-width: 960px;
 }
 
 .admin-card--trend h2,
 .admin-card--logs h2 {
   color: #222222;
-  font-size: var(--font-card-title);
+  font-size: calc(var(--font-card-title) + 1px);
   font-weight: 800;
 }
 
@@ -392,17 +469,22 @@ onMounted(loadStats)
 
 .admin-dashboard__log-main p {
   color: #222222;
-  font-size: var(--font-small);
+  font-size: calc(var(--font-small) + 1px);
 }
 
 .admin-dashboard__log-main small {
   color: #999999;
+  font-size: calc(var(--font-caption) + 1px);
+}
+
+.admin-dashboard__log-row time {
+  font-size: calc(var(--font-caption) + 1px);
 }
 
 .admin-badge {
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-align: center;
 }
@@ -418,15 +500,20 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__retry {
-  display: block;
-  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
   margin-left: auto;
-  padding: 4px 10px;
+  width: 88px;
+  height: 32px;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #93b2f8;
   color: #222222;
-  font-size: 11px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -438,25 +525,8 @@ onMounted(loadStats)
   display: block;
   margin-top: 14px;
   color: #666666;
-  font-size: var(--font-caption);
+  font-size: calc(var(--font-caption) + 1px);
   font-weight: 700;
   text-align: center;
-}
-
-@media (max-width: 1100px) {
-  .admin-dashboard__metrics:not(.admin-dashboard__metrics--pair) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .admin-dashboard__panels {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .admin-dashboard__metrics,
-  .admin-dashboard__metrics--pair {
-    grid-template-columns: 1fr;
-  }
 }
 </style>
