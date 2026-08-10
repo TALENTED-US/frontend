@@ -1,16 +1,31 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  checkEmailDuplicateApi,
+  checkNicknameDuplicateApi,
+  createUserConsentApi,
+  findEmailApi,
+  signupApi,
+} from '@/api/auth'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
 import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
+import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
+const session = useSessionStore()
 
 const step = ref(1)
 const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
 const verifiedUser = ref(null)
+const identityVerificationToken = ref('')
+const isSubmitting = ref(false)
+const isSignupCompleted = ref(false)
+const createdUserId = ref('')
+const submissionError = ref('')
+const isChecking = reactive({ email: false, nickname: false })
 const {
   isVerifying,
   verificationError,
@@ -71,11 +86,40 @@ const requiredAgreed = computed(() => {
 })
 
 onMounted(async () => {
-  await restoreIdentityVerificationRedirect()
+  const verification = await restoreIdentityVerificationRedirect()
+  await completeVerificationStep(verification)
 })
 
 async function startVerification() {
-  await startIdentityVerification()
+  const result = await startIdentityVerification()
+  await completeVerificationStep(result?.verification)
+}
+
+async function completeVerificationStep(verification) {
+  if (!verification?.identityVerificationToken) return
+
+  try {
+    await findEmailApi(verification.identityVerificationToken)
+    resetIdentityVerification()
+    verificationError.value =
+      '이미 가입된 전화번호입니다.\n로그인 또는 아이디 찾기를 이용해 주세요.'
+    return
+  } catch (error) {
+    if (error.code !== 'AUTH_401') {
+      resetIdentityVerification()
+      verificationError.value = error.message
+      return
+    }
+  }
+
+  identityVerificationToken.value = verification.identityVerificationToken
+  const customer = verification.verifiedCustomer || {}
+  verifiedUser.value = {
+    name: customer.name || '',
+    birthDate: customer.birthDate || '',
+    phone: customer.phoneNumber || '',
+  }
+  step.value = 2
 }
 
 function goBack() {
@@ -99,7 +143,7 @@ function clearPasswordErrors() {
   errors.confirm = ''
 }
 
-function checkEmail() {
+async function checkEmail() {
   duplicateChecked.email = false
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
@@ -107,16 +151,21 @@ function checkEmail() {
     return
   }
 
-  if (form.email.toLowerCase() === 'used@buttie.kr') {
-    errors.email = '이미 사용 중인 이메일입니다.'
-    return
+  isChecking.email = true
+  try {
+    const result = await checkEmailDuplicateApi(form.email.trim().toLowerCase())
+    duplicateChecked.email = !result?.isDuplicate
+    errors.email = result?.isDuplicate
+      ? '이미 사용 중인 이메일입니다.'
+      : '사용 가능한 이메일입니다.'
+  } catch (error) {
+    errors.email = error.message
+  } finally {
+    isChecking.email = false
   }
-
-  duplicateChecked.email = true
-  errors.email = '사용 가능한 이메일입니다.'
 }
 
-function checkNickname() {
+async function checkNickname() {
   duplicateChecked.nickname = false
 
   if (!/^[가-힣A-Za-z0-9]{2,10}$/.test(form.nickname)) {
@@ -124,13 +173,18 @@ function checkNickname() {
     return
   }
 
-  if (form.nickname === '버티') {
-    errors.nickname = '이미 사용 중인 닉네임입니다.'
-    return
+  isChecking.nickname = true
+  try {
+    const result = await checkNicknameDuplicateApi(form.nickname.trim())
+    duplicateChecked.nickname = !result?.isDuplicate
+    errors.nickname = result?.isDuplicate
+      ? '이미 사용 중인 닉네임입니다.'
+      : '사용 가능한 닉네임입니다.'
+  } catch (error) {
+    errors.nickname = error.message
+  } finally {
+    isChecking.nickname = false
   }
-
-  duplicateChecked.nickname = true
-  errors.nickname = '사용 가능한 닉네임입니다.'
 }
 
 function validateAccount() {
@@ -166,9 +220,50 @@ function showTerms(label) {
   window.alert(label + ' 약관 내용은 준비 중입니다.')
 }
 
-function completeSignup() {
-  if (requiredAgreed.value) {
+async function completeSignup() {
+  if (!requiredAgreed.value || isSubmitting.value) return
+
+  if (!identityVerificationToken.value) {
+    submissionError.value = '본인인증 정보가 없습니다. 처음 단계부터 다시 진행해 주세요.'
+    return
+  }
+
+  isSubmitting.value = true
+  submissionError.value = ''
+  try {
+    if (!isSignupCompleted.value) {
+      const signupResult = await signupApi(
+        {
+          userEmail: form.email.trim().toLowerCase(),
+          userPassword: form.password,
+          userPasswordCheck: form.confirm,
+          userNickname: form.nickname.trim(),
+        },
+        identityVerificationToken.value,
+      )
+      if (!signupResult?.userId) {
+        throw new Error('회원가입 응답에서 사용자 ID를 확인하지 못했습니다.')
+      }
+      createdUserId.value = signupResult.userId
+      isSignupCompleted.value = true
+      resetIdentityVerification()
+    }
+
+    const loginResult = await session.authenticate(form.email, form.password)
+    if (!loginResult.ok) {
+      submissionError.value =
+        '회원가입은 완료되었지만 자동 로그인에 실패했습니다. 동의 저장을 다시 시도해 주세요.'
+      return
+    }
+
+    await createUserConsentApi(createdUserId.value)
     router.push('/onboarding')
+  } catch (error) {
+    submissionError.value = isSignupCompleted.value
+      ? `회원가입은 완료되었지만 동의 저장에 실패했습니다. ${error.message}`
+      : error.message
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -252,8 +347,13 @@ function completeSignup() {
                 placeholder="hello@email.com"
                 @input="invalidate('email')"
               />
-              <button type="button" class="check-button" @click="checkEmail">
-                <strong>중복확인</strong>
+              <button
+                type="button"
+                class="check-button"
+                :disabled="isChecking.email"
+                @click="checkEmail"
+              >
+                <strong>{{ isChecking.email ? '확인 중...' : '중복확인' }}</strong>
               </button>
             </div>
             <p
@@ -336,8 +436,13 @@ function completeSignup() {
                 placeholder="2~10자"
                 @input="invalidate('nickname')"
               />
-              <button type="button" class="check-button" @click="checkNickname">
-                <strong>중복확인</strong>
+              <button
+                type="button"
+                class="check-button"
+                :disabled="isChecking.nickname"
+                @click="checkNickname"
+              >
+                <strong>{{ isChecking.nickname ? '확인 중...' : '중복확인' }}</strong>
               </button>
             </div>
             <p
@@ -374,11 +479,20 @@ function completeSignup() {
         <button
           type="button"
           class="primary-button"
-          :disabled="!requiredAgreed"
+          :disabled="!requiredAgreed || isSubmitting"
           @click="completeSignup"
         >
-          <strong>가입 완료</strong>
+          <strong>{{
+            isSubmitting
+              ? '가입 처리 중...'
+              : isSignupCompleted
+                ? '동의 저장 재시도'
+                : '가입 완료'
+          }}</strong>
         </button>
+        <p v-if="submissionError" class="verification-feedback error" role="alert">
+          {{ submissionError }}
+        </p>
       </section>
 
       <p class="already-member">
@@ -580,6 +694,7 @@ function completeSignup() {
 
 .verification-feedback.error {
   color: #e65353;
+  white-space: pre-line;
 }
 
 .verification-card span {

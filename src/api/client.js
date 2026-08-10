@@ -2,9 +2,10 @@ import axios from 'axios'
 
 const ACCESS_TOKEN_KEY = 'buttie-access-token'
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || '/backend'
-const normalizedBaseUrl = configuredBaseUrl.endsWith('/api') || configuredBaseUrl.endsWith('/api/')
-  ? `${configuredBaseUrl.replace(/\/+$/, '')}/`
-  : `${configuredBaseUrl.replace(/\/+$/, '')}/api/`
+const normalizedBaseUrl =
+  configuredBaseUrl.endsWith('/api') || configuredBaseUrl.endsWith('/api/')
+    ? `${configuredBaseUrl.replace(/\/+$/, '')}/`
+    : `${configuredBaseUrl.replace(/\/+$/, '')}/api/`
 
 let unauthorizedHandler = null
 let accessTokenReissueHandler = null
@@ -55,6 +56,21 @@ export function unwrapApiResponse(response) {
 }
 
 export function normalizeApiError(error) {
+  const response = error?.response
+  if (response) {
+    const body = response.data
+    const status = response.status || 0
+    return {
+      status,
+      code: body?.code || 'HTTP_ERROR',
+      message:
+        body?.message ||
+        (status >= 500
+          ? '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+          : '요청을 처리하지 못했습니다.'),
+    }
+  }
+
   if (error?.status || error?.code === 'API_ERROR') {
     return {
       status: error.status || 0,
@@ -62,15 +78,14 @@ export function normalizeApiError(error) {
       message: error.message || '요청을 처리하지 못했습니다.',
     }
   }
-  const body = error?.response?.data
+
   return {
-    status: error?.response?.status || 0,
-    code: body?.code || error?.code || 'NETWORK_ERROR',
+    status: 0,
+    code: error?.code || 'NETWORK_ERROR',
     message:
-      body?.message ||
-      (error?.code === 'ECONNABORTED'
+      error?.code === 'ECONNABORTED'
         ? '서버 응답 시간이 초과되었습니다.'
-        : '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'),
+        : '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   }
 }
 

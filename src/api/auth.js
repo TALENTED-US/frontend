@@ -21,13 +21,125 @@ export async function loginApi(userEmail, password) {
   }
 }
 
+const publicRequestConfig = {
+  skipAuthorization: true,
+  skipAuthRefresh: true,
+  skipUnauthorizedHandler: true,
+}
+
+function identityVerificationConfig(identityVerificationToken) {
+  return {
+    ...publicRequestConfig,
+    headers: {
+      'X-Identity-Verification-Token': identityVerificationToken,
+    },
+  }
+}
+
+export async function checkEmailDuplicateApi(email) {
+  try {
+    const response = await apiClient.get('auth/check-email', {
+      ...publicRequestConfig,
+      params: { email },
+    })
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
+export async function checkNicknameDuplicateApi(nickname) {
+  try {
+    const response = await apiClient.get('auth/check-nickname', {
+      ...publicRequestConfig,
+      params: { nickname },
+    })
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
+export async function verifyIdentityApi(identityVerificationId) {
+  try {
+    const response = await apiClient.post(
+      'auth/verify',
+      { identityVerificationId },
+      publicRequestConfig,
+    )
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
+export async function signupApi(
+  { userEmail, userPassword, userPasswordCheck, userNickname },
+  identityVerificationToken,
+) {
+  try {
+    const response = await apiClient.post(
+      'auth/signUp',
+      { userEmail, userPassword, userPasswordCheck, userNickname },
+      identityVerificationConfig(identityVerificationToken),
+    )
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
+export async function createUserConsentApi(userId) {
+  try {
+    const response = await apiClient.post(`auth/consent/${encodeURIComponent(userId)}`)
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
+export async function findEmailApi(identityVerificationToken) {
+  try {
+    const response = await apiClient.get(
+      'auth/email',
+      identityVerificationConfig(identityVerificationToken),
+    )
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
+export async function resetPasswordApi(
+  { userEmail, password, passwordCheck },
+  identityVerificationToken,
+) {
+  try {
+    const response = await apiClient.patch(
+      'auth/password',
+      { userEmail, password, passwordCheck },
+      identityVerificationConfig(identityVerificationToken),
+    )
+    if (response.status === 204) return null
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
 export async function logoutApi() {
-  const csrfToken = getCookie('csrfToken')
+  const csrfToken = getCookie('csrfToken') || getCookie('XSRF-TOKEN')
 
   try {
     const response = await apiClient.delete('auth/logout', {
-      headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : undefined,
+      headers: csrfToken
+        ? {
+            'X-CSRF-Token': csrfToken,
+            'X-XSRF-TOKEN': csrfToken,
+          }
+        : undefined,
     })
+    if (response.status === 204) return null
     return unwrapApiResponse(response)
   } catch (error) {
     throw normalizeApiError(error)

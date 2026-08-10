@@ -1,17 +1,21 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
+const route = useRoute()
 const session = useSessionStore()
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const error = ref('')
 const isSubmitting = ref(false)
+const notice = ref(
+  route.query.signup === 'success' ? '회원가입이 완료되었습니다. 로그인해 주세요.' : '',
+)
 
 async function submit() {
   if (!email.value || !password.value) {
@@ -33,6 +37,7 @@ async function submit() {
 
 function clearError() {
   error.value = ''
+  notice.value = ''
 }
 </script>
 
@@ -84,6 +89,7 @@ function clearError() {
                 <AppIcon name="eye" :size="18" /></button></i
           ></label>
           <p v-if="error" class="login-error" role="alert">{{ error }}</p>
+          <p v-else-if="notice" class="login-success" role="status">{{ notice }}</p>
           <button class="login-submit" type="submit" :disabled="isSubmitting">
             <strong>{{ isSubmitting ? '로그인 중...' : '로그인' }}</strong>
           </button>
@@ -171,6 +177,10 @@ function clearError() {
   gap: 17px;
   margin-top: 39px;
 }
+.login-success {
+  color: #1f9d68;
+  font-size: var(--font-small);
+}
 .login-card label {
   display: grid;
   gap: 8px;
@@ -187,6 +197,8 @@ function clearError() {
   box-shadow: var(--shadow-figma);
 }
 .login-card label > input {
+  width: 100%;
+  min-width: 0;
   padding: 0 17px;
 }
 .login-card label i {
@@ -254,9 +266,11 @@ function clearError() {
   .login-page {
     display: block;
     width: min(100%, 393px);
+    max-width: 100%;
     min-height: 100dvh;
     margin: 0 auto;
     padding: 14px 16px;
+    overflow-x: hidden;
     background: #fff;
   }
   .login-main {

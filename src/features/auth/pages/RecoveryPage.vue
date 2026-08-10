@@ -1,9 +1,9 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { findEmailApi, resetPasswordApi } from '@/api/auth'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import recoverySuccessCheck from '@/assets/auth-recovery-success-check.svg'
-import { user } from '@/data/mockData'
 import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
 import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
 
@@ -20,13 +20,17 @@ const step = ref(1)
 const idResultStatus = ref('success')
 const isIdResult = computed(() => isId.value && step.value === 2)
 const isIdNotFound = computed(() => isIdResult.value && idResultStatus.value === 'not-found')
+const isIdLookupError = computed(() => isIdResult.value && idResultStatus.value === 'error')
 const accountId = ref('')
+const foundEmail = ref('')
+const identityVerificationToken = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
 const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
 const accountError = ref('')
 const passwordError = ref('')
+const isSubmitting = ref(false)
 const isMobileViewport = ref(false)
 const {
   isVerifying,
@@ -37,7 +41,6 @@ const {
   resetIdentityVerification,
 } = useIdentityVerification(verificationPurpose)
 
-const normalizedMockEmail = user.email.toLowerCase()
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/
 const canChangePassword = computed(
   () => password.value.length > 0 && passwordConfirm.value.length > 0,
@@ -54,10 +57,7 @@ onMounted(async () => {
   mobileMediaQuery.addEventListener('change', syncViewport)
 
   const verification = await restoreIdentityVerificationRedirect()
-  if (!isId.value && verification?.context?.accountId) {
-    accountId.value = verification.context.accountId
-    step.value = 2
-  }
+  await handleCompletedVerification(verification)
 })
 
 onBeforeUnmount(() => {
@@ -68,6 +68,8 @@ function resetFlow() {
   step.value = 1
   idResultStatus.value = 'success'
   accountId.value = ''
+  foundEmail.value = ''
+  identityVerificationToken.value = ''
   password.value = ''
   passwordConfirm.value = ''
   showPassword.value = false
@@ -95,13 +97,39 @@ function goBack() {
 }
 
 async function completeSimpleVerification() {
-  await startIdentityVerification(
+  const result = await startIdentityVerification(
     isId.value
       ? {}
       : {
           accountId: accountId.value,
         },
   )
+  await handleCompletedVerification(result?.verification)
+}
+
+async function handleCompletedVerification(verification) {
+  if (!verification?.identityVerificationToken) return
+
+  identityVerificationToken.value = verification.identityVerificationToken
+
+  if (!isId.value) {
+    accountId.value = verification.context?.accountId || accountId.value
+    step.value = 3
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    const result = await findEmailApi(identityVerificationToken.value)
+    foundEmail.value = result?.email || ''
+    idResultStatus.value = foundEmail.value ? 'success' : 'not-found'
+  } catch (error) {
+    idResultStatus.value = error.status === 404 ? 'not-found' : 'error'
+    accountError.value = error.message
+  } finally {
+    step.value = 2
+    isSubmitting.value = false
+  }
 }
 
 function retryIdLookup() {
@@ -114,16 +142,17 @@ function retryIdLookup() {
 function nextPassword() {
   const normalizedAccount = accountId.value.trim().toLowerCase()
 
-  if (normalizedAccount !== normalizedMockEmail) {
-    accountError.value = '없는 ID입니다.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedAccount)) {
+    accountError.value = '이메일 형식을 확인해 주세요.'
     return
   }
 
+  accountId.value = normalizedAccount
   accountError.value = ''
   step.value = 2
 }
 
-function resetPassword() {
+async function resetPassword() {
   if (!passwordPattern.test(password.value)) {
     passwordError.value = '영문·숫자·특수문자를 포함해 8자 이상 입력해 주세요.'
     return
@@ -134,8 +163,29 @@ function resetPassword() {
     return
   }
 
+  if (!identityVerificationToken.value) {
+    passwordError.value = '본인인증 정보가 없습니다. 다시 인증해 주세요.'
+    return
+  }
+
+  isSubmitting.value = true
   passwordError.value = ''
-  router.push('/auth/login')
+  try {
+    await resetPasswordApi(
+      {
+        userEmail: accountId.value,
+        password: password.value,
+        passwordCheck: passwordConfirm.value,
+      },
+      identityVerificationToken.value,
+    )
+    resetIdentityVerification()
+    router.push('/auth/login')
+  } catch (error) {
+    passwordError.value = error.message
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -196,22 +246,31 @@ function resetPassword() {
       </template>
 
       <template v-else-if="isId">
-        <template v-if="isIdNotFound">
-          <h1 class="failure-title">일치하는 계정이 없습니다</h1>
+        <template v-if="isIdNotFound || isIdLookupError">
+          <h1 class="failure-title">
+            {{ isIdLookupError ? '아이디를 불러오지 못했습니다' : '일치하는 계정이 없습니다' }}
+          </h1>
           <p class="description failure-description">
-            입력하신 정보와 일치하는 계정을<br />찾을 수 없어요.
+            <template v-if="isIdLookupError">잠시 후 다시 시도해 주세요.</template>
+            <template v-else>입력하신 정보와 일치하는 계정을<br />찾을 수 없어요.</template>
           </p>
 
           <div class="result-failure-icon" aria-hidden="true">?</div>
 
-          <article class="failure-guide">
+          <article v-if="isIdNotFound" class="failure-guide">
             <strong>이런 경우를 확인해보세요</strong>
             <p>· 입력한 정보가 정확한가요?</p>
             <p>· 아직 회원가입을 하지 않으셨나요?</p>
           </article>
+          <article v-else class="failure-guide">
+            <strong>요청 처리 중 오류가 발생했습니다.</strong>
+            <p>{{ accountError }}</p>
+          </article>
 
           <div class="result-actions">
-            <RouterLink class="primary-button" to="/auth/signup">회원가입하기</RouterLink>
+            <RouterLink v-if="isIdNotFound" class="primary-button" to="/auth/signup">
+              회원가입하기
+            </RouterLink>
             <button type="button" class="secondary-button retry-button" @click="retryIdLookup">
               다시 시도하기
             </button>
@@ -228,7 +287,7 @@ function resetPassword() {
 
           <article class="result-box">
             <small>아이디</small>
-            <strong>{{ user.email }}</strong>
+            <strong>{{ foundEmail }}</strong>
           </article>
 
           <div class="result-actions">
@@ -348,10 +407,10 @@ function resetPassword() {
         <button
           type="button"
           class="primary-button password-change-button"
-          :disabled="!canChangePassword"
+          :disabled="!canChangePassword || isSubmitting"
           @click="resetPassword"
         >
-          <strong>비밀번호 변경</strong>
+          <strong>{{ isSubmitting ? '변경 중...' : '비밀번호 변경' }}</strong>
         </button>
       </template>
     </section>

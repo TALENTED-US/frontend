@@ -19,17 +19,18 @@ export default defineConfig(({ mode }) => {
     server: proxyTarget
       ? {
           proxy: {
-          '/backend': {
-            target: proxyTarget,
-            changeOrigin: true,
-            secure: false,
-            rewrite: (path) => path.replace(/^\/backend/, ''),
-            configure: (proxy) => {
-              proxy.on('proxyReq', (proxyRequest) => {
-                proxyRequest.removeHeader('origin')
-              })
+            '/backend': {
+              target: proxyTarget,
+              changeOrigin: true,
+              secure: false,
+              cookieDomainRewrite: '',
+              rewrite: (path) => path.replace(/^\/backend/, ''),
+              configure: (proxy) => {
+                proxy.on('proxyReq', (proxyRequest) => {
+                  proxyRequest.removeHeader('origin')
+                })
+              },
             },
-          },
           },
         }
       : undefined,
