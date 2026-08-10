@@ -20,7 +20,8 @@ const session = useSessionStore();
 const simulation = useSimulationStore();
 const progression = useProgressionStore();
 
-onMounted(() => {
+onMounted(async () => {
+  await simulation.hydrateConfirmed();
   loadTransactions().catch(() => {
     // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
   });

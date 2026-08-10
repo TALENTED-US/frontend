@@ -9,7 +9,7 @@ async function getResult(url) {
 }
 
 export function getMyProfileApi() {
-  return getResult('users/my')
+  return getResult('users/my/info')
 }
 
 export function getEmploymentPreparationApi() {

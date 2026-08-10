@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AppLayout from '@/layouts/AppLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
+import AdminLayout from '@/features/admin/layouts/AdminLayout.vue'
 
 const routes = [
   {
@@ -50,6 +51,27 @@ const routes = [
       { path: 'mypage/security/password', name: 'passwordChange', component: () => import('@/features/mypage/pages/PasswordChangePage.vue') },
       { path: 'mypage/data', name: 'dataManagement', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
       { path: 'mypage/withdraw', name: 'withdraw', component: () => import('@/features/mypage/pages/MyPageDetail.vue') },
+    ],
+  },
+  {
+    path: '/admin',
+    component: AdminLayout,
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: { name: 'adminDashboard' } },
+      { path: 'dashboard', name: 'adminDashboard', component: () => import('@/features/admin/pages/AdminDashboardPage.vue') },
+      { path: 'finance-data', name: 'adminFinanceData', component: () => import('@/features/admin/pages/AdminFinanceDataPage.vue') },
+      { path: 'finance-data/history', name: 'adminFinanceHistory', component: () => import('@/features/admin/pages/AdminFinanceHistoryPage.vue') },
+      { path: 'finance-data/datasets/create', name: 'adminFinanceDatasetCreate', component: () => import('@/features/admin/pages/AdminFinanceDatasetCreatePage.vue') },
+      { path: 'finance-data/members/:memberId', name: 'adminFinanceMemberDetail', component: () => import('@/features/admin/pages/AdminFinanceMemberDetailPage.vue') },
+      { path: 'finance-data/:datasetKey', name: 'adminFinanceDatasetDetail', component: () => import('@/features/admin/pages/AdminFinanceDatasetDetailPage.vue') },
+      { path: 'policies', name: 'adminPolicies', component: () => import('@/features/admin/pages/AdminPolicyListPage.vue') },
+      { path: 'policies/new', name: 'adminPolicyCreate', component: () => import('@/features/admin/pages/AdminPolicyFormPage.vue') },
+      { path: 'policies/:policyId/edit', name: 'adminPolicyEdit', component: () => import('@/features/admin/pages/AdminPolicyFormPage.vue') },
+      { path: 'policies/history', name: 'adminPolicyHistory', component: () => import('@/features/admin/pages/AdminPolicyHistoryPage.vue') },
+      { path: 'members', name: 'adminMembers', component: () => import('@/features/admin/pages/AdminMemberListPage.vue') },
+      { path: 'members/:memberId', name: 'adminMemberDetail', component: () => import('@/features/admin/pages/AdminMemberDetailPage.vue') },
+      { path: 'level', name: 'adminLevel', component: () => import('@/features/admin/pages/AdminLevelPage.vue') },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
@@ -109,8 +131,19 @@ router.afterEach((to) => {
     dataManagement: '데이터 관리',
     withdraw: '회원 탈퇴',
     onboarding: '시작하기',
+    adminDashboard: '관리자 대시보드',
+    adminMembers: '회원 관리',
+    adminMemberDetail: '회원 상세 · 상태 변경',
+    adminFinanceData: '금융데이터 관리',
+    adminFinanceDatasetDetail: '데이터 세트 상세',
+    adminFinanceHistory: '등록·수정·삭제 이력',
+    adminPolicies: '정부지원정책 관리',
+    adminPolicyCreate: '정책 등록·수정',
+    adminPolicyEdit: '정책 등록·수정',
+    adminPolicyHistory: '정책 변경 이력·검수',
+    adminLevel: '경험치 및 버티 관리',
   }
-  document.title = `${titles[to.name] || 'Buttie'} | Buttie`
+  document.title = `${titles[to.name] || to.meta.title || 'Buttie'} | Buttie`
 })
 
 export default router

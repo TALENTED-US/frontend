@@ -36,10 +36,11 @@ watch(category, (value) => {
 }, { immediate: true })
 
 onMounted(async () => {
-  if (category.value !== 'expense') return
-  try { await loadTransactions() } catch {}
-  simulation.initializeExpensesFromAnalysis()
-  await simulation.hydrateCategory('expense')
+  if (category.value === 'expense') {
+    try { await loadTransactions() } catch {}
+    simulation.initializeExpensesFromAnalysis()
+  }
+  await simulation.hydrateCategory(category.value)
 })
 
 const donutStyle = computed(() => {
@@ -52,12 +53,13 @@ const donutStyle = computed(() => {
   }).join(', ')})` }
 })
 
-function addIncome() {
+async function addIncome() {
   const amount = Number(form.amount)
   if (!form.name.trim() || amount <= 0) return
   const payload = { name: form.name.trim(), amount, type: form.type, startDate: form.startDate, cycle: form.type === 'monthly' ? form.cycle : '1회', remoteSynced: false }
-  if (editingIncomeId.value) simulation.updateIncome(editingIncomeId.value, payload)
-  else simulation.addIncome(payload)
+  if (editingIncomeId.value) {
+    if (!await simulation.saveIncomePlan(editingIncomeId.value, payload)) return
+  } else simulation.addIncome(payload)
   resetIncomeForm()
 }
 
@@ -72,8 +74,8 @@ function editIncome(item) {
   document.querySelector('.income-plan-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-function deleteIncome(id) {
-  simulation.removeIncome(id)
+async function deleteIncome(id) {
+  if (!await simulation.deleteIncomePlan(id)) return
   if (editingIncomeId.value === id) resetIncomeForm()
 }
 
@@ -101,10 +103,10 @@ function updateExpenseAmount(event) {
   event.target.value = expenseAmount.value
 }
 
-function addExpenseGoal() {
+async function addExpenseGoal() {
   const amount = Number(expenseAmount.value)
   if (!activeExpense.value || amount <= 0 || amount > activeExpense.value.current) return
-  simulation.setExpenseSaving(activeExpense.value.id, amount)
+  if (!await simulation.saveExpenseGoal(activeExpense.value.id, amount)) return
   expenseAmount.value = ''
 }
 
@@ -113,15 +115,24 @@ function editExpenseGoal(item) {
   document.querySelector('.expense-target-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
-function deleteExpenseGoal(item) {
-  simulation.setExpenseSaving(item.id, 0)
+async function deleteExpenseGoal(item) {
+  if (!await simulation.deleteExpenseGoal(item.id)) return
   if (selectedExpenseId.value === item.id) expenseAmount.value = ''
+}
+
+async function deletePolicy(item) {
+  await simulation.deletePolicyPlan(item.id)
 }
 
 async function apply(categoryName) {
   if (categoryName === 'expense') simulation.applyExpenses()
-  await simulation.syncCategory(categoryName)
+  const synced = await simulation.syncCategory(categoryName)
+  if (!synced) return
   router.push(`/simulation/${categoryName}/preview`)
+}
+
+function continueFromPolicy() {
+  router.push('/simulation/confirm')
 }
 
 function skip() {
@@ -166,7 +177,7 @@ function skip() {
           <label><span>{{ activeExpense.name }} 절약 목표</span><div><input :value="expenseAmount" type="number" min="0" :max="activeExpense.current" step="1000" :disabled="activeExpense.current <= 0" placeholder="금액을 입력하세요" @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()" @input="updateExpenseAmount($event)" /><b>원</b></div></label>
           <small v-if="activeExpense.current <= 0">지난달 {{ activeExpense.name }} 지출 내역이 없어 목표를 추가할 수 없어요.</small>
           <small v-else>최대 {{ money(activeExpense.current) }}원까지 입력할 수 있어요.</small>
-          <button class="expense-add-button" :disabled="!Number(expenseAmount) || Number(expenseAmount) > activeExpense.current" type="button" @click="addExpenseGoal">{{ activeExpense.selected ? '수정하기' : '추가하기' }}</button>
+          <button class="expense-add-button" :disabled="!Number(expenseAmount) || Number(expenseAmount) > activeExpense.current || simulation.syncing" type="button" @click="addExpenseGoal">{{ activeExpense.selected ? '수정하기' : '추가하기' }}</button>
         </div>
       </section>
 
@@ -188,7 +199,7 @@ function skip() {
         <fieldset><legend>수입 유형</legend><button type="button" :class="{ active: form.type === 'monthly' }" @click="form.type = 'monthly'">정기 수입</button><button type="button" :class="{ active: form.type === 'once' }" @click="form.type = 'once'">일회성 수입</button></fieldset>
         <label>시작일<input v-model="form.startDate" class="income-field" type="date" required /></label>
         <label v-if="form.type === 'monthly'">반복 주기<select v-model="form.cycle" class="income-field"><option>매월</option></select></label>
-        <button class="income-add-button" type="submit">{{ editingIncomeId ? '수입 계획 수정하기' : '수입 계획 추가하기' }}</button>
+        <button class="income-add-button" type="submit" :disabled="simulation.syncing">{{ editingIncomeId ? '수입 계획 수정하기' : '수입 계획 추가하기' }}</button>
       </form>
       <section v-if="simulation.state.incomes.length" class="added-income-plans">
         <div class="section-heading"><h2><i />추가한 수입 계획</h2><span>총 {{ simulation.state.incomes.length }}개</span></div>
@@ -221,7 +232,7 @@ function skip() {
             <i>⚖</i>
             <div><strong>{{ item.name }}</strong><small>{{ item.description }}</small></div>
             <b>{{ item.detail }}</b>
-            <button type="button" @click="simulation.removePolicy(item.id)">삭제</button>
+            <button type="button" :disabled="simulation.syncing" @click="deletePolicy(item)">삭제</button>
           </article>
         </div>
         <footer>
@@ -241,10 +252,12 @@ function skip() {
         </div>
       </section>
 
-      <button class="sim-btn sim-btn--yellow wide" :disabled="!policyCount || simulation.syncing" type="button" @click="apply('policy')">최종 결과 보기</button>
+      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing" type="button" @click="continueFromPolicy">
+        {{ policyCount ? '최종 결과 보기' : '정책 건너뛰고 최종 결과 보기' }}
+      </button>
     </template>
 
-    <p v-if="simulation.syncError" class="api-notice">서버 저장에 실패했지만 입력 내용은 이 브라우저에 보관했어요. {{ simulation.syncError }}</p>
+    <p v-if="simulation.syncError" class="api-notice">서버 저장에 실패했습니다. 입력 내용은 유지되니 잠시 후 다시 시도해 주세요. {{ simulation.syncError }}</p>
   </section>
 </template>
 
