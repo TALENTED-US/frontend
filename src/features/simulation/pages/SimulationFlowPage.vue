@@ -74,20 +74,34 @@ function confirm() {
 <template>
   <section class="page sim-page sim-wizard" :class="`sim-flow-${step}`">
     <template v-if="step === 'continue'">
-      <button class="sim-back desktop-only" type="button" @click="router.push('/')">‹ 시뮬레이션</button>
       <div class="resume-hero">
         <img :src="stableImage" alt="다시 찾아온 버티" />
         <h1>시뮬레이션을 하는 중이었어요.<br />이어서 만드시겠어요?</h1>
       </div>
       <div class="wizard-actions vertical resume-actions">
-        <button class="sim-btn sim-btn--yellow" type="button" @click="router.push(nextDraftPath)">이어서 만들기</button>
-        <button class="resume-reset" type="button" @click="reset">처음부터 다시 만들기</button>
+        <button class="sim-btn sim-btn--yellow" type="button" @click="router.push(nextDraftPath)">
+          <span class="desktop-only">이어서 계속하기 →</span>
+          <span class="mobile-only">이어서 만들기</span>
+        </button>
+        <button class="resume-reset" type="button" @click="reset">
+          <span class="desktop-only">처음부터 다시 시작하기</span>
+          <span class="mobile-only">처음부터 다시 만들기</span>
+        </button>
       </div>
     </template>
 
     <template v-else-if="step === 'categories'">
-      <h1 class="wizard-title">지출을 매달 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</h1>
-      <p class="sim-subtitle">현재 재정 상태를 기준으로 나만의 계획을 만들어보세요.</p>
+      <button class="sim-back categories-desktop-back desktop-only" type="button" @click="router.push('/simulation')">
+        ‹ 예상 재정 계획 만들기
+      </button>
+      <h1 class="wizard-title">
+        <span class="desktop-only">지출을 매달 10만원 줄이면<br />생존기간이 얼마나 늘어날까요?</span>
+        <span class="mobile-only">지출을 매달 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</span>
+      </h1>
+      <p class="sim-subtitle">
+        <span class="desktop-only">생존 기간이 늘어나면 버티도 살아나요!</span>
+        <span class="mobile-only">현재 재정 상태를 기준으로 나만의 계획을 만들어보세요.</span>
+      </p>
 
       <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
         <div><img :src="meltingImage" alt="현재 상태의 버티" /><span>현재</span></div>
@@ -96,10 +110,14 @@ function confirm() {
       </div>
 
       <section class="period-section">
-        <h2>시뮬레이션 기간</h2>
-        <p>오늘부터 목표 취업일까지 자동으로 설정했어요.</p>
+        <h2><span class="desktop-only">예상 재정 계획 기간</span><span class="mobile-only">시뮬레이션 기간</span></h2>
+        <p>
+          <span class="desktop-only">시작일은 오늘, 종료일은 목표 취업 시점이 기본이에요</span>
+          <span class="mobile-only">오늘부터 목표 취업일까지 자동으로 설정했어요.</span>
+        </p>
         <div class="period-grid">
           <label><span>시작일</span><input v-model="startDate" type="date" /></label>
+          <i class="period-separator desktop-only">~</i>
           <label><span>종료일</span><input v-model="endDate" type="date" /></label>
         </div>
         <p v-if="endDate && startDate && endDate <= startDate" class="form-error">종료일은 시작일보다 뒤여야 해요.</p>
@@ -140,7 +158,11 @@ function confirm() {
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
       <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
-        {{ simulation.syncing ? '불러오는 중…' : '시뮬레이션 시작하기 →' }}
+        <span v-if="simulation.syncing">불러오는 중…</span>
+        <template v-else>
+          <span class="desktop-only">예상 재정 계획 만들기 →</span>
+          <span class="mobile-only">시뮬레이션 시작하기 →</span>
+        </template>
       </button>
     </template>
 
@@ -421,6 +443,193 @@ function confirm() {
 
   .report-preview__charts figcaption {
     font-size: 10px;
+  }
+}
+
+@media (min-width: 768px) {
+  .sim-wizard.sim-flow-categories {
+    display: block;
+    width: min(100%, 1120px);
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 24px 0 72px;
+  }
+
+  .sim-flow-categories .categories-desktop-back {
+    display: flex;
+    width: fit-content;
+    margin: 0 0 26px;
+    color: #181818;
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .sim-flow-categories > .wizard-title {
+    max-width: none;
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.35;
+  }
+
+  .sim-flow-categories > .sim-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .sim-flow-categories > .buttie-transition {
+    display: grid;
+    width: 100%;
+    min-height: 128px;
+    grid-template-columns: 1fr 64px 1fr;
+    align-items: center;
+    margin: 18px 0 28px;
+    padding: 0 116px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .sim-flow-categories .buttie-transition > div {
+    display: grid;
+    place-items: center;
+  }
+
+  .sim-flow-categories .buttie-transition img {
+    width: 142px;
+    height: 104px;
+    object-fit: contain;
+  }
+
+  .sim-flow-categories .buttie-transition span {
+    display: none;
+  }
+
+  .sim-flow-categories .buttie-transition > b {
+    color: #c4aa58;
+    font-size: 28px;
+    text-align: center;
+  }
+
+  .sim-flow-categories > .period-section,
+  .sim-flow-categories > .baseline-report {
+    width: 100%;
+    margin: 0;
+  }
+
+  .sim-flow-categories > .period-section h2,
+  .sim-flow-categories > .baseline-report > h2 {
+    font-size: 16px;
+  }
+
+  .sim-flow-categories > .period-section > p {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  .sim-flow-categories .period-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    margin-top: 14px;
+  }
+
+  .sim-flow-categories .period-grid label {
+    min-height: 62px;
+    padding: 11px 18px;
+    border-color: #d5eee2;
+    background: #edfff6;
+  }
+
+  .sim-flow-categories .period-grid input {
+    background: transparent;
+  }
+
+  .sim-flow-categories .period-separator {
+    display: block;
+    color: #555;
+    font-style: normal;
+  }
+
+  .sim-flow-categories > .baseline-report {
+    margin-top: 24px;
+  }
+
+  .sim-flow-categories .report-preview__card {
+    min-height: 350px;
+    padding: 24px 28px;
+  }
+
+  .sim-flow-categories .report-preview__charts {
+    gap: 88px;
+    margin-top: 30px;
+  }
+
+  .sim-flow-categories .report-preview__charts svg,
+  .sim-flow-categories .preview-bars {
+    min-height: 142px;
+  }
+
+  .sim-flow-categories .preview-bar i {
+    width: 54px;
+    height: 82px;
+  }
+
+  .sim-flow-categories .preview-bar--after i {
+    height: 104px;
+  }
+
+  .sim-flow-categories > .api-notice,
+  .sim-flow-categories > .wide {
+    width: 100%;
+  }
+
+  .sim-flow-categories > .wide {
+    min-height: 58px;
+    margin: 28px 0 0;
+  }
+
+  .sim-flow-continue {
+    position: relative;
+    display: grid;
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    grid-template-rows: minmax(360px, 1fr) auto minmax(120px, 0.55fr);
+    padding: 0;
+    background: #fcfdff;
+  }
+
+  .sim-flow-continue .resume-hero {
+    min-height: 0;
+    align-self: end;
+    align-content: end;
+  }
+
+  .sim-flow-continue .resume-hero img {
+    width: 192px;
+    height: 192px;
+  }
+
+  .sim-flow-continue .resume-hero h1 {
+    margin-top: 40px;
+    font-size: 19px;
+    line-height: 1.45;
+  }
+
+  .resume-actions {
+    width: min(720px, calc(100% - 48px));
+    align-self: start;
+    justify-self: center;
+    gap: 10px;
+    margin-top: 72px;
+  }
+
+  .resume-actions .sim-btn,
+  .resume-actions .resume-reset {
+    min-height: 58px;
+    border-radius: 12px;
+    font-size: 15px;
   }
 }
 </style>

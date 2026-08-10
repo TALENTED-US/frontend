@@ -104,17 +104,16 @@ function clearError() {
 <style scoped>
 .login-page {
   display: grid;
-  grid-template-columns: 35% 65%;
-  width: min(100%, 1440px);
+  grid-template-columns: minmax(420px, 500px) minmax(0, 1fr);
+  width: 100%;
   min-height: 100dvh;
-  margin: 0 auto;
   background: #fff;
 }
 .login-visual {
   position: relative;
   padding: 38px 42px;
   border-right: 1px solid #eceef3;
-  background: #fff;
+  background: #f0f2f7;
 }
 .login-visual > div {
   position: absolute;

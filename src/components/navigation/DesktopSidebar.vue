@@ -37,11 +37,12 @@ function isMenuActive(to) {
 <style scoped>
 .sidebar {
   position: fixed;
-  z-index: 20;
-  inset: 0 auto 0 max(0px, calc((100vw - 1440px) / 2));
+  z-index: 50;
+  inset: 0 auto 0 0;
   width: var(--sidebar-width);
   padding: 32px 24px;
   background: #fbfcff;
+  box-shadow: var(--shadow-figma);
 }
 
 .sidebar__nav {
