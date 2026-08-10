@@ -29,8 +29,9 @@ body {
 }
 
 #app :where(button, input, select, textarea) {
-  font: inherit;
+  font-family: inherit;
   font-size: var(--font-ui);
+  line-height: inherit;
 }
 
 #app :where(p, small, label, li, dd, dt, td, th) {
@@ -138,6 +139,31 @@ body {
   .policy-summary
 ) {
   box-shadow: var(--shadow-figma) !important;
+}
+
+/* 취업 준비 정보 입력 영역은 개별 필드만 구분하고 바깥 카드로 묶지 않습니다. */
+#app .onboarding-page .job-form {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  filter: none;
+}
+
+/* 정보 제공 동의의 아코디언 목록은 바깥 박스 없이 각 항목만 구분합니다. */
+#app .onboarding-page .consent-list {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  filter: none;
+}
+
+/* 모바일 고정지출 목록은 카테고리 전체를 감싸는 바깥 카드 그림자만 제거합니다. */
+@media (max-width: 767px) {
+  #app .fixed-page .expense-list {
+    box-shadow: none !important;
+  }
 }
 
 .section-title {

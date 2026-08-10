@@ -97,50 +97,32 @@ onMounted(loadStats)
         </div>
       </div>
 
-      <div class="admin-dashboard__panels-wrap">
-        <div class="admin-dashboard__panels">
-          <article class="admin-card admin-card--trend">
-            <h2>전체 회원·마이데이터 연결·시뮬레이션 생성·계획 확정 추이</h2>
-            <ul class="admin-dashboard__legend">
-              <li
-                v-for="line in stats.trend.series"
-                :key="line.key"
-                :style="['마이데이터 연결', '계획 확정'].includes(line.label) ? { fontSize: 'calc(var(--font-caption) + 1px)' } : null"
-              >
-                <i :style="{ background: line.color }" />{{ line.label }}
-              </li>
-            </ul>
-            <AdminTrendChart :labels="stats.trend.labels" :series="stats.trend.series" />
-          </article>
+       <div class="admin-dashboard__metric-rows">
+        <div class="admin-dashboard__metrics admin-dashboard__metrics--pair">
+          <article
+            v-for="metric in stats.questMetricRow"
+            :key="metric.key"
+            class="admin-card"
+          >
+            <div class="admin-card__head">
+              <p class="admin-card__label">{{ metric.label }}</p>
+              <p v-if="metric.note" class="admin-card__note">{{ metric.note }}</p>
+            </div>
 
-          <article class="admin-card admin-card--logs">
-            <h2>최근 운영 현황</h2>
-            <ul class="admin-dashboard__logs">
-              <li v-for="log in stats.operationLogs" :key="log.id">
-                <div class="admin-dashboard__log-row">
-                  <div class="admin-dashboard__log-main">
-                    <p>{{ log.title }}</p>
-                    <small v-if="log.reason">{{ log.reason }}</small>
-                  </div>
-                  <span :class="['admin-badge', `admin-badge--${log.status}`]">
-                    {{ log.status === 'success' ? '성공' : '실패' }}
-                  </span>
-                  <time>{{ log.time }}</time>
-                </div>
-                <button
-                  v-if="log.retryable"
-                  type="button"
-                  class="admin-dashboard__retry"
-                  :disabled="log.retrying"
-                  @click="retryLog(log)"
-                >
-                  재실행
-                </button>
-              </li>
-            </ul>
-            <RouterLink to="/admin/finance-data/history" class="admin-dashboard__all-logs">
-              전체 운영 로그 보기 →
-            </RouterLink>
+            <p
+              class="admin-card__value"
+              :style="{ color: metric.color }"
+            >
+              {{ metric.value }}
+            </p>
+
+            <p
+              v-for="(caption, idx) in metric.captions"
+              :key="idx"
+              class="admin-card__caption"
+            >
+              {{ caption }}
+            </p>
           </article>
         </div>
       </div>
@@ -156,6 +138,19 @@ onMounted(loadStats)
             <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">
               {{ caption }}
             </p>
+          </article>
+        </div>
+      </div>
+
+      <div class="admin-dashboard__metric-rows">
+        <div class="admin-dashboard__metrics admin-dashboard__metrics--pair">
+          <article v-for="metric in stats.questMetricRow" :key="metric.key" class="admin-card">
+            <div class="admin-card__head">
+              <p class="admin-card__label">{{ metric.label }}</p>
+              <p v-if="metric.note" class="admin-card__note">{{ metric.note }}</p>
+            </div>
+            <p class="admin-card__value" :style="{ color: metric.color }">{{ metric.value }}</p>
+            <p v-for="(caption, idx) in metric.captions" :key="idx" class="admin-card__caption">{{ caption }}</p>
           </article>
         </div>
       </div>
@@ -332,6 +327,51 @@ onMounted(loadStats)
 .admin-dashboard__metrics .admin-card__caption {
   margin-top: 4px;
   font-size: 12px;
+}
+
+.admin-dashboard__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.admin-dashboard__metrics--pair {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.admin-dashboard__metrics .admin-card {
+  padding: 14px 16px;
+}
+
+.admin-dashboard__metrics .admin-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-dashboard__metrics .admin-card__label {
+  color: #222222;
+  font-size: var(--font-caption);
+  font-weight: 600;
+}
+
+.admin-dashboard__metrics .admin-card__note {
+  flex-shrink: 0;
+  max-width: 55%;
+  color: #999999;
+  font-size: 10px;
+  text-align: right;
+}
+
+.admin-dashboard__metrics .admin-card__value {
+  margin-top: 6px;
+  font-size: 20px;
+}
+
+.admin-dashboard__metrics .admin-card__caption {
+  margin-top: 4px;
+  font-size: 11px;
 }
 
 .admin-card {
