@@ -62,9 +62,10 @@ const routes = [
       { path: 'dashboard', name: 'adminDashboard', component: () => import('@/features/admin/pages/AdminDashboardPage.vue') },
       { path: 'finance-data', name: 'adminFinanceData', component: () => import('@/features/admin/pages/AdminFinanceDataPage.vue') },
       { path: 'finance-data/history', name: 'adminFinanceHistory', component: () => import('@/features/admin/pages/AdminFinanceHistoryPage.vue') },
-      { path: 'policies', name: 'adminPolicies', meta: { title: '정부지원정책 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'policies/new', name: 'adminPolicyForm', meta: { title: '정부지원정책 등록·수정' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
-      { path: 'policies/history', name: 'adminPolicyHistory', meta: { title: '정책 변경 이력·검수' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
+      { path: 'policies', name: 'adminPolicies', component: () => import('@/features/admin/pages/AdminPolicyListPage.vue') },
+      { path: 'policies/new', name: 'adminPolicyCreate', component: () => import('@/features/admin/pages/AdminPolicyFormPage.vue') },
+      { path: 'policies/:policyId/edit', name: 'adminPolicyEdit', component: () => import('@/features/admin/pages/AdminPolicyFormPage.vue') },
+      { path: 'policies/history', name: 'adminPolicyHistory', component: () => import('@/features/admin/pages/AdminPolicyHistoryPage.vue') },
       { path: 'members', name: 'adminMembers', component: () => import('@/features/admin/pages/AdminMemberListPage.vue') },
       { path: 'members/:memberId', name: 'adminMemberDetail', component: () => import('@/features/admin/pages/AdminMemberDetailPage.vue') },
       { path: 'level', name: 'adminLevel', meta: { title: '경험치 및 버티 관리' }, component: () => import('@/features/admin/pages/AdminPlaceholderPage.vue') },
@@ -132,6 +133,10 @@ router.afterEach((to) => {
     adminMemberDetail: '회원 상세 · 상태 변경',
     adminFinanceData: '금융데이터 관리',
     adminFinanceHistory: '등록·수정·삭제 이력',
+    adminPolicies: '정부지원정책 관리',
+    adminPolicyCreate: '정책 등록·수정',
+    adminPolicyEdit: '정책 등록·수정',
+    adminPolicyHistory: '정책 변경 이력·검수',
   }
   document.title = `${titles[to.name] || to.meta.title || 'Buttie'} | Buttie`
 })
