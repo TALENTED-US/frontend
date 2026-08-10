@@ -140,12 +140,21 @@ export async function updateTransaction(id, payload) {
   await loadTransactions(true)
 }
 
-export async function updateTransactionMemo(id, memo) {
-  const result = await updateTransactionMemoApi(id, memo)
-  const nextMemo = result?.transactionMemo ?? memo
-  const item = financeState.transactions.find((row) => row.id === id)
-  if (item) item.memo = nextMemo
-  return nextMemo
+export async function updateTransactionMemo(transactionId, memo) {
+  if (USE_MOCK_API) {
+    const item = financeState.transactions.find((row) => row.id === transactionId)
+    if (item) item.memo = memo
+    persist()
+    return memo
+  }
+
+  const result = await updateTransactionMemoApi(transactionId, memo)
+  const savedMemo = result?.transactionMemo ?? memo
+  const item = financeState.transactions.find(
+    (row) => String(row.apiId || row.id) === String(transactionId),
+  )
+  if (item) item.memo = savedMemo
+  return savedMemo
 }
 
 export async function deleteTransaction(id) {

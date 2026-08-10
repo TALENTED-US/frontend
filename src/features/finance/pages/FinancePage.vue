@@ -274,7 +274,7 @@ function editSelectedTransaction() {
   const transactionId = String(
     selectedTransaction.value.apiId || selectedTransaction.value.id || '',
   )
-  if (!/^\d+$/.test(transactionId)) {
+  if (!transactionId) {
     actionError.value =
       '현재 서버에서 이 거래의 수정용 식별자를 제공하지 않아 수정할 수 없습니다.'
     return
@@ -295,7 +295,7 @@ async function saveMemo() {
   const transactionId = String(
     selectedTransaction.value.apiId || selectedTransaction.value.id || '',
   )
-  if (!/^\d+$/.test(transactionId)) {
+  if (!transactionId) {
     actionError.value =
       '현재 서버에서 이 거래의 메모 수정용 식별자를 제공하지 않아 수정할 수 없습니다.'
     return
@@ -307,7 +307,12 @@ async function saveMemo() {
     selectedTransaction.value = { ...selectedTransaction.value, memo: nextMemo }
     isEditingMemo.value = false
   } catch (error) {
-    actionError.value = error.message || '메모를 수정하지 못했습니다.'
+    actionError.value =
+      error.status === 401
+        ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
+        : error.status === 403
+          ? '해당 거래의 메모를 수정할 권한이 없습니다.'
+          : error.message || '메모를 수정하지 못했습니다.'
   } finally {
     isSavingMemo.value = false
   }

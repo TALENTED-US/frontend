@@ -85,6 +85,20 @@ export function updateTransactionApi(transactionId, payload) {
   )
 }
 
+export async function updateTransactionMemoApi(transactionId, memo) {
+  try {
+    const response = await apiClient.patch(
+      `transactions/${encodeURIComponent(transactionId)}/memo`,
+      { memo },
+    )
+
+    if (response.status === 204) return null
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
 export function deleteTransactionApi(transactionId) {
   return requestResult(() => apiClient.delete(`transactions/${encodeURIComponent(transactionId)}`))
 }
@@ -119,11 +133,5 @@ export function getFixedExpensesApi() {
 export function deleteFixedExpenseApi(transactionId) {
   return requestResult(() =>
     apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/fixed/delete`),
-  )
-}
-
-export function updateTransactionMemoApi(transactionId, memo) {
-  return requestResult(() =>
-    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/memo`, { memo }),
   )
 }
