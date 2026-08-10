@@ -4,8 +4,8 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 
 const menus = [
-  { to: '/admin/members', label: '회원 관리' },
   { to: '/admin/dashboard', label: '대시보드' },
+  { to: '/admin/members', label: '회원 관리' },
   { to: '/admin/finance-data', label: '금융데이터 관리' },
   { to: '/admin/policies', label: '정부지원정책 관리' },
   { to: '/admin/level', label: '경험치 및 버티 관리' },
@@ -37,9 +37,10 @@ function isMenuActive(to) {
 
 <style scoped>
 .admin-sidebar {
-  position: fixed;
+  position: sticky;
   z-index: 20;
-  inset: 0 auto 0 max(0px, calc((100vw - 1440px) / 2));
+  top: 0;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   width: var(--admin-sidebar-width);
