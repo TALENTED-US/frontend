@@ -93,7 +93,8 @@ function createNewSimulation() {
   router.push('/simulation/new')
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await simulation.hydrateConfirmed()
   if (!simulation.state.confirmed && simulation.hasDraft) router.replace('/simulation/continue')
 })
 </script>

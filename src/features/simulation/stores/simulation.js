@@ -7,11 +7,19 @@ import { useSessionStore } from '@/stores/session'
 import {
   applySimulationItemApi,
   createSimulationApi,
+  deleteSimulationItemApi,
   getCurrentSimulationApi,
+  getLatestConfirmedSimulationApi,
   getSimulationItemsApi,
   getSimulationReportApi,
+  updateSimulationItemApi,
   updateSimulationPeriodApi,
 } from '@/api/simulation'
+import {
+  mapConfirmedSimulationResponse,
+  mapSimulationItemResponse,
+  toUpdateSimulationItemRequest,
+} from '@/mappers/simulation'
 
 const STORAGE_KEY = 'buttie-simulation-v4'
 const CATEGORY_META = {
@@ -98,6 +106,8 @@ export const useSimulationStore = defineStore('simulation', () => {
   const syncing = ref(false)
   const syncError = ref('')
   const remoteReport = ref(null)
+  const recentConfirmed = ref(null)
+  const remoteDraftExists = ref(null)
   const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
@@ -159,9 +169,12 @@ export const useSimulationStore = defineStore('simulation', () => {
   const monthlyExpense = computed(() => recentAnalysis.value.monthlyExpense)
   const targetMonths = computed(() => remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate))
   const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value))
-  const currentMonths = computed(() => monthlyExpense.value > 0
+  const localCurrentMonths = computed(() => monthlyExpense.value > 0
     ? Math.round((availableAssets.value / currentMonthlyBurn.value) * 10) / 10
     : 0)
+  const currentMonths = computed(() => state.confirmed && recentConfirmed.value
+    ? recentConfirmed.value.currentMonths
+    : localCurrentMonths.value)
 
   const selectedExpenses = computed(() => state.expenses.filter((item) => item.selected))
   const totalCurrentExpense = computed(() => expenseBreakdown.value.reduce((sum, item) => sum + item.current, 0))
@@ -179,7 +192,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     dateRangeMonths(scenarioStartDate.value, scenarioEndDate.value),
   )
   const baseExpectedMonths = computed(() => scenarioAssets.value / scenarioMonthlyBurn.value)
-  const expectedMonths = computed(() => {
+  const localExpectedMonths = computed(() => {
     const baseIncrease = Math.max(0, baseExpectedMonths.value - currentMonths.value)
     const periodRatio = DEFAULT_SCENARIO_MONTHS > 0
       ? scenarioPeriodMonths.value / DEFAULT_SCENARIO_MONTHS
@@ -187,6 +200,9 @@ export const useSimulationStore = defineStore('simulation', () => {
     const adjusted = currentMonths.value + baseIncrease * periodRatio
     return Math.min(60, Math.round(adjusted * 10) / 10)
   })
+  const expectedMonths = computed(() => state.confirmed && recentConfirmed.value
+    ? recentConfirmed.value.expectedMonths
+    : localExpectedMonths.value)
   const currentStatus = computed(() => getStatus(currentMonths.value, targetMonths.value))
   const expectedStatus = computed(() => getStatus(expectedMonths.value, targetMonths.value))
   const expensePreviewMonthlyBurn = computed(() => Math.max(1, currentMonthlyBurn.value - expenseSaving.value))
@@ -244,6 +260,81 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
   function removePolicy(id) { state.policies = state.policies.filter((item) => item.id !== id) }
   function resetPolicies() { state.policies = []; state.confirmed = false }
+
+  async function runItemMutation(request, onSuccess) {
+    syncing.value = true
+    syncError.value = ''
+    try {
+      const result = await request()
+      onSuccess(result)
+      state.confirmed = false
+      return true
+    } catch (error) {
+      syncError.value = error.message
+      return false
+    } finally {
+      syncing.value = false
+    }
+  }
+
+  async function saveExpenseGoal(id, amount) {
+    const item = state.expenses.find((entry) => entry.id === id)
+    if (!item) return false
+    const saving = Math.max(0, Math.min(item.current, Number(amount) || 0))
+    if (!remoteEnabled || !item.remoteId) { setExpenseSaving(id, saving); return true }
+
+    return runItemMutation(
+      () => updateSimulationItemApi(item.remoteId, toUpdateSimulationItemRequest({
+        amount: saving, type: 'monthly', startDate: state.startDate, endDate: state.endDate,
+      })),
+      (updated) => {
+        item.saving = Number(updated?.amount) || saving
+        item.selected = item.saving > 0
+        item.remoteSynced = true
+        item.remoteId = updated?.itemId || item.remoteId
+      },
+    )
+  }
+
+  async function deleteExpenseGoal(id) {
+    const item = state.expenses.find((entry) => entry.id === id)
+    if (!item) return false
+    if (!remoteEnabled || !item.remoteId) { setExpenseSaving(id, 0); return true }
+    return runItemMutation(
+      () => deleteSimulationItemApi(item.remoteId),
+      () => Object.assign(item, { saving: 0, selected: false, remoteSynced: false, remoteId: undefined }),
+    )
+  }
+
+  async function saveIncomePlan(id, payload) {
+    const item = state.incomes.find((entry) => entry.id === id)
+    if (!item) return false
+    if (!remoteEnabled || !item.remoteId) { updateIncome(id, payload); return true }
+    return runItemMutation(
+      () => updateSimulationItemApi(item.remoteId, toUpdateSimulationItemRequest({
+        ...payload, endDate: payload.type === 'monthly' ? state.endDate : payload.startDate,
+      })),
+      (updated) => Object.assign(item, payload, {
+        amount: Number(updated?.amount) || payload.amount,
+        remoteId: updated?.itemId || item.remoteId,
+        remoteSynced: true,
+      }),
+    )
+  }
+
+  async function deleteIncomePlan(id) {
+    const item = state.incomes.find((entry) => entry.id === id)
+    if (!item) return false
+    if (!remoteEnabled || !item.remoteId) { removeIncome(id); return true }
+    return runItemMutation(() => deleteSimulationItemApi(item.remoteId), () => removeIncome(id))
+  }
+
+  async function deletePolicyPlan(id) {
+    const item = state.policies.find((entry) => entry.id === id)
+    if (!item) return false
+    if (!remoteEnabled || !item.remoteId) { removePolicy(id); return true }
+    return runItemMutation(() => deleteSimulationItemApi(item.remoteId), () => removePolicy(id))
+  }
   function confirmScenario() {
     state.completedQuestIds = []
     state.confirmed = true
@@ -266,7 +357,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
     if (changed) state.completedQuestIds = [...new Set(migrated)]
   }
-  function resetScenario() { Object.assign(state, defaultState()) }
+  function resetScenario() { Object.assign(state, defaultState()); recentConfirmed.value = null }
 
   function prepareNewScenario() {
     state.expenses = state.expenses.map((item) => ({
@@ -284,6 +375,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.draftStarted = true
     state.ignoreRemoteDraft = true
     remoteReport.value = null
+    recentConfirmed.value = null
     syncError.value = ''
   }
 
@@ -299,10 +391,48 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncError.value = ''
     try {
       const data = await getCurrentSimulationApi()
+      remoteDraftExists.value = true
       applyRemoteSimulation(data)
       return data
     } catch (error) {
-      if (error.status !== 404) syncError.value = error.message
+      if (error.status === 404) remoteDraftExists.value = false
+      else syncError.value = error.message
+      return null
+    } finally {
+      syncing.value = false
+    }
+  }
+
+  async function hydrateConfirmed() {
+    if (!remoteEnabled || state.ignoreRemoteDraft) return null
+    syncing.value = true
+    syncError.value = ''
+    try {
+      const confirmed = mapConfirmedSimulationResponse(
+        await getLatestConfirmedSimulationApi(),
+        policyCatalog,
+      )
+      if (!confirmed) return null
+
+      recentConfirmed.value = confirmed
+      state.startDate = confirmed.startDate || state.startDate
+      state.endDate = confirmed.endDate || state.endDate
+      state.expenses = state.expenses.map((item) => {
+        const remoteItem = confirmed.expenses.find((entry) => entry.name === item.name)
+        return remoteItem
+          ? { ...item, saving: Math.min(item.current, remoteItem.saving), selected: remoteItem.saving > 0, remoteId: remoteItem.remoteId, remoteSynced: true }
+          : { ...item, saving: 0, selected: false, remoteId: undefined, remoteSynced: false }
+      })
+      state.incomes = confirmed.incomes
+      state.policies = confirmed.policies
+      state.expenseApplied = confirmed.expenses.length > 0
+      state.confirmed = true
+      state.draftStarted = false
+      state.ignoreRemoteDraft = false
+      return confirmed
+    } catch (error) {
+      if (error.status === 404) { recentConfirmed.value = null; state.confirmed = false }
+      else syncError.value = error.message
       return null
     } finally {
       syncing.value = false
@@ -315,17 +445,27 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncError.value = ''
     const payload = { simulationStartDate: state.startDate, simulationDueDate: state.endDate }
     try {
-      const data = await createSimulationApi(payload)
-      applyRemoteSimulation(data)
-      return true
-    } catch (createError) {
-      try {
-        await updateSimulationPeriodApi(payload)
-        return true
-      } catch (updateError) {
-        syncError.value = updateError.message || createError.message
-        return true
+      if (remoteDraftExists.value === null) {
+        try {
+          await getCurrentSimulationApi()
+          remoteDraftExists.value = true
+        } catch (lookupError) {
+          if (lookupError.status === 404) remoteDraftExists.value = false
+          else throw lookupError
+        }
       }
+
+      if (remoteDraftExists.value) {
+        await updateSimulationPeriodApi(payload)
+      } else {
+        const data = await createSimulationApi(payload)
+        remoteDraftExists.value = true
+        applyRemoteSimulation(data)
+      }
+      return true
+    } catch (error) {
+      syncError.value = error.message
+      return false
     } finally {
       syncing.value = false
     }
@@ -358,28 +498,29 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncing.value = true
     syncError.value = ''
     try {
-      const payloads = category === 'expense'
-        ? selectedExpenses.value.filter((item) => !item.remoteSynced).map((item) => ({
+      const pendingItems = category === 'expense'
+        ? selectedExpenses.value.filter((item) => !item.remoteSynced).map((item) => ({ item, payload: {
             category: 'EXPENSE', itemName: `${item.name} 줄이기`,
             expenseCategory: expenseCategoryMap[item.name] || 'ETC_EXPENSE', amount: item.saving,
             applyStartDate: state.startDate, applyEndDate: state.endDate, recurrenceType: 'MONTHLY',
-          }))
+          } }))
         : category === 'income'
-          ? state.incomes.filter((item) => !item.remoteSynced).map((item) => ({
+          ? state.incomes.filter((item) => !item.remoteSynced).map((item) => ({ item, payload: {
               category: 'INCOME', itemName: item.name, amount: item.amount, expenseCategory: null,
               applyStartDate: item.startDate || state.startDate,
               applyEndDate: item.type === 'once' ? null : state.endDate,
               recurrenceType: item.type === 'once' ? 'ONCE' : 'MONTHLY', policyId: null,
-            }))
-          : state.policies.filter((item) => !item.remoteSynced && Number.isInteger(Number(item.id))).map((item) => ({
+            } }))
+          : state.policies.filter((item) => !item.remoteSynced && Number.isInteger(Number(item.id))).map((item) => ({ item, payload: {
               category: 'POLICY', policyId: Number(item.id), applyStartDate: state.startDate,
               itemName: null, amount: null, expenseCategory: null, applyEndDate: null, recurrenceType: null,
-            }))
+            } }))
 
-      await Promise.all(payloads.map((payload) => applySimulationItemApi(payload)))
-      if (category === 'expense') state.expenses.forEach((item) => { if (item.selected) item.remoteSynced = true })
-      if (category === 'income') state.incomes.forEach((item) => { item.remoteSynced = true })
-      if (category === 'policy') state.policies.forEach((item) => { item.remoteSynced = true })
+      const results = await Promise.all(pendingItems.map(({ payload }) => applySimulationItemApi(payload)))
+      pendingItems.forEach(({ item }, index) => {
+        item.remoteId = results[index]?.itemId || item.remoteId
+        item.remoteSynced = true
+      })
       const serverReport = await getSimulationReportApi()
       remoteReport.value = state.ignoreRemoteDraft ? null : serverReport
       return true
@@ -402,25 +543,20 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  const apiExpenseCategoryMap = {
-    FOOD: '식비', TRANSPORT: '교통비', COMMUNICATION: '통신비', SUBSCRIPTION: '구독비',
-    EDUCATION: '교육비', CERTIFICATE: '자격증 비용', ETC_EXPENSE: '기타',
-  }
-
   async function hydrateCategory(category) {
     if (state.ignoreRemoteDraft) return []
     const items = await refreshCategory(category)
-    if (category !== 'expense' || !items.length) return items
-    items.forEach((remoteItem) => {
-      const name = apiExpenseCategoryMap[remoteItem.expenseCategory]
-      const item = state.expenses.find((entry) => entry.name === name)
-      if (!item || Number(remoteItem.amount) <= 0) return
-      item.saving = Math.min(item.current, Number(remoteItem.amount))
-      item.selected = item.saving > 0
-      item.remoteSynced = true
-      item.remoteId = remoteItem.itemId
-    })
-    state.expenseApplied = state.expenses.some((item) => item.selected)
+    const mappedItems = items.map((item) => mapSimulationItemResponse(item, policyCatalog)).filter(Boolean)
+    if (category === 'expense') {
+      state.expenses = state.expenses.map((item) => {
+        const remoteItem = mappedItems.find((entry) => entry.name === item.name)
+        return remoteItem
+          ? { ...item, saving: Math.min(item.current, remoteItem.saving), selected: remoteItem.saving > 0, remoteSynced: true, remoteId: remoteItem.remoteId }
+          : item
+      })
+      state.expenseApplied = state.expenses.some((item) => item.selected)
+    } else if (category === 'income') state.incomes = mappedItems.filter((item) => item.kind === 'income')
+    else if (category === 'policy') state.policies = mappedItems.filter((item) => item.kind === 'policy')
     return items
   }
 
@@ -430,11 +566,14 @@ export const useSimulationStore = defineStore('simulation', () => {
     expenseMonths, expenseBreakdown, totalCurrentExpense, selectedExpenses, expenseSaving, recurringIncome,
     oneTimeIncome, recurringPolicy, oneTimePolicy, monthlyImprovement, addedMonths,
     expectedMonths, expensePreviewMonths, scenarioStartDate, scenarioEndDate,
-    completedCategories, hasDraft, syncing, syncError, remoteReport, adjustExpense, setExpenseSaving, toggleExpense,
+    completedCategories, hasDraft, syncing, syncError, remoteReport, recentConfirmed,
+    adjustExpense, setExpenseSaving, toggleExpense,
     addIncome, updateIncome, removeIncome, togglePolicy, removePolicy, applyExpenses, resetExpenses,
+    saveExpenseGoal, deleteExpenseGoal, saveIncomePlan, deleteIncomePlan, deletePolicyPlan,
     initializeExpensesFromAnalysis,
     resetIncomes, resetPolicies, confirmScenario, toggleQuestCompletion,
-    migrateRecurringQuestCompletions, resetScenario, prepareNewScenario, hydrateDraft, beginSimulation, savePeriod,
+    migrateRecurringQuestCompletions, resetScenario, prepareNewScenario,
+    hydrateDraft, hydrateConfirmed, beginSimulation, savePeriod,
     syncCategory, refreshCategory, hydrateCategory,
   }
 })
