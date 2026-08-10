@@ -17,6 +17,7 @@ const form = reactive({
   period: '',
   sourceUrl: '',
   status: 'open',
+  recommendStatus: 'active',
   ageCondition: '',
   incomeCondition: '',
   requiredDocs: '',
@@ -33,7 +34,7 @@ async function save() {
   if (isEdit.value) {
     await updateAdminPolicy(route.params.policyId, { ...form })
   } else {
-    await createAdminPolicy({ ...form, excludedFromRecommend: form.status === 'closed' })
+    await createAdminPolicy({ ...form })
   }
   router.push('/admin/policies')
 }
@@ -89,6 +90,14 @@ onMounted(load)
             <option value="open">모집중</option>
             <option value="closing-soon">마감임박</option>
             <option value="closed">마감</option>
+          </select>
+        </label>
+        <label>
+          추천 여부
+          <select v-model="form.recommendStatus">
+            <option value="active">추천중</option>
+            <option value="auto-excluded">자동 제외(마감)</option>
+            <option value="manual-excluded">수동 제외(오류)</option>
           </select>
         </label>
       </div>
@@ -164,7 +173,7 @@ onMounted(load)
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 700 !important;
 }
 
 .admin-card {
@@ -216,6 +225,20 @@ onMounted(load)
   border-radius: var(--radius-sm);
   font-size: var(--font-small);
   font-weight: 400;
+}
+
+.admin-policy-form__grid select {
+  padding-right: 36px;
+
+  /* 브라우저 기본 토글 화살표 제거 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* 커스텀 토글 아이콘(▾) 넣기 및 위치 조절 */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
 }
 
 .admin-policy-form__columns {

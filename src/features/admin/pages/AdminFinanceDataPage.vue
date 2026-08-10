@@ -1,371 +1,225 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import {
-  applyAdminFinanceDataset,
-  createAdminFinanceAccount,
-  createAdminFinanceCard,
-  createAdminFinanceTransaction,
-  deleteAdminFinanceRecord,
-  findAdminFinanceUser,
-  getAdminFinanceDatasets,
-  resolveAdminFinanceDuplicate,
-  updateAdminFinanceRecord,
+  deleteAdminFinancePersonaDataset,
+  duplicateAdminFinancePersonaDataset,
+  getAdminFinancePersonaDatasets,
 } from '@/features/admin/api/financeDataApi'
-import FinanceAccountCardFormModal from '@/features/admin/components/finance/FinanceAccountCardFormModal.vue'
-import FinanceTransactionFormModal from '@/features/admin/components/finance/FinanceTransactionFormModal.vue'
-import FinanceDeleteConfirmModal from '@/features/admin/components/finance/FinanceDeleteConfirmModal.vue'
-import FinanceDuplicateReviewModal from '@/features/admin/components/finance/FinanceDuplicateReviewModal.vue'
-
-const TABS = [
-  { key: 'accounts', label: '계좌' },
-  { key: 'cards', label: '카드' },
-  { key: 'transactions', label: '거래' },
-]
 
 const datasets = ref([])
-const keyword = ref('jijun01')
-const user = ref(null)
-const notFound = ref(false)
-const activeTab = ref('accounts')
-const selectedDatasetKey = ref('')
-
-const modal = ref(null) // { type: 'account-card' | 'transaction' | 'delete' | 'duplicate', mode, record, listKey }
-
-const registerLabel = computed(() => (activeTab.value === 'cards' ? '카드 등록' : '계좌 등록'))
-const accountOptions = computed(
-  () => user.value?.accounts.map((account) => ({ id: account.id, label: `${account.bank} ${account.type}` })) || [],
-)
-
-function datasetLabel(key) {
-  return datasets.value.find((dataset) => dataset.key === key)?.label || key
-}
 
 async function loadDatasets() {
-  datasets.value = await getAdminFinanceDatasets()
+  datasets.value = await getAdminFinancePersonaDatasets()
 }
 
-async function search() {
-  try {
-    user.value = await findAdminFinanceUser(keyword.value)
-    selectedDatasetKey.value = user.value.datasetKey
-    notFound.value = false
-  } catch {
-    user.value = null
-    notFound.value = true
-  }
+async function duplicateDataset(dataset) {
+  const copy = await duplicateAdminFinancePersonaDataset(dataset.key)
+  const index = datasets.value.findIndex((item) => item.key === dataset.key)
+  datasets.value.splice(index + 1, 0, copy)
 }
 
-async function applyDataset() {
-  if (!user.value) return
-  await applyAdminFinanceDataset(user.value.userId, selectedDatasetKey.value)
-  user.value.datasetKey = selectedDatasetKey.value
+async function removeDataset(dataset) {
+  if (!window.confirm(`"${dataset.name}" 데이터 세트를 삭제할까요? 삭제하면 되돌릴 수 없어요.`)) return
+  await deleteAdminFinancePersonaDataset(dataset.key)
+  datasets.value = datasets.value.filter((item) => item.key !== dataset.key)
 }
 
-function openCreateModal() {
-  modal.value =
-    activeTab.value === 'transactions'
-      ? { type: 'transaction', mode: 'create' }
-      : { type: 'account-card', mode: 'create', recordType: activeTab.value === 'cards' ? 'card' : 'account' }
+// 사용자 목록
+function todayStr() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-function openEditModal(listKey, record) {
-  if (listKey === 'transactions') {
-    modal.value = { type: 'transaction', mode: 'edit', listKey, record }
-  } else {
-    modal.value = { type: 'account-card', mode: 'edit', listKey, record, recordType: listKey === 'accounts' ? 'account' : 'card' }
-  }
-}
+const unassignedUsers = ref([]) // 데이터 세트 미지정으로 변경된 회원 (목록 유지용)
+const pendingSelection = ref({}) // userId -> 드롭다운에서 아직 저장하지 않은 선택값
 
-function openDeleteModal(listKey, record, message) {
-  modal.value = { type: 'delete', listKey, record, message }
-}
-
-function openDuplicateModal(record) {
-  modal.value = { type: 'duplicate', record }
-}
-
-function closeModal() {
-  modal.value = null
-}
-
-async function submitAccountCard({ type, payload }) {
-  const listKey = type === 'account' ? 'accounts' : 'cards'
-  if (modal.value.mode === 'edit') {
-    const updated = await updateAdminFinanceRecord(user.value.userId, listKey, modal.value.record.id, payload)
-    const index = user.value[listKey].findIndex((item) => item.id === updated.id)
-    user.value[listKey][index] = updated
-  } else {
-    const created = type === 'account'
-      ? await createAdminFinanceAccount(user.value.userId, payload)
-      : await createAdminFinanceCard(user.value.userId, payload)
-    user.value[listKey].push(created)
-  }
-  closeModal()
-}
-
-async function submitTransaction(payload) {
-  if (modal.value.mode === 'edit') {
-    const updated = await updateAdminFinanceRecord(user.value.userId, 'transactions', modal.value.record.id, payload)
-    const index = user.value.transactions.findIndex((item) => item.id === updated.id)
-    user.value.transactions[index] = updated
-  } else {
-    const created = await createAdminFinanceTransaction(user.value.userId, payload)
-    user.value.transactions.unshift(created)
-  }
-  closeModal()
-}
-
-async function confirmDelete() {
-  const { listKey, record } = modal.value
-  await deleteAdminFinanceRecord(user.value.userId, listKey, record.id)
-  user.value[listKey] = user.value[listKey].filter((item) => item.id !== record.id)
-  closeModal()
-}
-
-async function allowDuplicate() {
-  const { record } = modal.value
-  await resolveAdminFinanceDuplicate(user.value.userId, record.id, 'allow')
-  const target = user.value.transactions.find((item) => item.id === record.id)
-  if (target) {
-    target.duplicateSuspect = false
-    delete target.duplicateOf
-  }
-  closeModal()
-}
-
-async function markDuplicate() {
-  const { record } = modal.value
-  await resolveAdminFinanceDuplicate(user.value.userId, record.id, 'duplicate')
-  user.value.transactions = user.value.transactions.filter((item) => item.id !== record.id)
-  closeModal()
-}
-
-function formatWon(amount) {
-  return `${Math.abs(amount).toLocaleString()}원`
-}
-
-onMounted(async () => {
-  await loadDatasets()
-  await search()
+const users = computed(() => {
+  const map = new Map()
+  datasets.value.forEach((dataset) => {
+    ;(dataset.appliedMembers || []).forEach((member) => {
+      map.set(member.userId, {
+        userId: member.userId,
+        email: member.email,
+        nickname: member.nickname,
+        datasetKey: dataset.key,
+        accountCount: dataset.accountCount,
+        cardCount: dataset.cardCount,
+        transactionCount: dataset.transactionCount,
+        updatedAt: member.updatedAt || member.appliedAt,
+      })
+    })
+  })
+  unassignedUsers.value.forEach((member) => {
+    if (!map.has(member.userId)) {
+      map.set(member.userId, {
+        userId: member.userId,
+        email: member.email,
+        nickname: member.nickname,
+        datasetKey: '',
+        accountCount: 0,
+        cardCount: 0,
+        transactionCount: 0,
+        updatedAt: member.updatedAt,
+      })
+    }
+  })
+  return Array.from(map.values())
 })
+
+const memberKeyword = ref('')
+const memberDatasetFilter = ref('all')
+
+const filteredUsers = computed(() => {
+  const keyword = memberKeyword.value.trim().toLowerCase()
+  return users.value.filter((user) => {
+    const matchesKeyword =
+      !keyword || [user.userId, user.email, user.nickname].some((value) => value.toLowerCase().includes(keyword))
+    const matchesDataset = memberDatasetFilter.value === 'all' || user.datasetKey === memberDatasetFilter.value
+    return matchesKeyword && matchesDataset
+  })
+})
+
+function datasetName(key) {
+  if (!key) return '미지정'
+  return datasets.value.find((dataset) => dataset.key === key)?.name || '미지정'
+}
+
+function selectedKeyFor(user) {
+  const pending = pendingSelection.value[user.userId]
+  return pending !== undefined ? pending : user.datasetKey || ''
+}
+
+function onSelectDataset(user, value) {
+  pendingSelection.value = { ...pendingSelection.value, [user.userId]: value }
+}
+
+function isDirty(user) {
+  const pending = pendingSelection.value[user.userId]
+  return pending !== undefined && pending !== (user.datasetKey || '')
+}
+
+function saveDatasetAssignment(user) {
+  const targetKey = pendingSelection.value[user.userId] ?? ''
+  const fromDataset = datasets.value.find((dataset) => dataset.key === user.datasetKey)
+  if (fromDataset) {
+    fromDataset.appliedMembers = fromDataset.appliedMembers.filter((member) => member.userId !== user.userId)
+  }
+  unassignedUsers.value = unassignedUsers.value.filter((member) => member.userId !== user.userId)
+
+  if (targetKey) {
+    const toDataset = datasets.value.find((dataset) => dataset.key === targetKey)
+    if (toDataset) {
+      toDataset.appliedMembers.push({
+        userId: user.userId,
+        email: user.email,
+        nickname: user.nickname,
+        appliedAt: todayStr(),
+        updatedAt: todayStr(),
+      })
+    }
+  } else {
+    unassignedUsers.value = [...unassignedUsers.value, { userId: user.userId, email: user.email, nickname: user.nickname, updatedAt: todayStr() }]
+  }
+
+  const next = { ...pendingSelection.value }
+  delete next[user.userId]
+  pendingSelection.value = next
+}
+
+onMounted(loadDatasets)
 </script>
 
 <template>
   <section class="admin-finance">
-    <div class="admin-finance__content" :class="{ 'is-dimmed': modal }">
-    <header class="admin-finance__header">
-      <h1>금융데이터 관리</h1>
-      <p>사용자별 테스트용 Mock 금융 데이터를 한곳에서 조회하고 관리하세요.</p>
-    </header>
+    <div class="admin-finance__content">
+      <header class="admin-finance__header">
+        <h1>금융데이터 관리</h1>
+        <p>사용자별 테스트용 Mock 금융 데이터를 한곳에서 조회하고 관리하세요.</p>
+      </header>
 
-    <article class="admin-card">
-      <div class="admin-finance__lookup-head">
-        <h2>사용자 및 데이터 세트 조회 · 배정</h2>
-        <RouterLink to="/admin/finance-data/history" class="admin-finance__manage-link">데이터 세트 관리 →</RouterLink>
-      </div>
-      <form class="admin-finance__lookup" @submit.prevent="search">
-        <input v-model="keyword" type="text" placeholder="회원 (ID · 이메일 · 닉네임)" />
-        <select v-model="selectedDatasetKey">
-          <option v-for="dataset in datasets" :key="dataset.key" :value="dataset.key">{{ dataset.label }}</option>
-        </select>
-        <button type="submit">조회</button>
-        <button v-if="user" type="button" class="admin-finance__apply" @click="applyDataset">적용</button>
-      </form>
-
-      <p v-if="notFound" class="admin-finance__not-found">해당 회원을 찾을 수 없어요.</p>
-
-      <div v-if="user" class="admin-finance__selected">
-        <div>
-          <p class="label">선택 사용자</p>
-          <p class="value">{{ user.userId }} · {{ user.email }} · {{ user.nickname }}</p>
+      <article class="admin-card admin-finance__user-card">
+        <div class="admin-finance__section-head">
+          <h2>사용자별 금융데이터 조회</h2>
         </div>
-        <div>
-          <p class="label">현재 적용 세트</p>
-          <p class="value">{{ datasetLabel(user.datasetKey) }}</p>
+
+        <div class="admin-finance__user-toolbar">
+          <input v-model="memberKeyword" type="text" placeholder="회원 이름, ID 또는 이메일로 검색" />
+          <select v-model="memberDatasetFilter">
+            <option value="all">전체 데이터 세트</option>
+            <option v-for="dataset in datasets" :key="dataset.key" :value="dataset.key">{{ dataset.name }}</option>
+            <option value="">미지정</option>
+          </select>
+          <button type="button" class="admin-finance__user-search-btn">검색</button>
         </div>
-        <p class="admin-finance__counts">
-          계좌 {{ user.accounts.length }} · 카드 {{ user.cards.length }} · 거래 {{ user.transactions.length }}
-        </p>
-      </div>
-    </article>
 
-    <article v-if="user" class="admin-card">
-      <div class="admin-finance__data-head">
-        <h2>Mock 금융 데이터</h2>
-        <div class="admin-finance__register-buttons">
-          <button type="button" class="ghost" @click="openCreateModal">{{ registerLabel }}</button>
-          <button type="button" class="primary" @click="modal = { type: 'transaction', mode: 'create' }">거래 등록</button>
+        <div class="admin-finance__table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>회원 정보</th>
+                <th>현재 적용 세트</th>
+                <th>계좌</th>
+                <th>카드</th>
+                <th>거래</th>
+                <th>최근 적용일</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="user in filteredUsers" :key="user.userId">
+                <td class="strong">{{ user.userId }} · {{ user.email }} · {{ user.nickname }}</td>
+                <td>
+                  <div class="admin-finance__assign-cell">
+                    <select :value="selectedKeyFor(user)" @change="onSelectDataset(user, $event.target.value)">
+                      <option v-for="dataset in datasets" :key="dataset.key" :value="dataset.key">{{ dataset.name }}</option>
+                      <option value="">미지정</option>
+                    </select>
+                    <button v-if="isDirty(user)" type="button" class="admin-finance__assign-save" @click="saveDatasetAssignment(user)">저장</button>
+                  </div>
+                </td>
+                <td>{{ user.accountCount }}</td>
+                <td>{{ user.cardCount }}</td>
+                <td>{{ user.transactionCount }}</td>
+                <td>{{ user.updatedAt || '-' }}</td>
+                <td class="admin-finance__row-actions">
+                  <RouterLink :to="`/admin/finance-data/members/${user.userId}`">상세보기</RouterLink>
+                </td>
+              </tr>
+              <tr v-if="filteredUsers.length === 0">
+                <td colspan="7" class="admin-finance__member-empty">조건에 맞는 회원이 없어요.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </article>
+
+      <div id="admin-finance-dataset-management" class="admin-finance__section-head">
+        <h2>데이터 세트 관리</h2>
+        <RouterLink to="/admin/finance-data/datasets/create" class="admin-finance__add">+ 새 데이터 세트</RouterLink>
       </div>
 
-      <div class="admin-finance__tabs">
-        <span class="admin-finance__tabs-total">전체 {{ user.accounts.length + user.cards.length + user.transactions.length }}</span>
-        <button
-          v-for="tab in TABS"
-          :key="tab.key"
-          type="button"
-          :class="['admin-finance__tab', { active: activeTab === tab.key }]"
-          @click="activeTab = tab.key"
-        >
-          {{ tab.label }} {{ user[tab.key].length }}
-        </button>
+      <div class="admin-finance__grid">
+        <article v-for="dataset in datasets" :key="dataset.key" class="admin-finance__dataset">
+          <h3>{{ dataset.name }}</h3>
+          <p class="admin-finance__dataset-desc">{{ dataset.description }}</p>
+          <p class="admin-finance__dataset-stats">
+            계좌 {{ dataset.accountCount }} · 카드 {{ dataset.cardCount }} · 거래 {{ dataset.transactionCount }}
+          </p>
+          <div class="admin-finance__dataset-actions">
+            <RouterLink :to="`/admin/finance-data/${dataset.key}`" class="primary">상세보기</RouterLink>
+            <button type="button" class="ghost" @click="duplicateDataset(dataset)">복사</button>
+            <button type="button" class="danger" @click="removeDataset(dataset)">삭제</button>
+          </div>
+        </article>
+
+        <p v-if="datasets.length === 0" class="admin-finance__empty">등록된 데이터 세트가 없어요.</p>
       </div>
-
-      <table v-if="activeTab === 'accounts'">
-        <thead>
-          <tr>
-            <th>은행</th>
-            <th>계좌유형</th>
-            <th>잔액</th>
-            <th>상태</th>
-            <th>관리</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="account in user.accounts" :key="account.id">
-            <td class="strong">{{ account.bank }}</td>
-            <td>{{ account.type }}</td>
-            <td class="strong">{{ formatWon(account.balance) }}</td>
-            <td>
-              <span :class="['admin-badge', account.status === 'connected' ? 'admin-badge--info' : 'admin-badge--success']">
-                {{ account.status === 'connected' ? '연결됨' : '정상' }}
-              </span>
-            </td>
-            <td class="admin-finance__row-actions">
-              <button type="button" @click="openEditModal('accounts', account)">수정</button>
-              <span>·</span>
-              <button type="button" class="danger" @click="openDeleteModal('accounts', account, `“${account.bank} ${account.type}” 계좌를 삭제합니다.`)">삭제</button>
-              <span>·</span>
-              <RouterLink to="/admin/finance-data/history">이력</RouterLink>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <template v-else-if="activeTab === 'cards'">
-        <table>
-          <thead>
-            <tr>
-              <th>카드사</th>
-              <th>이용액 · 한도</th>
-              <th>연결계좌</th>
-              <th>상태</th>
-              <th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="card in user.cards" :key="card.id">
-              <td>
-                <p class="strong">{{ card.issuer }}</p>
-                <small class="admin-finance__subtext">{{ card.type }}</small>
-              </td>
-              <td>
-                <p class="strong">이용액 {{ formatWon(card.usedAmount) }}</p>
-                <small class="admin-finance__subtext">한도 {{ formatWon(card.limit) }}</small>
-              </td>
-              <td>{{ card.linkedAccountLabel }}</td>
-              <td><span class="admin-badge admin-badge--success">정상</span></td>
-              <td class="admin-finance__row-actions">
-                <button type="button" @click="openEditModal('cards', card)">수정</button>
-                <span>·</span>
-                <button type="button" class="danger" @click="openDeleteModal('cards', card, `“${card.issuer}” 카드를 삭제합니다.`)">삭제</button>
-                <span>·</span>
-                <RouterLink to="/admin/finance-data/history">이력</RouterLink>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="admin-finance__footnote">카드 이용액은 "거래" 탭의 지출 내역과 자동 연동됩니다.</p>
-      </template>
-
-      <template v-else>
-        <table>
-          <thead>
-            <tr>
-              <th>거래일</th>
-              <th>거래처</th>
-              <th>거래금액</th>
-              <th>수입/지출</th>
-              <th>카테고리</th>
-              <th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="txn in user.transactions" :key="txn.id">
-              <td>{{ txn.date }}</td>
-              <td class="strong">{{ txn.merchant }}</td>
-              <td :class="['strong', txn.kind === 'income' ? 'text-success' : 'text-danger']">
-                {{ txn.kind === 'income' ? '+' : '-' }}{{ formatWon(txn.amount) }}
-              </td>
-              <td>
-                <span :class="['admin-badge', txn.kind === 'income' ? 'admin-badge--success' : 'admin-badge--danger']">
-                  {{ txn.kind === 'income' ? '수입' : '지출' }}
-                </span>
-              </td>
-              <td>
-                <span v-if="txn.category === '대출상환'" class="admin-badge admin-badge--purple">대출상환</span>
-                <template v-else>{{ txn.category }}</template>
-              </td>
-              <td class="admin-finance__row-actions">
-                <template v-if="txn.duplicateSuspect">
-                  <button type="button" class="admin-finance__duplicate-badge" @click="openDuplicateModal(txn)">중복 의심 · 검수</button>
-                </template>
-                <template v-else>
-                  <button type="button" @click="openEditModal('transactions', txn)">수정</button>
-                  <span>·</span>
-                  <button type="button" class="danger" @click="openDeleteModal('transactions', txn, `“${txn.merchant}” 거래를 삭제합니다.`)">삭제</button>
-                  <span>·</span>
-                  <RouterLink to="/admin/finance-data/history">이력</RouterLink>
-                </template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="admin-finance__footnote">동일 거래 고유값 기준으로 중복 거래는 자동 차단됩니다.</p>
-      </template>
-
-      <RouterLink to="/admin/finance-data/history" class="admin-finance__history-link">등록·수정·삭제 이력 보기 →</RouterLink>
-    </article>
     </div>
-
-    <FinanceAccountCardFormModal
-      v-if="modal?.type === 'account-card'"
-      :mode="modal.mode"
-      :record-type="modal.recordType"
-      :initial="modal.record"
-      :account-options="accountOptions"
-      @close="closeModal"
-      @submit="submitAccountCard"
-    />
-    <FinanceTransactionFormModal
-      v-if="modal?.type === 'transaction'"
-      :mode="modal.mode"
-      :initial="modal.record"
-      @close="closeModal"
-      @submit="submitTransaction"
-    />
-    <FinanceDeleteConfirmModal
-      v-if="modal?.type === 'delete'"
-      :message="modal.message"
-      @close="closeModal"
-      @confirm="confirmDelete"
-    />
-    <FinanceDuplicateReviewModal
-      v-if="modal?.type === 'duplicate'"
-      :transaction="modal.record"
-      @close="closeModal"
-      @allow="allowDuplicate"
-      @duplicate="markDuplicate"
-    />
   </section>
 </template>
 
 <style scoped>
-.admin-finance__content.is-dimmed {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
 .admin-finance__header h1 {
   color: var(--text);
   font-size: var(--font-page-title);
@@ -379,262 +233,292 @@ onMounted(async () => {
 }
 
 .admin-card {
-  margin-top: 20px;
+  margin-top: 24px;
   padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
+}
+
+.admin-card h2 {
+  color: var(--text);
+  font-size: var(--font-card-title);
+  font-weight: 800;
+}
+
+.admin-finance__section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.admin-finance__user-card .admin-finance__section-head {
+  margin-top: 0;
+}
+
+.admin-finance__section-head h2 {
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.admin-finance__user-card .admin-finance__section-head h2 {
+  color: #000000;
+}
+
+.admin-finance__user-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-finance__user-toolbar input {
+  width: 320px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  font-size: var(--font-caption);
+}
+
+.admin-finance__user-toolbar input::placeholder {
+  color: #9ca3af;
+}
+
+.admin-finance__user-toolbar select {
+  width: 160px;
+  padding: 8px 34px 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-sm);
+  background-color: #ffffff;
+  font-size: var(--font-caption);
+
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.admin-finance__user-search-btn {
+  padding: 8px 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
+  color: var(--text);
+  font-size: var(--font-caption);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-finance__table-wrap {
+  width: 100%;
+  max-height: 382px;
+  margin-top: 16px;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.admin-finance__table-wrap table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: var(--font-small);
+}
+
+.admin-finance__table-wrap th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+  font-size: var(--font-caption);
+  font-weight: 700;
+  text-align: left;
+}
+
+.admin-finance__table-wrap td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  vertical-align: middle;
+}
+
+.admin-finance__table-wrap td.strong,
+.admin-finance__table-wrap td p.strong {
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.admin-finance__table-wrap tbody tr:hover {
+  background: #fffbea;
+}
+
+.admin-finance__table-wrap th:nth-child(3),
+.admin-finance__table-wrap th:nth-child(4),
+.admin-finance__table-wrap th:nth-child(5),
+.admin-finance__table-wrap td:nth-child(3),
+.admin-finance__table-wrap td:nth-child(4),
+.admin-finance__table-wrap td:nth-child(5) {
+  text-align: center;
+}
+
+.admin-finance__assign-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-finance__assign-cell select {
+  min-width: 190px;
+  padding: 8px 32px 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-sm);
+  background-color: #ffffff;
+  font-size: var(--font-caption);
+
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.admin-finance__assign-save {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
+  color: var(--text);
+  font-size: var(--font-caption);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-finance__row-actions button,
+.admin-finance__row-actions a {
+  border: 0;
+  background: transparent;
+  color: #3b82f6;
+  font-size: var(--font-caption);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.admin-finance__member-empty {
+  padding: 32px 0;
+  color: var(--subtle);
+  text-align: center;
+}
+
+.admin-finance__add {
+  padding: 10px 20px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
+  color: var(--text);
+  font-size: var(--font-small);
+  font-weight: 700 !important;
+  white-space: nowrap;
+}
+
+.admin-finance__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+@media (max-width: 900px) {
+  .admin-finance__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-finance__dataset {
+  min-width: 0;
+  padding: 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-figma);
 }
 
-.admin-finance__lookup-head,
-.admin-finance__data-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.admin-finance__lookup-head h2,
-.admin-finance__data-head h2 {
+.admin-finance__dataset h3 {
   color: var(--text);
-  font-size: var(--font-card-title);
+  font-size: 16px;
   font-weight: 800;
+  line-height: var(--line-height-tight);
 }
 
-.admin-finance__manage-link {
-  color: #0a1680;
-  font-size: var(--font-small);
-  font-weight: 700;
-}
-
-.admin-finance__lookup {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.admin-finance__lookup input,
-.admin-finance__lookup select {
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-small);
-}
-
-.admin-finance__lookup input {
-  flex: 1;
-}
-
-.admin-finance__lookup button,
-.admin-finance__apply {
-  padding: 10px 20px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent-strong);
-  color: var(--text);
-  font-weight: 700;
-}
-
-.admin-finance__not-found {
-  margin-top: 12px;
-  color: var(--subtle);
-  font-size: var(--font-small);
-}
-
-.admin-finance__selected {
-  display: flex;
-  align-items: center;
-  gap: 40px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-
-.admin-finance__selected .label {
-  color: var(--subtle);
+.admin-finance__dataset-desc {
+  margin-top: 10px;
+  color: var(--muted);
   font-size: var(--font-caption);
+  line-height: var(--line-height-body);
 }
 
-.admin-finance__selected .value {
-  margin-top: 4px;
-  color: var(--text);
-  font-size: var(--font-body);
-  font-weight: 700;
-}
-
-.admin-finance__counts {
-  margin-left: auto;
-  color: #0a1680;
-  font-size: var(--font-small);
-  font-weight: 700;
-}
-
-.admin-finance__register-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.admin-finance__register-buttons .ghost {
-  padding: 8px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: var(--font-small);
-  font-weight: 700;
-}
-
-.admin-finance__register-buttons .primary {
-  padding: 8px 18px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent-strong);
-  color: var(--text);
-  font-size: var(--font-small);
-  font-weight: 700;
-}
-
-.admin-finance__tabs {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-}
-
-.admin-finance__tabs-total {
-  color: var(--muted);
-  font-size: var(--font-small);
-}
-
-.admin-finance__tab {
-  padding: 6px 14px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--font-small);
-  font-weight: 700;
-}
-
-.admin-finance__tab.active {
-  background: var(--accent);
-  color: var(--text);
-}
-
-table {
-  width: 100%;
+.admin-finance__dataset-stats {
   margin-top: 14px;
-  border-collapse: collapse;
-  font-size: var(--font-small);
-}
-
-th {
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  font-size: var(--font-caption);
-  text-align: left;
-}
-
-td {
-  padding: 12px 8px;
-  border-bottom: 1px solid var(--border);
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
   color: var(--muted);
-}
-
-td.strong {
-  color: var(--text);
-  font-weight: 700;
-}
-
-.text-success {
-  color: #22c55e;
-}
-
-.text-danger {
-  color: #ef4444;
-}
-
-.admin-finance__subtext {
-  color: var(--subtle);
   font-size: var(--font-caption);
 }
 
-.admin-badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+.admin-finance__dataset-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
 }
 
-.admin-badge--success {
-  background: #dcfce7;
-  color: #22c55e;
-}
-
-.admin-badge--danger {
-  background: #fee2e2;
-  color: #ef4444;
-}
-
-.admin-badge--info {
-  background: #dbeafe;
-  color: #3b82f6;
-}
-
-.admin-badge--purple {
-  background: #f3e8ff;
-  color: #9333ea;
-}
-
-.admin-finance__duplicate-badge {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: #f59e0b;
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.admin-finance__row-actions {
+.admin-finance__dataset-actions button,
+.admin-finance__dataset-actions a {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--subtle);
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-caption);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
   white-space: nowrap;
 }
 
-.admin-finance__row-actions button {
+.admin-finance__dataset-actions .primary {
   border: 0;
-  background: transparent;
-  color: #3b82f6;
-  font-size: var(--font-caption);
-  font-weight: 700;
+  background: var(--accent-strong);
+  color: var(--text);
 }
 
-.admin-finance__row-actions button.danger {
+.admin-finance__dataset-actions .ghost {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.admin-finance__dataset-actions .danger {
+  border: 1px solid #ef4444;
+  background: var(--surface);
   color: #ef4444;
 }
 
-.admin-finance__row-actions a {
-  color: var(--muted);
-  font-size: var(--font-caption);
-  font-weight: 700;
-}
-
-.admin-finance__footnote {
-  margin-top: 12px;
+.admin-finance__empty {
+  grid-column: 1 / -1;
+  padding: 32px 0;
   color: var(--subtle);
-  font-size: var(--font-caption);
-}
-
-.admin-finance__history-link {
-  display: block;
-  margin-top: 16px;
-  color: #0a1680;
-  font-size: var(--font-caption);
-  font-weight: 700;
-  text-align: right;
+  text-align: center;
 }
 </style>

@@ -28,7 +28,9 @@ const appliedFilters = ref({ status: 'all', joinedFrom: '', joinedTo: '' })
 const draftFilters = ref({ status: 'all', joinedFrom: '', joinedTo: '' })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
-const pageNumbers = computed(() => Array.from({ length: totalPages.value }, (_, index) => index + 1))
+const pageNumbers = computed(() =>
+  Array.from({ length: totalPages.value }, (_, index) => index + 1),
+)
 
 async function loadSummary() {
   summary.value = await getAdminMemberSummary()
@@ -103,7 +105,11 @@ onMounted(() => {
       <input v-model="keyword" type="text" placeholder="회원 ID · 이메일 · 닉네임 검색" />
       <button type="submit">검색</button>
       <div class="admin-members__filter">
-        <button type="button" class="admin-members__filter-toggle" @click="openFilter">필터 ▾</button>
+        <!-- 수정 후 -->
+        <button type="button" class="admin-members__filter-toggle" @click="openFilter">
+          <span>필터</span>
+          <span class="icon">▾</span>
+        </button>
         <div v-if="filterOpen" class="admin-members__filter-panel">
           <div class="admin-members__filter-panel-head">
             <h2>회원 필터</h2>
@@ -112,8 +118,16 @@ onMounted(() => {
           <label>
             가입일
             <div class="admin-members__filter-range">
-              <input v-model="draftFilters.joinedFrom" type="date" />
-              <input v-model="draftFilters.joinedTo" type="date" />
+              <input
+                v-model="draftFilters.joinedFrom"
+                type="date"
+                @click="($event) => $event.target.showPicker?.()"
+              />
+              <input
+                v-model="draftFilters.joinedTo"
+                type="date"
+                @click="($event) => $event.target.showPicker?.()"
+              />
             </div>
           </label>
           <label>
@@ -176,9 +190,13 @@ onMounted(() => {
             <td class="strong">{{ member.id }}</td>
             <td>{{ member.nickname }} · {{ member.email }}</td>
             <td>{{ member.joinedAt }}</td>
-            <td :class="{ muted: !member.lastLoginAt }">{{ member.lastLoginAt || '로그인 이력 없음' }}</td>
+            <td :class="{ muted: !member.lastLoginAt }">
+              {{ member.lastLoginAt || '로그인 이력 없음' }}
+            </td>
             <td>
-              <span :class="['admin-badge', `admin-badge--${member.status}`]">{{ STATUS_LABEL[member.status] }}</span>
+              <span :class="['admin-badge', `admin-badge--${member.status}`]">{{
+                STATUS_LABEL[member.status]
+              }}</span>
             </td>
             <td class="admin-members__row-actions">
               <RouterLink :to="`/admin/members/${member.id}`">상세</RouterLink>
@@ -219,12 +237,18 @@ onMounted(() => {
           >
             {{ pageNumber }}
           </button>
-          <button type="button" :disabled="page === totalPages" @click="goToPage(page + 1)">›</button>
-          <button type="button" :disabled="page === totalPages" @click="goToPage(totalPages)">»</button>
+          <button type="button" :disabled="page === totalPages" @click="goToPage(page + 1)">
+            ›
+          </button>
+          <button type="button" :disabled="page === totalPages" @click="goToPage(totalPages)">
+            »
+          </button>
         </div>
         <label class="admin-members__page-size">
           <select v-model.number="pageSize">
-            <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ size }}개씩 보기</option>
+            <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">
+              {{ size }}개씩 보기
+            </option>
           </select>
         </label>
       </footer>
@@ -265,7 +289,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   background: var(--accent-strong);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 700 !important;
 }
 
 .admin-members__filter {
@@ -326,15 +350,42 @@ onMounted(() => {
 
 .admin-members__filter-panel select,
 .admin-members__filter-panel input {
+  width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: var(--font-caption);
 }
 
+/* select에만 커스텀 토글 화살표 아이콘 적용 (input[type=date] 등에는 영향 없음) */
+.admin-members__filter-panel select {
+  padding-right: 32px; /* 오른쪽 padding을 줘서 아이콘 자리를 확보 */
+
+  /* 브라우저 기본 토글 화살표 제거 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* 커스텀 토글 아이콘(▾) 넣기 및 위치 조절 */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+/* input[type=date]는 브라우저 기본 datepicker 동작을 그대로 유지 */
+.admin-members__filter-panel input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
 .admin-members__filter-range {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.admin-members__filter-range input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .admin-members__filter-actions {
@@ -360,6 +411,7 @@ onMounted(() => {
 .admin-members__filter-actions .primary {
   background: var(--accent-strong);
   color: var(--text);
+  font-weight: 700 !important;
 }
 
 .admin-card {

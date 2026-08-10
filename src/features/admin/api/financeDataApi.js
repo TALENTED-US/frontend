@@ -1,21 +1,176 @@
-import { adminFinanceDataByUser, adminFinanceDatasets } from '@/features/admin/data/adminMockData'
+import { adminFinanceDataByUser, adminFinancePersonaDatasets } from '@/features/admin/data/adminMockData'
 
-function pushHistory(user, { item, action, summary }) {
-  user.history.unshift({
-    id: Date.now(),
-    target: user.userId,
-    item,
-    action,
-    summary,
-    actor: '관리자 김재준',
-    at: new Date().toISOString(),
+// TODO: 백엔드 연동 시 이 함수들 내부만 axios 호출로 교체 (컴포넌트는 수정 불필요)
+export function getAdminFinancePersonaDatasets() {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(structuredClone(adminFinancePersonaDatasets)), 100)
   })
 }
 
-// TODO: 백엔드 연동 시 이 함수들 내부만 axios 호출로 교체 (컴포넌트는 수정 불필요)
-export function getAdminFinanceDatasets() {
+export function createAdminFinancePersonaDataset(payload = {}) {
   return new Promise((resolve) => {
-    setTimeout(() => resolve(structuredClone(adminFinanceDatasets)), 100)
+    setTimeout(() => {
+      const record = {
+        key: `dataset-${Date.now()}`,
+        name: '새 데이터 세트',
+        description: '',
+        accountCount: 0,
+        cardCount: 0,
+        transactionCount: 0,
+        ...payload,
+      }
+      adminFinancePersonaDatasets.push(record)
+      resolve(structuredClone(record))
+    }, 150)
+  })
+}
+
+export function duplicateAdminFinancePersonaDataset(key) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const source = adminFinancePersonaDatasets.find((dataset) => dataset.key === key)
+      if (!source) {
+        reject(new Error('dataset not found'))
+        return
+      }
+      const copy = { ...structuredClone(source), key: `${source.key}-copy-${Date.now()}`, name: `${source.name} (복사본)` }
+      adminFinancePersonaDatasets.splice(adminFinancePersonaDatasets.indexOf(source) + 1, 0, copy)
+      resolve(structuredClone(copy))
+    }, 150)
+  })
+}
+
+export function deleteAdminFinancePersonaDataset(key) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const index = adminFinancePersonaDatasets.findIndex((dataset) => dataset.key === key)
+      if (index !== -1) adminFinancePersonaDatasets.splice(index, 1)
+      resolve({ ok: true })
+    }, 150)
+  })
+}
+
+export function getAdminFinancePersonaDataset(key) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const dataset = adminFinancePersonaDatasets.find((item) => item.key === key)
+      if (!dataset) {
+        reject(new Error('dataset not found'))
+        return
+      }
+      resolve(structuredClone(dataset))
+    }, 100)
+  })
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function countKeyForType(type) {
+  return { account: 'accountCount', card: 'cardCount', transaction: 'transactionCount' }[type]
+}
+
+export function createAdminFinanceDatasetRecord(datasetKey, payload) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const dataset = adminFinancePersonaDatasets.find((item) => item.key === datasetKey)
+      if (!dataset) {
+        reject(new Error('dataset not found'))
+        return
+      }
+      const record = { id: `rec-${Date.now()}`, status: 'normal', ...payload }
+      dataset.records.push(record)
+      dataset[countKeyForType(record.type)] += 1
+      dataset.updatedAt = today()
+      resolve(structuredClone(record))
+    }, 150)
+  })
+}
+
+export function updateAdminFinanceDatasetRecord(datasetKey, recordId, payload) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const dataset = adminFinancePersonaDatasets.find((item) => item.key === datasetKey)
+      const record = dataset?.records.find((item) => item.id === recordId)
+      if (!record) {
+        reject(new Error('record not found'))
+        return
+      }
+      Object.assign(record, payload)
+      dataset.updatedAt = today()
+      resolve(structuredClone(record))
+    }, 150)
+  })
+}
+
+export function deleteAdminFinanceDatasetRecord(datasetKey, recordId) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const dataset = adminFinancePersonaDatasets.find((item) => item.key === datasetKey)
+      if (!dataset) {
+        reject(new Error('dataset not found'))
+        return
+      }
+      const record = dataset.records.find((item) => item.id === recordId)
+      dataset.records = dataset.records.filter((item) => item.id !== recordId)
+      if (record) {
+        dataset[countKeyForType(record.type)] -= 1
+        dataset.updatedAt = today()
+      }
+      resolve({ ok: true })
+    }, 150)
+  })
+}
+
+export function assignAdminFinanceDatasetMember(datasetKey, keyword) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const dataset = adminFinancePersonaDatasets.find((item) => item.key === datasetKey)
+      const normalized = keyword.trim().toLowerCase()
+      const user = Object.values(adminFinanceDataByUser).find((item) =>
+        [item.userId, item.email, item.nickname].some((value) => value.toLowerCase().includes(normalized)),
+      )
+      if (!dataset || !user) {
+        reject(new Error('member not found'))
+        return
+      }
+      if (!dataset.appliedMembers.some((member) => member.userId === user.userId)) {
+        dataset.appliedMembers.push({ userId: user.userId, email: user.email, nickname: user.nickname, appliedAt: today(), updatedAt: today() })
+      }
+      resolve(structuredClone(dataset.appliedMembers))
+    }, 150)
+  })
+}
+
+export function reassignAdminFinanceDatasetMember(datasetKey, userId, targetDatasetKey) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const dataset = adminFinancePersonaDatasets.find((item) => item.key === datasetKey)
+      const targetDataset = adminFinancePersonaDatasets.find((item) => item.key === targetDatasetKey)
+      const member = dataset?.appliedMembers.find((item) => item.userId === userId)
+      if (!dataset || !targetDataset || !member) {
+        reject(new Error('member or dataset not found'))
+        return
+      }
+      dataset.appliedMembers = dataset.appliedMembers.filter((item) => item.userId !== userId)
+      targetDataset.appliedMembers.push({ ...member, appliedAt: today(), updatedAt: today() })
+      resolve({ ok: true })
+    }, 150)
+  })
+}
+
+export function removeAdminFinanceDatasetMember(datasetKey, userId) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const dataset = adminFinancePersonaDatasets.find((item) => item.key === datasetKey)
+      if (!dataset) {
+        reject(new Error('dataset not found'))
+        return
+      }
+      dataset.appliedMembers = dataset.appliedMembers.filter((item) => item.userId !== userId)
+      resolve({ ok: true })
+    }, 150)
   })
 }
 
@@ -31,101 +186,6 @@ export function findAdminFinanceUser(keyword) {
         return
       }
       resolve(structuredClone(match))
-    }, 200)
-  })
-}
-
-export function applyAdminFinanceDataset(userId, datasetKey) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = adminFinanceDataByUser[userId]
-      if (user) user.datasetKey = datasetKey
-      resolve({ ok: true })
-    }, 200)
-  })
-}
-
-export function createAdminFinanceAccount(userId, account) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = adminFinanceDataByUser[userId]
-      const record = { id: `acc-${Date.now()}`, status: 'normal', ...account }
-      user.accounts.push(record)
-      pushHistory(user, { item: `${record.bank} ${record.type}`, action: 'create', summary: `신규 계좌 등록 (${record.balance.toLocaleString()}원)` })
-      resolve(structuredClone(record))
-    }, 200)
-  })
-}
-
-export function createAdminFinanceCard(userId, card) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = adminFinanceDataByUser[userId]
-      const record = { id: `card-${Date.now()}`, status: 'normal', ...card }
-      user.cards.push(record)
-      pushHistory(user, { item: record.issuer, action: 'create', summary: `신규 카드 등록 (한도 ${record.limit.toLocaleString()}원)` })
-      resolve(structuredClone(record))
-    }, 200)
-  })
-}
-
-export function createAdminFinanceTransaction(userId, transaction) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = adminFinanceDataByUser[userId]
-      const record = { id: `txn-${Date.now()}`, ...transaction }
-      user.transactions.unshift(record)
-      const sign = record.amount >= 0 ? '+' : ''
-      pushHistory(user, { item: record.merchant, action: 'create', summary: `신규 거래 등록 (${sign}${record.amount.toLocaleString()}원)` })
-      resolve(structuredClone(record))
-    }, 200)
-  })
-}
-
-export function updateAdminFinanceRecord(userId, listKey, recordId, patch) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = adminFinanceDataByUser[userId]
-      const record = user[listKey].find((item) => item.id === recordId)
-      if (!record) {
-        reject(new Error('record not found'))
-        return
-      }
-      Object.assign(record, patch)
-      pushHistory(user, { item: record.bank || record.issuer || record.merchant, action: 'update', summary: '정보 수정' })
-      resolve(structuredClone(record))
-    }, 200)
-  })
-}
-
-export function deleteAdminFinanceRecord(userId, listKey, recordId) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = adminFinanceDataByUser[userId]
-      const record = user[listKey].find((item) => item.id === recordId)
-      user[listKey] = user[listKey].filter((item) => item.id !== recordId)
-      if (record) {
-        pushHistory(user, { item: record.bank || record.issuer || record.merchant, action: 'delete', summary: '삭제 처리' })
-      }
-      resolve({ ok: true })
-    }, 200)
-  })
-}
-
-export function resolveAdminFinanceDuplicate(userId, transactionId, action) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = adminFinanceDataByUser[userId]
-      const transaction = user.transactions.find((item) => item.id === transactionId)
-      if (action === 'duplicate') {
-        user.transactions = user.transactions.filter((item) => item.id !== transactionId)
-        if (transaction) pushHistory(user, { item: transaction.merchant, action: 'delete', summary: '중복 거래 삭제 (검수 승인)' })
-      } else if (transaction) {
-        transaction.duplicateSuspect = false
-        delete transaction.duplicateOf
-        pushHistory(user, { item: transaction.merchant, action: 'update', summary: '중복 의심 해제 (등록 허용)' })
-      }
-      resolve({ ok: true })
     }, 200)
   })
 }

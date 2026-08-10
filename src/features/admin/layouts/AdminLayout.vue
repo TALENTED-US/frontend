@@ -31,6 +31,6 @@ import AdminSidebar from '@/features/admin/components/AdminSidebar.vue'
 }
 
 .admin-shell__content {
-  padding: 32px;
+  padding: 32px 40px;
 }
 </style>
