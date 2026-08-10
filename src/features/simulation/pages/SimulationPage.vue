@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { useQuestStore } from '@/features/quest/stores/quest'
 import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
 import SimulationTimelineChart from '@/features/simulation/components/SimulationTimelineChart.vue'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
@@ -12,6 +13,7 @@ import '@/features/simulation/styles/simulation.css'
 const router = useRouter()
 const simulation = useSimulationStore()
 const progression = useProgressionStore()
+const quests = useQuestStore()
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
 const manwon = (value) => value ? `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value / 10000)}만원` : '없음'
 const expectedLabel = computed(() => simulation.state.confirmed ? `${simulation.expectedMonths}개월` : '?개월')
@@ -29,7 +31,7 @@ const signedWon = (value) => {
   return amount ? `${amount > 0 ? '+' : '-'}${compactWon(Math.abs(amount))}` : compactWon(0)
 }
 const dateDots = (value) => String(value || '').replaceAll('-', '.')
-const questRows = computed(() => [
+const localQuestRows = computed(() => [
   ...(simulation.state.expenseApplied ? simulation.selectedExpenses.map((item) => ({
     id: `expense-${item.id}`, icon: item.icon, name: `${item.name === '교통' ? '교통비' : item.name} ${compactWon(item.saving)} 줄이기`, subtitle: '', amount: -item.saving, kind: 'expense', recurrence: 'monthly',
   })) : []),
@@ -42,18 +44,24 @@ const questRows = computed(() => [
     id: `policy-${item.id}`, icon: '🏛️', name: item.name, subtitle: item.detail || item.description || '정책 혜택', amount: Number(item.amount) || 0, kind: 'policy', recurrence: item.type === 'monthly' ? 'monthly' : 'once',
   })),
 ])
+const questRows = computed(() => quests.remoteEnabled ? quests.rows : localQuestRows.value)
 const questMonthKey = computed(() => {
   const date = new Date()
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 })
 const recurringQuestIds = computed(() => questRows.value.filter((item) => item.recurrence === 'monthly').map((item) => item.id))
 watch([questMonthKey, () => recurringQuestIds.value.join('|')], ([monthKey]) => {
+  if (quests.remoteEnabled) return
   simulation.migrateRecurringQuestCompletions(recurringQuestIds.value, monthKey)
   progression.migrateRecurringQuestClaims(recurringQuestIds.value, monthKey)
 }, { immediate: true })
-const questCompletionId = (item) => item.recurrence === 'monthly' ? `${item.id}@${questMonthKey.value}` : item.id
+const questCompletionId = (item) => quests.remoteEnabled
+  ? item.id
+  : item.recurrence === 'monthly' ? `${item.id}@${questMonthKey.value}` : item.id
 const completedQuestIds = computed(() => new Set(simulation.state.completedQuestIds || []))
-const isQuestCompleted = (item) => completedQuestIds.value.has(questCompletionId(item))
+const isQuestCompleted = (item) => quests.remoteEnabled
+  ? item.completed
+  : completedQuestIds.value.has(questCompletionId(item))
 const completedQuestCount = computed(() => questRows.value.filter(isQuestCompleted).length)
 const activeQuestCount = computed(() => questRows.value.length - completedQuestCount.value)
 const questCompletionPercent = computed(() => questRows.value.length ? Math.round(completedQuestCount.value / questRows.value.length * 100) : 0)
@@ -75,7 +83,17 @@ const oneTimeBenefitText = computed(() => simulation.oneTimeIncome + simulation.
   ? `일시 수입·혜택 ${compactWon(simulation.oneTimeIncome + simulation.oneTimePolicy)} 별도`
   : '정기 반영 금액 기준')
 
-function toggleQuest(item) {
+const questExp = (item) => quests.remoteEnabled ? item.expReward : calculateQuestExp(item.amount)
+const isQuestRewarded = (item) => quests.remoteEnabled
+  ? item.completed
+  : progression.isQuestClaimed(questCompletionId(item))
+const isQuestPending = (item) => quests.remoteEnabled && quests.isPending(item.id)
+
+async function toggleQuest(item) {
+  if (quests.remoteEnabled) {
+    await quests.toggleQuest(item.id)
+    return
+  }
   const id = questCompletionId(item)
   if (isQuestCompleted(item)) progression.cancelQuestClaim(id, item.amount)
   else progression.claimQuest(id, item.amount)
@@ -95,6 +113,7 @@ function createNewSimulation() {
 
 onMounted(async () => {
   await simulation.hydrateConfirmed()
+  if (simulation.state.confirmed) await quests.fetchQuests()
   if (!simulation.state.confirmed && simulation.hasDraft) router.replace('/simulation/continue')
 })
 </script>
@@ -127,6 +146,10 @@ onMounted(async () => {
     <section v-if="simulation.state.confirmed" class="sim-quests simulation-quest-status">
       <div class="simulation-quest-heading"><h2>퀘스트 현황</h2><span>확정됨</span></div>
       <article class="simulation-quest-card">
+        <div v-if="quests.remoteEnabled && (quests.loading || quests.error)" class="simulation-quest-api-notice" :class="{ error: quests.error }" role="status">
+          <span>{{ quests.loading ? '퀘스트를 불러오는 중이에요.' : quests.error }}</span>
+          <button v-if="quests.error" type="button" @click="quests.fetchQuests()">다시 시도</button>
+        </div>
         <div class="simulation-quest-tabs" role="tablist" aria-label="퀘스트 상태"><button type="button" :class="{ active: questTab === 'active' }" @click="questTab = 'active'">진행 중 {{ activeQuestCount }}</button><button type="button" :class="{ active: questTab === 'completed' }" @click="questTab = 'completed'">완료 {{ completedQuestCount }}</button></div>
         <div class="simulation-quest-progress"><div><strong>퀘스트 완료율 {{ questCompletionPercent }}%</strong><span>{{ completedQuestCount }} / {{ questRows.length }} 완료</span></div><div class="simulation-quest-progress__track" role="progressbar" :aria-valuenow="questCompletionPercent" aria-valuemin="0" aria-valuemax="100"><span :style="{ width: `${questCompletionPercent}%` }" /></div></div>
         <section v-for="section in visibleQuestSections" :key="section.key" class="simulation-quest-period">
@@ -134,8 +157,8 @@ onMounted(async () => {
           <div v-if="section.groups.length" class="simulation-quest-groups">
             <section v-for="group in section.groups" :key="group.key" class="simulation-quest-group" :class="`simulation-quest-group--${group.key}`">
               <div class="simulation-quest-group__heading"><h3><i />{{ group.title }}</h3><strong v-if="group.amount">{{ signedWon(group.amount) }}</strong><strong v-else>{{ group.action }}</strong></div>
-              <button v-for="item in group.rows" :key="item.id" type="button" class="simulation-quest-row" :class="[`simulation-quest-row--${item.kind}`, { completed: isQuestCompleted(item) }]" :aria-pressed="isQuestCompleted(item)" @click="toggleQuest(item)">
-                <span class="simulation-quest-row__icon">{{ item.icon }}</span><span class="simulation-quest-row__copy"><strong>{{ item.name }}</strong><small v-if="item.subtitle">{{ item.subtitle }}</small><small class="exp">+{{ formatExp(calculateQuestExp(item.amount)) }} EXP<template v-if="progression.isQuestClaimed(questCompletionId(item))"> · 지급 완료</template></small></span><strong class="simulation-quest-row__amount">{{ signedWon(item.amount) }}</strong><span class="simulation-quest-row__check">{{ isQuestCompleted(item) ? '✓' : '' }}</span>
+              <button v-for="item in group.rows" :key="item.id" type="button" class="simulation-quest-row" :class="[`simulation-quest-row--${item.kind}`, { completed: isQuestCompleted(item) }]" :aria-pressed="isQuestCompleted(item)" :aria-busy="isQuestPending(item)" :disabled="isQuestPending(item)" @click="toggleQuest(item)">
+                <span class="simulation-quest-row__icon">{{ item.icon }}</span><span class="simulation-quest-row__copy"><strong>{{ item.name }}</strong><small v-if="item.subtitle">{{ item.subtitle }}</small><small class="exp">+{{ formatExp(questExp(item)) }} EXP<template v-if="isQuestRewarded(item)"> · 지급 완료</template></small></span><strong class="simulation-quest-row__amount">{{ signedWon(item.amount) }}</strong><span class="simulation-quest-row__check">{{ isQuestCompleted(item) ? '✓' : '' }}</span>
               </button>
             </section>
           </div>
@@ -184,6 +207,9 @@ onMounted(async () => {
 .simulation-quest-heading h2 { font-size: 22px; }
 .simulation-quest-heading > span { padding: 10px 18px; border-radius: 999px; background: #f6bb37; color: white; font-weight: 800; box-shadow: 0 4px 10px rgb(0 0 0 / 12%); }
 .simulation-quest-card { padding: 22px 24px 18px; border: 1px solid #e1e4ea; border-radius: 22px; background: white; box-shadow: 0 2px 8px rgb(0 0 0 / 10%); }
+.simulation-quest-api-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 11px 13px; border-radius: 12px; background: #f7f8fa; color: #727985; font-size: 12px; font-weight: 700; }
+.simulation-quest-api-notice.error { background: #fff1f1; color: #cf3f3f; }
+.simulation-quest-api-notice button { flex: none; color: inherit; font-size: inherit; font-weight: 900; text-decoration: underline; }
 .simulation-quest-tabs { display: grid; width: min(72%, 520px); height: 44px; grid-template-columns: 1fr 1fr; margin-bottom: 20px; padding: 3px; border: 1px solid #e1e4ea; border-radius: 999px; background: #f2f3f6; }
 .simulation-quest-tabs button { border-radius: 999px; color: #9a9da5; font-weight: 700; }
 .simulation-quest-tabs button.active { background: white; box-shadow: 0 2px 6px rgb(0 0 0 / 12%); color: #222; font-weight: 800; }
@@ -213,6 +239,7 @@ onMounted(async () => {
 .simulation-quest-row--income { background: #ecfbf5; }
 .simulation-quest-row--policy { background: #f6f3fc; }
 .simulation-quest-row.completed { opacity: .62; }
+.simulation-quest-row:disabled { cursor: wait; opacity: .55; }
 .simulation-quest-row__icon { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #e1e4e9; border-radius: 50%; background: white; font-size: 17px; }
 .simulation-quest-row__copy { display: grid; min-width: 0; gap: 3px; }
 .simulation-quest-row__copy strong,.simulation-quest-row__amount { font-size: 14px; font-weight: 800; }

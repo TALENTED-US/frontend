@@ -10,6 +10,7 @@ import {
 } from "@/features/finance/financeStore";
 import { analyzePreviousCompletedMonths } from "@/features/finance/financeAnalytics";
 import { useSimulationStore } from "@/features/simulation/stores/simulation";
+import { useQuestStore } from "@/features/quest/stores/quest";
 import {
   calculateQuestExp,
   formatExp,
@@ -19,9 +20,11 @@ import {
 const session = useSessionStore();
 const simulation = useSimulationStore();
 const progression = useProgressionStore();
+const quests = useQuestStore();
 
 onMounted(async () => {
   await simulation.hydrateConfirmed();
+  if (simulation.state.confirmed) await quests.fetchQuests();
   loadTransactions().catch(() => {
     // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
   });
@@ -232,11 +235,12 @@ const confirmedPolicyRows = computed(() =>
   })),
 );
 const questTab = ref("active");
-const allQuestRows = computed(() => [
+const localQuestRows = computed(() => [
   ...confirmedExpenseRows.value,
   ...confirmedIncomeRows.value,
   ...confirmedPolicyRows.value,
 ]);
+const allQuestRows = computed(() => quests.remoteEnabled ? quests.rows : localQuestRows.value);
 const questMonthKey = computed(() => {
   const date = today.value;
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -250,6 +254,7 @@ const recurringQuestIds = computed(() =>
 watch(
   [questMonthKey, () => recurringQuestIds.value.join("|")],
   ([monthKey]) => {
+    if (quests.remoteEnabled) return;
     simulation.migrateRecurringQuestCompletions(recurringQuestIds.value, monthKey);
     progression.migrateRecurringQuestClaims(recurringQuestIds.value, monthKey);
   },
@@ -257,6 +262,7 @@ watch(
 );
 
 function questCompletionId(item) {
+  if (quests.remoteEnabled) return item.id;
   return item.recurrence === "monthly"
     ? `${item.id}@${questMonthKey.value}`
     : item.id;
@@ -265,7 +271,7 @@ const completedQuestIds = computed(
   () => new Set(simulation.state.completedQuestIds || []),
 );
 const completedQuestCount = computed(
-  () => allQuestRows.value.filter((item) => completedQuestIds.value.has(questCompletionId(item))).length,
+  () => allQuestRows.value.filter(isQuestCompleted).length,
 );
 const activeQuestCount = computed(
   () => allQuestRows.value.length - completedQuestCount.value,
@@ -312,8 +318,8 @@ const visibleQuestSections = computed(() =>
   questSections.value.map((section) => {
     const rows = section.rows.filter((item) =>
       questTab.value === "completed"
-        ? completedQuestIds.value.has(questCompletionId(item))
-        : !completedQuestIds.value.has(questCompletionId(item)),
+        ? isQuestCompleted(item)
+        : !isQuestCompleted(item),
     );
     return { ...section, groups: buildQuestGroups(rows) };
   }),
@@ -325,10 +331,29 @@ const oneTimeBenefitText = computed(() => {
     : "정기 반영 금액 기준";
 });
 function isQuestCompleted(item) {
+  if (quests.remoteEnabled) return item.completed;
   return completedQuestIds.value.has(questCompletionId(item));
 }
 
-function toggleQuest(item) {
+function questExp(item) {
+  return quests.remoteEnabled ? item.expReward : calculateQuestExp(item.amount);
+}
+
+function isQuestRewarded(item) {
+  return quests.remoteEnabled
+    ? item.completed
+    : progression.isQuestClaimed(questCompletionId(item));
+}
+
+function isQuestPending(item) {
+  return quests.remoteEnabled && quests.isPending(item.id);
+}
+
+async function toggleQuest(item) {
+  if (quests.remoteEnabled) {
+    await quests.toggleQuest(item.id);
+    return;
+  }
   const completionId = questCompletionId(item);
   if (isQuestCompleted(item)) {
     progression.cancelQuestClaim(completionId, item.amount);
@@ -562,6 +587,15 @@ const targetMonthText = computed(() =>
         </div>
 
         <article v-if="hasConfirmedScenario" class="quest-card">
+          <div
+            v-if="quests.remoteEnabled && (quests.loading || quests.error)"
+            class="quest-api-notice"
+            :class="{ 'quest-api-notice--error': quests.error }"
+            role="status"
+          >
+            <span>{{ quests.loading ? "퀘스트를 불러오는 중이에요." : quests.error }}</span>
+            <button v-if="quests.error" type="button" @click="quests.fetchQuests()">다시 시도</button>
+          </div>
           <div class="quest-tabs" role="tablist" aria-label="퀘스트 상태">
             <button
               type="button"
@@ -633,6 +667,8 @@ const targetMonthText = computed(() =>
                     class="quest-row"
                     :class="[`quest-row--${item.kind}`, { 'is-completed': isQuestCompleted(item) }]"
                     :aria-pressed="isQuestCompleted(item)"
+                    :aria-busy="isQuestPending(item)"
+                    :disabled="isQuestPending(item)"
                     @click="toggleQuest(item)"
                   >
                     <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
@@ -640,8 +676,8 @@ const targetMonthText = computed(() =>
                       <strong>{{ item.name }}</strong>
                       <small v-if="item.subtitle">{{ item.subtitle }}</small>
                       <small class="quest-row__exp">
-                        +{{ formatExp(calculateQuestExp(item.amount)) }} EXP
-                        <template v-if="progression.isQuestClaimed(questCompletionId(item))">
+                        +{{ formatExp(questExp(item)) }} EXP
+                        <template v-if="isQuestRewarded(item)">
                           · 지급 완료
                         </template>
                       </small>
@@ -1387,6 +1423,33 @@ const targetMonthText = computed(() =>
   padding: 22px 24px 18px;
 }
 
+.quest-api-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: #f7f8fa;
+  color: #727985;
+  font-size: var(--font-small);
+  font-weight: 700;
+}
+
+.quest-api-notice--error {
+  background: #fff1f1;
+  color: #cf3f3f;
+}
+
+.quest-api-notice button {
+  flex: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 900;
+  text-decoration: underline;
+}
+
 .quest-tabs {
   display: grid;
   width: min(72%, 520px);
@@ -1579,6 +1642,11 @@ const targetMonthText = computed(() =>
 
 .quest-row.is-completed {
   opacity: .62;
+}
+
+.quest-row:disabled {
+  cursor: wait;
+  opacity: .55;
 }
 
 .quest-row__icon {
