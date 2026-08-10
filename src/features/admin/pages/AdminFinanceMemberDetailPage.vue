@@ -5,7 +5,7 @@ import { getAdminFinancePersonaDatasets } from '@/features/admin/api/financeData
 
 const route = useRoute()
 
-const TYPE_LABEL = { account: '계좌', card: '카드', transaction: '거래' }
+const TYPE_LABEL = { account: '계좌', transaction: '거래' }
 const STATUS_LABEL = { connected: '연결됨', disconnected: '연결 끊김', pending: '연결 전' }
 
 function todayStr() {
@@ -29,7 +29,6 @@ async function loadMember() {
         nickname: match.nickname,
         datasetKey: dataset.key,
         accountCount: dataset.accountCount,
-        cardCount: dataset.cardCount,
         transactionCount: dataset.transactionCount,
         appliedAt: match.appliedAt || match.updatedAt,
       }
@@ -43,7 +42,6 @@ async function loadMember() {
       nickname: route.params.memberId,
       datasetKey: '',
       accountCount: 0,
-      cardCount: 0,
       transactionCount: 0,
       appliedAt: '-',
     }
@@ -61,7 +59,6 @@ let recordIdCounter = 1
 function seedRecords() {
   records.value = [
     { id: `rec-${recordIdCounter++}`, type: 'account', institution: 'KB국민은행', detail: '입출금 계좌', subType: '입출금', amount: 1850000, status: 'connected' },
-    { id: `rec-${recordIdCounter++}`, type: 'card', institution: '카카오뱅크 체크카드', detail: '생활비 지출용', subType: '체크카드', amount: null, status: 'connected' },
     {
       id: `rec-${recordIdCounter++}`,
       type: 'transaction',
@@ -111,10 +108,10 @@ const filteredRecords = computed(() => {
   return records.value.filter((record) => record.type === activeType.value)
 })
 
-const accountCardOptions = computed(() => records.value.filter((record) => record.type === 'account' || record.type === 'card'))
+const accountOptions = computed(() => records.value.filter((record) => record.type === 'account'))
 
 function amountText(record) {
-  if (record.type === 'card' || record.amount === null || record.amount === undefined) return '-'
+  if (record.amount === null || record.amount === undefined) return '-'
   if (record.type === 'transaction') {
     const sign = record.amount >= 0 ? '+' : '-'
     return `${sign}${Math.abs(record.amount).toLocaleString()}원`
@@ -127,8 +124,8 @@ function amountClass(record) {
   return record.amount >= 0 ? 'text-success' : 'text-danger'
 }
 
-// 계좌·카드 등록/수정
-const ACCOUNT_SUB_TYPES = { account: ['입출금', '예·적금'], card: ['신용카드', '체크카드'] }
+// 계좌 등록/수정
+const ACCOUNT_SUB_TYPES = ['입출금', '예·적금']
 
 const accountModal = ref(null) // { mode: 'create' | 'edit', record }
 const accountForm = ref({ type: 'account', institution: '', name: '', subType: '입출금', amount: '', status: 'pending' })
@@ -149,7 +146,7 @@ function openEditAccount(record) {
     type: record.type,
     institution: record.institution,
     name: record.detail,
-    subType: record.subType || ACCOUNT_SUB_TYPES[record.type][0],
+    subType: record.subType || ACCOUNT_SUB_TYPES[0],
     amount: record.amount ?? '',
     status: record.status,
   }
@@ -162,26 +159,20 @@ function closeAccountModal() {
   resetAccountForm()
 }
 
-function setAccountType(type) {
-  if (accountModal.value?.mode === 'edit') return
-  accountForm.value.type = type
-  accountForm.value.subType = ACCOUNT_SUB_TYPES[type][0]
-}
-
 function submitAccount() {
   const errors = {}
   if (!accountForm.value.institution.trim()) errors.institution = '금융기관을 입력해 주세요.'
   if (!accountForm.value.name.trim()) errors.name = '이름을 입력해 주세요.'
-  if (accountForm.value.type === 'account' && accountForm.value.amount === '') errors.amount = '잔액을 입력해 주세요.'
+  if (accountForm.value.amount === '') errors.amount = '잔액을 입력해 주세요.'
   accountErrors.value = errors
   if (Object.keys(errors).length > 0) return
 
   const payload = {
-    type: accountForm.value.type,
+    type: 'account',
     institution: accountForm.value.institution,
     detail: accountForm.value.name,
     subType: accountForm.value.subType,
-    amount: accountForm.value.type === 'card' || accountForm.value.amount === '' ? null : Number(accountForm.value.amount),
+    amount: accountForm.value.amount === '' ? null : Number(accountForm.value.amount),
     status: accountForm.value.status,
   }
   if (accountModal.value.mode === 'edit') {
@@ -287,7 +278,6 @@ onMounted(async () => {
       <p>
         <span class="muted">현재 적용 세트</span> {{ appliedDatasetName }}
         <span class="muted">계좌</span> {{ member.accountCount }}
-        <span class="muted">카드</span> {{ member.cardCount }}
         <span class="muted">거래</span> {{ member.transactionCount }}
         <span class="muted">적용일</span> {{ member.appliedAt }}
       </p>
@@ -297,7 +287,7 @@ onMounted(async () => {
       <div class="admin-finance-member__section-head">
         <h2>Mock 금융 데이터</h2>
         <div class="admin-finance-member__section-actions">
-          <button type="button" class="ghost" @click="openCreateAccount">계좌·카드 등록</button>
+          <button type="button" class="ghost" @click="openCreateAccount">계좌 등록</button>
           <button type="button" class="primary" @click="openCreateTransaction">거래 등록</button>
         </div>
       </div>
@@ -305,7 +295,6 @@ onMounted(async () => {
       <div class="admin-finance-member__tabs">
         <button type="button" :class="['admin-finance-member__tab', { active: activeType === 'all' }]" @click="activeType = 'all'">전체</button>
         <button type="button" :class="['admin-finance-member__tab', { active: activeType === 'account' }]" @click="activeType = 'account'">계좌</button>
-        <button type="button" :class="['admin-finance-member__tab', { active: activeType === 'card' }]" @click="activeType = 'card'">카드</button>
         <button type="button" :class="['admin-finance-member__tab', { active: activeType === 'transaction' }]" @click="activeType = 'transaction'">거래</button>
       </div>
 
@@ -349,30 +338,10 @@ onMounted(async () => {
 
     <div v-if="accountModal" class="admin-finance-member__modal-backdrop">
       <div class="admin-finance-member__modal">
-        <h2>{{ accountModal.mode === 'edit' ? '계좌·카드 수정' : '계좌·카드 등록' }}</h2>
+        <h2>{{ accountModal.mode === 'edit' ? '계좌 수정' : '계좌 등록' }}</h2>
         <p class="admin-finance-member__modal-desc">
-          {{ accountModal.mode === 'edit' ? 'Mock 계좌 또는 카드 정보를 수정하세요.' : 'Mock 계좌 또는 카드 정보를 등록하세요.' }}
+          {{ accountModal.mode === 'edit' ? 'Mock 계좌 정보를 수정하세요.' : 'Mock 계좌 정보를 등록하세요.' }}
         </p>
-
-        <span class="admin-finance-member__field-label">등록 유형</span>
-        <div class="admin-finance-member__modal-tabs">
-          <button
-            type="button"
-            :class="['admin-finance-member__modal-tab', { active: accountForm.type === 'account' }]"
-            :disabled="accountModal.mode === 'edit'"
-            @click="setAccountType('account')"
-          >
-            계좌
-          </button>
-          <button
-            type="button"
-            :class="['admin-finance-member__modal-tab', { active: accountForm.type === 'card' }]"
-            :disabled="accountModal.mode === 'edit'"
-            @click="setAccountType('card')"
-          >
-            카드
-          </button>
-        </div>
 
         <label>
           금융기관
@@ -380,17 +349,17 @@ onMounted(async () => {
           <small v-if="accountErrors.institution" class="admin-finance-member__field-error">{{ accountErrors.institution }}</small>
         </label>
         <label>
-          {{ accountForm.type === 'card' ? '카드 이름' : '계좌 이름' }}
+          계좌 이름
           <input v-model="accountForm.name" type="text" placeholder="예: 입출금 계좌" />
           <small v-if="accountErrors.name" class="admin-finance-member__field-error">{{ accountErrors.name }}</small>
         </label>
         <label>
-          {{ accountForm.type === 'card' ? '카드 유형' : '계좌 유형' }}
+          계좌 유형
           <select v-model="accountForm.subType">
-            <option v-for="option in ACCOUNT_SUB_TYPES[accountForm.type]" :key="option" :value="option">{{ option }}</option>
+            <option v-for="option in ACCOUNT_SUB_TYPES" :key="option" :value="option">{{ option }}</option>
           </select>
         </label>
-        <label v-if="accountForm.type === 'account'">
+        <label>
           잔액
           <input v-model.number="accountForm.amount" type="number" placeholder="0" />
           <small v-if="accountErrors.amount" class="admin-finance-member__field-error">{{ accountErrors.amount }}</small>
@@ -418,10 +387,10 @@ onMounted(async () => {
         </p>
 
         <label>
-          연결 계좌 또는 카드
+          연결 계좌
           <select v-model="transactionForm.linkedRecordId">
             <option value="">선택하세요</option>
-            <option v-for="option in accountCardOptions" :key="option.id" :value="option.id">{{ option.institution }} · {{ option.detail }}</option>
+            <option v-for="option in accountOptions" :key="option.id" :value="option.id">{{ option.institution }} · {{ option.detail }}</option>
           </select>
         </label>
         <label>
@@ -638,11 +607,6 @@ td.strong {
 .admin-badge--type-account {
   background: #dbeafe;
   color: #3b82f6;
-}
-
-.admin-badge--type-card {
-  background: #fef3c7;
-  color: #f59e0b;
 }
 
 .admin-badge--type-transaction {

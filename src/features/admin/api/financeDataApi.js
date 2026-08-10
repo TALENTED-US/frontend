@@ -15,7 +15,6 @@ export function createAdminFinancePersonaDataset(payload = {}) {
         name: '새 데이터 세트',
         description: '',
         accountCount: 0,
-        cardCount: 0,
         transactionCount: 0,
         ...payload,
       }
@@ -68,7 +67,7 @@ function today() {
 }
 
 function countKeyForType(type) {
-  return { account: 'accountCount', card: 'cardCount', transaction: 'transactionCount' }[type]
+  return { account: 'accountCount', transaction: 'transactionCount' }[type]
 }
 
 export function createAdminFinanceDatasetRecord(datasetKey, payload) {

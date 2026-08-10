@@ -12,7 +12,7 @@ import {
   updateAdminFinanceDatasetRecord,
 } from '@/features/admin/api/financeDataApi'
 
-const TYPE_LABEL = { account: '계좌', card: '카드', transaction: '거래' }
+const TYPE_LABEL = { account: '계좌', transaction: '거래' }
 const STATUS_LABEL = { connected: '연결됨', disconnected: '연결 끊김', pending: '연결 전' }
 
 const route = useRoute()
@@ -53,7 +53,7 @@ async function load() {
 }
 
 function amountText(record) {
-  if (record.type === 'card' || record.amount === null || record.amount === undefined) return '-'
+  if (record.amount === null || record.amount === undefined) return '-'
   if (record.type === 'transaction') {
     const sign = record.amount >= 0 ? '+' : '-'
     return `${sign}${Math.abs(record.amount).toLocaleString()}원`
@@ -146,7 +146,7 @@ onMounted(load)
       <h1>{{ dataset.name }}</h1>
       <p class="admin-finance-detail__desc">{{ dataset.description }}</p>
       <p class="admin-finance-detail__meta">
-        생성일 {{ dataset.createdAt }} · 최근 수정 {{ dataset.updatedAt }} · 계좌 {{ dataset.accountCount }} · 카드 {{ dataset.cardCount }} · 거래 {{ dataset.transactionCount }}
+        생성일 {{ dataset.createdAt }} · 최근 수정 {{ dataset.updatedAt }} · 계좌 {{ dataset.accountCount }} · 거래 {{ dataset.transactionCount }}
       </p>
     </header>
 
@@ -154,7 +154,7 @@ onMounted(load)
       <div class="admin-finance-detail__section-head">
         <h2>Mock 금융 데이터</h2>
         <div class="admin-finance-detail__section-actions">
-          <button type="button" class="ghost" @click="openCreateRecord('account')">계좌·카드 등록</button>
+          <button type="button" class="ghost" @click="openCreateRecord('account')">계좌 등록</button>
           <button type="button" class="primary" @click="openCreateRecord('transaction')">거래 등록</button>
         </div>
       </div>
@@ -162,7 +162,6 @@ onMounted(load)
       <div class="admin-finance-detail__tabs">
         <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'all' }]" @click="activeType = 'all'">전체</button>
         <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'account' }]" @click="activeType = 'account'">계좌</button>
-        <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'card' }]" @click="activeType = 'card'">카드</button>
         <button type="button" :class="['admin-finance-detail__tab', { active: activeType === 'transaction' }]" @click="activeType = 'transaction'">거래</button>
       </div>
 
@@ -246,7 +245,6 @@ onMounted(load)
           유형
           <select v-model="recordForm.type">
             <option value="account">계좌</option>
-            <option value="card">카드</option>
             <option value="transaction">거래</option>
           </select>
         </label>
@@ -476,11 +474,6 @@ td.strong {
 .admin-badge--type-account {
   background: #dbeafe;
   color: #3b82f6;
-}
-
-.admin-badge--type-card {
-  background: #fef3c7;
-  color: #f59e0b;
 }
 
 .admin-badge--type-transaction {

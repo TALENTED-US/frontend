@@ -6,7 +6,7 @@ import { createAdminFinancePersonaDataset } from '@/features/admin/api/financeDa
 const router = useRouter()
 
 const DATASET_TYPES = ['독립 자취생', '퇴사 후 재취업', '첫 취업 준비생', '지방 상경 취준생']
-const TYPE_LABEL = { account: '계좌', card: '카드', transaction: '거래' }
+const TYPE_LABEL = { account: '계좌', transaction: '거래' }
 const STATUS_LABEL = { connected: '연결됨', disconnected: '연결 끊김', pending: '연결 전' }
 
 function todayStr() {
@@ -26,10 +26,10 @@ const filteredRecords = computed(() => {
   return records.value.filter((record) => record.type === activeType.value)
 })
 
-const accountCardOptions = computed(() => records.value.filter((record) => record.type === 'account' || record.type === 'card'))
+const accountOptions = computed(() => records.value.filter((record) => record.type === 'account'))
 
 function amountText(record) {
-  if (record.type === 'card' || record.amount === null || record.amount === undefined) return '-'
+  if (record.amount === null || record.amount === undefined) return '-'
   if (record.type === 'transaction') {
     const sign = record.amount >= 0 ? '+' : '-'
     return `${sign}${Math.abs(record.amount).toLocaleString()}원`
@@ -42,7 +42,7 @@ function amountClass(record) {
   return record.amount >= 0 ? 'text-success' : 'text-danger'
 }
 
-// 계좌·카드 등록 모달
+// 계좌 등록 모달
 const accountModal = ref(null) // { mode: 'create' | 'edit', record }
 const accountForm = ref({ type: 'account', institution: '', name: '', number: '', amount: '', status: 'pending' })
 
@@ -69,11 +69,11 @@ function closeAccountModal() {
 
 function submitAccount() {
   const payload = {
-    type: accountForm.value.type,
+    type: 'account',
     institution: accountForm.value.institution,
     detail: accountForm.value.name,
     number: accountForm.value.number,
-    amount: accountForm.value.type === 'card' || accountForm.value.amount === '' ? null : Number(accountForm.value.amount),
+    amount: accountForm.value.amount === '' ? null : Number(accountForm.value.amount),
     status: accountForm.value.status,
   }
   if (accountModal.value.mode === 'edit') {
@@ -224,7 +224,6 @@ async function submitDataset() {
     return
   }
   const accountCount = records.value.filter((record) => record.type === 'account').length
-  const cardCount = records.value.filter((record) => record.type === 'card').length
   const transactionCount = records.value.filter((record) => record.type === 'transaction').length
   const appliedMembers = selectedMemberIds.value.map((userId) => {
     const member = allMembers.value.find((item) => item.userId === userId)
@@ -235,7 +234,6 @@ async function submitDataset() {
     name: form.value.name.trim(),
     description: form.value.description,
     accountCount,
-    cardCount,
     transactionCount,
     createdAt: form.value.createdAt,
     updatedAt: form.value.createdAt,
@@ -284,7 +282,7 @@ async function submitDataset() {
       <div class="admin-finance-create__section-head">
         <h2>Mock 금융 데이터</h2>
         <div class="admin-finance-create__section-actions">
-          <button type="button" class="ghost" @click="openCreateAccount">계좌·카드 등록</button>
+          <button type="button" class="ghost" @click="openCreateAccount">계좌 등록</button>
           <button type="button" class="primary" @click="openCreateTransaction">거래 등록</button>
         </div>
       </div>
@@ -292,14 +290,13 @@ async function submitDataset() {
       <div class="admin-finance-create__tabs">
         <button type="button" :class="['admin-finance-create__tab', { active: activeType === 'all' }]" @click="activeType = 'all'">전체</button>
         <button type="button" :class="['admin-finance-create__tab', { active: activeType === 'account' }]" @click="activeType = 'account'">계좌</button>
-        <button type="button" :class="['admin-finance-create__tab', { active: activeType === 'card' }]" @click="activeType = 'card'">카드</button>
         <button type="button" :class="['admin-finance-create__tab', { active: activeType === 'transaction' }]" @click="activeType = 'transaction'">거래</button>
       </div>
 
       <div v-if="filteredRecords.length === 0" class="admin-finance-create__empty">
         <span class="admin-finance-create__empty-icon">+</span>
         <p>등록된 Mock 금융 데이터가 없습니다.</p>
-        <small>계좌·카드 등록 또는 거래 등록 버튼을 눌러 데이터를 추가해 주세요.</small>
+        <small>계좌 등록 또는 거래 등록 버튼을 눌러 데이터를 추가해 주세요.</small>
       </div>
 
       <div v-else class="admin-finance-create__table-wrap">
@@ -423,24 +420,17 @@ async function submitDataset() {
 
     <div v-if="accountModal" class="admin-finance-create__modal-backdrop">
       <div class="admin-finance-create__modal">
-        <h2>계좌·카드 등록</h2>
-        <label>
-          데이터 유형
-          <select v-model="accountForm.type">
-            <option value="account">계좌</option>
-            <option value="card">카드</option>
-          </select>
-        </label>
+        <h2>계좌 등록</h2>
         <label>
           금융기관
           <input v-model="accountForm.institution" type="text" placeholder="예: KB국민은행" />
         </label>
         <label>
-          계좌 또는 카드 이름
+          계좌 이름
           <input v-model="accountForm.name" type="text" placeholder="예: 입출금 계좌" />
         </label>
         <label>
-          계좌번호 또는 카드번호
+          계좌번호
           <input v-model="accountForm.number" type="text" placeholder="예: 123-456-789012" />
         </label>
         <label>
@@ -466,10 +456,10 @@ async function submitDataset() {
       <div class="admin-finance-create__modal">
         <h2>거래 등록</h2>
         <label>
-          연결 계좌 또는 카드
+          연결 계좌
           <select v-model="transactionForm.linkedRecordId">
             <option value="">선택하세요</option>
-            <option v-for="option in accountCardOptions" :key="option.id" :value="option.id">{{ option.institution }} · {{ option.detail }}</option>
+            <option v-for="option in accountOptions" :key="option.id" :value="option.id">{{ option.institution }} · {{ option.detail }}</option>
           </select>
         </label>
         <label>
@@ -752,11 +742,6 @@ td.strong {
 .admin-badge--type-account {
   background: #dbeafe;
   color: #3b82f6;
-}
-
-.admin-badge--type-card {
-  background: #fef3c7;
-  color: #f59e0b;
 }
 
 .admin-badge--type-transaction {
