@@ -107,6 +107,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   const syncError = ref('')
   const remoteReport = ref(null)
   const recentConfirmed = ref(null)
+  const remoteDraftExists = ref(null)
   const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
@@ -390,10 +391,12 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncError.value = ''
     try {
       const data = await getCurrentSimulationApi()
+      remoteDraftExists.value = true
       applyRemoteSimulation(data)
       return data
     } catch (error) {
-      if (error.status !== 404) syncError.value = error.message
+      if (error.status === 404) remoteDraftExists.value = false
+      else syncError.value = error.message
       return null
     } finally {
       syncing.value = false
@@ -442,17 +445,27 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncError.value = ''
     const payload = { simulationStartDate: state.startDate, simulationDueDate: state.endDate }
     try {
-      const data = await createSimulationApi(payload)
-      applyRemoteSimulation(data)
-      return true
-    } catch (createError) {
-      try {
-        await updateSimulationPeriodApi(payload)
-        return true
-      } catch (updateError) {
-        syncError.value = updateError.message || createError.message
-        return true
+      if (remoteDraftExists.value === null) {
+        try {
+          await getCurrentSimulationApi()
+          remoteDraftExists.value = true
+        } catch (lookupError) {
+          if (lookupError.status === 404) remoteDraftExists.value = false
+          else throw lookupError
+        }
       }
+
+      if (remoteDraftExists.value) {
+        await updateSimulationPeriodApi(payload)
+      } else {
+        const data = await createSimulationApi(payload)
+        remoteDraftExists.value = true
+        applyRemoteSimulation(data)
+      }
+      return true
+    } catch (error) {
+      syncError.value = error.message
+      return false
     } finally {
       syncing.value = false
     }

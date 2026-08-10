@@ -126,8 +126,13 @@ async function deletePolicy(item) {
 
 async function apply(categoryName) {
   if (categoryName === 'expense') simulation.applyExpenses()
-  await simulation.syncCategory(categoryName)
+  const synced = await simulation.syncCategory(categoryName)
+  if (!synced) return
   router.push(`/simulation/${categoryName}/preview`)
+}
+
+function continueFromPolicy() {
+  router.push('/simulation/confirm')
 }
 
 function skip() {
@@ -247,10 +252,12 @@ function skip() {
         </div>
       </section>
 
-      <button class="sim-btn sim-btn--yellow wide" :disabled="!policyCount || simulation.syncing" type="button" @click="apply('policy')">최종 결과 보기</button>
+      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing" type="button" @click="continueFromPolicy">
+        {{ policyCount ? '최종 결과 보기' : '정책 건너뛰고 최종 결과 보기' }}
+      </button>
     </template>
 
-    <p v-if="simulation.syncError" class="api-notice">서버 저장에 실패했지만 입력 내용은 이 브라우저에 보관했어요. {{ simulation.syncError }}</p>
+    <p v-if="simulation.syncError" class="api-notice">서버 저장에 실패했습니다. 입력 내용은 유지되니 잠시 후 다시 시도해 주세요. {{ simulation.syncError }}</p>
   </section>
 </template>
 
