@@ -21,10 +21,6 @@ export function getEmploymentPreparationApi() {
   return requestResult(() => apiClient.get('users/my/employment-preparation'))
 }
 
-export function createEmploymentPreparationApi(payload) {
-  return requestResult(() => apiClient.post('users/my/employment-preparation', payload))
-}
-
 export function updateEmploymentPreparationApi(payload) {
   return requestResult(() => apiClient.patch('users/my/employment-preparation', payload))
 }

@@ -328,9 +328,10 @@ function detailDateLabel(row) {
 }
 
 onMounted(async () => {
-  try {
-    await loadTransactions()
-  } catch {}
+  await Promise.allSettled([
+    loadTransactions(),
+    simulation.hydrateConfirmed(),
+  ])
 })
 </script>
 
@@ -545,6 +546,7 @@ onMounted(async () => {
         :target-months="simulation.targetMonths"
         :current-months="simulation.currentMonths"
         :expected-months="simulation.expectedMonths"
+        :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []"
         :unknown="!simulation.state.confirmed"
       />
       <p class="timeline-note">

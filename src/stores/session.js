@@ -8,7 +8,6 @@ import {
   setUnauthorizedHandler,
 } from '@/api/client'
 import {
-  createEmploymentPreparationApi,
   getEmploymentPreparationApi,
   getMyProfileApi,
   getMyProfileSummaryApi,
@@ -252,13 +251,7 @@ export const useSessionStore = defineStore('session', () => {
       familyCount: Number(profile.family),
     }
 
-    if (!isMockMode) {
-      if (currentUser.value.employmentPreparationRegistered === false) {
-        await createEmploymentPreparationApi(payload)
-      } else {
-        await updateEmploymentPreparationApi(payload)
-      }
-    }
+    if (!isMockMode) await updateEmploymentPreparationApi(payload)
 
     updateProfile({
       ...profile,
