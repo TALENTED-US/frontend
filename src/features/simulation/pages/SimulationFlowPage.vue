@@ -412,7 +412,14 @@ function confirm() {
   }
 
   .report-preview__card > strong {
-    font-size: 12px;
+    font-size: 14px;
+  }
+
+  .report-preview__badge,
+  .report-preview__period > span,
+  .report-preview__period em {
+    font-size: 10px;
+    font-weight: 700;
   }
 
   .report-preview__period {
@@ -428,13 +435,14 @@ function confirm() {
   }
 
   .report-preview__period strong {
-    font-size: 23px;
+    font-size: 25px;
+    font-weight: 800;
   }
 
   .report-preview__period em {
     min-width: 108px;
     padding: 6px 9px;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .report-preview__charts {
@@ -442,8 +450,34 @@ function confirm() {
   }
 
   .report-preview__charts figcaption {
-    font-size: 10px;
+    font-size: 9px;
+    font-weight: 600;
   }
+
+  .preview-text,
+  .preview-bar {
+    font-size: 9px;
+    font-weight: 600;
+  }
+}
+
+.sim-flow-categories .period-grid label {
+  min-width: 0;
+}
+
+.sim-flow-categories .period-grid input[type='date'] {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-right: 24px;
+}
+
+.sim-flow-categories .period-grid input[type='date']::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 2px;
+  margin: 0;
 }
 
 @media (min-width: 768px) {

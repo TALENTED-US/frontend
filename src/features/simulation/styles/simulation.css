@@ -35,3 +35,253 @@
   .sim-category-page:has(.wizard-policy-list)>.qualification-grid{grid-template-columns:repeat(4,1fr)}.sim-category-page:has(.wizard-policy-list)>.wizard-policy-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.sim-category-page:has(.wizard-policy-list)>.wizard-policy-list>.section-heading{grid-column:1/-1}.sim-category-page:has(.wizard-policy-list)>.selected-policies{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.sim-category-page:has(.wizard-policy-list)>.selected-policies>h2{grid-column:1/-1}.sim-category-page:has(.wizard-policy-list)>.selected-policies article{margin-top:0}
   .preview-page{display:grid;grid-template-columns:minmax(340px,.82fr) minmax(0,1.18fr);column-gap:28px}.preview-page>.period-change-card{display:flex;grid-column:1;min-width:0;align-self:stretch;flex-direction:column;margin-top:24px}.preview-page>.period-change-card>div{flex:1;align-content:center}.preview-page>.preview-timeline-section{grid-column:2;min-width:0;margin-top:24px}.preview-page>.application-result{grid-column:1/-1}.preview-page>.wizard-actions{grid-column:1/-1}.preview-page .timeline-chart__legend{gap:12px 16px}.preview-page .timeline-chart__plot svg{min-height:220px}.preview-page .bar-pair{height:112px}.preview-page .bar-change-arrow{top:30px}
 }
+
+/* Mobile typography: keep dense simulation data readable without affecting desktop/admin. */
+@media (max-width: 767px) {
+  .timeline-legend,
+  .confirm-row small,
+  .expense-overview small,
+  .policy-list article em,
+  .buttie-transition span,
+  .period-section > p,
+  .wizard-stepper span,
+  .wizard-stepper i,
+  .expense-snapshot span,
+  .expense-chips span,
+  .goal-category small,
+  .goal-total span,
+  .qualification-grid.compact span,
+  .selected-policies small,
+  .wizard-policy-list article p,
+  .wizard-policy-list article em,
+  .period-change-card small,
+  .period-change-card em,
+  .cashflow-metrics span,
+  .cashflow-metrics strong,
+  .edit-summary header i,
+  .edit-summary header button,
+  .edit-summary > p,
+  .edit-summary > p strong,
+  .final-result > span,
+  .final-result em,
+  .expense-analysis-body li small,
+  .expense-target-editor > small,
+  .added-expense-goals .section-heading > span,
+  .added-expense-goals article > i,
+  .added-expense-goals article > span,
+  .expense-goal-controls > strong,
+  .period-change-card > header em,
+  .period-change-card > div span small,
+  .preview-section-title p,
+  .cashflow-comparison article > small,
+  .comparison-legend,
+  .net-cashflow-row small,
+  .preview-page .application-result .section-heading > span,
+  .added-income-plans .section-heading > span,
+  .added-income-plans article > i,
+  .added-income-plans article em,
+  .added-income-plans article small,
+  .income-plan-controls > strong,
+  .added-income-plans footer,
+  .result-delta-badges span,
+  .result-delta-badges i {
+    font-size: 12px;
+  }
+
+  .sim-hero__result b,
+  .sim-quests h2 small,
+  .sim-empty span,
+  .sim-report-grid span,
+  .sim-outcome span,
+  .sim-outcome b,
+  .choice-card small,
+  .continue-card footer span,
+  .sim-text-button,
+  .preview-summary span,
+  .preview-summary em,
+  .preview-panels p,
+  .confirm-result span,
+  .expense-overview li,
+  .expense-list label,
+  .qualification-grid span,
+  .policy-summary p,
+  .policy-summary footer,
+  .sim-wizard .period-grid label > span,
+  .section-heading > span,
+  .report-grid-compact span,
+  .api-notice,
+  .form-error,
+  .expense-analysis-total span,
+  .expense-analysis-body li,
+  .expense-analysis-body li > strong,
+  .expense-analysis-card > p,
+  .expense-target-card > p,
+  .expense-target-info > span,
+  .expense-target-editor > label,
+  .added-expense-goals article > strong,
+  .added-expense-goals footer,
+  .cashflow-comparison article > strong,
+  .net-cashflow-row strong,
+  .net-cashflow-row > b,
+  .income-plan-form label,
+  .income-form-heading,
+  .income-money-field b,
+  .income-plan-form legend,
+  .added-income-plans article > div:nth-child(2) > strong {
+    font-size: 13px;
+  }
+
+  .expense-category-tabs button,
+  .expense-add-button,
+  .added-expense-goals article button,
+  .added-expense-goals .expense-goal-controls button,
+  .income-form-heading button,
+  .income-plan-form fieldset button,
+  .income-add-button,
+  .income-plan-controls button,
+  .sim-category-page > .wizard-actions .sim-btn {
+    font-size: 14px;
+  }
+
+  .expense-target-editor input,
+  .income-field,
+  .income-money-field input {
+    font-size: 16px;
+  }
+
+  .added-expense-goals article,
+  .added-income-plans article {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .expense-goal-controls,
+  .income-plan-controls {
+    min-width: 72px;
+  }
+
+  .expense-goal-controls > span,
+  .income-plan-controls > span {
+    gap: 12px;
+  }
+}
+
+/* Shared mobile type scale for simulation pages except /simulation/edit. */
+.sim-hero__copy h2 {
+  margin: 10px 0 5px;
+}
+
+@media (max-width: 767px) {
+  .sim-page:not(.simulation-edit-page) .sim-hero__copy h2,
+  .sim-page:not(.simulation-edit-page) .wizard-title,
+  .sim-page:not(.simulation-edit-page) .resume-hero h1 {
+    font-size: 18px !important;
+    font-weight: 800;
+    line-height: 1.5;
+  }
+
+  .sim-page:not(.simulation-edit-page) .sim-quests h2,
+  .sim-page:not(.simulation-edit-page) .sim-report > h2,
+  .sim-page:not(.simulation-edit-page) .sim-timeline h2,
+  .sim-page:not(.simulation-edit-page) .period-section > h2,
+  .sim-page:not(.simulation-edit-page) .baseline-report h2,
+  .sim-page:not(.simulation-edit-page) .section-heading h2,
+  .sim-page:not(.simulation-edit-page) .selected-policies > h2,
+  .sim-page:not(.simulation-edit-page) .expense-target-card > h2,
+  .sim-page:not(.simulation-edit-page) .preview-section-title h2,
+  .sim-page:not(.simulation-edit-page) .application-result .section-heading h2 {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .sim-page:not(.simulation-edit-page) .choice-card strong,
+  .sim-page:not(.simulation-edit-page) .expense-target-info > strong,
+  .sim-page:not(.simulation-edit-page) .added-expense-goals .section-heading h2,
+  .sim-page:not(.simulation-edit-page) .added-income-plans .section-heading h2,
+  .sim-page:not(.simulation-edit-page) .edit-summary h2,
+  .sim-page:not(.simulation-edit-page) .wizard-policy-list article h2 {
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .sim-page:not(.simulation-edit-page) .period-grid input,
+  .sim-page:not(.simulation-edit-page) .expense-target-editor input,
+  .sim-page:not(.simulation-edit-page) .income-field,
+  .sim-page:not(.simulation-edit-page) .income-money-field input {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .sim-page:not(.simulation-edit-page) .period-grid label > span,
+  .sim-page:not(.simulation-edit-page) .sim-hero__result span,
+  .sim-page:not(.simulation-edit-page) .final-result > span,
+  .sim-page:not(.simulation-edit-page) .income-plan-form label,
+  .sim-page:not(.simulation-edit-page) .income-plan-form legend,
+  .sim-page:not(.simulation-edit-page) .expense-target-editor > label,
+  .sim-page:not(.simulation-edit-page) .expense-snapshot span,
+  .sim-page:not(.simulation-edit-page) .goal-category small,
+  .sim-page:not(.simulation-edit-page) .cashflow-metrics span {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .sim-page:not(.simulation-edit-page) .sim-subtitle,
+  .sim-page:not(.simulation-edit-page) .choice-card small,
+  .sim-page:not(.simulation-edit-page) .period-section > p,
+  .sim-page:not(.simulation-edit-page) .expense-analysis-card > p,
+  .sim-page:not(.simulation-edit-page) .expense-target-card > p,
+  .sim-page:not(.simulation-edit-page) .preview-section-title p,
+  .sim-page:not(.simulation-edit-page) .wizard-policy-list article p {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .sim-page:not(.simulation-edit-page) .expense-analysis-total strong,
+  .sim-page:not(.simulation-edit-page) .sim-hero__result strong,
+  .sim-page:not(.simulation-edit-page) .sim-report-grid strong,
+  .sim-page:not(.simulation-edit-page) .final-result strong,
+  .sim-page:not(.simulation-edit-page) .period-change-card > div span strong {
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+
+  .sim-page:not(.simulation-edit-page) .period-change-card > div span small {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .sim-page:not(.simulation-edit-page) .sim-hero__result strong em {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .sim-page:not(.sim-wizard):not(.simulation-edit-page) .sim-report-grid strong {
+    font-size: 20px;
+  }
+
+  .sim-page:not(.simulation-edit-page) .sim-btn,
+  .sim-page:not(.simulation-edit-page) .wizard-actions .sim-btn,
+  .sim-page:not(.simulation-edit-page) .income-add-button,
+  .sim-page:not(.simulation-edit-page) .expense-add-button {
+    font-size: 17px;
+    font-weight: 800;
+  }
+
+  .sim-page:not(.simulation-edit-page) .sim-text-button {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .sim-page:not(.simulation-edit-page) .wizard-progress-tabs span,
+  .sim-page:not(.simulation-edit-page) .wizard-stepper span,
+  .sim-page:not(.simulation-edit-page) .section-heading > span,
+  .sim-page:not(.simulation-edit-page) .expense-chips span,
+  .sim-page:not(.simulation-edit-page) .choice-card em,
+  .sim-page:not(.simulation-edit-page) .result-delta-badges span,
+  .sim-page:not(.simulation-edit-page) .result-delta-badges i {
+    font-size: 10px;
+    font-weight: 700;
+  }
+}

@@ -99,12 +99,12 @@ function createNewSimulation() {
 
     <section class="simulation-edit-forecast">
       <div><span>현재 버티는 기간</span><strong>{{ simulation.currentMonths }}<small>개월</small></strong></div>
-      <div><span>예상 버티는 기간</span><strong>{{ simulation.expectedMonths }}<small>개월</small></strong><b>+{{ simulation.addedMonths }}개월</b></div>
+      <div><span>예상 버티는 기간</span><strong>{{ simulation.expectedMonths }}<small>개월</small></strong></div>
+      <p class="simulation-edit-increase">증가 기간: +{{ simulation.addedMonths }}개월</p>
+      <p v-if="recurringBenefit || oneTimeBenefit" class="simulation-edit-benefit">
+        반영 혜택: 월 {{ compactWon(recurringBenefit) }}<template v-if="oneTimeBenefit"> · 일시 {{ compactWon(oneTimeBenefit) }}</template>
+      </p>
     </section>
-
-    <p v-if="recurringBenefit || oneTimeBenefit" class="simulation-edit-benefit">
-      반영 혜택: 월 {{ compactWon(recurringBenefit) }}<template v-if="oneTimeBenefit"> · 일시 {{ compactWon(oneTimeBenefit) }}</template>
-    </p>
     <button class="sim-btn sim-btn--yellow simulation-edit-all" type="button" @click="editCategory('expense')">시뮬레이션 전체 수정하기</button>
     <button class="simulation-create-new" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
     <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
@@ -133,7 +133,7 @@ function createNewSimulation() {
 .simulation-edit-page {
   width: min(100%, 720px);
   margin: 0 auto;
-  padding: 4px 18px 112px;
+  padding: 4px 18px 0;
 }
 
 .simulation-edit-page > .sim-back {
@@ -225,7 +225,7 @@ function createNewSimulation() {
 .simulation-edit-forecast {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1px;
+  gap: 0;
   margin-top: 18px;
   overflow: hidden;
   border-radius: 15px;
@@ -236,8 +236,17 @@ function createNewSimulation() {
 .simulation-edit-forecast span { color: #666d78; font-size: 12px; }
 .simulation-edit-forecast strong { font-size: 34px; }
 .simulation-edit-forecast strong small { margin-left: 2px; font-size: 13px; }
-.simulation-edit-forecast b { position: absolute; right: 15px; bottom: 22px; color: #62483b; font-size: 11px; }
-.simulation-edit-benefit { margin: 10px 4px 0; color: #858b97; font-size: 10px; text-align: right; }
+.simulation-edit-increase,
+.simulation-edit-benefit {
+  margin: 0;
+  padding: 14px 20px;
+  border-top: 1px solid #e2e3e6;
+  background: #f7f8fa;
+  color: #62483b;
+  font-size: 13px;
+  font-weight: 600;
+}
+.simulation-edit-benefit { text-align: right; }
 .simulation-edit-all { width: 100%; min-height: 56px; margin-top: 20px; font-size: 16px; }
 
 .simulation-create-new {
@@ -299,6 +308,125 @@ function createNewSimulation() {
 }
 
 .simulation-new-modal section > div button:last-child { background: #ffeca4; color: #222; }
+
+@media (max-width: 767px) {
+  .simulation-edit-intro h1 {
+    font-size: 18px !important;
+    font-weight: 800;
+    line-height: 1.5;
+  }
+
+  .simulation-edit-period h2,
+  .simulation-edit-status > h2 {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .simulation-edit-period > p,
+  .simulation-edit-card small,
+  .simulation-new-modal p {
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .simulation-edit-period__grid label > span,
+  .simulation-edit-forecast span {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .simulation-edit-period__grid input {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .simulation-edit-card__title,
+  .simulation-edit-card > strong {
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .simulation-edit-card em {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .simulation-edit-card > b {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .simulation-edit-forecast > div {
+    min-width: 0;
+    grid-template-rows: auto auto;
+    align-content: start;
+    padding: 18px 16px;
+  }
+
+  .simulation-edit-forecast strong {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 2px;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .simulation-edit-forecast strong small {
+    flex: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .simulation-edit-increase,
+  .simulation-edit-benefit {
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .simulation-edit-all,
+  .simulation-create-new,
+  .simulation-new-modal section > div button {
+    font-size: 17px;
+    font-weight: 800;
+  }
+
+  .simulation-create-new {
+    font-weight: 900;
+  }
+}
+
+@media (max-width: 430px) {
+  .simulation-edit-period__grid {
+    grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .simulation-edit-period__grid > i {
+    display: block;
+    font-size: 11px;
+  }
+
+  .simulation-edit-period__grid label {
+    gap: 2px;
+    padding: 10px 8px;
+  }
+
+  .simulation-edit-period__grid label > span {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .simulation-edit-period__grid input {
+    height: 26px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
 
 @media (min-width: 768px) {
   .simulation-edit-page { width: min(100%, 1066px); padding: 28px 0 80px; }

@@ -16,7 +16,6 @@ const progression = useProgressionStore()
 const quests = useQuestStore()
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
 const manwon = (value) => value ? `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value / 10000)}만원` : '없음'
-const expectedLabel = computed(() => simulation.state.confirmed ? `${simulation.expectedMonths}개월` : '?개월')
 const statusImages = { danger: meltingImage, caution: cautionImage, safe: stableImage }
 const currentStatusImage = computed(() => statusImages[simulation.currentStatus.key])
 const expectedStatusImage = computed(() => statusImages[simulation.expectedStatus.key])
@@ -79,10 +78,6 @@ const visibleQuestSections = computed(() => questSections.value.map((section) =>
   ...section,
   groups: buildQuestGroups(section.rows.filter((item) => questTab.value === 'completed' ? isQuestCompleted(item) : !isQuestCompleted(item))),
 })))
-const oneTimeBenefitText = computed(() => simulation.oneTimeIncome + simulation.oneTimePolicy > 0
-  ? `일시 수입·혜택 ${compactWon(simulation.oneTimeIncome + simulation.oneTimePolicy)} 별도`
-  : '정기 반영 금액 기준')
-
 const questExp = (item) => quests.remoteEnabled ? item.expReward : calculateQuestExp(item.amount)
 const isQuestRewarded = (item) => quests.remoteEnabled
   ? item.completed
@@ -127,19 +122,20 @@ onMounted(async () => {
 
     <article class="sim-hero">
       <div class="sim-hero__copy">
-        <small>💡 시뮬레이션 해보기</small>
-        <h2>지출을 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</h2>
+        <small :class="{ 'result-link': simulation.state.confirmed }">💡 {{ simulation.state.confirmed ? '시뮬레이션 결과보기' : '시뮬레이션 해보기' }}</small>
+        <h2 v-if="simulation.state.confirmed">시뮬레이션대로 실천하면<br />{{ simulation.addedMonths }}개월 더 버틸 수 있어요.</h2>
+        <h2 v-else>지출을 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</h2>
         <button class="sim-btn sim-btn--orange desktop-cta" type="button" @click="start">
-          {{ simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
+          {{ simulation.state.confirmed ? '시뮬레이션 수정하기 →' : simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
         </button>
       </div>
       <div class="sim-hero__result">
         <div><span>현재 버티는 기간</span><strong>{{ simulation.currentMonths }}<em>개월</em></strong><img :src="currentStatusImage" :alt="`${simulation.currentStatus.label} 상태의 버티`" /><b :class="simulation.currentStatus.key">{{ simulation.currentStatus.label }}</b></div>
         <i>→</i>
-        <div><span>예상 버티는 기간</span><strong>{{ expectedLabel }}</strong><img v-if="simulation.state.confirmed" :src="expectedStatusImage" :alt="`${simulation.expectedStatus.label} 상태의 버티`" /><b v-if="simulation.state.confirmed" :class="simulation.expectedStatus.key">{{ simulation.expectedStatus.label }}</b></div>
+        <div><span>예상 버티는 기간</span><strong>{{ simulation.state.confirmed ? simulation.expectedMonths : '?' }}<em>개월</em></strong><img v-if="simulation.state.confirmed" :src="expectedStatusImage" :alt="`${simulation.expectedStatus.label} 상태의 버티`" /><b v-if="simulation.state.confirmed" :class="simulation.expectedStatus.key">{{ simulation.expectedStatus.label }}</b></div>
       </div>
       <button class="sim-btn sim-btn--orange mobile-cta" type="button" @click="start">
-        {{ simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
+        {{ simulation.state.confirmed ? '시뮬레이션 수정하기 →' : simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
       </button>
     </article>
 
@@ -165,12 +161,14 @@ onMounted(async () => {
           <p v-else class="simulation-quest-empty-row">{{ questTab === 'completed' ? '완료한 퀘스트가 없어요.' : '진행 중인 퀘스트가 없어요.' }}</p>
         </section>
         <footer class="simulation-quest-footer">
-          <span>월 순지출 개선액 (지출·수입 기준)</span><strong>{{ compactWon(simulation.monthlyImprovement) }} / 월</strong><p>{{ oneTimeBenefitText }}</p>
-          <button type="button" @click="start">시나리오 수정하기 →</button>
-          <button class="simulation-quest-create-new" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
+          <button type="button" @click="start">시뮬레이션 수정하기 →</button>
+          <p>퀘스트를 추가하려면 시뮬레이션을 수정하세요.</p>
         </footer>
       </article>
     </section>
+
+    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" /></article>
+
     <section class="sim-report">
       <h2>현재 재정 리포트</h2>
       <div class="sim-report-grid">
@@ -178,7 +176,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" /></article>
+    <button v-if="simulation.state.confirmed" class="simulation-create-new-bottom" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
 
     <div
       v-if="showNewSimulationModal"
@@ -202,7 +200,14 @@ onMounted(async () => {
 
 <style scoped>
 .mobile-cta { display: none; }
+.sim-hero__copy .result-link { font-weight: 800; }
+.sim-hero__result { background: #fffbef; }
+.sim-hero__result strong em { font-size: 14px; font-weight: 600; }
+.sim-hero__result > div { align-self: stretch; grid-template-rows: auto auto 1fr auto; }
+.sim-hero__result > i { color: #b49b58; font-size: 30px; font-style: normal; font-weight: 700; }
+.sim-hero__result .danger { background: #ffe5df; color: #ef5b52; }
 .sim-hero__result .caution { background: #f4b63c; color: #fff; }
+.sim-hero__result .safe { background: #c7ead9; color: #35a87e; }
 .simulation-quest-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .simulation-quest-heading h2 { font-size: 22px; }
 .simulation-quest-heading > span { padding: 10px 18px; border-radius: 999px; background: #f6bb37; color: white; font-weight: 800; box-shadow: 0 4px 10px rgb(0 0 0 / 12%); }
@@ -251,11 +256,12 @@ onMounted(async () => {
 .simulation-quest-row__check { display: grid; width: 30px; height: 30px; place-items: center; border: 2px solid #cfdae7; border-radius: 10px; background: white; color: white; font-size: 18px; font-weight: 900; }
 .simulation-quest-row.completed .simulation-quest-row__check { border-color: #666; background: #666; }
 .simulation-quest-empty-row { display: grid; min-height: 88px; place-items: center; border-radius: 14px; background: #f8f9fb; color: #858b95; font-size: 12px; font-weight: 700; }
-.simulation-quest-footer { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px 18px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #e4e6ea; }
+.simulation-quest-footer { display: grid; justify-items: center; gap: 5px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #e4e6ea; }
 .simulation-quest-footer span,.simulation-quest-footer p { color: #818793; font-size: 12px; }
 .simulation-quest-footer strong { grid-column: 2; grid-row: 1 / span 2; font-size: 18px; white-space: nowrap; }
 .simulation-quest-footer button { grid-column: 1 / -1; justify-self: center; margin-top: 7px; font-size: 13px; font-weight: 800; }
-.simulation-quest-footer .simulation-quest-create-new { margin-top: 5px; color: #777e89; font-size: 12px; text-decoration: underline; }
+.simulation-quest-footer p { color: #818793; font-size: 12px; }
+.simulation-create-new-bottom { display: block; margin: 28px auto 0; color: #777e89; font-size: 12px; font-weight: 700; text-decoration: underline; }
 
 .simulation-new-modal { position: fixed; z-index: 1000; inset: 0; display: grid; padding: 24px; place-items: center; background: rgb(18 22 30 / 48%); }
 .simulation-new-modal > section { width: min(100%, 390px); padding: 28px 24px 22px; border-radius: 20px; background: #fff; box-shadow: 0 18px 48px rgb(10 15 25 / 24%); text-align: center; }
@@ -272,13 +278,21 @@ onMounted(async () => {
 }
 
 @media (max-width: 767px) {
+  .sim-hero__result {
+    padding: 20px 14px 16px;
+    border-radius: 36px;
+  }
+  .sim-hero__result > div { gap: 7px; }
+  .sim-hero__result img { width: 112px; height: 82px; }
+  .sim-hero__result b { min-width: 72px; padding: 6px 18px; text-align: center; }
+  .sim-hero__result > i { font-size: 28px; }
   .sim-hero__copy .desktop-cta { display: none; }
   .sim-hero > .mobile-cta {
     display: inline-flex;
     width: 100%;
   }
-  .simulation-quest-heading h2 { font-size: 20px; }
-  .simulation-quest-heading > span { padding: 8px 15px; }
+  .simulation-quest-heading h2 { font-size: 16px; font-weight: 800; }
+  .simulation-quest-heading > span { padding: 8px 15px; font-size: 10px; font-weight: 700; }
   .simulation-quest-card { padding: 14px 12px 16px; }
   .simulation-quest-tabs { width: 100%; height: 52px; margin-bottom: 16px; }
   .simulation-quest-progress__track { height: 14px; }
@@ -288,8 +302,21 @@ onMounted(async () => {
   .simulation-quest-groups { gap: 20px; }
   .simulation-quest-row { min-height: 84px; grid-template-columns: 44px minmax(0,1fr) auto 30px; gap: 8px; padding: 12px 10px; border-radius: 18px; }
   .simulation-quest-row__icon { width: 40px; height: 40px; }
-  .simulation-quest-row__copy strong,.simulation-quest-row__amount { font-size: 13px; }
+  .simulation-quest-row__copy strong,.simulation-quest-row__amount { font-size: 14px; font-weight: 800; }
+  .sim-report-grid strong { font-size: 20px; }
+  .simulation-quest-api-notice,
+  .simulation-quest-progress span,
+  .simulation-quest-period > header p,
+  .simulation-quest-row__copy small,
+  .simulation-quest-empty-row,
+  .simulation-quest-footer span,
+  .simulation-quest-footer p,
+  .simulation-new-modal p { font-size: 12px; font-weight: 400; line-height: 1.5; }
+  .simulation-quest-period > header > span { font-size: 10px; font-weight: 700; }
   .simulation-quest-row__copy small { white-space: normal; }
   .simulation-quest-footer strong { font-size: 17px; }
+  .simulation-new-modal section > div button,
+  .simulation-quest-footer button { font-size: 17px; font-weight: 800; }
+  .simulation-create-new-bottom { font-size: 15px; font-weight: 700; }
 }
 </style>
