@@ -48,3 +48,19 @@ export function deleteSimulationItemApi(encryptedItemId) {
 export function getLatestConfirmedSimulationApi() {
   return requestResult(() => apiClient.get('simulation/confirmed'))
 }
+
+export function confirmSimulationApi() {
+  return requestResult(() => apiClient.post('simulation/confirmed'))
+}
+
+export function deleteConfirmedSimulationApi() {
+  return requestResult(() => apiClient.delete('simulation/confirmed'))
+}
+
+export function revertConfirmedSimulationApi() {
+  return requestResult(() => apiClient.patch('simulation/confirmed/revert'))
+}
+
+export function deleteDraftSimulationApi() {
+  return requestResult(() => apiClient.delete('simulation'))
+}

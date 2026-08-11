@@ -70,11 +70,27 @@ export const useQuestStore = defineStore('quest', () => {
       loaded.value = true
       return items.value
     } catch (requestError) {
+      items.value = []
+      pendingIds.value = []
+      loaded.value = true
+
+      if (requestError.status === 404) {
+        error.value = ''
+        return []
+      }
+
       error.value = requestError.message
       return null
     } finally {
       loading.value = false
     }
+  }
+
+  function resetQuests() {
+    items.value = []
+    pendingIds.value = []
+    error.value = ''
+    loaded.value = false
   }
 
   async function toggleQuest(questId) {
@@ -114,6 +130,7 @@ export const useQuestStore = defineStore('quest', () => {
     error,
     loaded,
     fetchQuests,
+    resetQuests,
     toggleQuest,
     isPending,
   }

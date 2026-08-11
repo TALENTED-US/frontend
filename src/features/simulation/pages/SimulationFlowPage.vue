@@ -40,12 +40,25 @@ const nextDraftPath = computed(() => {
 })
 
 onMounted(async () => {
+  // 새 시뮬레이션 화면은 기존 미확정 시뮬레이션을 삭제한 뒤 진입한다.
+  // 여기서 다시 조회하면 정상적인 "데이터 없음" 응답이 404 오류처럼 노출된다.
+  if (step.value === 'categories') {
+    startDate.value = getTodayDate()
+    return
+  }
+
   const data = await simulation.hydrateDraft()
   if (data) {
     startDate.value = simulation.state.startDate
     endDate.value = simulation.state.endDate
+    return
   }
-  if (step.value === 'categories') startDate.value = getTodayDate()
+
+  // 이어갈 미확정 시뮬레이션이 실제로 없다면 빈 이어하기 화면에 머물지 않는다.
+  if (step.value === 'continue' && !simulation.syncError) {
+    simulation.prepareNewScenario()
+    router.replace('/simulation/new')
+  }
 })
 
 async function startSimulation() {
@@ -57,17 +70,19 @@ async function startSimulation() {
   if (ok) router.push('/simulation/expense')
 }
 
-function reset() {
-  simulation.resetScenario()
+async function reset() {
+  const ok = await simulation.deleteDraftScenario()
+  if (!ok) return
+  simulation.prepareNewScenario()
   startDate.value = getTodayDate()
   simulation.state.startDate = startDate.value
   endDate.value = simulation.state.endDate
   router.push('/simulation/new')
 }
 
-function confirm() {
-  simulation.confirmScenario()
-  router.push('/simulation')
+async function confirm() {
+  const ok = await simulation.confirmScenario()
+  if (ok) router.push('/simulation')
 }
 </script>
 
@@ -188,8 +203,11 @@ function confirm() {
       </section>
 
       <div class="final-result"><span>예상 버티는 기간</span><p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ simulation.expectedMonths }}개월</strong></p><em>+{{ simulation.addedMonths }}개월 연장</em></div>
-      <p class="api-notice neutral">최종 확정 API가 준비되기 전까지 이 결과는 브라우저에 임시 저장됩니다.</p>
-      <button class="sim-btn sim-btn--yellow wide" type="button" @click="confirm">시뮬레이션 확정하기 →</button>
+      <p class="api-notice neutral">확정하면 이 계획을 기준으로 퀘스트가 생성됩니다.</p>
+      <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
+      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing" type="button" @click="confirm">
+        {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기 →' }}
+      </button>
     </template>
   </section>
 </template>

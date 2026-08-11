@@ -100,21 +100,42 @@ async function toggleQuest(item) {
   simulation.toggleQuestCompletion(id)
 }
 
-function start() {
-  if (simulation.state.confirmed) router.push('/simulation/edit')
-  else router.push(simulation.hasDraft ? '/simulation/continue' : '/simulation/new')
+async function start() {
+  if (simulation.state.confirmed) {
+    const reverted = await simulation.revertConfirmedScenario()
+    if (!reverted) return
+    router.push('/simulation/edit')
+    return
+  }
+  router.push(simulation.hasDraft ? '/simulation/continue' : '/simulation/new')
 }
 
-function createNewSimulation() {
-  simulation.resetScenario()
+async function createNewSimulation() {
+  const ok = await simulation.deleteConfirmedScenario()
+  if (!ok) return
+  quests.resetQuests()
+  simulation.prepareNewScenario()
   showNewSimulationModal.value = false
   router.push('/simulation/new')
 }
 
 onMounted(async () => {
-  await simulation.hydrateConfirmed()
-  if (simulation.state.confirmed) await quests.fetchQuests()
-  if (!simulation.state.confirmed && simulation.hasDraft) router.replace('/simulation/continue')
+  const confirmed = await simulation.hydrateConfirmed()
+  if (confirmed) {
+    await quests.fetchQuests()
+    return
+  }
+  quests.resetQuests()
+  if (simulation.syncError) return
+
+  const draft = await simulation.hydrateDraft()
+  if (draft) {
+    router.replace('/simulation/continue')
+    return
+  }
+  if (simulation.syncError) return
+
+  simulation.resetScenario()
 })
 </script>
 
@@ -129,8 +150,8 @@ onMounted(async () => {
       <div class="sim-hero__copy">
         <small>💡 시뮬레이션 해보기</small>
         <h2>지출을 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</h2>
-        <button class="sim-btn sim-btn--orange desktop-cta" type="button" @click="start">
-          {{ simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
+        <button class="sim-btn sim-btn--orange desktop-cta" type="button" :disabled="simulation.syncing" @click="start">
+          {{ simulation.syncing ? '전환하는 중…' : simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
         </button>
       </div>
       <div class="sim-hero__result">
@@ -138,10 +159,11 @@ onMounted(async () => {
         <i>→</i>
         <div><span>예상 버티는 기간</span><strong>{{ expectedLabel }}</strong><img v-if="simulation.state.confirmed" :src="expectedStatusImage" :alt="`${simulation.expectedStatus.label} 상태의 버티`" /><b v-if="simulation.state.confirmed" :class="simulation.expectedStatus.key">{{ simulation.expectedStatus.label }}</b></div>
       </div>
-      <button class="sim-btn sim-btn--orange mobile-cta" type="button" @click="start">
-        {{ simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
+      <button class="sim-btn sim-btn--orange mobile-cta" type="button" :disabled="simulation.syncing" @click="start">
+        {{ simulation.syncing ? '전환하는 중…' : simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
       </button>
     </article>
+    <p v-if="simulation.syncError" class="api-notice" role="alert">{{ simulation.syncError }}</p>
 
     <section v-if="simulation.state.confirmed" class="sim-quests simulation-quest-status">
       <div class="simulation-quest-heading"><h2>퀘스트 현황</h2><span>확정됨</span></div>
@@ -166,7 +188,9 @@ onMounted(async () => {
         </section>
         <footer class="simulation-quest-footer">
           <span>월 순지출 개선액 (지출·수입 기준)</span><strong>{{ compactWon(simulation.monthlyImprovement) }} / 월</strong><p>{{ oneTimeBenefitText }}</p>
-          <button type="button" @click="start">시나리오 수정하기 →</button>
+          <button type="button" :disabled="simulation.syncing" @click="start">
+            {{ simulation.syncing ? '전환하는 중…' : '시나리오 수정하기 →' }}
+          </button>
           <button class="simulation-quest-create-new" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
         </footer>
       </article>
@@ -191,9 +215,12 @@ onMounted(async () => {
         <span class="simulation-new-modal__icon" aria-hidden="true">!</span>
         <h2 id="new-simulation-main-title">새 시뮬레이션을 만들까요?</h2>
         <p>새 시뮬레이션을 생성하면 기존에 확정된 시뮬레이션이 삭제됩니다.<br />그래도 다시 생성하시겠습니까?</p>
+        <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
         <div>
-          <button type="button" @click="showNewSimulationModal = false">취소</button>
-          <button type="button" @click="createNewSimulation">새로 만들기</button>
+          <button type="button" :disabled="simulation.syncing" @click="showNewSimulationModal = false">취소</button>
+          <button type="button" :disabled="simulation.syncing" @click="createNewSimulation">
+            {{ simulation.syncing ? '삭제하는 중…' : '새로 만들기' }}
+          </button>
         </div>
       </section>
     </div>
