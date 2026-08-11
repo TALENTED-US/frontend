@@ -6,12 +6,16 @@ import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalyt
 import { useSessionStore } from '@/stores/session'
 import {
   applySimulationItemApi,
+  confirmSimulationApi,
   createSimulationApi,
+  deleteConfirmedSimulationApi,
+  deleteDraftSimulationApi,
   deleteSimulationItemApi,
   getCurrentSimulationApi,
   getLatestConfirmedSimulationApi,
   getSimulationItemsApi,
   getSimulationReportApi,
+  revertConfirmedSimulationApi,
   updateSimulationItemApi,
   updateSimulationPeriodApi,
 } from '@/api/simulation'
@@ -335,10 +339,58 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!remoteEnabled || !item.remoteId) { removePolicy(id); return true }
     return runItemMutation(() => deleteSimulationItemApi(item.remoteId), () => removePolicy(id))
   }
+  async function runScenarioMutation(request, onSuccess, { allowNotFound = false } = {}) {
+    syncing.value = true
+    syncError.value = ''
+    try {
+      if (remoteEnabled) await request()
+      onSuccess()
+      return true
+    } catch (error) {
+      if (allowNotFound && error.status === 404) {
+        onSuccess()
+        return true
+      }
+      syncError.value = error.message
+      return false
+    } finally {
+      syncing.value = false
+    }
+  }
+
   function confirmScenario() {
-    state.completedQuestIds = []
-    state.confirmed = true
-    state.draftStarted = false
+    return runScenarioMutation(confirmSimulationApi, () => {
+      state.completedQuestIds = []
+      state.confirmed = true
+      state.draftStarted = false
+      state.ignoreRemoteDraft = false
+      remoteDraftExists.value = false
+      recentConfirmed.value = null
+    })
+  }
+
+  function revertConfirmedScenario() {
+    return runScenarioMutation(revertConfirmedSimulationApi, () => {
+      state.confirmed = false
+      state.draftStarted = true
+      state.ignoreRemoteDraft = false
+      remoteDraftExists.value = true
+      recentConfirmed.value = null
+    })
+  }
+
+  function deleteConfirmedScenario() {
+    return runScenarioMutation(deleteConfirmedSimulationApi, () => {
+      resetScenario()
+      remoteDraftExists.value = false
+    }, { allowNotFound: true })
+  }
+
+  function deleteDraftScenario() {
+    return runScenarioMutation(deleteDraftSimulationApi, () => {
+      resetScenario()
+      remoteDraftExists.value = false
+    }, { allowNotFound: true })
   }
   function toggleQuestCompletion(id) {
     const completed = new Set(state.completedQuestIds || [])
@@ -357,7 +409,13 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
     if (changed) state.completedQuestIds = [...new Set(migrated)]
   }
-  function resetScenario() { Object.assign(state, defaultState()); recentConfirmed.value = null }
+  function resetScenario() {
+    Object.assign(state, defaultState())
+    remoteReport.value = null
+    recentConfirmed.value = null
+    remoteDraftExists.value = null
+    syncError.value = ''
+  }
 
   function prepareNewScenario() {
     state.expenses = state.expenses.map((item) => ({
@@ -404,7 +462,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   async function hydrateConfirmed() {
-    if (!remoteEnabled || state.ignoreRemoteDraft) return null
+    if (!remoteEnabled) return null
     syncing.value = true
     syncError.value = ''
     try {
@@ -516,11 +574,11 @@ export const useSimulationStore = defineStore('simulation', () => {
               itemName: null, amount: null, expenseCategory: null, applyEndDate: null, recurrenceType: null,
             } }))
 
-      const results = await Promise.all(pendingItems.map(({ payload }) => applySimulationItemApi(payload)))
-      pendingItems.forEach(({ item }, index) => {
-        item.remoteId = results[index]?.itemId || item.remoteId
+      for (const { item, payload } of pendingItems) {
+        const result = await applySimulationItemApi(payload)
+        item.remoteId = result?.itemId || item.remoteId
         item.remoteSynced = true
-      })
+      }
       const serverReport = await getSimulationReportApi()
       remoteReport.value = state.ignoreRemoteDraft ? null : serverReport
       return true
@@ -571,7 +629,8 @@ export const useSimulationStore = defineStore('simulation', () => {
     addIncome, updateIncome, removeIncome, togglePolicy, removePolicy, applyExpenses, resetExpenses,
     saveExpenseGoal, deleteExpenseGoal, saveIncomePlan, deleteIncomePlan, deletePolicyPlan,
     initializeExpensesFromAnalysis,
-    resetIncomes, resetPolicies, confirmScenario, toggleQuestCompletion,
+    resetIncomes, resetPolicies, confirmScenario, revertConfirmedScenario,
+    deleteConfirmedScenario, deleteDraftScenario, toggleQuestCompletion,
     migrateRecurringQuestCompletions, resetScenario, prepareNewScenario,
     hydrateDraft, hydrateConfirmed, beginSimulation, savePeriod,
     syncCategory, refreshCategory, hydrateCategory,
