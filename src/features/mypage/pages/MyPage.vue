@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
 import { formatExp, useProgressionStore } from '@/stores/progression'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
@@ -11,16 +12,39 @@ const router = useRouter()
 const session = useSessionStore()
 const progression = useProgressionStore()
 const simulation = useSimulationStore()
+const profileExp = computed(() => Number(session.currentUser.exp ?? progression.exp))
+const profileRequiredExp = computed(() =>
+  Number(session.currentUser.requiredExp ?? progression.nextLevelExp),
+)
+const profileLevel = computed(() => Number(session.currentUser.level ?? progression.level))
+const profileRemainingExp = computed(() => Math.max(0, profileRequiredExp.value - profileExp.value))
+const profileProgressPercent = computed(() =>
+  profileRequiredExp.value > 0
+    ? Math.min(100, Math.max(0, (profileExp.value / profileRequiredExp.value) * 100))
+    : 100,
+)
 
 const profileState = computed(() => {
-  const key = simulation.currentStatus?.key
+  const apiRisk = session.currentUser.riskLevel
+  const key =
+    apiRisk === 'DANGER'
+      ? 'danger'
+      : apiRisk === 'CAUTION'
+        ? 'caution'
+        : apiRisk === 'STABLE'
+          ? 'stable'
+          : simulation.currentStatus?.key
+  const apiImage = session.currentUser.buttieImageUrl
   if (key === 'danger' || key === 'risk') {
-    return { label: '위험', image: getButtieLevelImage(progression.level, 'danger') }
+    const fallbackImage = getButtieLevelImage(profileLevel.value, 'danger')
+    return { label: '위험', image: apiImage || fallbackImage, fallbackImage }
   }
   if (key === 'caution') {
-    return { label: '주의', image: getButtieLevelImage(progression.level, 'caution') }
+    const fallbackImage = getButtieLevelImage(profileLevel.value, 'caution')
+    return { label: '주의', image: apiImage || fallbackImage, fallbackImage }
   }
-  return { label: '안정', image: getButtieLevelImage(progression.level, 'stable') }
+  const fallbackImage = getButtieLevelImage(profileLevel.value, 'stable')
+  return { label: '안정', image: apiImage || fallbackImage, fallbackImage }
 })
 
 function formatDate(value) {
@@ -78,9 +102,12 @@ async function logout() {
       <div class="profile-card__identity">
         <div class="profile-avatar">
           <span class="profile-avatar__ring"
-            ><img :src="profileState.image" alt="버티 프로필"
+            ><ButtieImage
+              :src="profileState.image"
+              :fallback="profileState.fallbackImage"
+              alt="버티 프로필"
           /></span>
-          <b>{{ progression.level }}</b>
+          <b>{{ profileLevel }}</b>
         </div>
         <div class="profile-card__user">
           <h2>{{ session.displayName }}</h2>
@@ -90,22 +117,19 @@ async function logout() {
 
       <div class="profile-card__progress">
         <div class="profile-card__level">
-          <span v-if="progression.level < 5">
-            Lv {{ progression.level }} · 다음 레벨까지 {{ formatExp(progression.remainingExp) }} EXP
+          <span v-if="profileLevel < 5">
+            Lv {{ profileLevel }} · 다음 레벨까지 {{ formatExp(profileRemainingExp) }} EXP
           </span>
           <span v-else>Lv 5 · 최고 레벨</span>
           <em>{{ profileState.label }}</em>
         </div>
-        <strong>
-          {{ formatExp(progression.exp)
-          }}<template v-if="progression.level < 5">
-            / {{ formatExp(progression.nextLevelExp) }}</template
-          >
-          EXP
+        <strong v-if="profileLevel < 5">
+          {{ formatExp(profileExp) }} / {{ formatExp(profileRequiredExp) }} EXP
         </strong>
+        <strong v-else>MAX EXP</strong>
         <div class="progress-row">
-          <i><span :style="{ width: `${progression.progressPercent}%` }" /></i>
-          <small>{{ Math.round(progression.progressPercent) }}%</small>
+          <i><span :style="{ width: `${profileProgressPercent}%` }" /></i>
+          <small>{{ Math.round(profileProgressPercent) }}%</small>
         </div>
       </div>
 

@@ -1,443 +1,463 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
-import { dashboard } from "@/data/mockData";
-import AppIcon from "@/components/ui/AppIcon.vue";
-import { useSessionStore } from "@/stores/session";
-import { getButtieLevelImage } from "@/data/buttieLevelAssets";
-import {
-  financeTransactions,
-  loadTransactions,
-} from "@/features/finance/financeStore";
-import { analyzePreviousCompletedMonths } from "@/features/finance/financeAnalytics";
-import { useSimulationStore } from "@/features/simulation/stores/simulation";
-import { useQuestStore } from "@/features/quest/stores/quest";
+import { computed, onMounted, ref, watch } from 'vue'
+import { dashboard } from '@/data/mockData'
+import { getButtieDashboardApi } from '@/api/dashboard'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import ButtieImage from '@/components/ui/ButtieImage.vue'
+import { useSessionStore } from '@/stores/session'
+import { getButtieLevelImage } from '@/data/buttieLevelAssets'
+import { financeTransactions, loadTransactions } from '@/features/finance/financeStore'
+import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalytics'
+import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { useQuestStore } from '@/features/quest/stores/quest'
 import {
   calculateQuestExp,
   formatExp,
+  normalizeButtieProgression,
   useProgressionStore,
-} from "@/stores/progression";
+} from '@/stores/progression'
 
-const session = useSessionStore();
-const simulation = useSimulationStore();
-const progression = useProgressionStore();
-const quests = useQuestStore();
+const session = useSessionStore()
+const simulation = useSimulationStore()
+const progression = useProgressionStore()
+const quests = useQuestStore()
+const buttieDashboard = ref(null)
+const dashboardApiError = ref('')
+const dashboardApiLoading = ref(false)
+
+async function loadButtieDashboard() {
+  if (session.isMockMode) return
+  dashboardApiLoading.value = true
+  dashboardApiError.value = ''
+  try {
+    buttieDashboard.value = await getButtieDashboardApi()
+    const normalized = normalizeButtieProgression(buttieDashboard.value.buttieTotalExp)
+    Object.assign(session.currentUser, {
+      level: normalized.level,
+      exp: normalized.exp,
+      totalExp: normalized.totalExp,
+      requiredExp: normalized.requiredExp,
+      buttieImageUrl: buttieDashboard.value.buttieImageUrl,
+      riskLevel: buttieDashboard.value.riskLevel,
+      goalDate: buttieDashboard.value.targetEmploymentDate,
+    })
+  } catch (error) {
+    dashboardApiError.value = error.message || '버티 대시보드를 불러오지 못했습니다.'
+  } finally {
+    dashboardApiLoading.value = false
+  }
+}
 
 onMounted(async () => {
-  await simulation.hydrateConfirmed();
-  if (simulation.state.confirmed) await quests.fetchQuests();
+  await loadButtieDashboard()
+  await simulation.hydrateConfirmed()
+  if (simulation.state.confirmed) await quests.fetchQuests()
   loadTransactions().catch(() => {
     // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
-  });
-});
-const DAY_MS = 24 * 60 * 60 * 1000;
-const AVERAGE_MONTH_DAYS = 365.2425 / 12;
+  })
+})
+const DAY_MS = 24 * 60 * 60 * 1000
+const AVERAGE_MONTH_DAYS = 365.2425 / 12
 const LEVEL_TITLES = Object.freeze({
-  1: "새싹 버티",
-  2: "기사 버티",
-  3: "황금 버티",
-  4: "천사 버티",
-  5: "수호신 버티",
-});
+  1: '새싹 버티',
+  2: '기사 버티',
+  3: '황금 버티',
+  4: '천사 버티',
+  5: '수호신 버티',
+})
 const LEVEL_MESSAGES = Object.freeze({
-  1: "우리 같이 차근차근 돈을 모아보자!",
-  2: "작은 습관이 큰 자산을 만든대!",
-  3: "꾸준히 모으면 황금빛 미래가 기다려!",
-  4: "든든한 자산으로 꿈에 한 걸음 더 가까워졌어!",
-  5: "돈관리좀 알려줘?",
-});
+  1: '우리 같이 차근차근 돈을 모아보자!',
+  2: '작은 습관이 큰 자산을 만든대!',
+  3: '꾸준히 모으면 황금빛 미래가 기다려!',
+  4: '든든한 자산으로 꿈에 한 걸음 더 가까워졌어!',
+  5: '돈관리좀 알려줘?',
+})
 const LEVEL_DESCRIPTIONS = Object.freeze([
-  { level: 1, title: "새싹 버티", description: "이제 막 자산관리를 시작한 기본 버티" },
-  { level: 2, title: "기사 버티", description: "재정 습관이 자라나는 버티" },
-  { level: 3, title: "황금 버티", description: "자산을 불려가는 황금빛 버티" },
-  { level: 4, title: "천사 버티", description: "자산을 든든히 지키는 버티" },
-  { level: 5, title: "수호신 버티", description: "재정을 완성한 최고 단계 버티" },
-]);
-const levelInfoOpen = ref(false);
-const levelTitle = computed(() => LEVEL_TITLES[progression.level] || LEVEL_TITLES[1]);
-const levelMessage = computed(() => LEVEL_MESSAGES[progression.level] || LEVEL_MESSAGES[1]);
+  { level: 1, title: '새싹 버티', description: '이제 막 자산관리를 시작한 기본 버티' },
+  { level: 2, title: '기사 버티', description: '재정 습관이 자라나는 버티' },
+  { level: 3, title: '황금 버티', description: '자산을 불려가는 황금빛 버티' },
+  { level: 4, title: '천사 버티', description: '자산을 든든히 지키는 버티' },
+  { level: 5, title: '수호신 버티', description: '재정을 완성한 최고 단계 버티' },
+])
+const levelInfoOpen = ref(false)
+const levelTitle = computed(() => LEVEL_TITLES[buttieLevel.value] || LEVEL_TITLES[1])
+const levelMessage = computed(() => LEVEL_MESSAGES[buttieLevel.value] || LEVEL_MESSAGES[1])
 
 function parseLocalDate(value) {
-  const [year, month, day] = String(value || "")
-    .replaceAll(".", "-")
-    .split("-")
-    .map(Number);
+  const [year, month, day] = String(value || '')
+    .replaceAll('.', '-')
+    .split('-')
+    .map(Number)
 
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
 }
 
 function startOfToday() {
-  const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const today = new Date()
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate())
 }
 
 function differenceInDays(from, to) {
-  if (!from || !to) return 0;
-  return Math.max(0, Math.ceil((to.getTime() - from.getTime()) / DAY_MS));
+  if (!from || !to) return 0
+  return Math.max(0, Math.ceil((to.getTime() - from.getTime()) / DAY_MS))
 }
 
 function addMonthsClamped(date, months) {
-  const result = new Date(date);
-  const targetDay = result.getDate();
-  result.setDate(1);
-  result.setMonth(result.getMonth() + months);
-  const lastDay = new Date(
-    result.getFullYear(),
-    result.getMonth() + 1,
-    0,
-  ).getDate();
-  result.setDate(Math.min(targetDay, lastDay));
-  return result;
+  const result = new Date(date)
+  const targetDay = result.getDate()
+  result.setDate(1)
+  result.setMonth(result.getMonth() + months)
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate()
+  result.setDate(Math.min(targetDay, lastDay))
+  return result
 }
 
 function calendarDuration(from, to) {
-  if (!from || !to || to <= from) return { months: 0, days: 0 };
+  if (!from || !to || to <= from) return { months: 0, days: 0 }
 
-  let months =
-    (to.getFullYear() - from.getFullYear()) * 12 +
-    to.getMonth() -
-    from.getMonth();
-  let anchor = addMonthsClamped(from, months);
+  let months = (to.getFullYear() - from.getFullYear()) * 12 + to.getMonth() - from.getMonth()
+  let anchor = addMonthsClamped(from, months)
 
   if (anchor > to) {
-    months -= 1;
-    anchor = addMonthsClamped(from, months);
+    months -= 1
+    anchor = addMonthsClamped(from, months)
   }
 
   return {
     months,
     days: Math.max(0, Math.round((to.getTime() - anchor.getTime()) / DAY_MS)),
-  };
+  }
 }
 
 function formatWon(value, { sign = false } = {}) {
-  const amount = Math.round(Number(value) || 0);
-  const prefix = sign && amount > 0 ? "+" : "";
-  return `${prefix}${amount.toLocaleString("ko-KR")}원`;
+  const amount = Math.round(Number(value) || 0)
+  const prefix = sign && amount > 0 ? '+' : ''
+  return `${prefix}${amount.toLocaleString('ko-KR')}원`
 }
 
 function formatCompactWon(value) {
-  const amount = Math.max(0, Math.round(Number(value) || 0));
+  const amount = Math.max(0, Math.round(Number(value) || 0))
 
   if (amount >= 10000 && amount % 10000 === 0) {
-    return `${(amount / 10000).toLocaleString("ko-KR")}만원`;
+    return `${(amount / 10000).toLocaleString('ko-KR')}만원`
   }
 
-  return formatWon(amount);
+  return formatWon(amount)
 }
 
 function formatSignedCompactWon(value) {
-  const amount = Math.round(Number(value) || 0);
-  if (!amount) return formatCompactWon(0);
-  return `${amount > 0 ? "+" : "-"}${formatCompactWon(Math.abs(amount))}`;
+  const amount = Math.round(Number(value) || 0)
+  if (!amount) return formatCompactWon(0)
+  return `${amount > 0 ? '+' : '-'}${formatCompactWon(Math.abs(amount))}`
 }
 
 function formatMonthLabel(date) {
-  return `${String(date.getFullYear()).slice(2)}년 ${date.getMonth() + 1}월`;
+  return `${String(date.getFullYear()).slice(2)}년 ${date.getMonth() + 1}월`
 }
 
 function formatDateDots(value) {
-  const date = parseLocalDate(value);
-  if (!date) return "";
+  const date = parseLocalDate(value)
+  if (!date) return ''
   return [
     date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join(".");
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('.')
 }
 
 function expenseQuestName(name) {
-  return name === "교통" ? "교통비" : name;
+  return name === '교통' ? '교통비' : name
 }
 
-const currentUser = computed(() => session.currentUser);
-const today = computed(() => startOfToday());
-const preparationStartDate = computed(() =>
-  parseLocalDate(currentUser.value.startDate),
-);
+const currentUser = computed(() => session.currentUser)
+const apiButtieProgression = computed(() =>
+  buttieDashboard.value ? normalizeButtieProgression(buttieDashboard.value.buttieTotalExp) : null,
+)
+const buttieExp = computed(() => apiButtieProgression.value?.exp ?? progression.exp)
+const buttieRequiredExp = computed(
+  () => apiButtieProgression.value?.requiredExp ?? progression.nextLevelExp,
+)
+const buttieLevel = computed(() => apiButtieProgression.value?.level ?? progression.level)
+const buttieRemainingExp = computed(() => Math.max(0, buttieRequiredExp.value - buttieExp.value))
+const buttieProgressPercent = computed(() =>
+  buttieRequiredExp.value > 0
+    ? Math.min(100, Math.max(0, (buttieExp.value / buttieRequiredExp.value) * 100))
+    : 100,
+)
+const today = computed(() => startOfToday())
+const preparationStartDate = computed(() => parseLocalDate(currentUser.value.startDate))
 const targetEmploymentDate = computed(() =>
-  parseLocalDate(currentUser.value.goalDate || currentUser.value.targetDate),
-);
+  parseLocalDate(
+    buttieDashboard.value?.targetEmploymentDate ||
+      currentUser.value.goalDate ||
+      currentUser.value.targetDate,
+  ),
+)
 
-const remainingDays = computed(() =>
-  differenceInDays(today.value, targetEmploymentDate.value),
-);
-const remainingMonthsValue = computed(
-  () => remainingDays.value / AVERAGE_MONTH_DAYS,
-);
-const remainingDuration = computed(() =>
-  calendarDuration(today.value, targetEmploymentDate.value),
-);
+const remainingDays = computed(() => differenceInDays(today.value, targetEmploymentDate.value))
+const remainingMonthsValue = computed(() => remainingDays.value / AVERAGE_MONTH_DAYS)
+const remainingDuration = computed(() => calendarDuration(today.value, targetEmploymentDate.value))
 const preparationDuration = computed(() =>
   calendarDuration(preparationStartDate.value, targetEmploymentDate.value),
-);
+)
 const preparationMonthsValue = computed(
-  () =>
-    preparationDuration.value.months +
-    preparationDuration.value.days / AVERAGE_MONTH_DAYS,
-);
+  () => preparationDuration.value.months + preparationDuration.value.days / AVERAGE_MONTH_DAYS,
+)
 
 const availableAssets = computed(() =>
   Math.max(0, Number(dashboard.liquidAssets ?? dashboard.totalAssets) || 0),
-);
+)
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
-);
-const monthlyExpense = computed(() => recentFinancialAnalysis.value.monthlyExpense);
-const monthlyIncome = computed(() => recentFinancialAnalysis.value.monthlyIncome);
-const survivalMonths = computed(() =>
-  monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0,
-);
-const displayedSurvivalMonths = computed(() => survivalMonths.value.toFixed(1));
-const hasConfirmedScenario = computed(() => simulation.state.confirmed);
-const displayedExpectedMonths = computed(() =>
-  hasConfirmedScenario.value ? simulation.expectedMonths.toFixed(1) : "-",
-);
+)
+const monthlyExpense = computed(() => recentFinancialAnalysis.value.monthlyExpense)
+const monthlyIncome = computed(() => recentFinancialAnalysis.value.monthlyIncome)
+const survivalMonths = computed(() => {
+  const apiMonths = Number(buttieDashboard.value?.currentPrepMonths)
+  if (Number.isFinite(apiMonths)) return Math.max(0, apiMonths)
+  return monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0
+})
+const displayedSurvivalMonths = computed(() => survivalMonths.value.toFixed(1))
+const apiExpectedMonths = computed(() => {
+  const value = buttieDashboard.value?.expectPrepMonths
+  return value === null || value === undefined ? Number.NaN : Number(value)
+})
+const hasConfirmedScenario = computed(
+  () => Number.isFinite(apiExpectedMonths.value) || simulation.state.confirmed,
+)
+const displayedExpectedMonths = computed(() => {
+  if (Number.isFinite(apiExpectedMonths.value)) return apiExpectedMonths.value.toFixed(1)
+  return simulation.state.confirmed ? simulation.expectedMonths.toFixed(1) : '-'
+})
 const confirmedExpenseRows = computed(() =>
   simulation.state.expenseApplied
     ? simulation.selectedExpenses.map((item) => ({
         id: `expense-${item.id}`,
         icon: item.icon,
         name: `${expenseQuestName(item.name)} ${formatCompactWon(item.saving)} 줄이기`,
-        subtitle: "",
+        subtitle: '',
         amount: -item.saving,
-        kind: "expense",
-        recurrence: "monthly",
+        kind: 'expense',
+        recurrence: 'monthly',
       }))
     : [],
-);
+)
 const confirmedIncomeRows = computed(() =>
   simulation.state.incomes.map((item) => ({
     id: `income-${item.id}`,
-    icon: "💼",
+    icon: '💼',
     name: item.name,
     subtitle:
-      item.type === "monthly"
+      item.type === 'monthly'
         ? `정기수입 · 매월 ${parseLocalDate(item.startDate)?.getDate() || 1}일`
         : `일회성 수입 · ${formatDateDots(item.startDate)}`,
     amount: item.amount,
-    kind: "income",
-    recurrence: item.type === "monthly" ? "monthly" : "once",
+    kind: 'income',
+    recurrence: item.type === 'monthly' ? 'monthly' : 'once',
   })),
-);
+)
 const confirmedPolicyRows = computed(() =>
   simulation.state.policies.map((item) => ({
     id: `policy-${item.id}`,
-    icon: "🏛️",
+    icon: '🏛️',
     name: item.name,
     subtitle:
-      item.id === "youth-saving"
-        ? "일시 60만원 · 3년 만기 시 정부지원금"
-        : item.detail || item.description || "정책 혜택",
+      item.id === 'youth-saving'
+        ? '일시 60만원 · 3년 만기 시 정부지원금'
+        : item.detail || item.description || '정책 혜택',
     amount: item.amount,
-    kind: "policy",
-    recurrence: item.type === "monthly" ? "monthly" : "once",
+    kind: 'policy',
+    recurrence: item.type === 'monthly' ? 'monthly' : 'once',
   })),
-);
-const questTab = ref("active");
+)
+const questTab = ref('active')
 const localQuestRows = computed(() => [
   ...confirmedExpenseRows.value,
   ...confirmedIncomeRows.value,
   ...confirmedPolicyRows.value,
-]);
-const allQuestRows = computed(() => quests.remoteEnabled ? quests.rows : localQuestRows.value);
+])
+const allQuestRows = computed(() => (quests.remoteEnabled ? quests.rows : localQuestRows.value))
 const questMonthKey = computed(() => {
-  const date = today.value;
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-});
+  const date = today.value
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+})
 const recurringQuestIds = computed(() =>
-  allQuestRows.value
-    .filter((item) => item.recurrence === "monthly")
-    .map((item) => item.id),
-);
+  allQuestRows.value.filter((item) => item.recurrence === 'monthly').map((item) => item.id),
+)
 
 watch(
-  [questMonthKey, () => recurringQuestIds.value.join("|")],
+  [questMonthKey, () => recurringQuestIds.value.join('|')],
   ([monthKey]) => {
-    if (quests.remoteEnabled) return;
-    simulation.migrateRecurringQuestCompletions(recurringQuestIds.value, monthKey);
-    progression.migrateRecurringQuestClaims(recurringQuestIds.value, monthKey);
+    if (quests.remoteEnabled) return
+    simulation.migrateRecurringQuestCompletions(recurringQuestIds.value, monthKey)
+    progression.migrateRecurringQuestClaims(recurringQuestIds.value, monthKey)
   },
   { immediate: true },
-);
+)
 
 function questCompletionId(item) {
-  if (quests.remoteEnabled) return item.id;
-  return item.recurrence === "monthly"
-    ? `${item.id}@${questMonthKey.value}`
-    : item.id;
+  if (quests.remoteEnabled) return item.id
+  return item.recurrence === 'monthly' ? `${item.id}@${questMonthKey.value}` : item.id
 }
-const completedQuestIds = computed(
-  () => new Set(simulation.state.completedQuestIds || []),
-);
-const completedQuestCount = computed(
-  () => allQuestRows.value.filter(isQuestCompleted).length,
-);
-const activeQuestCount = computed(
-  () => allQuestRows.value.length - completedQuestCount.value,
-);
+const completedQuestIds = computed(() => new Set(simulation.state.completedQuestIds || []))
+const completedQuestCount = computed(() => allQuestRows.value.filter(isQuestCompleted).length)
+const activeQuestCount = computed(() => allQuestRows.value.length - completedQuestCount.value)
 const questCompletionPercent = computed(() =>
   allQuestRows.value.length
     ? Math.round((completedQuestCount.value / allQuestRows.value.length) * 100)
     : 0,
-);
+)
 function buildQuestGroups(rows) {
   return [
-    { key: "expense", title: "지출 줄이기" },
-    { key: "income", title: "수입 늘리기" },
-    { key: "policy", title: "정책 혜택", action: "신청 가능" },
+    { key: 'expense', title: '지출 줄이기' },
+    { key: 'income', title: '수입 늘리기' },
+    { key: 'policy', title: '정책 혜택', action: '신청 가능' },
   ]
     .map((group) => {
-      const groupRows = rows.filter((item) => item.kind === group.key);
+      const groupRows = rows.filter((item) => item.kind === group.key)
       return {
         ...group,
         rows: groupRows,
-        amount: group.key === "policy"
-          ? 0
-          : groupRows.reduce((sum, item) => sum + item.amount, 0),
-      };
+        amount: group.key === 'policy' ? 0 : groupRows.reduce((sum, item) => sum + item.amount, 0),
+      }
     })
-    .filter((group) => group.rows.length);
+    .filter((group) => group.rows.length)
 }
 
 const questSections = computed(() => [
   {
-    key: "recurring",
-    title: "매월 정기 퀘스트",
-    description: "지출 절감·정기 수입·정기 정책 퀘스트가 매월 갱신돼요.",
-    rows: allQuestRows.value.filter((item) => item.recurrence === "monthly"),
+    key: 'recurring',
+    title: '매월 정기 퀘스트',
+    description: '지출 절감·정기 수입·정기 정책 퀘스트가 매월 갱신돼요.',
+    rows: allQuestRows.value.filter((item) => item.recurrence === 'monthly'),
   },
   {
-    key: "once",
-    title: "일회성 퀘스트",
-    description: "한 번 완료하면 유지되는 수입·정책 퀘스트예요.",
-    rows: allQuestRows.value.filter((item) => item.recurrence === "once"),
+    key: 'once',
+    title: '일회성 퀘스트',
+    description: '한 번 완료하면 유지되는 수입·정책 퀘스트예요.',
+    rows: allQuestRows.value.filter((item) => item.recurrence === 'once'),
   },
-]);
+])
 const visibleQuestSections = computed(() =>
   questSections.value.map((section) => {
     const rows = section.rows.filter((item) =>
-      questTab.value === "completed"
-        ? isQuestCompleted(item)
-        : !isQuestCompleted(item),
-    );
-    return { ...section, groups: buildQuestGroups(rows) };
+      questTab.value === 'completed' ? isQuestCompleted(item) : !isQuestCompleted(item),
+    )
+    return { ...section, groups: buildQuestGroups(rows) }
   }),
-);
+)
 const oneTimeBenefitText = computed(() => {
-  const total = simulation.oneTimeIncome + simulation.oneTimePolicy;
-  return total > 0
-    ? `일시 수입·혜택 ${formatCompactWon(total)} 별도`
-    : "정기 반영 금액 기준";
-});
+  const total = simulation.oneTimeIncome + simulation.oneTimePolicy
+  return total > 0 ? `일시 수입·혜택 ${formatCompactWon(total)} 별도` : '정기 반영 금액 기준'
+})
 function isQuestCompleted(item) {
-  if (quests.remoteEnabled) return item.completed;
-  return completedQuestIds.value.has(questCompletionId(item));
+  if (quests.remoteEnabled) return item.completed
+  return completedQuestIds.value.has(questCompletionId(item))
 }
 
 function questExp(item) {
-  return quests.remoteEnabled ? item.expReward : calculateQuestExp(item.amount);
+  return quests.remoteEnabled ? item.expReward : calculateQuestExp(item.amount)
 }
 
 function isQuestRewarded(item) {
-  return quests.remoteEnabled
-    ? item.completed
-    : progression.isQuestClaimed(questCompletionId(item));
+  return quests.remoteEnabled ? item.completed : progression.isQuestClaimed(questCompletionId(item))
 }
 
 function isQuestPending(item) {
-  return quests.remoteEnabled && quests.isPending(item.id);
+  return quests.remoteEnabled && quests.isPending(item.id)
 }
 
 async function toggleQuest(item) {
   if (quests.remoteEnabled) {
-    await quests.toggleQuest(item.id);
-    return;
+    await quests.toggleQuest(item.id)
+    return
   }
-  const completionId = questCompletionId(item);
+  const completionId = questCompletionId(item)
   if (isQuestCompleted(item)) {
-    progression.cancelQuestClaim(completionId, item.amount);
+    progression.cancelQuestClaim(completionId, item.amount)
   } else {
-    progression.claimQuest(completionId, item.amount);
+    progression.claimQuest(completionId, item.amount)
   }
-  simulation.toggleQuestCompletion(completionId);
+  simulation.toggleQuestCompletion(completionId)
 }
 const achievementRate = computed(() => {
-  if (remainingMonthsValue.value <= 0) return 100;
+  if (remainingMonthsValue.value <= 0) return 100
   return Math.min(
     100,
-    Math.max(
-      0,
-      Math.round((survivalMonths.value / remainingMonthsValue.value) * 100),
-    ),
-  );
-});
+    Math.max(0, Math.round((survivalMonths.value / remainingMonthsValue.value) * 100)),
+  )
+})
 const shortageMonths = computed(() =>
   Math.max(0, remainingMonthsValue.value - survivalMonths.value),
-);
+)
 const financialStatus = computed(() => {
-  if (achievementRate.value <= 30) {
-    const shortage = Math.max(1, Math.ceil(shortageMonths.value));
+  const apiRisk = buttieDashboard.value?.riskLevel
+  const isDanger = apiRisk === 'DANGER' || (!apiRisk && achievementRate.value <= 30)
+  const isCaution = apiRisk === 'CAUTION' || (!apiRisk && achievementRate.value < 80)
+  const apiImage = buttieDashboard.value?.buttieImageUrl
+
+  if (isDanger) {
+    const shortage = Math.max(1, Math.ceil(shortageMonths.value))
+    const fallbackImage = getButtieLevelImage(buttieLevel.value, 'danger')
     return {
-      key: "risk",
-      label: "위험",
+      key: 'risk',
+      label: '위험',
       message: `버티는 기간이 목표보다 ${shortage}개월 부족해서 버티가 녹고 있어요`,
-      image: getButtieLevelImage(progression.level, "danger"),
-      imageAlt: "거의 녹아내린 위험 상태의 버티",
-    };
+      image: apiImage || fallbackImage,
+      fallbackImage,
+      imageAlt: '거의 녹아내린 위험 상태의 버티',
+    }
   }
 
-  if (achievementRate.value < 80) {
+  if (isCaution) {
+    const fallbackImage = getButtieLevelImage(buttieLevel.value, 'caution')
     return {
-      key: "caution",
-      label: "주의",
-      message: "버티는 기간이 목표보다 조금 부족해 주의가 필요해요",
-      image: getButtieLevelImage(progression.level, "caution"),
-      imageAlt: "조금 녹아내린 주의 상태의 버티",
-    };
+      key: 'caution',
+      label: '주의',
+      message: '버티는 기간이 목표보다 조금 부족해 주의가 필요해요',
+      image: apiImage || fallbackImage,
+      fallbackImage,
+      imageAlt: '조금 녹아내린 주의 상태의 버티',
+    }
   }
 
+  const fallbackImage = getButtieLevelImage(buttieLevel.value, 'stable')
   return {
-    key: "stable",
-    label: "안정",
-    message: "버티는 기간이 목표를 넉넉히 채워서 걱정 없어요",
-    image: getButtieLevelImage(progression.level, "stable"),
-    imageAlt: "온전한 안정 상태의 버티",
-  };
-});
+    key: 'stable',
+    label: '안정',
+    message: '버티는 기간이 목표를 넉넉히 채워서 걱정 없어요',
+    image: apiImage || fallbackImage,
+    fallbackImage,
+    imageAlt: '온전한 안정 상태의 버티',
+  }
+})
 
 const initialAssets = computed(() =>
   Math.max(0, Number(dashboard.initialAssets ?? dashboard.totalAssets) || 0),
-);
-const financialRiskAmount = computed(() =>
-  Math.round(initialAssets.value * 0.2),
-);
+)
+const financialRiskAmount = computed(() => Math.round(initialAssets.value * 0.2))
 const financialStabilityAmount = computed(() =>
-  Math.round(
-    monthlyExpense.value * preparationMonthsValue.value +
-      financialRiskAmount.value,
-  ),
-);
-const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value);
+  Math.round(monthlyExpense.value * preparationMonthsValue.value + financialRiskAmount.value),
+)
+const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
 const targetDateText = computed(() => {
-  const date = targetEmploymentDate.value;
-  if (!date) return "-";
+  const date = targetEmploymentDate.value
+  if (!date) return '-'
   return [
     date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-});
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+})
 const remainingDurationText = computed(() => {
-  if (remainingDays.value <= 0) return "목표일 도달";
-  return `${remainingDuration.value.months}개월 ${remainingDuration.value.days}일`;
-});
-const currentMonthText = computed(() => formatMonthLabel(today.value));
+  if (remainingDays.value <= 0) return '목표일 도달'
+  return `${remainingDuration.value.months}개월 ${remainingDuration.value.days}일`
+})
+const currentMonthText = computed(() => formatMonthLabel(today.value))
 const targetMonthText = computed(() =>
-  targetEmploymentDate.value
-    ? formatMonthLabel(targetEmploymentDate.value)
-    : "-",
-);
+  targetEmploymentDate.value ? formatMonthLabel(targetEmploymentDate.value) : '-',
+)
 </script>
 
 <template>
@@ -445,7 +465,7 @@ const targetMonthText = computed(() =>
     <section class="level-overview" aria-label="레벨 및 경험치">
       <div>
         <div class="level-overview__level">
-          <strong>Lv.{{ progression.level }}</strong>
+          <strong>Lv.{{ buttieLevel }}</strong>
           <b>{{ levelTitle }}</b>
         </div>
         <div :class="['level-info', { 'level-info--open': levelInfoOpen }]">
@@ -469,7 +489,7 @@ const targetMonthText = computed(() =>
               <li
                 v-for="item in LEVEL_DESCRIPTIONS"
                 :key="item.level"
-                :class="{ current: item.level === progression.level }"
+                :class="{ current: item.level === buttieLevel }"
               >
                 <b>레벨 {{ item.level }}. {{ item.title }}</b>
                 <span>{{ item.description }}</span>
@@ -477,32 +497,31 @@ const targetMonthText = computed(() =>
             </ul>
           </div>
         </div>
-        <span v-if="progression.level < 5">
-          다음 레벨까지 {{ formatExp(progression.remainingExp) }} EXP
-        </span>
+        <span v-if="buttieLevel < 5"> 다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP </span>
         <span v-else>최고 레벨 달성</span>
       </div>
       <div class="level-overview__progress">
-        <b v-if="progression.level < 5">
-          {{ formatExp(progression.exp) }} / {{ formatExp(progression.nextLevelExp) }} EXP
+        <b v-if="buttieLevel < 5">
+          {{ formatExp(buttieExp) }} / {{ formatExp(buttieRequiredExp) }} EXP
         </b>
         <b v-else>MAX LEVEL</b>
-        <i><span :style="{ width: `${progression.progressPercent}%` }" /></i>
+        <i><span :style="{ width: `${buttieProgressPercent}%` }" /></i>
       </div>
     </section>
     <header class="dashboard__heading">
       <h1>버티와 함께하는 취준 여정, 지금 확인해 보세요</h1>
       <p>취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
     </header>
+    <div v-if="dashboardApiError" class="dashboard-api-notice" role="alert">
+      <span>{{ dashboardApiError }}</span>
+      <button type="button" :disabled="dashboardApiLoading" @click="loadButtieDashboard">
+        {{ dashboardApiLoading ? '불러오는 중' : '다시 시도' }}
+      </button>
+    </div>
 
     <section class="survival-section" aria-labelledby="survival-title">
       <h2 id="survival-title" class="mobile-only section-label">버티는 기간</h2>
-      <article
-        :class="[
-          'survival-card',
-          `survival-card--${financialStatus.key}`,
-        ]"
-      >
+      <article :class="['survival-card', `survival-card--${financialStatus.key}`]">
         <div class="survival-card__metric survival-card__metric--current">
           <span>버티는 기간</span>
           <strong>{{ displayedSurvivalMonths }} <i>개월</i></strong>
@@ -535,11 +554,12 @@ const targetMonthText = computed(() =>
 
         <div class="survival-card__character">
           <span class="survival-card__character-halo" aria-hidden="true" />
-          <img
+          <ButtieImage
             :src="financialStatus.image"
+            :fallback="financialStatus.fallbackImage"
             :alt="financialStatus.imageAlt"
           />
-          <b class="survival-card__level survival-card__level--mobile">Lv.{{ progression.level }}</b>
+          <b class="survival-card__level survival-card__level--mobile">Lv.{{ buttieLevel }}</b>
         </div>
 
         <p class="survival-card__speech" aria-live="polite">{{ levelMessage }}</p>
@@ -549,7 +569,7 @@ const targetMonthText = computed(() =>
           <em>{{ financialStatus.label }}</em>
         </div>
 
-        <b class="survival-card__level survival-card__level--desktop">Lv.{{ progression.level }}</b>
+        <b class="survival-card__level survival-card__level--desktop">Lv.{{ buttieLevel }}</b>
       </article>
     </section>
 
@@ -593,8 +613,10 @@ const targetMonthText = computed(() =>
             :class="{ 'quest-api-notice--error': quests.error }"
             role="status"
           >
-            <span>{{ quests.loading ? "퀘스트를 불러오는 중이에요." : quests.error }}</span>
-            <button v-if="quests.error" type="button" @click="quests.fetchQuests()">다시 시도</button>
+            <span>{{ quests.loading ? '퀘스트를 불러오는 중이에요.' : quests.error }}</span>
+            <button v-if="quests.error" type="button" @click="quests.fetchQuests()">
+              다시 시도
+            </button>
           </div>
           <div class="quest-tabs" role="tablist" aria-label="퀘스트 상태">
             <button
@@ -677,22 +699,24 @@ const targetMonthText = computed(() =>
                       <small v-if="item.subtitle">{{ item.subtitle }}</small>
                       <small class="quest-row__exp">
                         +{{ formatExp(questExp(item)) }} EXP
-                        <template v-if="isQuestRewarded(item)">
-                          · 지급 완료
-                        </template>
+                        <template v-if="isQuestRewarded(item)"> · 지급 완료 </template>
                       </small>
                     </span>
                     <strong class="quest-row__amount">
                       {{ formatSignedCompactWon(item.amount) }}
                     </strong>
                     <span class="quest-row__check" aria-hidden="true">
-                      {{ isQuestCompleted(item) ? "✓" : "" }}
+                      {{ isQuestCompleted(item) ? '✓' : '' }}
                     </span>
                   </button>
                 </section>
               </div>
               <p v-else class="quest-period__empty">
-                {{ questTab === "completed" ? "완료한 퀘스트가 없어요." : "진행 중인 퀘스트가 없어요." }}
+                {{
+                  questTab === 'completed'
+                    ? '완료한 퀘스트가 없어요.'
+                    : '진행 중인 퀘스트가 없어요.'
+                }}
               </p>
             </section>
           </div>
@@ -777,9 +801,18 @@ const targetMonthText = computed(() =>
   gap: 8px;
 }
 
-.level-overview__level strong { font-size: 22px; }
-.level-overview__level b { color: #51392e; font-size: var(--font-body); font-weight: 900; }
-.level-overview > div:first-child span { color: #6b7280; font-size: var(--font-small); }
+.level-overview__level strong {
+  font-size: 22px;
+}
+.level-overview__level b {
+  color: #51392e;
+  font-size: var(--font-body);
+  font-weight: 900;
+}
+.level-overview > div:first-child span {
+  color: #6b7280;
+  font-size: var(--font-small);
+}
 
 .level-info {
   display: inline-flex;
@@ -830,7 +863,10 @@ const targetMonthText = computed(() =>
   opacity: 0;
   pointer-events: none;
   transform: translateY(-5px);
-  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    visibility 0.18s ease;
   visibility: hidden;
   white-space: normal;
 }
@@ -911,7 +947,7 @@ const targetMonthText = computed(() =>
   height: 100%;
   border-radius: inherit;
   background: #51392e;
-  transition: width .25s ease;
+  transition: width 0.25s ease;
 }
 
 .dashboard__heading {
@@ -927,6 +963,30 @@ const targetMonthText = computed(() =>
   margin-top: 8px;
   color: var(--muted);
   font-size: var(--font-small);
+}
+
+.dashboard-api-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -10px 0 22px;
+  padding: 12px 16px;
+  border: 1px solid #ffc9c9;
+  border-radius: 12px;
+  background: #fff4f4;
+  color: #c23838;
+  font-size: var(--font-small);
+}
+
+.dashboard-api-notice button {
+  flex: none;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.dashboard-api-notice button:disabled {
+  opacity: 0.55;
 }
 
 .section-label {
@@ -1080,7 +1140,7 @@ const targetMonthText = computed(() =>
   border-top: 12px solid white;
   border-right: 12px solid transparent;
   border-left: 3px solid transparent;
-  content: "";
+  content: '';
   filter: drop-shadow(0 3px 2px rgb(0 0 0 / 8%));
 }
 
@@ -1331,9 +1391,15 @@ const targetMonthText = computed(() =>
   font-size: var(--font-caption);
 }
 
-.simulation-cta__confirmed li strong.is-expense { color: var(--danger); }
-.simulation-cta__confirmed li strong.is-income { color: #15a66f; }
-.simulation-cta__confirmed li strong.is-policy { color: #8167c9; }
+.simulation-cta__confirmed li strong.is-expense {
+  color: var(--danger);
+}
+.simulation-cta__confirmed li strong.is-income {
+  color: #15a66f;
+}
+.simulation-cta__confirmed li strong.is-policy {
+  color: #8167c9;
+}
 
 .section-head--goal {
   min-height: 24px;
@@ -1606,8 +1672,12 @@ const targetMonthText = computed(() =>
   background: var(--danger);
 }
 
-.quest-group--income .quest-group__heading h3 i { background: #3ed79d; }
-.quest-group--policy .quest-group__heading h3 i { background: #8e79cd; }
+.quest-group--income .quest-group__heading h3 i {
+  background: #3ed79d;
+}
+.quest-group--policy .quest-group__heading h3 i {
+  background: #8e79cd;
+}
 
 .quest-group__heading > strong {
   color: var(--danger);
@@ -1615,8 +1685,12 @@ const targetMonthText = computed(() =>
   font-weight: 800;
 }
 
-.quest-group--income .quest-group__heading > strong { color: #23bb82; }
-.quest-group--policy .quest-group__heading > strong { color: #8e79cd; }
+.quest-group--income .quest-group__heading > strong {
+  color: #23bb82;
+}
+.quest-group--policy .quest-group__heading > strong {
+  color: #8e79cd;
+}
 
 .quest-row {
   display: grid;
@@ -1636,17 +1710,23 @@ const targetMonthText = computed(() =>
   cursor: pointer;
 }
 
-.quest-row--expense { background: #fff2f2; }
-.quest-row--income { background: #ecfbf5; }
-.quest-row--policy { background: #f6f3fc; }
+.quest-row--expense {
+  background: #fff2f2;
+}
+.quest-row--income {
+  background: #ecfbf5;
+}
+.quest-row--policy {
+  background: #f6f3fc;
+}
 
 .quest-row.is-completed {
-  opacity: .62;
+  opacity: 0.62;
 }
 
 .quest-row:disabled {
   cursor: wait;
-  opacity: .55;
+  opacity: 0.55;
 }
 
 .quest-row__icon {
@@ -1690,8 +1770,12 @@ const targetMonthText = computed(() =>
   white-space: nowrap;
 }
 
-.quest-row--income .quest-row__amount { color: #23bb82; }
-.quest-row--policy .quest-row__amount { color: #8e79cd; }
+.quest-row--income .quest-row__amount {
+  color: #23bb82;
+}
+.quest-row--policy .quest-row__amount {
+  color: #8e79cd;
+}
 
 .quest-row__check {
   display: grid;
@@ -1766,9 +1850,19 @@ const targetMonthText = computed(() =>
   text-align: center;
 }
 
-.quest-empty h3 { font-weight: 800; }
-.quest-empty p { max-width: 420px; color: #727985; line-height: 1.6; }
-.quest-empty a { margin-top: 8px; color: var(--accent-strong); font-weight: 800; }
+.quest-empty h3 {
+  font-weight: 800;
+}
+.quest-empty p {
+  max-width: 420px;
+  color: #727985;
+  line-height: 1.6;
+}
+.quest-empty a {
+  margin-top: 8px;
+  color: var(--accent-strong);
+  font-weight: 800;
+}
 
 .block-heading--goal a {
   color: #6f7580;
