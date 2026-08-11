@@ -27,6 +27,15 @@ const recurringBenefit = computed(() => simulation.recurringIncome + simulation.
 const oneTimeBenefit = computed(() => simulation.oneTimeIncome + simulation.oneTimePolicy)
 
 onMounted(async () => {
+  if (!simulation.state.confirmed && !simulation.state.draftStarted) await simulation.hydrateConfirmed()
+  if (simulation.state.confirmed) {
+    const reverted = await simulation.revertConfirmedScenario()
+    if (!reverted) {
+      router.replace('/simulation')
+      return
+    }
+  }
+
   const data = await simulation.hydrateDraft()
   if (!data) return
   startDate.value = toDateInputValue(simulation.state.startDate)
@@ -46,8 +55,10 @@ function editCategory(category) {
   router.push(`/simulation/${category}`)
 }
 
-function createNewSimulation() {
-  simulation.resetScenario()
+async function createNewSimulation() {
+  const ok = await simulation.deleteDraftScenario()
+  if (!ok) return
+  simulation.prepareNewScenario()
   showNewSimulationModal.value = false
   router.push('/simulation/new')
 }
@@ -119,10 +130,13 @@ function createNewSimulation() {
       <section role="dialog" aria-modal="true" aria-labelledby="new-simulation-title">
         <span class="simulation-new-modal__icon" aria-hidden="true">!</span>
         <h2 id="new-simulation-title">새 시뮬레이션을 만들까요?</h2>
-        <p>새 시뮬레이션을 생성하면 기존에 확정된 시뮬레이션이 삭제됩니다.<br />그래도 다시 생성하시겠습니까?</p>
+        <p>새 시뮬레이션을 생성하면 현재 수정 중인 시뮬레이션이 삭제됩니다.<br />그래도 다시 생성하시겠습니까?</p>
+        <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
         <div>
-          <button type="button" @click="showNewSimulationModal = false">취소</button>
-          <button type="button" @click="createNewSimulation">새로 만들기</button>
+          <button type="button" :disabled="simulation.syncing" @click="showNewSimulationModal = false">취소</button>
+          <button type="button" :disabled="simulation.syncing" @click="createNewSimulation">
+            {{ simulation.syncing ? '삭제하는 중…' : '새로 만들기' }}
+          </button>
         </div>
       </section>
     </div>

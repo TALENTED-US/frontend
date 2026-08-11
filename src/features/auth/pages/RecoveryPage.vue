@@ -30,6 +30,7 @@ const showPassword = ref(false)
 const showPasswordConfirm = ref(false)
 const accountError = ref('')
 const passwordError = ref('')
+const recoveryError = ref('')
 const isSubmitting = ref(false)
 const isMobileViewport = ref(false)
 const {
@@ -43,7 +44,11 @@ const {
 
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/
 const canChangePassword = computed(
-  () => password.value.length > 0 && passwordConfirm.value.length > 0,
+  () =>
+    Boolean(identityVerificationToken.value) &&
+    password.value.length > 0 &&
+    passwordConfirm.value.length > 0 &&
+    !isSubmitting.value,
 )
 let mobileMediaQuery
 
@@ -76,6 +81,7 @@ function resetFlow() {
   showPasswordConfirm.value = false
   accountError.value = ''
   passwordError.value = ''
+  recoveryError.value = ''
 }
 
 watch(
@@ -89,6 +95,8 @@ watch(
 function goBack() {
   if (step.value > 1) {
     resetIdentityVerification()
+    identityVerificationToken.value = ''
+    recoveryError.value = ''
     step.value -= 1
     return
   }
@@ -97,6 +105,7 @@ function goBack() {
 }
 
 async function completeSimpleVerification() {
+  recoveryError.value = ''
   const result = await startIdentityVerification(
     isId.value
       ? {}
@@ -111,23 +120,52 @@ async function handleCompletedVerification(verification) {
   if (!verification?.identityVerificationToken) return
 
   identityVerificationToken.value = verification.identityVerificationToken
-
-  if (!isId.value) {
-    accountId.value = verification.context?.accountId || accountId.value
-    step.value = 3
-    return
-  }
-
   isSubmitting.value = true
+
   try {
     const result = await findEmailApi(identityVerificationToken.value)
-    foundEmail.value = result?.email || ''
-    idResultStatus.value = foundEmail.value ? 'success' : 'not-found'
+    const verifiedEmail = String(result?.email || '').trim()
+
+    if (isId.value) {
+      foundEmail.value = verifiedEmail
+      idResultStatus.value = foundEmail.value ? 'success' : 'not-found'
+      step.value = 2
+      return
+    }
+
+    const requestedEmail = String(verification.context?.accountId || accountId.value)
+      .trim()
+      .toLowerCase()
+
+    if (!verifiedEmail || verifiedEmail.toLowerCase() !== requestedEmail) {
+      identityVerificationToken.value = ''
+      resetIdentityVerification()
+      recoveryError.value =
+        '본인인증 정보와 입력한 계정이 일치하지 않습니다. 본인 명의로 가입한 계정을 확인해 주세요.'
+      step.value = 2
+      return
+    }
+
+    accountId.value = verifiedEmail
+    resetIdentityVerification()
+    step.value = 3
   } catch (error) {
-    idResultStatus.value = error.status === 404 ? 'not-found' : 'error'
-    accountError.value = error.message
-  } finally {
+    identityVerificationToken.value = ''
+    resetIdentityVerification()
+
+    if (isId.value) {
+      idResultStatus.value = error.status === 404 ? 'not-found' : 'error'
+      accountError.value = error.message
+      step.value = 2
+      return
+    }
+
+    recoveryError.value =
+      error.status === 404
+        ? '본인인증 정보와 일치하는 계정을 찾을 수 없습니다.'
+        : error.message || '본인인증된 계정을 확인하지 못했습니다. 다시 시도해 주세요.'
     step.value = 2
+  } finally {
     isSubmitting.value = false
   }
 }
@@ -149,6 +187,8 @@ function nextPassword() {
 
   accountId.value = normalizedAccount
   accountError.value = ''
+  recoveryError.value = ''
+  identityVerificationToken.value = ''
   step.value = 2
 }
 
@@ -231,10 +271,10 @@ async function resetPassword() {
         <button
           type="button"
           class="simple-verification"
-          :disabled="isVerifying"
+          :disabled="isVerifying || isSubmitting"
           @click="completeSimpleVerification"
         >
-          <span>{{ isVerifying ? '본인인증 요청 중...' : '간편 본인인증' }}</span>
+          <span>{{ isVerifying || isSubmitting ? '본인인증 확인 중...' : '간편 본인인증' }}</span>
         </button>
         <small class="verification-note">인증 완료 후 다음 단계로 진행할 수 있어요.</small>
         <p v-if="verificationError" class="verification-feedback error" role="alert">
@@ -332,14 +372,18 @@ async function resetPassword() {
         <button
           type="button"
           class="simple-verification"
-          :disabled="isVerifying"
+          :disabled="isVerifying || isSubmitting"
           @click="completeSimpleVerification"
         >
-          <span>{{ isVerifying ? '본인인증 요청 중...' : '간편 본인인증' }}</span>
+          <span>{{ isVerifying || isSubmitting ? '본인인증 확인 중...' : '간편 본인인증' }}</span>
         </button>
         <small class="verification-note">인증 완료 후 다음 단계로 진행할 수 있어요.</small>
-        <p v-if="verificationError" class="verification-feedback error" role="alert">
-          {{ verificationError }}
+        <p
+          v-if="recoveryError || verificationError"
+          class="verification-feedback error"
+          role="alert"
+        >
+          {{ recoveryError || verificationError }}
         </p>
         <p v-else-if="verificationNotice" class="verification-feedback" role="status">
           {{ verificationNotice }}
