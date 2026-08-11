@@ -8,6 +8,7 @@ const props = defineProps({
   targetMonths: { type: Number, default: 6 },
   currentMonths: { type: Number, default: 2.8 },
   expectedMonths: { type: Number, default: 0 },
+  monthlyProjections: { type: Array, default: () => [] },
   unknown: { type: Boolean, default: false },
   previewMode: { type: Boolean, default: false },
 })
@@ -16,17 +17,104 @@ const scenarioMonths = computed(() => props.unknown ? '?' : Number(props.expecte
 const plotStartX = 58
 const plotEndX = 558
 const monthWidth = 50
+const plotTopY = 30
+const plotBottomY = 218
+const dangerBalance = 500000
+const projections = computed(() =>
+  props.monthlyProjections
+    .filter((item) => item?.projectionMonth)
+    .map((item) => ({
+      ...item,
+      openingBalance: Number(item.openingBalance) || 0,
+      closingBalance: Number(item.closingBalance) || 0,
+    }))
+    .sort((a, b) => String(a.projectionMonth).localeCompare(String(b.projectionMonth))),
+)
+const hasMonthlyProjections = computed(() => projections.value.length > 0)
+const projectionStartBalance = computed(() => projections.value[0]?.openingBalance || props.assets)
+const chartMaxBalance = computed(() => {
+  if (!hasMonthlyProjections.value) return Math.max(1, props.assets)
+  return Math.max(
+    1,
+    projectionStartBalance.value,
+    ...projections.value.map((item) => Math.max(item.openingBalance, item.closingBalance)),
+  )
+})
+const balanceY = (balance) =>
+  plotBottomY - Math.min(1, Math.max(0, Number(balance) / chartMaxBalance.value)) * (plotBottomY - plotTopY)
+const projectionStep = computed(() =>
+  hasMonthlyProjections.value ? (plotEndX - plotStartX) / projections.value.length : monthWidth,
+)
+const projectionPoints = computed(() => {
+  if (!hasMonthlyProjections.value) return []
+  return [
+    { x: plotStartX, y: balanceY(projectionStartBalance.value) },
+    ...projections.value.map((item, index) => ({
+      x: plotStartX + (index + 1) * projectionStep.value,
+      y: balanceY(item.closingBalance),
+    })),
+  ]
+})
+const scenarioPath = computed(() => {
+  if (!hasMonthlyProjections.value) return `M58 30L${scenarioEndX.value} 218`
+  return projectionPoints.value
+    .map((point, index) => `${index ? 'L' : 'M'}${point.x} ${point.y}`)
+    .join(' ')
+})
+const scenarioAreaPath = computed(() => {
+  if (!hasMonthlyProjections.value) return `M58 30 L${scenarioEndX.value} 218 L58 218 Z`
+  return `${scenarioPath.value} L${plotEndX} ${plotBottomY} L${plotStartX} ${plotBottomY} Z`
+})
+const currentProjectionPoints = computed(() => {
+  if (!hasMonthlyProjections.value) return []
+  const runway = Math.max(0.1, Number(props.currentMonths) || 0.1)
+  return projectionPoints.value.map((point, index) => {
+    const remaining = Math.max(
+      dangerBalance,
+      projectionStartBalance.value
+        - ((projectionStartBalance.value - dangerBalance) * index) / runway,
+    )
+    return { x: point.x, y: balanceY(remaining) }
+  })
+})
+const currentPath = computed(() => {
+  if (!hasMonthlyProjections.value) return `M58 30L${currentEndX.value} 218`
+  return currentProjectionPoints.value
+    .map((point, index) => `${index ? 'L' : 'M'}${point.x} ${point.y}`)
+    .join(' ')
+})
+const currentLastPoint = computed(() =>
+  hasMonthlyProjections.value
+    ? currentProjectionPoints.value[currentProjectionPoints.value.length - 1]
+    : { x: currentEndX.value, y: plotBottomY },
+)
+const scenarioLastPoint = computed(() =>
+  hasMonthlyProjections.value
+    ? projectionPoints.value[projectionPoints.value.length - 1]
+    : { x: scenarioEndX.value, y: plotBottomY },
+)
 const currentEndX = computed(() => Math.min(plotEndX, plotStartX + props.currentMonths * monthWidth))
 const scenarioEndX = computed(() => {
   if (props.unknown || !props.expectedMonths) return 494
   return Math.min(plotEndX, plotStartX + props.expectedMonths * monthWidth)
 })
 const scenarioLabelX = computed(() => Math.min(430, Math.max(270, scenarioEndX.value - 90)))
-const goalX = computed(() => Math.min(plotEndX, plotStartX + props.targetMonths * monthWidth))
-const dangerY = computed(() => 218 - Math.min(1, 500000 / Math.max(1, props.assets)) * 188)
-const assetLabels = computed(() => [1, .75, .5, .25].map((ratio) => `${Math.round(props.assets * ratio / 10000)}만`))
+const goalX = computed(() => hasMonthlyProjections.value
+  ? plotEndX
+  : Math.min(plotEndX, plotStartX + props.targetMonths * monthWidth))
+const dangerY = computed(() => balanceY(dangerBalance))
+const assetLabels = computed(() => [1, .75, .5, .25].map((ratio) => `${Math.round(chartMaxBalance.value * ratio / 10000)}만`))
 const burn = computed(() => Math.max(0, props.monthlyExpense))
 const monthLabels = computed(() => {
+  if (hasMonthlyProjections.value) {
+    return projections.value.map((item, index) => {
+      const [year, month] = item.projectionMonth.split('-').map(Number)
+      return {
+        x: plotStartX + (index + 1) * projectionStep.value,
+        label: index === 0 || month === 1 ? `${String(year).slice(2)}년 ${month}월` : `${month}월`,
+      }
+    })
+  }
   const today = new Date()
   return [0, 2, 4, 6, 8, 10].map((offset, index) => {
     const date = new Date(today.getFullYear(), today.getMonth() + offset, 1)
@@ -60,15 +148,15 @@ const monthLabels = computed(() => {
           <text x="48" y="140">{{ assetLabels[2] }}</text><text x="48" y="192">{{ assetLabels[3] }}</text><text x="48" y="224">0</text>
         </g>
 
-        <path class="scenario-area" :d="`M58 30 L${scenarioEndX} 218 L58 218 Z`" />
+        <path class="scenario-area" :d="scenarioAreaPath" />
         <path class="danger-threshold" :d="`M58 ${dangerY}H572`" />
         <text class="danger-label" x="568" :y="dangerY - 6">위험 잔액 50만</text>
         <path class="goal-line" :d="`M${goalX} 18V218`" />
 
-        <path class="current-line" :d="`M58 30L${currentEndX} 218`" />
-        <circle class="current-dot" :cx="currentEndX" cy="218" r="5" />
-        <path class="scenario-line" :d="`M58 30L${scenarioEndX} 218`" />
-        <circle class="scenario-dot" :cx="scenarioEndX" cy="218" r="5" />
+        <path class="current-line" :d="currentPath" />
+        <circle class="current-dot" :cx="currentLastPoint.x" :cy="currentLastPoint.y" r="5" />
+        <path class="scenario-line" :d="scenarioPath" />
+        <circle class="scenario-dot" :cx="scenarioLastPoint.x" :cy="scenarioLastPoint.y" r="5" />
 
         <g class="current-badge" transform="translate(126 145)">
           <rect width="126" height="34" rx="17" />
@@ -79,7 +167,9 @@ const monthLabels = computed(() => {
           <text x="66" y="22">시나리오 {{ scenarioMonths }}개월</text>
         </g>
         <text v-if="unknown" class="question" x="305" y="132">?</text>
-        <text class="burn-label" x="58" y="15">직전 3개월 월평균 지출 {{ Math.round(burn / 10000) }}만원</text>
+        <text class="burn-label" x="58" y="15">
+          {{ hasMonthlyProjections ? '확정 시뮬레이션 월별 예상 잔액' : `직전 3개월 월평균 지출 ${Math.round(burn / 10000)}만원` }}
+        </text>
 
         <g class="x-axis">
           <text v-for="item in monthLabels" :key="item.x" :x="item.x" y="244">{{ item.label }}</text>

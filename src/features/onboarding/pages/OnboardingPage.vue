@@ -13,6 +13,8 @@ const consentChecked = ref(true)
 const openedConsent = ref('')
 const bankSearch = ref('')
 const selectedBanks = ref([])
+const employmentSubmitting = ref(false)
+const employmentError = ref('')
 let loadingTimer
 
 const regions = [
@@ -131,9 +133,20 @@ const filteredBanks = computed(() => {
 const selectedAccountCount = computed(
   () => accounts.value.filter((account) => account.selected).length,
 )
-const hasMinimumLivingFund = computed(
-  () => Number(form.value.minimumLivingFund) >= 1,
-)
+const hasMinimumLivingFund = computed(() => Number(form.value.minimumLivingFund) >= 1)
+const hasValidEmploymentPreparation = computed(() => {
+  const household = Number(form.value.household)
+  return (
+    Boolean(form.value.startDate) &&
+    Boolean(form.value.targetDate) &&
+    form.value.startDate <= form.value.targetDate &&
+    Boolean(form.value.region) &&
+    Number.isInteger(household) &&
+    household >= 1 &&
+    household <= 99 &&
+    hasMinimumLivingFund.value
+  )
+})
 
 const selectedBalance = computed(() =>
   accounts.value
@@ -182,6 +195,14 @@ watch(
   { immediate: true },
 )
 
+watch(
+  form,
+  () => {
+    employmentError.value = ''
+  },
+  { deep: true },
+)
+
 onBeforeUnmount(() => clearTimeout(loadingTimer))
 
 function toggleBank(bank) {
@@ -206,9 +227,38 @@ function goBack() {
   step.value -= 1
 }
 
-function next() {
-  if (step.value === 1 && hasMinimumLivingFund.value) step.value = 2
-  else if (step.value === 2) step.value = 3
+async function saveInitialEmploymentPreparation() {
+  if (!hasValidEmploymentPreparation.value || employmentSubmitting.value) {
+    employmentError.value =
+      form.value.startDate > form.value.targetDate
+        ? '목표 취업일은 준비 시작일 이후로 설정해 주세요.'
+        : '취업 준비 정보를 모두 올바르게 입력해 주세요.'
+    return false
+  }
+
+  employmentSubmitting.value = true
+  employmentError.value = ''
+  try {
+    await session.saveEmploymentPreparation({
+      jobType: form.value.type === '재취업' ? 'again' : 'first',
+      startDate: form.value.startDate,
+      goalDate: form.value.targetDate,
+      region: form.value.region,
+      family: Number(form.value.household),
+    })
+    return true
+  } catch (error) {
+    employmentError.value = error.message || '취업 준비 정보를 저장하지 못했습니다.'
+    return false
+  } finally {
+    employmentSubmitting.value = false
+  }
+}
+
+async function next() {
+  if (step.value === 1) {
+    if (await saveInitialEmploymentPreparation()) step.value = 2
+  } else if (step.value === 2) step.value = 3
   else if (step.value === 3 && consentChecked.value) step.value = 4
   else if (step.value === 5 && selectedBanks.value.length) step.value = 6
   else if (step.value === 6 && selectedAccountCount.value) step.value = 7
@@ -302,17 +352,19 @@ function next() {
             />
             <small>이 금액 이하로 떨어지면 위험 단계로 알려드릴게요</small>
           </label>
-
         </div>
 
         <button
           class="primary-cta"
           type="button"
-          :disabled="!hasMinimumLivingFund"
+          :disabled="!hasValidEmploymentPreparation || employmentSubmitting"
           @click="next"
         >
-          <strong>다음: 금융 정보 연결</strong>
+          <strong>{{ employmentSubmitting ? '저장 중...' : '다음: 금융 정보 연결' }}</strong>
         </button>
+        <p v-if="employmentError" class="employment-error" role="alert">
+          {{ employmentError }}
+        </p>
         <p class="bottom-helper">나중에 마이페이지에서 수정할 수 있어요</p>
       </template>
 
@@ -751,6 +803,14 @@ select.control {
 .primary-cta:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.employment-error {
+  margin-top: 12px;
+  color: #e5484d;
+  font-size: var(--font-small);
+  font-weight: 700;
+  text-align: center;
 }
 
 .bottom-helper {
