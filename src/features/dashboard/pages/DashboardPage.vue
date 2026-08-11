@@ -6,7 +6,6 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
-import { pickButtieMessage } from '@/data/buttieMessages'
 import { financeTransactions, loadTransactions } from '@/features/finance/financeStore'
 import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalytics'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
@@ -66,6 +65,13 @@ const LEVEL_TITLES = Object.freeze({
   4: '천사 버티',
   5: '수호신 버티',
 })
+const LEVEL_MESSAGES = Object.freeze({
+  1: '우리 같이 차근차근 돈을 모아보자!',
+  2: '작은 습관이 큰 자산을 만든대!',
+  3: '꾸준히 모으면 황금빛 미래가 기다려!',
+  4: '든든한 자산으로 꿈에 한 걸음 더 가까워졌어!',
+  5: '돈관리좀 알려줘?',
+})
 const LEVEL_DESCRIPTIONS = Object.freeze([
   { level: 1, title: '새싹 버티', description: '이제 막 자산관리를 시작한 기본 버티' },
   { level: 2, title: '기사 버티', description: '재정 습관이 자라나는 버티' },
@@ -75,7 +81,7 @@ const LEVEL_DESCRIPTIONS = Object.freeze([
 ])
 const levelInfoOpen = ref(false)
 const levelTitle = computed(() => LEVEL_TITLES[buttieLevel.value] || LEVEL_TITLES[1])
-const levelMessage = ref('')
+const levelMessage = computed(() => LEVEL_MESSAGES[buttieLevel.value] || LEVEL_MESSAGES[1])
 
 function parseLocalDate(value) {
   const [year, month, day] = String(value || '')
@@ -364,8 +370,7 @@ function isQuestPending(item) {
 
 async function toggleQuest(item) {
   if (quests.remoteEnabled) {
-    const changed = await quests.toggleQuest(item.id)
-    if (changed) await loadButtieDashboard()
+    await quests.toggleQuest(item.id)
     return
   }
   const completionId = questCompletionId(item)
@@ -427,14 +432,6 @@ const financialStatus = computed(() => {
     imageAlt: '온전한 안정 상태의 버티',
   }
 })
-
-watch(
-  [buttieLevel, () => financialStatus.value.key],
-  ([level, status]) => {
-    levelMessage.value = pickButtieMessage(level, status === 'risk' ? 'danger' : status)
-  },
-  { immediate: true },
-)
 
 const initialAssets = computed(() =>
   Math.max(0, Number(dashboard.initialAssets ?? dashboard.totalAssets) || 0),

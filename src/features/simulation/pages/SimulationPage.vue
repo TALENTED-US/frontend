@@ -202,7 +202,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []" /></article>
+    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" /></article>
 
     <div
       v-if="showNewSimulationModal"

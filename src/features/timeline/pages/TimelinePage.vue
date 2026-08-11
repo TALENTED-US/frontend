@@ -1,159 +1,15 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { getTimelineApi } from '@/api/timeline'
+import { ref } from 'vue'
 
-const AVERAGE_MONTH_DAYS = 365.2425 / 12
-const DAY_MS = 24 * 60 * 60 * 1000
-const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true'
-const SUSTAINABLE_MONTHS = 999
-const mockTimeline = {
-  currentPrepMonths: 2.6,
-  expectPrepMonths: 8.2,
-  livingFundThreshold: 500000,
-  simulationId: 'mock-simulation',
-  targetEmploymentDate: '2027-01-01',
-}
-
-const timeline = ref(null)
-const loading = ref(false)
-const errorMessage = ref('')
-const selectedEventId = ref('today')
-
-function startOfToday() {
-  const today = new Date()
-  return new Date(today.getFullYear(), today.getMonth(), today.getDate())
-}
-
-function parseLocalDate(value) {
-  const [year, month, day] = String(value || '')
-    .split('-')
-    .map(Number)
-
-  if (!year || !month || !day) return null
-  return new Date(year, month - 1, day)
-}
-
-function addAverageMonths(date, months) {
-  const result = new Date(date)
-  result.setDate(result.getDate() + Math.round(Number(months) * AVERAGE_MONTH_DAYS))
-  return result
-}
-
-function formatDate(date) {
-  if (!date) return '-'
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
-}
-
-function formatMonth(date) {
-  if (!date) return '-'
-  return `${String(date.getFullYear()).slice(2)}년 ${date.getMonth() + 1}월`
-}
-
-function formatWon(value) {
-  const amount = Math.max(0, Math.round(Number(value) || 0))
-  return `${amount.toLocaleString('ko-KR')}원`
-}
-
-function normalizedMonths(value) {
-  const months = Number(value)
-  return Number.isFinite(months) && months >= 0 ? months : null
-}
-
-function formatPrepMonths(value) {
-  const months = normalizedMonths(value)
-  if (months === null) return '-'
-  if (months >= SUSTAINABLE_MONTHS) return '고갈 예상 없음'
-  return `${months.toFixed(1)}개월`
-}
-
-const today = computed(() => startOfToday())
-const targetDate = computed(() => parseLocalDate(timeline.value?.targetEmploymentDate))
-const currentMonths = computed(() => normalizedMonths(timeline.value?.currentPrepMonths))
-const expectedMonths = computed(() => normalizedMonths(timeline.value?.expectPrepMonths))
-const currentEndDate = computed(() => {
-  if (currentMonths.value === null || currentMonths.value >= SUSTAINABLE_MONTHS) return null
-  return addAverageMonths(today.value, currentMonths.value)
-})
-const expectedEndDate = computed(() => {
-  if (expectedMonths.value === null || expectedMonths.value >= SUSTAINABLE_MONTHS) return null
-  return addAverageMonths(today.value, expectedMonths.value)
-})
-const hasSimulation = computed(() => Boolean(timeline.value?.simulationId))
-
-const events = computed(() => {
-  const rows = [
-    {
-      id: 'today',
-      date: today.value,
-      title: '현재 시점',
-      description: '현재 자금 상태를 기준으로 계산한 시작 시점이에요.',
-      tone: 'primary',
-    },
-  ]
-
-  if (currentEndDate.value) {
-    rows.push({
-      id: 'current-end',
-      date: currentEndDate.value,
-      title: '현재 자금 예상 소진 시점',
-      description: `현재 현금 흐름을 유지하면 약 ${currentMonths.value.toFixed(1)}개월 동안 버틸 수 있어요.`,
-      tone: 'danger',
-    })
-  }
-
-  if (hasSimulation.value && expectedEndDate.value) {
-    rows.push({
-      id: 'expected-end',
-      date: expectedEndDate.value,
-      title: '계획 적용 후 예상 소진 시점',
-      description: `확정한 계획을 적용하면 약 ${expectedMonths.value.toFixed(1)}개월 동안 버틸 수 있어요.`,
-      tone: 'scenario',
-    })
-  }
-
-  if (targetDate.value) {
-    rows.push({
-      id: 'target',
-      date: targetDate.value,
-      title: '목표 취업일',
-      description: '취업 준비 정보에 등록한 목표 시점이에요.',
-      tone: 'warning',
-    })
-  }
-
-  return rows.sort((a, b) => a.date - b.date)
-})
-
-const selectedEvent = computed(
-  () => events.value.find((event) => event.id === selectedEventId.value) || events.value[0],
-)
-const rangeEnd = computed(() => {
-  const dates = events.value.map((event) => event.date.getTime())
-  return new Date(Math.max(today.value.getTime() + DAY_MS, ...dates))
-})
-const rangeLabel = computed(() => `${formatMonth(today.value)} — ${formatMonth(rangeEnd.value)}`)
-
-function eventPosition(date) {
-  const duration = Math.max(DAY_MS, rangeEnd.value.getTime() - today.value.getTime())
-  const elapsed = date.getTime() - today.value.getTime()
-  return `${Math.min(100, Math.max(0, (elapsed / duration) * 100))}%`
-}
-
-async function loadTimeline() {
-  loading.value = true
-  errorMessage.value = ''
-
-  try {
-    timeline.value = USE_MOCK_API ? mockTimeline : await getTimelineApi()
-    selectedEventId.value = targetDate.value ? 'target' : 'today'
-  } catch (error) {
-    errorMessage.value = error.message || '타임라인을 불러오지 못했습니다.'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(loadTimeline)
+const selectedMonth = ref(3)
+const months = [
+  { label: '7월', balance: 300, income: 0, expense: 80, event: '현재' },
+  { label: '8월', balance: 270, income: 50, expense: 80, event: '구직지원금' },
+  { label: '9월', balance: 246, income: 58, expense: 82, event: '적금 가입' },
+  { label: '10월', balance: 224, income: 60, expense: 82, event: '재정 조정' },
+  { label: '11월', balance: 205, income: 62, expense: 81, event: '정책 종료' },
+  { label: '12월', balance: 188, income: 64, expense: 81, event: '취업 목표' },
+]
 </script>
 
 <template>
@@ -161,242 +17,87 @@ onMounted(loadTimeline)
     <header class="page-heading">
       <div>
         <h1 class="page-title">재정 타임라인</h1>
-        <p class="page-description">
-          현재 자금과 확정한 계획을 기준으로 버티는 기간과 목표 시점을 보여드려요.
-        </p>
+        <p class="page-description">확정한 계획을 바탕으로 월별 자산 흐름과 주요 일정을 보여드려요.</p>
       </div>
-      <span v-if="timeline" class="pill">{{ rangeLabel }}</span>
+      <span class="pill">2026.07 — 2026.12</span>
     </header>
 
-    <article v-if="loading" class="state-card card" aria-live="polite">
-      타임라인을 불러오는 중이에요.
-    </article>
-
-    <article v-else-if="errorMessage" class="state-card state-card--error card" role="alert">
-      <strong>타임라인을 불러오지 못했어요.</strong>
-      <span>{{ errorMessage }}</span>
-      <button type="button" @click="loadTimeline">다시 시도</button>
-    </article>
-
-    <template v-else-if="timeline">
-      <div class="summary-grid">
-        <article class="summary-card card">
-          <span>현재 버티는 기간</span>
-          <strong>{{ formatPrepMonths(timeline.currentPrepMonths) }}</strong>
-          <small>현재 현금 흐름 기준</small>
-        </article>
-        <article class="summary-card summary-card--scenario card">
-          <span>계획 적용 후</span>
-          <strong>{{ hasSimulation ? formatPrepMonths(timeline.expectPrepMonths) : '-' }}</strong>
-          <small>{{ hasSimulation ? '확정 시뮬레이션 기준' : '확정된 계획이 없어요' }}</small>
-        </article>
-        <article class="summary-card summary-card--threshold card">
-          <span>생활자금 최소 기준</span>
-          <strong>{{ formatWon(timeline.livingFundThreshold) }}</strong>
-          <small>이 금액 아래부터 위험 구간이에요</small>
-        </article>
+    <article class="timeline-chart card">
+      <div class="chart-y"><span>300만원</span><span>200만원</span><span>100만원</span><span>0원</span></div>
+      <div class="chart-content">
+        <svg viewBox="0 0 600 220" preserveAspectRatio="none" aria-label="월별 예상 잔액 그래프">
+          <defs>
+            <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#a9c2fb" stop-opacity=".55" />
+              <stop offset="1" stop-color="#a9c2fb" stop-opacity=".04" />
+            </linearGradient>
+          </defs>
+          <path d="M20 28 L132 48 L244 70 L356 93 L468 118 L580 142 L580 210 L20 210 Z" fill="url(#area)" />
+          <path d="M20 28 L132 48 L244 70 L356 93 L468 118 L580 142" fill="none" stroke="#0a1680" stroke-width="5" stroke-linecap="round" />
+          <circle v-for="(point, index) in [28, 48, 70, 93, 118, 142]" :key="point" :cx="20 + index * 112" :cy="point" r="6" fill="#fff" stroke="#0a1680" stroke-width="4" />
+        </svg>
+        <div class="chart-months"><button v-for="(month, index) in months" :key="month.label" :class="{ active: selectedMonth === index }" @click="selectedMonth = index">{{ month.label }}</button></div>
       </div>
+    </article>
 
-      <article class="timeline-chart card">
-        <header>
-          <div>
-            <h2 class="section-title">주요 시점</h2>
-            <p>표시된 지점을 선택하면 상세 내용을 확인할 수 있어요.</p>
-          </div>
-          <span>{{ rangeLabel }}</span>
-        </header>
-
-        <div class="timeline-track" role="list" aria-label="재정 주요 시점">
-          <div class="timeline-track__line" />
-          <button
-            v-for="event in events"
-            :key="event.id"
-            type="button"
-            class="timeline-marker"
-            :class="[`timeline-marker--${event.tone}`, { active: selectedEvent?.id === event.id }]"
-            :style="{ left: eventPosition(event.date) }"
-            :aria-label="`${formatDate(event.date)} ${event.title}`"
-            role="listitem"
-            @click="selectedEventId = event.id"
-          >
-            <i />
-            <span>{{ formatMonth(event.date) }}</span>
-          </button>
-        </div>
+    <div class="timeline-grid">
+      <article class="card month-detail">
+        <div><span>{{ months[selectedMonth].label }} 예상 잔액</span><strong>{{ months[selectedMonth].balance }}만원</strong></div>
+        <dl>
+          <div><dt>예상 수입</dt><dd class="income">+{{ months[selectedMonth].income }}만원</dd></div>
+          <div><dt>예상 지출</dt><dd>-{{ months[selectedMonth].expense }}만원</dd></div>
+          <div><dt>주요 이벤트</dt><dd>{{ months[selectedMonth].event }}</dd></div>
+        </dl>
       </article>
 
-      <div class="timeline-grid">
-        <article v-if="selectedEvent" class="card event-detail">
-          <span>{{ formatDate(selectedEvent.date) }}</span>
-          <strong>{{ selectedEvent.title }}</strong>
-          <p>{{ selectedEvent.description }}</p>
-        </article>
-
-        <article class="card events">
-          <h2 class="section-title">전체 일정</h2>
-          <button
-            v-for="event in events"
-            :key="event.id"
-            type="button"
-            :class="{ active: selectedEvent?.id === event.id }"
-            @click="selectedEventId = event.id"
-          >
-            <span>{{ formatDate(event.date) }}</span>
-            <i :class="`tone-${event.tone}`" />
-            <div>
-              <strong>{{ event.title }}</strong>
-              <small>{{ event.description }}</small>
-            </div>
-            <b>›</b>
-          </button>
-        </article>
-      </div>
-    </template>
+      <article class="card events">
+        <h2 class="section-title">주요 일정</h2>
+        <button v-for="(month, index) in months.slice(1)" :key="month.label" @click="selectedMonth = index + 1">
+          <span>{{ month.label }}</span><i /><div><strong>{{ month.event }}</strong><small>재정 계획에 반영된 일정</small></div><b>›</b>
+        </button>
+      </article>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.state-card {
+.timeline-chart {
   display: grid;
-  min-height: 180px;
-  place-content: center;
-  gap: 10px;
+  grid-template-columns: 70px 1fr;
+  min-height: 330px;
+  padding: 30px 30px 20px;
+}
+
+.chart-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-bottom: 38px;
   color: var(--muted);
-  text-align: center;
+  font-size: var(--font-small);
 }
 
-.state-card--error strong {
-  color: var(--text);
+.chart-content svg {
+  width: 100%;
+  height: 250px;
+  overflow: visible;
 }
 
-.state-card button {
-  justify-self: center;
-  padding: 10px 18px;
-  border-radius: 10px;
+.chart-months {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.chart-months button {
+  padding: 8px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: var(--font-small);
+}
+
+.chart-months button.active {
   background: var(--primary);
   color: white;
-  font-weight: 700;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.summary-card {
-  display: grid;
-  gap: 7px;
-  padding: 22px;
-  border-top: 4px solid var(--primary);
-}
-
-.summary-card--scenario {
-  border-top-color: #7e9de9;
-}
-
-.summary-card--threshold {
-  border-top-color: var(--warning);
-}
-
-.summary-card span,
-.summary-card small {
-  color: var(--muted);
-  font-size: var(--font-small);
-}
-
-.summary-card strong {
-  font-size: clamp(20px, 2.2vw, 30px);
-}
-
-.timeline-chart {
-  min-height: 260px;
-  margin-top: 18px;
-  padding: 26px 30px;
-}
-
-.timeline-chart header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.timeline-chart header p,
-.timeline-chart header > span {
-  color: var(--muted);
-  font-size: var(--font-small);
-}
-
-.timeline-chart header p {
-  margin-top: 5px;
-}
-
-.timeline-track {
-  position: relative;
-  height: 120px;
-  margin: 48px 30px 0;
-}
-
-.timeline-track__line {
-  position: absolute;
-  top: 18px;
-  right: 0;
-  left: 0;
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), #8facf5 62%, var(--warning));
-}
-
-.timeline-marker {
-  position: absolute;
-  top: 0;
-  display: grid;
-  width: max-content;
-  max-width: 110px;
-  justify-items: center;
-  gap: 9px;
-  transform: translateX(-50%);
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.timeline-marker:first-of-type {
-  transform: translateX(0);
-}
-
-.timeline-marker:last-of-type {
-  transform: translateX(-100%);
-}
-
-.timeline-marker i {
-  width: 42px;
-  height: 42px;
-  border: 5px solid white;
-  border-radius: 50%;
-  background: var(--primary);
-  box-shadow: 0 2px 8px rgb(14 26 90 / 22%);
-}
-
-.timeline-marker--scenario i {
-  background: #7e9de9;
-}
-
-.timeline-marker--danger i {
-  background: #ef6464;
-}
-
-.timeline-marker--warning i {
-  background: var(--warning);
-}
-
-.timeline-marker.active i {
-  outline: 4px solid rgb(10 22 128 / 14%);
-}
-
-.timeline-marker.active span {
-  color: var(--text);
-  font-weight: 800;
 }
 
 .timeline-grid {
@@ -406,29 +107,37 @@ onMounted(loadTimeline)
   margin-top: 18px;
 }
 
-.event-detail {
-  display: grid;
-  align-content: start;
-  gap: 8px;
+.month-detail {
   padding: 24px;
   background: var(--sky-soft);
 }
 
-.event-detail > span {
-  color: var(--primary);
-  font-size: var(--font-small);
-  font-weight: 800;
-}
-
-.event-detail > strong {
-  font-size: var(--font-title);
-}
-
-.event-detail p {
-  margin-top: 8px;
+.month-detail > div {
+  display: grid;
+  gap: 6px;
   color: var(--muted);
+  font-size: var(--font-small);
+}
+
+.month-detail > div strong {
+  color: var(--primary);
+  font-size: var(--font-display);
+}
+
+.month-detail dl {
+  display: grid;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.month-detail dl div {
+  display: flex;
+  justify-content: space-between;
   font-size: var(--font-body);
-  line-height: 1.6;
+}
+
+.month-detail dd.income {
+  color: #20916c;
 }
 
 .events {
@@ -441,23 +150,17 @@ onMounted(loadTimeline)
 
 .events button {
   display: grid;
-  grid-template-columns: 88px 10px 1fr 20px;
+  grid-template-columns: 44px 10px 1fr 20px;
   width: 100%;
   align-items: center;
   gap: 10px;
-  padding: 13px 8px;
+  padding: 13px 0;
   border-top: 1px solid var(--border);
-  border-radius: 8px;
   text-align: left;
-}
-
-.events button.active {
-  background: var(--sky-soft);
 }
 
 .events button > span {
   color: var(--primary);
-  font-size: 12px;
   font-weight: 800;
 }
 
@@ -465,24 +168,11 @@ onMounted(loadTimeline)
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--primary);
-}
-
-.events i.tone-scenario {
-  background: #7e9de9;
-}
-
-.events i.tone-danger {
-  background: #ef6464;
-}
-
-.events i.tone-warning {
   background: var(--warning);
 }
 
 .events button div {
   display: grid;
-  gap: 3px;
 }
 
 .events small {
@@ -491,32 +181,18 @@ onMounted(loadTimeline)
 }
 
 @media (max-width: 700px) {
-  .summary-grid,
+  .timeline-chart {
+    grid-template-columns: 48px 1fr;
+    min-height: 260px;
+    padding: 20px 12px;
+  }
+
+  .chart-content svg {
+    height: 190px;
+  }
+
   .timeline-grid {
     grid-template-columns: 1fr;
-  }
-
-  .timeline-chart {
-    min-height: 245px;
-    padding: 20px 14px;
-  }
-
-  .timeline-chart header > span {
-    display: none;
-  }
-
-  .timeline-track {
-    margin: 42px 12px 0;
-  }
-
-  .timeline-marker span {
-    max-width: 58px;
-  }
-
-  .events button {
-    grid-template-columns: 78px 8px 1fr 14px;
-    padding-right: 2px;
-    padding-left: 2px;
   }
 }
 </style>
