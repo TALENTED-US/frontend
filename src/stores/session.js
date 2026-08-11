@@ -7,14 +7,21 @@ import {
   setAccessTokenReissueHandler,
   setUnauthorizedHandler,
 } from '@/api/client'
-import { getEmploymentPreparationApi, getMyProfileApi } from '@/api/user'
+import {
+  createEmploymentPreparationApi,
+  getEmploymentPreparationApi,
+  getMyProfileApi,
+  getMyProfileSummaryApi,
+  updateEmploymentPreparationApi,
+  updateNicknameApi,
+  withdrawUserApi,
+} from '@/api/user'
 import { mockCredentials, myData, user } from '@/data/mockData'
-import { useProgressionStore } from '@/stores/progression'
+import { normalizeButtieProgression, useProgressionStore } from '@/stores/progression'
 
 const AUTH_KEY = 'buttie-auth'
 const API_PROFILE_KEY = 'buttie-api-profile'
 const isMockMode = import.meta.env.VITE_USE_MOCK_API === 'true'
-const LEVEL_REQUIREMENTS = { 1: 50, 2: 100, 3: 250, 4: 500 }
 
 function readJson(storage, key) {
   try {
@@ -39,8 +46,28 @@ function mapProfile(profile) {
     email: profile.userEmail,
     phone: profile.userPhoneNumber,
     birth: normalizeDate(profile.birthDate),
-    level: profile.buttieLevel,
-    exp: profile.buttieTotalExp,
+  }
+}
+
+function mapProfileSummary(profile) {
+  const buttieProgression = normalizeButtieProgression(profile.buttieTotalExp)
+  const startDate = normalizeDate(profile.prepStartDate)
+  const goalDate = normalizeDate(profile.targetEmploymentDate)
+  return {
+    nickname: profile.userNickname,
+    email: profile.userEmail,
+    level: buttieProgression.level,
+    exp: buttieProgression.exp,
+    totalExp: buttieProgression.totalExp,
+    requiredExp: buttieProgression.requiredExp,
+    buttieImageUrl: profile.buttieImageUrl,
+    riskLevel: profile.riskLevel,
+    mydataStatus: profile.mydataStatus,
+    lastSyncedAt: profile.lastSyncedAt,
+    jobType: profile.employmentPrepType === 'REEMPLOYMENT' ? 'again' : 'first',
+    startDate,
+    goalDate,
+    targetDate: goalDate.replaceAll('-', '.'),
   }
 }
 
@@ -106,31 +133,27 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function syncProgression(profile) {
-    const level = Number(profile?.buttieLevel)
-    const exp = Number(profile?.buttieTotalExp)
-    const normalizedLevel = Math.min(5, Math.max(1, Math.trunc(level)))
-    const maximum = LEVEL_REQUIREMENTS[normalizedLevel] || 0
-    const isValid =
-      Number.isFinite(level) &&
-      Number.isFinite(exp) &&
-      ((normalizedLevel === 5 && exp === 0) || (normalizedLevel < 5 && exp >= 0 && exp < maximum))
-
-    if (isValid) {
-      progression.level = normalizedLevel
-      progression.exp = exp
-    }
+    const normalized = normalizeButtieProgression(profile?.buttieTotalExp)
+    progression.level = normalized.level
+    progression.exp = normalized.exp
   }
 
   async function loadCurrentUser() {
-    const profile = await getMyProfileApi()
+    const [summary, profile] = await Promise.all([getMyProfileSummaryApi(), getMyProfileApi()])
+    Object.assign(currentUser.value, mapProfileSummary(summary))
     Object.assign(currentUser.value, mapProfile(profile))
-    syncProgression(profile)
+    syncProgression(summary)
+    myDataConnected.value = summary.mydataStatus === 'CONNECTED'
+    myDataLastUpdated.value = summary.lastSyncedAt || ''
 
     try {
       const employment = await getEmploymentPreparationApi()
-      Object.assign(currentUser.value, mapEmployment(employment))
+      Object.assign(currentUser.value, mapEmployment(employment), {
+        employmentPreparationRegistered: true,
+      })
     } catch (error) {
       if (error.status !== 404) throw error
+      currentUser.value.employmentPreparationRegistered = false
     }
 
     persistApiProfile()
@@ -215,6 +238,41 @@ export const useSessionStore = defineStore('session', () => {
     if (!isMockMode) persistApiProfile()
   }
 
+  async function saveNickname(nickname) {
+    if (!isMockMode) await updateNicknameApi(nickname)
+    updateProfile({ nickname })
+  }
+
+  async function saveEmploymentPreparation(profile) {
+    const payload = {
+      employmentPrepType: profile.jobType === 'again' ? 'REEMPLOYMENT' : 'FIRST_JOB',
+      prepStartDate: profile.startDate,
+      targetEmploymentDate: profile.goalDate,
+      region: profile.region,
+      familyCount: Number(profile.family),
+    }
+
+    if (!isMockMode) {
+      if (currentUser.value.employmentPreparationRegistered === false) {
+        await createEmploymentPreparationApi(payload)
+      } else {
+        await updateEmploymentPreparationApi(payload)
+      }
+    }
+
+    updateProfile({
+      ...profile,
+      family: Number(profile.family),
+      targetDate: profile.goalDate.replaceAll('-', '.'),
+      employmentPreparationRegistered: true,
+    })
+  }
+
+  async function withdrawAccount(password) {
+    if (!isMockMode) await withdrawUserApi(password)
+    clearAuthState()
+  }
+
   function verifyPasswordChange() {
     passwordChangeVerified.value = true
   }
@@ -260,6 +318,9 @@ export const useSessionStore = defineStore('session', () => {
     login,
     logout,
     updateProfile,
+    saveNickname,
+    saveEmploymentPreparation,
+    withdrawAccount,
     verifyPasswordChange,
     clearPasswordChangeVerification,
     changePassword,

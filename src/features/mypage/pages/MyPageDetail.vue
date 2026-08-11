@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { clearTransactions } from '@/features/finance/financeStore'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
@@ -15,13 +16,29 @@ const router = useRouter()
 const session = useSessionStore()
 const progression = useProgressionStore()
 const simulation = useSimulationStore()
+const profileExp = computed(() => Number(session.currentUser.exp ?? progression.exp))
+const profileRequiredExp = computed(() =>
+  Number(session.currentUser.requiredExp ?? progression.nextLevelExp),
+)
+const profileLevel = computed(() => Number(session.currentUser.level ?? progression.level))
 
-const profileState = computed(() => {
-  const key = simulation.currentStatus?.key
-  if (key === 'danger' || key === 'risk') return getButtieLevelImage(progression.level, 'danger')
-  if (key === 'caution') return getButtieLevelImage(progression.level, 'caution')
-  return getButtieLevelImage(progression.level, 'stable')
+const fallbackProfileImage = computed(() => {
+  const apiRisk = session.currentUser.riskLevel
+  const key =
+    apiRisk === 'DANGER'
+      ? 'danger'
+      : apiRisk === 'CAUTION'
+        ? 'caution'
+        : apiRisk === 'STABLE'
+          ? 'stable'
+          : simulation.currentStatus?.key
+  if (key === 'danger' || key === 'risk') return getButtieLevelImage(profileLevel.value, 'danger')
+  if (key === 'caution') return getButtieLevelImage(profileLevel.value, 'caution')
+  return getButtieLevelImage(profileLevel.value, 'stable')
 })
+const profileState = computed(
+  () => session.currentUser.buttieImageUrl || fallbackProfileImage.value,
+)
 
 const details = {
   myInfo: ['내 정보', '개인정보를 확인하고 수정해요'],
@@ -36,9 +53,12 @@ const info = computed(() => details[route.name] || details.myInfo)
 const nicknameEditing = ref(false)
 const nicknameDraft = ref(session.displayName)
 const profileMessage = ref('')
+const profileMessageError = ref(false)
+const profileSaving = ref(false)
 const dataRefreshMessage = ref('')
 const withdrawError = ref('')
 const withdrawVerified = ref(false)
+const withdrawSubmitting = ref(false)
 const notificationDefaults = {
   all: true,
   policy: true,
@@ -130,34 +150,56 @@ function startNicknameEdit() {
   profileMessage.value = ''
 }
 
-function saveProfile() {
+async function saveProfile() {
   const nickname = nicknameDraft.value.trim()
   if (nickname.length < 2 || nickname.length > 10) {
+    profileMessageError.value = true
     profileMessage.value = '닉네임은 2~10자로 입력해 주세요.'
     return
   }
 
-  session.updateProfile({ nickname })
-  nicknameEditing.value = false
-  profileMessage.value = '수정한 정보가 저장되었습니다.'
-  router.push('/mypage')
+  profileSaving.value = true
+  profileMessageError.value = false
+  profileMessage.value = ''
+  try {
+    await session.saveNickname(nickname)
+    nicknameEditing.value = false
+    profileMessage.value = '수정한 정보가 저장되었습니다.'
+    router.push('/mypage')
+  } catch (error) {
+    profileMessageError.value = true
+    profileMessage.value = error.message || '닉네임을 저장하지 못했습니다.'
+  } finally {
+    profileSaving.value = false
+  }
 }
 
-function saveJobProfile() {
+async function saveJobProfile() {
   if (!form.start || !form.goal || form.start > form.goal) {
+    profileMessageError.value = true
     profileMessage.value = '목표 취업일은 준비 시작일 이후로 설정해 주세요.'
     return
   }
 
-  session.updateProfile({
-    jobType: form.jobType,
-    startDate: form.start,
-    goalDate: form.goal,
-    region: form.region,
-    family: Number(form.family),
-  })
-  profileMessage.value = '취업 준비 정보가 저장되었습니다.'
-  router.push('/mypage')
+  profileSaving.value = true
+  profileMessageError.value = false
+  profileMessage.value = ''
+  try {
+    await session.saveEmploymentPreparation({
+      jobType: form.jobType,
+      startDate: form.start,
+      goalDate: form.goal,
+      region: form.region,
+      family: Number(form.family),
+    })
+    profileMessage.value = '취업 준비 정보가 저장되었습니다.'
+    router.push('/mypage')
+  } catch (error) {
+    profileMessageError.value = true
+    profileMessage.value = error.message || '취업 준비 정보를 저장하지 못했습니다.'
+  } finally {
+    profileSaving.value = false
+  }
 }
 
 function formatDateTime(value) {
@@ -189,7 +231,7 @@ function resetWithdrawVerification() {
 }
 
 function verifyWithdrawalPassword() {
-  if (!session.verifyCurrentPassword(form.password)) {
+  if (session.isMockMode && !session.verifyCurrentPassword(form.password)) {
     withdrawVerified.value = false
     withdrawError.value = '인증 실패: 비밀번호가 일치하지 않습니다.'
     return
@@ -201,8 +243,17 @@ function verifyWithdrawalPassword() {
 
 async function withdrawAccount() {
   if (!withdrawVerified.value) return
-  await session.logout()
-  router.replace('/auth/login')
+  withdrawSubmitting.value = true
+  withdrawError.value = ''
+  try {
+    await session.withdrawAccount(form.password)
+    router.replace('/auth/login')
+  } catch (error) {
+    withdrawVerified.value = false
+    withdrawError.value = error.message || '회원 탈퇴를 처리하지 못했습니다.'
+  } finally {
+    withdrawSubmitting.value = false
+  }
 }
 
 async function logout() {
@@ -265,7 +316,12 @@ function clearMockData() {
     <template v-if="route.name === 'myInfo'">
       <div class="identity-row">
         <div class="detail-avatar">
-          <span><img :src="profileState" alt="버티 프로필" /></span><b>{{ progression.level }}</b>
+          <span
+            ><ButtieImage
+              :src="profileState"
+              :fallback="fallbackProfileImage"
+              alt="버티 프로필" /></span
+          ><b>{{ profileLevel }}</b>
         </div>
         <div class="nickname-control">
           <input
@@ -305,8 +361,16 @@ function clearMockData() {
         </label>
       </article>
 
-      <p v-if="profileMessage" class="save-message" aria-live="polite">{{ profileMessage }}</p>
-      <button class="primary-action" type="button" @click="saveProfile">저장하기</button>
+      <p
+        v-if="profileMessage"
+        :class="['save-message', { 'save-message--error': profileMessageError }]"
+        aria-live="polite"
+      >
+        {{ profileMessage }}
+      </p>
+      <button class="primary-action" type="button" :disabled="profileSaving" @click="saveProfile">
+        {{ profileSaving ? '저장 중...' : '저장하기' }}
+      </button>
     </template>
 
     <template v-else-if="route.name === 'jobInfo'">
@@ -346,8 +410,21 @@ function clearMockData() {
           <span>세대원 수</span>
           <input v-model.number="form.family" type="number" min="1" max="99" inputmode="numeric" />
         </label>
-        <p v-if="profileMessage" class="save-message" aria-live="polite">{{ profileMessage }}</p>
-        <button class="primary-action" type="button" @click="saveJobProfile">저장하기</button>
+        <p
+          v-if="profileMessage"
+          :class="['save-message', { 'save-message--error': profileMessageError }]"
+          aria-live="polite"
+        >
+          {{ profileMessage }}
+        </p>
+        <button
+          class="primary-action"
+          type="button"
+          :disabled="profileSaving"
+          @click="saveJobProfile"
+        >
+          {{ profileSaving ? '저장 중...' : '저장하기' }}
+        </button>
       </article>
     </template>
 
@@ -469,7 +546,7 @@ function clearMockData() {
       >
       <p v-if="withdrawError" class="withdraw-error" role="alert">{{ withdrawError }}</p>
       <p v-if="withdrawVerified" class="withdraw-success" aria-live="polite">
-        비밀번호 인증에 성공했습니다.
+        비밀번호가 입력되었습니다. 최종 탈퇴 시 서버에서 확인합니다.
       </p>
       <div class="withdraw-character">
         <img :src="profileImage" alt="" />
@@ -483,9 +560,10 @@ function clearMockData() {
         v-if="withdrawVerified"
         class="withdraw-confirm"
         type="button"
+        :disabled="withdrawSubmitting"
         @click="withdrawAccount"
       >
-        그래도 탈퇴할게요
+        {{ withdrawSubmitting ? '탈퇴 처리 중...' : '그래도 탈퇴할게요' }}
       </button>
     </template>
   </section>
@@ -653,6 +731,9 @@ function clearMockData() {
   margin: 12px 3px -10px;
   color: #0f9d66;
   font-size: var(--font-small);
+}
+.save-message--error {
+  color: #e5484d;
 }
 .job-card select {
   appearance: none;
