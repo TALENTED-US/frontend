@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
+import { loadTransactions } from '@/features/finance/financeStore'
 import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
 import SimulationTimelineChart from '@/features/simulation/components/SimulationTimelineChart.vue'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
@@ -16,7 +17,11 @@ const progression = useProgressionStore()
 const quests = useQuestStore()
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
 const manwon = (value) => value ? `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value / 10000)}만원` : '없음'
-const expectedLabel = computed(() => simulation.state.confirmed ? `${simulation.expectedMonths}개월` : '?개월')
+const currentLabel = computed(() => simulation.currentMonths === null ? '-' : simulation.currentMonths)
+const expectedLabel = computed(() => {
+  if (!simulation.state.confirmed) return '?개월'
+  return simulation.expectedMonths === null ? '-' : `${simulation.expectedMonths}개월`
+})
 const statusImages = { danger: meltingImage, caution: cautionImage, safe: stableImage }
 const currentStatusImage = computed(() => statusImages[simulation.currentStatus.key])
 const expectedStatusImage = computed(() => statusImages[simulation.expectedStatus.key])
@@ -118,6 +123,11 @@ async function createNewSimulation() {
 }
 
 onMounted(async () => {
+  try {
+    await loadTransactions()
+  } catch {
+    // hydrateConfirmed에서 동일한 오류를 사용자에게 안내한다.
+  }
   // 확정 직후에는 확인 화면에 표시했던 계산 결과를 그대로 유지한다.
   // 새로고침/직접 접근처럼 메모리 스냅샷이 없을 때만 서버 결과를 조회한다.
   simulation.restoreConfirmedSnapshot()
@@ -164,9 +174,9 @@ onMounted(async () => {
         </button>
       </div>
       <div class="sim-hero__result">
-        <div><span>현재 버티는 기간</span><strong>{{ simulation.currentMonths }}<em>개월</em></strong><img :src="currentStatusImage" :alt="`${simulation.currentStatus.label} 상태의 버티`" /><b :class="simulation.currentStatus.key">{{ simulation.currentStatus.label }}</b></div>
+        <div><span>현재 버티는 기간</span><strong>{{ currentLabel }}<em v-if="simulation.currentMonths !== null">개월</em></strong><img v-if="simulation.currentMonths !== null" :src="currentStatusImage" :alt="`${simulation.currentStatus.label} 상태의 버티`" /><b v-if="simulation.currentMonths !== null" :class="simulation.currentStatus.key">{{ simulation.currentStatus.label }}</b></div>
         <i>→</i>
-        <div><span>예상 버티는 기간</span><strong>{{ expectedLabel }}</strong><img v-if="simulation.state.confirmed" :src="expectedStatusImage" :alt="`${simulation.expectedStatus.label} 상태의 버티`" /><b v-if="simulation.state.confirmed" :class="simulation.expectedStatus.key">{{ simulation.expectedStatus.label }}</b></div>
+        <div><span>예상 버티는 기간</span><strong>{{ expectedLabel }}</strong><img v-if="simulation.state.confirmed && simulation.expectedMonths !== null" :src="expectedStatusImage" :alt="`${simulation.expectedStatus.label} 상태의 버티`" /><b v-if="simulation.state.confirmed && simulation.expectedMonths !== null" :class="simulation.expectedStatus.key">{{ simulation.expectedStatus.label }}</b></div>
       </div>
       <button class="sim-btn sim-btn--orange mobile-cta" type="button" :disabled="simulation.syncing" @click="start">
         {{ simulation.syncing ? '전환하는 중…' : simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
@@ -211,7 +221,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []" /></article>
+    <article v-if="simulation.state.confirmed && simulation.runwayCalculationReady" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []" /></article>
 
     <div
       v-if="showNewSimulationModal"

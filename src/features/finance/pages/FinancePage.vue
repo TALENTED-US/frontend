@@ -374,11 +374,8 @@ watch(month, () => {
 })
 
 onMounted(async () => {
-  await Promise.allSettled([
-    loadTransactions(),
-    loadSelectedCalendar(),
-    simulation.hydrateConfirmed(),
-  ])
+  await Promise.allSettled([loadTransactions(), loadSelectedCalendar()])
+  await simulation.hydrateConfirmed()
 })
 </script>
 
