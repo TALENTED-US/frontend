@@ -191,7 +191,7 @@ onMounted(loadTimeline)
           <small>{{ hasSimulation ? '확정 시뮬레이션 기준' : '확정된 계획이 없어요' }}</small>
         </article>
         <article class="summary-card summary-card--threshold card">
-          <span>생활자금 최소 기준</span>
+          <span>재정 위험 알림 금액</span>
           <strong>{{ formatWon(timeline.livingFundThreshold) }}</strong>
           <small>이 금액 아래부터 위험 구간이에요</small>
         </article>

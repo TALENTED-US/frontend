@@ -129,7 +129,7 @@ const monthLabels = computed(() => {
       <span><i class="current" />현재 기준</span>
       <span><i class="scenario" />시나리오 적용</span>
       <span><i class="target" />목표 취업 시기</span>
-      <span v-if="previewMode"><i class="minimum" />최소 생활자금</span>
+      <span v-if="previewMode"><i class="minimum" />재정 위험 알림 금액</span>
     </div>
     <div class="timeline-chart__plot">
       <svg viewBox="0 0 600 260" role="img" aria-label="현재 기준과 시나리오 적용 후 월별 재정 타임라인">
@@ -163,8 +163,8 @@ const monthLabels = computed(() => {
           <text x="63" y="22">현재 {{ currentMonths }}개월</text>
         </g>
         <g class="scenario-badge" :transform="`translate(${scenarioLabelX} 48)`">
-          <rect width="132" height="34" rx="17" />
-          <text x="66" y="22">시나리오 {{ scenarioMonths }}개월</text>
+          <rect width="150" height="34" rx="17" />
+          <text x="75" y="22">시나리오 {{ scenarioMonths }}개월</text>
         </g>
         <text v-if="unknown" class="question" x="305" y="132">?</text>
         <text class="burn-label" x="58" y="15">
@@ -215,10 +215,11 @@ svg { width: 100%; height: auto !important; }
 .timeline-chart.is-preview .current-badge rect { fill: #999; }
 .timeline-chart.is-preview .danger-label { display: none; }
 @media (max-width: 767px) {
-  .timeline-chart__legend { gap: 10px 14px; font-size: 11px; }
+  .timeline-chart__legend { gap: 10px 14px; font-size: 12px; font-weight: 600; }
   .timeline-chart__plot { border-radius: 12px; }
-  .y-axis text, .x-axis text { font-size: 15px; }
-  .current-badge text, .scenario-badge text { font-size: 15px; }
-  .danger-label { font-size: 14px; }
+  .y-axis text, .x-axis text { font-size: 14px; font-weight: 600; }
+  .current-badge text, .scenario-badge text { font-size: 17px; font-weight: 600; }
+  .danger-label { font-size: 15px; font-weight: 600; }
+  .burn-label { font-size: 13px; font-weight: 600; }
 }
 </style>

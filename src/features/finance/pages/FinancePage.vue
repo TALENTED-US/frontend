@@ -69,6 +69,11 @@ const form = reactive({
 })
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(value))
 const signed = (value) => `${value >= 0 ? '+' : '-'}${money(value)}원`
+const amountTextStyle = (text) => {
+  const length = String(text).length
+  const fontSize = length <= 8 ? 20 : length <= 10 ? 18 : length <= 12 ? 15 : length <= 14 ? 13 : 11
+  return { fontSize: `${fontSize}px` }
+}
 const compactCalendarAmount = (value) => {
   const amount = Math.abs(Number(value) || 0)
   if (amount < 10000) return String(amount)
@@ -390,15 +395,18 @@ onMounted(async () => {
 
     <div class="summary">
       <article>
-        <span>{{ periodLabel }} 수입</span><strong class="blue">{{ signed(income) }}</strong>
+        <span>{{ periodLabel }} 수입</span
+        ><strong class="blue" :style="amountTextStyle(signed(income))">{{ signed(income) }}</strong>
         <small>지난달 대비 +12%</small>
       </article>
       <article>
-        <span>{{ periodLabel }} 지출</span><strong class="red">-{{ money(expense) }}원</strong>
+        <span>{{ periodLabel }} 지출</span
+        ><strong class="red" :style="amountTextStyle(`-${money(expense)}원`)">-{{ money(expense) }}원</strong>
         <small>예상 지출 포함</small>
       </article>
       <article>
-        <span>순현금흐름</span><strong class="purple">{{ signed(income - expense) }}</strong>
+        <span>순현금흐름</span
+        ><strong class="purple" :style="amountTextStyle(signed(income - expense))">{{ signed(income - expense) }}</strong>
         <small>수입 − 지출</small>
       </article>
     </div>
@@ -496,49 +504,51 @@ onMounted(async () => {
     </section>
 
     <section v-else class="card list-card">
-      <div class="card-head">
-        <h2>거래 목록</h2>
-        <div class="list-actions">
-          <div class="filters">
-            <button
-              v-for="item in [
-                ['all', '전체'],
-                ['income', '수입만'],
-                ['expense', '지출만'],
-              ]"
-              :key="item[0]"
-              :class="[item[0], { on: filter === item[0] }]"
-              @click="filter = item[0]"
-            >
-              {{ item[1] }}
-            </button>
+      <div class="list-toolbar">
+        <div class="card-head">
+          <h2>거래 목록</h2>
+          <div class="list-actions">
+            <div class="filters">
+              <button
+                v-for="item in [
+                  ['all', '전체'],
+                  ['income', '수입만'],
+                  ['expense', '지출만'],
+                ]"
+                :key="item[0]"
+                :class="[item[0], { on: filter === item[0] }]"
+                @click="filter = item[0]"
+              >
+                {{ item[1] }}
+              </button>
+            </div>
+            <span>총 {{ visibleRows.length }}건</span>
           </div>
-          <span>총 {{ visibleRows.length }}건</span>
         </div>
-      </div>
-      <div class="list-filter">
-        <select v-model="categoryFilter" aria-label="거래 분류 선택">
-          <option v-for="category in categoryOptions" :key="category" :value="category">
-            {{ category === 'all' ? '전체 거래' : category }}
-          </option>
-        </select>
-      </div>
-      <div class="month-nav">
-        <button type="button" aria-label="이전 달" :disabled="!canGoPrevious" @click="changeMonth(-1)">‹</button>
-        <div class="month-selectors">
-          <select v-model.number="selectedYear" aria-label="거래 목록 연도 선택">
-            <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}년</option>
-          </select>
-          <select v-model.number="selectedMonthNumber" aria-label="거래 목록 월 선택">
-            <option
-              v-for="monthOption in monthOptions"
-              :key="monthOption"
-              :value="monthOption"
-              :disabled="selectedYear === currentYear && monthOption > currentMonthNumber"
-            >{{ monthOption }}월</option>
+        <div class="list-filter">
+          <select v-model="categoryFilter" aria-label="거래 분류 선택">
+            <option v-for="category in categoryOptions" :key="category" :value="category">
+              {{ category === 'all' ? '전체 거래' : category }}
+            </option>
           </select>
         </div>
-        <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">›</button>
+        <div class="month-nav">
+          <button type="button" aria-label="이전 달" :disabled="!canGoPrevious" @click="changeMonth(-1)">‹</button>
+          <div class="month-selectors">
+            <select v-model.number="selectedYear" aria-label="거래 목록 연도 선택">
+              <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}년</option>
+            </select>
+            <select v-model.number="selectedMonthNumber" aria-label="거래 목록 월 선택">
+              <option
+                v-for="monthOption in monthOptions"
+                :key="monthOption"
+                :value="monthOption"
+                :disabled="selectedYear === currentYear && monthOption > currentMonthNumber"
+              >{{ monthOption }}월</option>
+            </select>
+          </div>
+          <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">›</button>
+        </div>
       </div>
       <div class="transaction-scroll">
         <template v-for="(row, index) in visibleRows" :key="row.id">
@@ -557,25 +567,27 @@ onMounted(async () => {
     </section>
 
     <div class="insights">
-      <section class="card category">
-        <h2>카테고리별 지출</h2>
-        <div class="category-body">
+      <section class="card category expense-analysis-card">
+        <div class="expense-analysis-total">
+          <h2>지난달 소비</h2>
+          <strong>{{ money(expense) }}원</strong>
+        </div>
+        <div class="expense-analysis-body">
           <div class="finance-category-donut" :style="{ background: donutGradient }"></div>
           <ul>
             <li
-              v-for="item in categoryChartRows.slice(0, 7)"
+              v-for="item in categoryChartRows.slice(0, 4)"
               :key="item.name"
-              :style="{ '--category-color': item.color }"
             >
-              <span>{{ item.name }}</span
-              ><b>{{ money(item.total) }}원</b>
+              <i :style="{ background: item.color }" />
+              <span>{{ item.name }}</span>
+              <strong>
+                {{ compactWon(item.total) }}
+                <small>{{ Math.round((item.total / Math.max(1, expense)) * 100) }}%</small>
+              </strong>
             </li>
           </ul>
         </div>
-        <p class="category-insight">
-          <strong>인사이트</strong>
-          <span>식비가 지난달보다 38,000원 늘었어요</span>
-        </p>
       </section>
       <section class="card fixed">
         <h2>고정지출</h2>
@@ -732,13 +744,15 @@ onMounted(async () => {
 .heading h1 {
   margin: 0;
   color: #222;
-  font-size: 24px;
-  line-height: 1.25;
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
+  line-height: 1.3;
 }
 .heading p {
   margin: 7px 0 0;
-  color: #666;
-  font-size: 13px;
+  color: var(--type-supporting-color);
+  font-size: var(--type-supporting-size);
+  font-weight: var(--type-supporting-weight);
 }
 .finance-state {
   margin: 10px 0;
@@ -783,7 +797,7 @@ button {
   background: #999;
   color: #fff;
   padding: 0;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
 }
 .summary {
@@ -812,21 +826,28 @@ button {
   display: block;
 }
 .summary span {
+  color: #666666;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .summary strong {
+  max-width: 100%;
+  min-width: 0;
   margin-top: 6px;
-  color: #475569;
-  font-size: 25px;
+  color: #394760 !important;
+  font-size: 20px;
   font-weight: 700;
+  line-height: 1.2;
+  overflow: visible;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 .summary small {
   display: block;
   margin-top: 7px;
-  color: #666;
-  font-size: 12px;
-  font-weight: 400;
+  color: var(--type-supporting-color);
+  font-size: var(--type-supporting-size);
+  font-weight: var(--type-supporting-weight);
 }
 .blue,
 .plus {
@@ -839,31 +860,33 @@ button {
   color: #65529b;
 }
 .tabs {
-  display: flex;
-  width: 346px;
-  height: 42px;
+  display: grid;
+  width: min(72%, 520px);
+  height: 44px;
+  grid-template-columns: 1fr 1fr;
   box-sizing: border-box;
   margin: 27px auto -60px;
   position: relative;
   z-index: 2;
-  border: 1px solid #d9dce3;
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px #0002;
+  padding: 3px;
+  border: 1px solid #e1e4ea;
+  border-radius: 999px;
+  background: #f2f3f6;
 }
 .tabs button {
-  flex: 1;
   border: 0;
-  background: #f4f4f6;
+  border-radius: 999px;
+  background: transparent;
   padding: 0;
-  color: #999;
-  font-size: 14px !important;
-  font-weight: 600 !important;
+  color: #9a9da5;
+  font-size: 16px !important;
+  font-weight: 700 !important;
 }
 .tabs .active {
   background: #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 12%);
   color: #222;
-  font-weight: 700 !important;
+  font-weight: 800 !important;
 }
 .card {
   background: #fff;
@@ -878,6 +901,16 @@ button {
   padding: 18px 28px 20px;
   box-sizing: border-box;
 }
+.calendar-card .card-head h2 {
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+.calendar-card .filters button {
+  font-size: 14px !important;
+}
+.calendar-card .month-nav button {
+  font-size: 20px !important;
+}
 .card-head {
   display: flex;
   align-items: center;
@@ -886,8 +919,8 @@ button {
 }
 .card h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .filters {
   display: flex;
@@ -899,7 +932,7 @@ button {
   padding: 8px 16px;
   background: #f4f6fb;
   color: #475569;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 600 !important;
 }
 .filters .on {
@@ -969,7 +1002,7 @@ button {
   text-align: center;
   padding: 7px 8px;
   color: #475569;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 .week b:first-child {
@@ -985,7 +1018,7 @@ button {
   align-items: center;
   padding: 13px 8px;
   gap: 6px;
-  font-size: 14px !important;
+  font-size: 16px !important;
   font-weight: 700 !important;
 }
 .calendar button:hover {
@@ -1008,7 +1041,7 @@ button {
 }
 .calendar small {
   color: #f0574f;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 .legend {
@@ -1016,7 +1049,7 @@ button {
   gap: 28px;
   padding: 23px 8px 0;
   color: #475569;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
 }
 .legend span {
@@ -1034,12 +1067,16 @@ button {
   color: #f0574f;
 }
 .list-card {
-  height: 560px;
+  min-height: 798px;
+  height: 798px;
   padding: 26px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
+}
+.list-toolbar {
+  display: contents;
 }
 .list-actions {
   display: flex;
@@ -1047,9 +1084,9 @@ button {
   gap: 16px;
 }
 .list-actions > span {
-  color: #999;
-  font-size: 12px;
-  font-weight: 400;
+  color: #666;
+  font-size: 13px;
+  font-weight: 600;
 }
 .list-filter {
   margin-top: 12px;
@@ -1061,7 +1098,7 @@ button {
   background: #f4f6fb;
   padding: 8px 14px;
   color: #475569;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 600 !important;
   line-height: 16px;
   cursor: pointer;
@@ -1092,7 +1129,7 @@ button {
 }
 .date-title {
   margin: 16px 0 7px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 .transaction {
@@ -1125,20 +1162,20 @@ button {
   min-width: 0;
 }
 .transaction span b {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 20px;
 }
 .transaction small {
   color: #666;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
   line-height: 17px;
 }
 .transaction strong {
   margin-left: auto;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 20px;
 }
@@ -1146,7 +1183,7 @@ button {
   display: grid;
   grid-template-columns: 516px minmax(0, 1fr);
   gap: 24px;
-  margin-top: 55px;
+  margin-top: 22px;
 }
 .insights .card {
   height: 212px;
@@ -1154,7 +1191,8 @@ button {
   box-sizing: border-box;
 }
 .insights h2 {
-  font-size: 14px;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .category-body {
   display: flex;
@@ -1205,7 +1243,7 @@ button {
   justify-content: space-between;
   padding: 1px 2px;
   color: #475569;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 16px;
   font-weight: 400;
 }
@@ -1239,7 +1277,7 @@ button {
   color: #475569;
   padding: 7px 9px;
   border-radius: 7px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 .category-insight strong {
@@ -1249,6 +1287,76 @@ button {
 .category-insight span {
   font-weight: 700;
 }
+.expense-analysis-card {
+  min-height: 270px;
+  height: auto !important;
+  padding: 22px 20px !important;
+}
+.expense-analysis-total {
+  display: grid;
+  gap: 5px;
+}
+.expense-analysis-total h2 {
+  color: #222;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+.expense-analysis-total strong {
+  color: #111;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.expense-analysis-body {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+  margin-top: 18px;
+}
+.expense-analysis-body .finance-category-donut {
+  width: 140px;
+  height: 140px;
+}
+.expense-analysis-body .finance-category-donut::after {
+  inset: 31px;
+}
+.expense-analysis-body ul {
+  display: grid;
+  gap: 13px;
+}
+.expense-analysis-body li {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 0;
+  color: #222;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.expense-analysis-body li > i {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 2px;
+}
+.expense-analysis-body li > span {
+  font-weight: 700;
+}
+.expense-analysis-body li > strong {
+  display: grid;
+  justify-items: end;
+  color: #111;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.expense-analysis-body li small {
+  color: #a1a5ad;
+  font-size: 12px;
+  font-weight: 400;
+}
 .fixed > strong {
   display: block;
   margin: 10px 0 9px;
@@ -1257,8 +1365,8 @@ button {
 }
 .fixed p {
   margin: 0;
-  color: #666;
-  font-size: 12px;
+  color: #666666;
+  font-size: 13px;
   font-weight: 400;
 }
 .fixed hr {
@@ -1271,7 +1379,7 @@ button {
   margin-top: 9px;
   border: 0;
   background: none;
-  font-size: 12px !important;
+  font-size: 15px !important;
   font-weight: 700 !important;
 }
 .timeline {
@@ -1296,8 +1404,8 @@ button {
   height: 220px !important;
 }
 .timeline h2 {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .timeline-chart {
   width: 100%;
@@ -1675,27 +1783,30 @@ button {
   }
   .summary article {
     height: 74px;
-    padding: 14px 12px;
+    padding: 14px 4px 14px 12px;
     border-radius: 14px;
     box-shadow: 0 2px 4px #0002;
   }
   .summary span {
-    font-size: 12px;
-    font-weight: 700;
+    color: #666666;
+    font-size: 14px;
+    font-weight: 600;
   }
   .summary strong {
     margin-top: 3px;
-    font-size: 16px;
+    color: #394760 !important;
+    font-size: 20px;
     font-weight: 700;
   }
   .tabs {
     width: 100%;
+    height: 52px;
     margin: 12px 0 8px;
     border-radius: 999px;
   }
   .tabs button {
-    padding: 9px;
-    font-size: 14px !important;
+    padding: 0;
+    font-size: 16px !important;
     font-weight: 700 !important;
   }
   .mobile-toolbar {
@@ -1706,7 +1817,7 @@ button {
   }
   .mobile-toolbar .filters button {
     padding: 5px 12px;
-    font-size: 12px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
   }
   .mobile-toolbar .filters .on.income {
@@ -1722,12 +1833,12 @@ button {
     height: auto;
     padding: 6px 16px;
     background: #999;
-    font-size: 12px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
   }
   .calendar-card {
-    min-height: 0;
-    height: auto;
+    min-height: 530px;
+    height: 530px;
     padding: 0 8px 10px;
     border-radius: 14px;
   }
@@ -1747,14 +1858,14 @@ button {
   }
   .week b {
     padding: 6px 2px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
   }
   .calendar button {
     height: 67px;
     padding: 10px 2px;
     border-top: 0;
-    font-size: 12px !important;
+    font-size: 14px !important;
     font-weight: 700 !important;
     gap: 4px;
   }
@@ -1765,27 +1876,37 @@ button {
     color: #222;
   }
   .calendar small {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
   }
   .legend {
     margin: 0 -8px;
     padding: 10px 12px;
     border-top: 1px solid #e5e8ee;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 400;
   }
   .list-card {
-    height: 365px;
-    min-height: 0;
-    padding: 12px 10px 16px;
+    height: 530px;
+    min-height: 530px;
+    padding: 8px 10px 16px;
     border-radius: 14px;
+  }
+  .list-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 8px;
   }
   .list-card .card-head h2 {
     display: none;
   }
-  .list-card > .card-head {
+  .list-toolbar > .card-head {
+    grid-row: 1;
+    grid-column: 3;
     justify-content: flex-end;
+    justify-self: end;
+    min-height: 30px;
   }
   .list-actions {
     width: 100%;
@@ -1795,14 +1916,20 @@ button {
     display: none;
   }
   .list-actions > span {
-    font-size: 9px;
+    color: #666;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 28px;
   }
   .list-filter {
-    margin-top: -17px;
+    grid-row: 1;
+    grid-column: 1;
+    justify-self: start;
+    margin-top: 0;
   }
   .list-filter select {
-    padding: 5px 10px;
-    font-size: 11px !important;
+    padding: 6px 7px;
+    font-size: 14px !important;
     font-weight: 600 !important;
   }
   .dropdown-caret {
@@ -1810,10 +1937,17 @@ button {
     transform: translateY(-1px);
   }
   .list-card .month-nav {
-    margin: 0 -2px 4px;
+    position: static;
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: center;
+    margin: 0;
+    padding: 0;
+    border-bottom: 0;
+    transform: none;
   }
   .date-title {
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 700;
     margin: 10px 0 5px;
   }
@@ -1825,21 +1959,21 @@ button {
   .transaction i {
     width: 28px;
     height: 28px;
-    font-size: 10px;
+    font-size: 13px;
   }
   .transaction span b,
   .transaction strong {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 700;
   }
   .transaction small {
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 400;
   }
   .insights {
     grid-template-columns: 1fr;
     gap: 12px;
-    margin-top: 12px;
+    margin-top: 22px;
   }
   .insights .card {
     height: auto;
@@ -1847,8 +1981,8 @@ button {
     border-radius: 14px;
   }
   .insights h2 {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
   .category-body {
     gap: 18px;
@@ -1861,25 +1995,55 @@ button {
     inset: 22px;
   }
   .category li {
-    font-size: 12px;
+    font-size: 14px;
     line-height: 16px;
   }
   .category-insight {
     position: static;
     margin: 14px 0 0;
     padding: 10px 12px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
+  }
+  .expense-analysis-card {
+    min-height: 270px;
+    padding: 20px 16px !important;
+  }
+  .expense-analysis-total strong {
+    font-size: 25px;
+  }
+  .expense-analysis-body {
+    grid-template-columns: 125px minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .expense-analysis-body .finance-category-donut {
+    width: 125px;
+    height: 125px;
+  }
+  .expense-analysis-body .finance-category-donut::after {
+    inset: 28px;
+  }
+  .expense-analysis-body li {
+    font-size: 13px;
+  }
+  .expense-analysis-body li > strong {
+    font-size: 13px;
+  }
+  .expense-analysis-body li small {
+    font-size: 11px;
   }
   .fixed > strong {
     font-size: 28px;
   }
   .fixed p {
-    font-size: 12px;
+    color: #666666;
+    font-size: 13px;
+    font-weight: 400;
   }
   .fixed button {
     margin-top: 18px;
-    font-size: 12px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
   }
   .timeline {
@@ -1889,8 +2053,8 @@ button {
     padding: 15px 14px 22px;
   }
   .timeline h2 {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
   .timeline-chart--desktop {
     display: none;

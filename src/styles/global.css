@@ -16,16 +16,28 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Keep every rendered surface on the same typeface, including content that is
+ * teleported outside #app and text rendered inside inline SVG charts.
+ */
+body *,
+body *::before,
+body *::after {
+  font-family: var(--font-family-base);
+}
+
+button,
+input,
+select,
+textarea,
+svg text {
+  font-family: var(--font-family-base);
+}
+
 #app {
   min-height: 100dvh;
   font-family: var(--font-family-base);
   font-size: var(--font-body);
-}
-
-#app *,
-#app *::before,
-#app *::after {
-  font-family: var(--font-family-base);
 }
 
 #app :where(button, input, select, textarea) {
@@ -94,7 +106,6 @@ body {
   .tabs,
   .summary-card,
   .simulation-cta,
-  .goal-card,
   .profile-card,
   .settings-card,
   .form-card,
@@ -141,6 +152,27 @@ body {
   box-shadow: var(--shadow-figma) !important;
 }
 
+/* 고정지출 합계는 외곽선 없이 공통 바깥쪽 그림자로 표시합니다. */
+#app .fixed-page .total {
+  border: 0;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+/* 고정지출 후보 안내 영역에는 바깥쪽 그림자를 표시하지 않습니다. */
+#app .fixed-page .suggest {
+  box-shadow: none !important;
+}
+
+/* 고정지출 거래명 검색창의 부모 영역은 별도 카드처럼 표시하지 않습니다. */
+#app .fixed-page .search {
+  box-shadow: none !important;
+}
+
+/* 기타 카테고리의 고정지출 버튼에만 공통 바깥쪽 그림자를 적용합니다. */
+#app .fixed-page .expense-list > button.category-other {
+  box-shadow: var(--shadow-figma) !important;
+}
+
 /* 취업 준비 정보 입력 영역은 개별 필드만 구분하고 바깥 카드로 묶지 않습니다. */
 #app .onboarding-page .job-form {
   border: 0;
@@ -174,6 +206,68 @@ body {
 
 .muted {
   color: var(--muted);
+}
+
+/* Semantic typography utilities for compact/mobile product pages. */
+.type-page-title {
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
+}
+
+.type-section-title {
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+
+.type-field-label {
+  font-size: var(--type-field-label-size);
+  font-weight: var(--type-field-label-weight);
+}
+
+.type-item {
+  font-size: var(--type-item-size);
+  font-weight: var(--type-item-weight);
+}
+
+.type-input {
+  font-size: var(--type-input-size);
+  font-weight: var(--type-input-weight);
+}
+
+.type-meta {
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-meta-weight);
+}
+
+.type-supporting {
+  color: var(--type-supporting-color);
+  font-size: var(--type-supporting-size);
+  font-weight: var(--type-supporting-weight);
+}
+
+.type-total {
+  font-size: var(--type-total-size);
+  font-weight: var(--type-total-weight);
+}
+
+.type-action {
+  font-size: var(--type-action-size);
+  font-weight: var(--type-action-weight);
+}
+
+.type-empty {
+  font-size: var(--type-empty-size);
+  font-weight: var(--type-empty-weight);
+}
+
+.type-primary-action {
+  font-size: var(--type-primary-action-size);
+  font-weight: var(--type-primary-action-weight);
+}
+
+.type-result {
+  font-size: var(--type-result-size);
+  font-weight: var(--type-result-weight);
 }
 
 .pill {

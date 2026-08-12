@@ -327,7 +327,8 @@ async function logout() {
 
 .settings-title {
   margin: 28px 0 12px;
-  font-size: var(--font-section-title);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .settings-card {
   padding: 0 24px;
@@ -469,7 +470,8 @@ async function logout() {
   }
   .settings-title {
     margin: 14px 0 8px 3px;
-    font-size: var(--font-body);
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
   .settings-card {
     padding: 0 16px;

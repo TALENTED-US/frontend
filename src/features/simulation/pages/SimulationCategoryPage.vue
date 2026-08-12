@@ -13,35 +13,64 @@ const session = useSessionStore()
 simulation.restoreConfirmedSnapshot()
 const category = computed(() => route.params.category)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
-const goalAmount = (value) => Number(value) % 10000 === 0 ? `${money(Number(value) / 10000)}만원` : `${money(value)}원`
+const goalAmount = (value) =>
+  Number(value) % 10000 === 0 ? `${money(Number(value) / 10000)}만원` : `${money(value)}원`
 const stepNumber = computed(() => ({ expense: 1, income: 2, policy: 3 })[category.value])
 const wizardSteps = [
   { label: '01 지출 줄이기', to: '/simulation/expense' },
   { label: '02 수입 늘리기', to: '/simulation/income' },
   { label: '03 정책 맞춤 추천', to: '/simulation/policy' },
 ]
-const title = computed(() => ({ expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 맞춤 추천' })[category.value])
-const backPath = computed(() => ({ expense: '/simulation/new', income: '/simulation/expense/preview', policy: '/simulation/income/preview' })[category.value])
-const profileDate = (value) => value ? value.replaceAll('-', '.') : '-'
-const jobTypeLabel = computed(() => session.currentUser.jobType === 'first' ? '첫 취업 준비' : '재취업 준비')
-const form = reactive({ name: '', amount: '', type: 'monthly', startDate: simulation.state.startDate, cycle: '매월' })
+const title = computed(
+  () =>
+    ({ expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 맞춤 추천' })[category.value],
+)
+const backPath = computed(
+  () =>
+    ({
+      expense: '/simulation/new',
+      income: '/simulation/expense/preview',
+      policy: '/simulation/income/preview',
+    })[category.value],
+)
+const profileDate = (value) => (value ? value.replaceAll('-', '.') : '-')
+const jobTypeLabel = computed(() =>
+  session.currentUser.jobType === 'first' ? '첫 취업 준비' : '재취업 준비',
+)
+const form = reactive({
+  name: '',
+  amount: '',
+  type: 'monthly',
+  startDate: simulation.state.startDate,
+  cycle: '매월',
+})
 const editingIncomeId = ref(null)
 const selectedExpenseId = ref('식비')
 const expenseAmount = ref('')
-const activeExpense = computed(() => simulation.state.expenses.find((item) => item.id === selectedExpenseId.value) || simulation.state.expenses[0])
+const activeExpense = computed(
+  () =>
+    simulation.state.expenses.find((item) => item.id === selectedExpenseId.value) ||
+    simulation.state.expenses[0],
+)
 const visibleBreakdown = computed(() => simulation.expenseBreakdown.slice(0, 4))
 const policyCount = computed(() => simulation.state.policies.length)
 const isEditingConfirmedScenario = computed(() =>
   Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
 )
 
-watch(category, (value) => {
-  if (value === 'expense') simulation.initializeExpensesFromAnalysis()
-}, { immediate: true })
+watch(
+  category,
+  (value) => {
+    if (value === 'expense') simulation.initializeExpensesFromAnalysis()
+  },
+  { immediate: true },
+)
 
 onMounted(async () => {
   if (category.value === 'expense') {
-    try { await loadTransactions() } catch {}
+    try {
+      await loadTransactions()
+    } catch {}
     simulation.initializeExpensesFromAnalysis()
   }
   await simulation.hydrateCategory(category.value)
@@ -50,36 +79,61 @@ onMounted(async () => {
 const donutStyle = computed(() => {
   const total = simulation.totalCurrentExpense || 1
   let cursor = 0
-  return { background: `conic-gradient(${simulation.expenseBreakdown.map((item) => {
-    const start = cursor
-    cursor += (item.current / total) * 100
-    return `${item.color || '#b8bdc8'} ${start}% ${cursor}%`
-  }).join(', ')})` }
+  return {
+    background: `conic-gradient(${simulation.expenseBreakdown
+      .map((item) => {
+        const start = cursor
+        cursor += (item.current / total) * 100
+        return `${item.color || '#b8bdc8'} ${start}% ${cursor}%`
+      })
+      .join(', ')})`,
+  }
 })
 
 async function addIncome() {
   const amount = Number(form.amount)
   if (!form.name.trim() || amount <= 0) return
-  const payload = { name: form.name.trim(), amount, type: form.type, startDate: form.startDate, cycle: form.type === 'monthly' ? form.cycle : '1회', remoteSynced: false }
+  const payload = {
+    name: form.name.trim(),
+    amount,
+    type: form.type,
+    startDate: form.startDate,
+    cycle: form.type === 'monthly' ? form.cycle : '1회',
+    remoteSynced: false,
+  }
   if (editingIncomeId.value) {
-    if (!await simulation.saveIncomePlan(editingIncomeId.value, payload)) return
+    if (!(await simulation.saveIncomePlan(editingIncomeId.value, payload))) return
   } else simulation.addIncome(payload)
   resetIncomeForm()
 }
 
 function resetIncomeForm() {
   editingIncomeId.value = null
-  Object.assign(form, { name: '', amount: '', type: 'monthly', startDate: simulation.state.startDate, cycle: '매월' })
+  Object.assign(form, {
+    name: '',
+    amount: '',
+    type: 'monthly',
+    startDate: simulation.state.startDate,
+    cycle: '매월',
+  })
 }
 
 function editIncome(item) {
   editingIncomeId.value = item.id
-  Object.assign(form, { name: item.name, amount: String(item.amount), type: item.type, startDate: item.startDate, cycle: item.cycle || '매월' })
-  document.querySelector('.income-plan-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  Object.assign(form, {
+    name: item.name,
+    amount: String(item.amount),
+    type: item.type,
+    startDate: item.startDate,
+    cycle: item.cycle || '매월',
+  })
+  document
+    .querySelector('.income-plan-form')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 async function deleteIncome(id) {
-  if (!await simulation.deleteIncomePlan(id)) return
+  if (!(await simulation.deleteIncomePlan(id))) return
   if (editingIncomeId.value === id) resetIncomeForm()
 }
 
@@ -90,10 +144,11 @@ function scrollToPolicies() {
   })
 }
 
-const incomeIcon = (item) => item.type === 'monthly' ? '♨' : '▦'
-const incomeSchedule = (item) => item.type === 'monthly'
-  ? `정기수입 · ${item.cycle || '매월'} ${Number(item.startDate?.slice(-2)) || 1}일`
-  : `일회성 수입 · ${profileDate(item.startDate)}`
+const incomeIcon = (item) => (item.type === 'monthly' ? '♨' : '▦')
+const incomeSchedule = (item) =>
+  item.type === 'monthly'
+    ? `정기수입 · ${item.cycle || '매월'} ${Number(item.startDate?.slice(-2)) || 1}일`
+    : `일회성 수입 · ${profileDate(item.startDate)}`
 
 function selectExpense(item, loadSaved = false) {
   selectedExpenseId.value = item.id
@@ -110,17 +165,19 @@ function updateExpenseAmount(event) {
 async function addExpenseGoal() {
   const amount = Number(expenseAmount.value)
   if (!activeExpense.value || amount <= 0 || amount > activeExpense.value.current) return
-  if (!await simulation.saveExpenseGoal(activeExpense.value.id, amount)) return
+  if (!(await simulation.saveExpenseGoal(activeExpense.value.id, amount))) return
   expenseAmount.value = ''
 }
 
 function editExpenseGoal(item) {
   selectExpense(item, true)
-  document.querySelector('.expense-target-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  document
+    .querySelector('.expense-target-editor')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 async function deleteExpenseGoal(item) {
-  if (!await simulation.deleteExpenseGoal(item.id)) return
+  if (!(await simulation.deleteExpenseGoal(item.id))) return
   if (selectedExpenseId.value === item.id) expenseAmount.value = ''
 }
 
@@ -140,13 +197,21 @@ function continueFromPolicy() {
 }
 
 function skip() {
-  router.push(category.value === 'expense' ? '/simulation/income' : category.value === 'income' ? '/simulation/policy' : '/simulation/confirm')
+  router.push(
+    category.value === 'expense'
+      ? '/simulation/income'
+      : category.value === 'income'
+        ? '/simulation/policy'
+        : '/simulation/confirm',
+  )
 }
 </script>
 
 <template>
   <section class="page sim-page sim-wizard sim-category-page">
-    <button class="sim-back desktop-only" type="button" @click="router.push(backPath)">‹ {{ title }}</button>
+    <button class="sim-back desktop-only" type="button" @click="router.push(backPath)">
+      ‹ {{ title }}
+    </button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <RouterLink
         v-for="(step, index) in wizardSteps"
@@ -164,53 +229,218 @@ function skip() {
     <template v-if="category === 'expense'">
       <h1 class="wizard-title">소비 비중을 보고<br />줄이고 싶은 금액을 직접 입력하세요.</h1>
       <article class="expense-analysis-card">
-        <div class="expense-analysis-total"><span>지난달 소비</span><strong>{{ money(simulation.totalCurrentExpense) }}원</strong></div>
+        <div class="expense-analysis-total">
+          <span>지난달 소비</span><strong>{{ money(simulation.totalCurrentExpense) }}원</strong>
+        </div>
         <div class="expense-analysis-body">
           <div class="donut" :style="donutStyle" aria-label="지난달 카테고리별 소비 비중" />
-          <ul><li v-for="item in visibleBreakdown" :key="item.id"><i :style="{ background: item.color }" /><span>{{ item.name }}</span><strong>{{ money(item.current / 10000) }}만원<small>{{ Math.round(item.current / Math.max(1, simulation.totalCurrentExpense) * 100) }}%</small></strong></li></ul>
+          <ul>
+            <li v-for="item in visibleBreakdown" :key="item.id">
+              <i :style="{ background: item.color }" /><span>{{ item.name }}</span
+              ><strong
+                >{{ money(item.current / 10000) }}만원<small
+                  >{{
+                    Math.round((item.current / Math.max(1, simulation.totalCurrentExpense)) * 100)
+                  }}%</small
+                ></strong
+              >
+            </li>
+          </ul>
         </div>
         <p v-if="financeState.loading">실제 소비 내역을 불러오는 중이에요…</p>
         <p v-else-if="financeState.error" class="form-error">{{ financeState.error }}</p>
       </article>
 
       <section class="expense-target-card">
-        <h2>카테고리별 절약 목표 설정</h2><p>카테고리를 눌러 절약 목표를 설정해보세요.</p>
-        <div class="expense-category-tabs"><button v-for="item in simulation.state.expenses" :key="item.id" :class="{ active: selectedExpenseId === item.id }" type="button" @click="selectExpense(item)">{{ item.name }}</button></div>
+        <h2>카테고리별 절약 목표 설정</h2>
+        <p>카테고리를 눌러 절약 목표를 설정해보세요.</p>
+        <div class="expense-category-tabs">
+          <button
+            v-for="item in simulation.state.expenses"
+            :key="item.id"
+            :class="{ active: selectedExpenseId === item.id }"
+            type="button"
+            @click="selectExpense(item)"
+          >
+            {{ item.name }}
+          </button>
+        </div>
         <div v-if="activeExpense" class="expense-target-editor">
-          <div class="expense-target-info"><i>{{ activeExpense.icon }}</i><strong>{{ activeExpense.name }}</strong><span>저번 달 {{ money(activeExpense.current) }}원</span></div>
-          <label><span>{{ activeExpense.name }} 절약 목표</span><div><input :value="expenseAmount" type="number" min="0" :max="activeExpense.current" step="1000" :disabled="activeExpense.current <= 0" placeholder="금액을 입력하세요" @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()" @input="updateExpenseAmount($event)" /><b>원</b></div></label>
-          <small v-if="activeExpense.current <= 0">지난달 {{ activeExpense.name }} 지출 내역이 없어 목표를 추가할 수 없어요.</small>
+          <div class="expense-target-info">
+            <i>{{ activeExpense.icon }}</i
+            ><strong>{{ activeExpense.name }}</strong
+            ><span>저번 달 {{ money(activeExpense.current) }}원</span>
+          </div>
+          <label
+            ><span>
+              <template v-if="activeExpense.name === '자격증 비용'"
+                >자격증 비용<br />절약 목표</template
+              >
+              <template v-else>{{ activeExpense.name }} 절약 목표</template>
+            </span>
+            <div>
+              <input
+                :value="expenseAmount"
+                type="number"
+                min="0"
+                :max="activeExpense.current"
+                step="1000"
+                :disabled="activeExpense.current <= 0"
+                placeholder="금액을 입력하세요"
+                @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()"
+                @input="updateExpenseAmount($event)"
+              /><b>원</b>
+            </div></label
+          >
+          <small v-if="activeExpense.current <= 0"
+            >지난달 {{ activeExpense.name }} 지출 내역이 없어 목표를 추가할 수 없어요.</small
+          >
           <small v-else>최대 {{ money(activeExpense.current) }}원까지 입력할 수 있어요.</small>
-          <button class="expense-add-button" :disabled="!Number(expenseAmount) || Number(expenseAmount) > activeExpense.current || simulation.syncing" type="button" @click="addExpenseGoal">{{ activeExpense.selected ? '수정하기' : '추가하기' }}</button>
+          <button
+            class="expense-add-button"
+            :disabled="
+              !Number(expenseAmount) ||
+              Number(expenseAmount) > activeExpense.current ||
+              simulation.syncing
+            "
+            type="button"
+            @click="addExpenseGoal"
+          >
+            {{ activeExpense.selected ? '수정하기' : '추가하기' }}
+          </button>
         </div>
       </section>
 
       <section v-if="simulation.selectedExpenses.length" class="added-expense-goals">
-        <div class="section-heading"><h2><i />추가한 지출 절약 목표</h2><span>총 {{ simulation.selectedExpenses.length }}개</span></div>
-        <article v-for="item in simulation.selectedExpenses" :key="item.id"><i>{{ item.icon }}</i><strong>{{ item.name }} {{ goalAmount(item.saving) }} 줄이기</strong><div class="expense-goal-controls"><strong>-{{ goalAmount(item.saving) }}</strong><span><button @click="editExpenseGoal(item)">수정</button><button @click="deleteExpenseGoal(item)">삭제</button></span></div></article>
-        <footer><span>지출 절약 합계</span><strong>월 {{ goalAmount(simulation.expenseSaving) }}</strong></footer>
+        <div class="section-heading">
+          <h2><i />추가한 지출 절약 목표</h2>
+          <span>총 {{ simulation.selectedExpenses.length }}개</span>
+        </div>
+        <article v-for="item in simulation.selectedExpenses" :key="item.id">
+          <i>{{ item.icon }}</i
+          ><strong>{{ item.name }} {{ goalAmount(item.saving) }} 줄이기</strong>
+          <div class="expense-goal-controls">
+            <strong>-{{ goalAmount(item.saving) }}</strong
+            ><span
+              ><button @click="editExpenseGoal(item)">수정</button
+              ><button @click="deleteExpenseGoal(item)">삭제</button></span
+            >
+          </div>
+        </article>
+        <footer>
+          <span>지출 절약 합계</span><strong>월 {{ goalAmount(simulation.expenseSaving) }}</strong>
+        </footer>
       </section>
-      <div class="wizard-actions"><button class="sim-text-button" @click="skip">건너뛰기</button><button class="sim-btn sim-btn--yellow" :disabled="(!simulation.expenseSaving && !isEditingConfirmedScenario) || simulation.syncing" @click="apply('expense')">적용하기 →</button></div>
+      <div class="wizard-actions">
+        <button class="sim-text-button" @click="skip">건너뛰기</button>
+        <button
+          class="sim-btn sim-btn--yellow"
+          :disabled="
+            (!simulation.expenseSaving && !isEditingConfirmedScenario) || simulation.syncing
+          "
+          @click="apply('expense')"
+        >
+          적용하기 →
+        </button>
+      </div>
     </template>
 
     <template v-else-if="category === 'income'">
       <h1 class="wizard-title">수입을 늘릴 계획을 세워보세요</h1>
       <p class="sim-subtitle">추가한 수입은 시뮬레이션에 반영돼요.</p>
       <form class="income-plan-form" @submit.prevent="addIncome">
-        <div class="income-form-heading"><strong>수입 계획 입력</strong><button type="button" @click="resetIncomeForm">↻&nbsp; 초기화</button></div>
-        <label class="income-name-field"><span>수입명</span><input v-model="form.name" class="income-field" aria-label="수입명" placeholder="예: 주말 카페 아르바이트" required /></label>
-        <label>예상 금액<div class="income-money-field"><input v-model="form.amount" type="number" min="1" placeholder="금액 입력" required @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()" /><b>원</b></div></label>
-        <fieldset><legend>수입 유형</legend><button type="button" :class="{ active: form.type === 'monthly' }" @click="form.type = 'monthly'">정기 수입</button><button type="button" :class="{ active: form.type === 'once' }" @click="form.type = 'once'">일회성 수입</button></fieldset>
-        <label>시작일<input v-model="form.startDate" class="income-field" type="date" required /></label>
-        <label v-if="form.type === 'monthly'">반복 주기<select v-model="form.cycle" class="income-field"><option>매월</option></select></label>
-        <button class="income-add-button" type="submit" :disabled="simulation.syncing">{{ editingIncomeId ? '수입 계획 수정하기' : '수입 계획 추가하기' }}</button>
+        <div class="income-form-heading">
+          <strong>수입 계획 입력</strong
+          ><button type="button" @click="resetIncomeForm">↻&nbsp; 초기화</button>
+        </div>
+        <label class="income-name-field"
+          ><span>수입명</span
+          ><input
+            v-model="form.name"
+            class="income-field"
+            aria-label="수입명"
+            placeholder="예: 주말 카페 아르바이트"
+            required
+        /></label>
+        <label
+          >예상 금액
+          <div class="income-money-field">
+            <input
+              v-model="form.amount"
+              type="number"
+              min="1"
+              placeholder="금액 입력"
+              required
+              @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()"
+            /><b>원</b>
+          </div></label
+        >
+        <fieldset>
+          <legend>수입 유형</legend>
+          <button
+            type="button"
+            :class="{ active: form.type === 'monthly' }"
+            @click="form.type = 'monthly'"
+          >
+            정기 수입</button
+          ><button
+            type="button"
+            :class="{ active: form.type === 'once' }"
+            @click="form.type = 'once'"
+          >
+            일회성 수입
+          </button>
+        </fieldset>
+        <label
+          >시작일<input v-model="form.startDate" class="income-field" type="date" required
+        /></label>
+        <label v-if="form.type === 'monthly'"
+          >반복 주기<select v-model="form.cycle" class="income-field">
+            <option>매월</option>
+          </select></label
+        >
+        <button class="income-add-button" type="submit" :disabled="simulation.syncing">
+          {{ editingIncomeId ? '수입 계획 수정하기' : '수입 계획 추가하기' }}
+        </button>
       </form>
       <section v-if="simulation.state.incomes.length" class="added-income-plans">
-        <div class="section-heading"><h2><i />추가한 수입 계획</h2><span>총 {{ simulation.state.incomes.length }}개</span></div>
-        <article v-for="item in simulation.state.incomes" :key="item.id"><i>{{ incomeIcon(item) }}</i><div><strong>{{ item.name }} <em v-if="item.type === 'monthly'">↻ 정기</em></strong><small>{{ incomeSchedule(item) }}</small></div><div class="income-plan-controls"><strong>{{ goalAmount(item.amount) }}{{ item.type === 'once' ? ' (일시)' : '' }}</strong><span><button type="button" @click="editIncome(item)">수정</button><button type="button" @click="deleteIncome(item.id)">삭제</button></span></div></article>
-        <footer><span>월 정기 수입 합계</span><strong>+{{ goalAmount(simulation.recurringIncome) }} / 월</strong><span>일시 수입 합계</span><strong>+{{ goalAmount(simulation.oneTimeIncome) }}</strong></footer>
+        <div class="section-heading">
+          <h2><i />추가한 수입 계획</h2>
+          <span>총 {{ simulation.state.incomes.length }}개</span>
+        </div>
+        <article v-for="item in simulation.state.incomes" :key="item.id">
+          <i>{{ incomeIcon(item) }}</i>
+          <div>
+            <strong>{{ item.name }} <em v-if="item.type === 'monthly'">↻ 정기</em></strong
+            ><small>{{ incomeSchedule(item) }}</small>
+          </div>
+          <div class="income-plan-controls">
+            <strong>{{ goalAmount(item.amount) }}{{ item.type === 'once' ? ' (일시)' : '' }}</strong
+            ><span
+              ><button type="button" @click="editIncome(item)">수정</button
+              ><button type="button" @click="deleteIncome(item.id)">삭제</button></span
+            >
+          </div>
+        </article>
+        <footer>
+          <span>월 정기 수입 합계</span
+          ><strong>+{{ goalAmount(simulation.recurringIncome) }} / 월</strong
+          ><span>일시 수입 합계</span><strong>+{{ goalAmount(simulation.oneTimeIncome) }}</strong>
+        </footer>
       </section>
-      <div class="wizard-actions"><button class="sim-text-button" @click="skip">건너뛰기</button><button class="sim-btn sim-btn--yellow" :disabled="(!simulation.state.incomes.length && !isEditingConfirmedScenario) || simulation.syncing" @click="apply('income')">시뮬레이션에 적용</button></div>
+      <div class="wizard-actions">
+        <button class="sim-text-button" @click="skip">건너뛰기</button>
+        <button
+          class="sim-btn sim-btn--yellow"
+          :disabled="
+            (!simulation.state.incomes.length && !isEditingConfirmedScenario) ||
+            simulation.syncing
+          "
+          @click="apply('income')"
+        >
+          시뮬레이션에 적용
+        </button>
+      </div>
     </template>
 
     <template v-else>
@@ -218,50 +448,98 @@ function skip() {
 
       <section class="policy-qualification">
         <div class="policy-section-heading">
-          <div><h2>자격 확인</h2><p>온보딩에서 입력한 정보로 자동 채워져 있어요.</p></div>
+          <div>
+            <h2>자격 확인</h2>
+            <p>온보딩에서 입력한 정보로 자동 채워져 있어요.</p>
+          </div>
         </div>
         <div class="policy-condition-grid">
-          <article><span>거주지역</span><strong>{{ session.currentUser.region || '-' }}</strong></article>
-          <article><span>취업 준비 상태</span><strong>{{ jobTypeLabel }}</strong></article>
-          <article><span>가구원 수</span><strong>{{ session.currentUser.family || '-' }}명</strong></article>
+          <article>
+            <span>거주지역</span><strong>{{ session.currentUser.region || '-' }}</strong>
+          </article>
+          <article>
+            <span>취업 준비 상태</span><strong>{{ jobTypeLabel }}</strong>
+          </article>
+          <article>
+            <span>가구원 수</span><strong>{{ session.currentUser.family || '-' }}명</strong>
+          </article>
         </div>
-        <button class="policy-filter-button" type="button" @click="scrollToPolicies">이 정보로 필터링하기 →</button>
+        <button class="policy-filter-button" type="button" @click="scrollToPolicies">
+          이 정보로 필터링하기 →
+        </button>
       </section>
 
       <section class="policy-selected-card">
-        <div class="policy-selected-heading"><h2><i />추가한 정책</h2><span>총 {{ policyCount }}개</span></div>
+        <div class="policy-selected-heading">
+          <h2><i />추가한 정책</h2>
+          <span>총 {{ policyCount }}개</span>
+        </div>
         <p v-if="!policyCount" class="policy-selected-empty">선택한 정책이 없어요</p>
         <div v-else class="policy-selected-list">
           <article v-for="item in simulation.state.policies" :key="item.id">
             <i>⚖</i>
-            <div><strong>{{ item.name }}</strong><small>{{ item.description }}</small></div>
+            <div>
+              <strong>{{ item.name }}</strong
+              ><small>{{ item.description }}</small>
+            </div>
             <b>{{ item.detail }}</b>
-            <button type="button" :disabled="simulation.syncing" @click="deletePolicy(item)">삭제</button>
+            <button type="button" :disabled="simulation.syncing" @click="deletePolicy(item)">
+              삭제
+            </button>
           </article>
         </div>
         <footer>
-          <p><span>월 정기 지원 합계</span><strong>+{{ goalAmount(simulation.recurringPolicy) }} / 월</strong></p>
-          <p><span>일시 지원 합계</span><strong>+{{ goalAmount(simulation.oneTimePolicy) }}</strong></p>
+          <p>
+            <span>월 정기 지원 합계</span
+            ><strong>+{{ goalAmount(simulation.recurringPolicy) }} / 월</strong>
+          </p>
+          <p>
+            <span>일시 지원 합계</span><strong>+{{ goalAmount(simulation.oneTimePolicy) }}</strong>
+          </p>
         </footer>
       </section>
 
       <section class="policy-catalog-scroll">
-        <div class="policy-catalog-heading"><h2>내 조건에 맞는 정책 모두 보기</h2><span>{{ simulation.policyCatalog.length }}개</span></div>
+        <div class="policy-catalog-heading">
+          <h2>내 조건에 맞는 정책 모두 보기</h2>
+          <span>{{ simulation.policyCatalog.length }}개</span>
+        </div>
         <div class="policy-catalog-list">
-          <article v-for="policy in simulation.policyCatalog" :key="policy.id" :class="{ selected: simulation.state.policies.some(item => item.id === policy.id) }">
-            <div><h2>{{ policy.name }}</h2><p>{{ policy.description }}</p></div>
-            <button type="button" @click="simulation.togglePolicy(policy)">{{ simulation.state.policies.some(item => item.id === policy.id) ? '✓ 추가됨' : '+ 추가하기' }}</button>
+          <article
+            v-for="policy in simulation.policyCatalog"
+            :key="policy.id"
+            :class="{ selected: simulation.state.policies.some((item) => item.id === policy.id) }"
+          >
+            <div>
+              <h2>{{ policy.name }}</h2>
+              <p>{{ policy.description }}</p>
+            </div>
+            <button type="button" @click="simulation.togglePolicy(policy)">
+              {{
+                simulation.state.policies.some((item) => item.id === policy.id)
+                  ? '✓ 추가됨'
+                  : '+ 추가하기'
+              }}
+            </button>
             <small>자세히 보기 ⌄</small><strong>{{ policy.detail }}</strong>
           </article>
         </div>
       </section>
 
-      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing" type="button" @click="continueFromPolicy">
+      <button
+        class="sim-btn sim-btn--yellow wide"
+        :disabled="simulation.syncing"
+        type="button"
+        @click="continueFromPolicy"
+      >
         {{ policyCount ? '최종 결과 보기' : '정책 건너뛰고 최종 결과 보기' }}
       </button>
     </template>
 
-    <p v-if="simulation.syncError" class="api-notice">서버 저장에 실패했습니다. 입력 내용은 유지되니 잠시 후 다시 시도해 주세요. {{ simulation.syncError }}</p>
+    <p v-if="simulation.syncError" class="api-notice">
+      서버 저장에 실패했습니다. 입력 내용은 유지되니 잠시 후 다시 시도해 주세요.
+      {{ simulation.syncError }}
+    </p>
   </section>
 </template>
 
@@ -300,6 +578,45 @@ function skip() {
   font-weight: 900;
 }
 
+.expense-category-tabs button {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.expense-category-tabs button.active {
+  font-weight: 700;
+}
+
+.sim-category-page .expense-target-info > strong {
+  font-size: 15px;
+}
+
+.expense-target-info > span,
+.expense-target-editor > label > span,
+.expense-target-editor label b {
+  font-size: 14px;
+}
+
+.expense-target-editor > label > span,
+.expense-target-editor label b {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.expense-target-editor input::placeholder {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.expense-target-editor input,
+.expense-target-editor label b {
+  line-height: 14px;
+}
+
+.expense-target-editor label b {
+  align-self: center;
+}
+
 .expense-analysis-body ul {
   gap: 9px;
 }
@@ -308,7 +625,17 @@ function skip() {
   font-size: 12px;
 }
 
+.expense-analysis-body li > i,
+.expense-analysis-body li > span {
+  align-self: start;
+}
+
+.expense-analysis-body li > i {
+  margin-top: 5px;
+}
+
 .expense-analysis-body li > strong {
+  align-self: start;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -575,16 +902,187 @@ function skip() {
   font-size: 11px;
 }
 
+@media (max-width: 767px) {
+  .sim-category-page > .wizard-progress-tabs {
+    top: 64px;
+    margin-top: -10px;
+  }
+
+  .sim-category-page .policy-selected-empty {
+    font-size: var(--type-empty-size);
+    font-weight: var(--type-empty-weight);
+  }
+
+  .sim-category-page .added-expense-goals .expense-goal-controls > span > button {
+    font-size: 12px !important;
+  }
+
+  .sim-category-page .added-expense-goals .expense-goal-controls > strong {
+    font-size: 13px;
+  }
+
+  .sim-category-page .added-expense-goals .section-heading h2,
+  .sim-category-page .added-income-plans .section-heading h2,
+  .sim-category-page .policy-selected-heading h2 {
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+  }
+
+  .sim-category-page .added-expense-goals .section-heading > span,
+  .sim-category-page .added-income-plans .section-heading > span,
+  .sim-category-page .policy-selected-heading > span,
+  .sim-category-page .policy-catalog-heading > span {
+    font-size: var(--type-meta-size);
+    font-weight: var(--type-meta-weight);
+  }
+
+  .sim-category-page .added-expense-goals article > strong {
+    font-size: var(--type-item-size);
+    font-weight: var(--type-item-weight);
+  }
+
+  .sim-category-page .added-income-plans article > div:nth-child(2) > strong,
+  .sim-category-page .policy-selected-list article strong {
+    font-size: var(--type-item-size);
+    font-weight: var(--type-item-weight);
+  }
+
+  .sim-category-page .policy-catalog-list h2 {
+    font-size: var(--type-item-size);
+    font-weight: var(--type-item-weight);
+  }
+
+  .sim-category-page .added-income-plans .income-plan-controls > strong {
+    font-size: 13px;
+  }
+
+  .sim-category-page .income-plan-form label,
+  .sim-category-page .income-plan-form legend {
+    font-size: var(--type-field-label-size);
+    font-weight: var(--type-field-label-weight);
+  }
+
+  .sim-category-page .income-form-heading strong::after {
+    font-size: var(--type-field-label-size);
+    font-weight: var(--type-field-label-weight);
+  }
+
+  .sim-category-page input.income-field,
+  .sim-category-page .income-money-field input,
+  .sim-category-page .income-money-field b {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .sim-category-page .income-money-field input,
+  .sim-category-page .income-plan-form fieldset button,
+  .sim-category-page .income-name-field input.income-field,
+  .sim-category-page input.income-field[type='date'],
+  .sim-category-page select.income-field {
+    font-size: var(--type-input-size);
+    font-weight: var(--type-input-weight);
+  }
+
+  .sim-category-page .added-expense-goals footer,
+  .sim-category-page .added-expense-goals footer strong,
+  .sim-category-page .added-income-plans footer,
+  .sim-category-page .added-income-plans footer strong,
+  .sim-category-page .policy-selected-card footer p,
+  .sim-category-page .policy-selected-card footer span,
+  .sim-category-page .policy-selected-card footer strong {
+    font-size: var(--type-total-size);
+    font-weight: var(--type-total-weight);
+  }
+
+  .sim-category-page .policy-selected-card footer p,
+  .sim-category-page .policy-selected-card footer span,
+  .sim-category-page .policy-selected-card footer strong {
+    color: #222222 !important;
+  }
+
+  .expense-analysis-total > span {
+    font-size: 14px;
+  }
+
+  .expense-analysis-body li > span {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .expense-analysis-body li > strong {
+    font-size: 13px;
+  }
+
+  .expense-analysis-body li small {
+    font-size: 12px;
+  }
+
+  .sim-category-page > .wizard-progress-tabs span {
+    grid-template-rows: 20px 3px;
+    align-items: end;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .sim-category-page > .wizard-progress-tabs span.active {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .policy-section-heading p,
+  .policy-section-heading button,
+  .policy-condition-grid span,
+  .policy-selected-heading span,
+  .policy-catalog-heading span,
+  .policy-selected-list article small,
+  .policy-selected-card footer p,
+  .policy-catalog-list p,
+  .policy-catalog-list article > small {
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .policy-filter-button,
+  .sim-category-page > .sim-btn.wide {
+    font-size: 17px;
+    font-weight: 800;
+  }
+
+  .policy-selected-list article button,
+  .policy-catalog-list button {
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .policy-section-heading h2,
+  .policy-selected-heading h2,
+  .policy-catalog-heading h2 {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .policy-condition-grid strong,
+  .policy-selected-list article strong,
+  .policy-selected-list article b,
+  .policy-selected-card footer strong,
+  .policy-catalog-list article > strong {
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+
 @media (min-width: 768px) {
   .sim-category-page > .wizard-progress-tabs {
-    margin-right: 0;
-    margin-left: 0;
+    width: min(100%, 760px);
+    margin-right: auto;
+    margin-left: auto;
     padding-right: 0;
     padding-left: 0;
   }
 
   .sim-category-page > .wizard-progress-tabs span {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .sim-category-page > .wizard-progress-tabs span.active {

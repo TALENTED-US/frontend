@@ -13,200 +13,202 @@ const visible = computed(() =>
     ? notificationItems.value.filter((item) => !item.read)
     : notificationItems.value,
 )
+
+function notificationCategory(item, index) {
+  const text = `${item.title} ${item.message}`
+  if (/정책|지원|월세/.test(text)) return { label: '정책', tone: 'policy' }
+  if (/퀘스트|기간|목표/.test(text) && index > 0) return { label: '퀘스트', tone: 'quest' }
+  if (/리워드|보상|경험치/.test(text)) return { label: '리워드', tone: 'reward' }
+  if (/재정|금액|경고/.test(text)) return { label: '재정 변화', tone: 'finance' }
+  return { label: '서비스 공지', tone: 'service' }
+}
 </script>
 
 <template>
-  <section class="page">
-    <header class="page-heading">
-      <div>
-        <h1 class="page-title">알림함</h1>
-        <p class="page-description">중요한 알림을 한 곳에서 확인하세요.</p>
-      </div>
-      <button
-        class="btn btn-outline"
-        type="button"
-        :disabled="unreadNotificationCount === 0"
-        @click="markAllNotificationsRead"
-      >모두 읽음</button>
+  <section class="page notification-page">
+    <header class="page-heading desktop-only">
+      <h1 class="page-title">알림</h1>
     </header>
+
+    <p class="notification-description">알림을 한 곳에서 확인하세요.</p>
 
     <div class="notification-tools">
       <div class="notification-filter" role="group" aria-label="알림 표시 범위">
-        <button :class="{ active: !unreadOnly }" :aria-pressed="!unreadOnly" @click="unreadOnly = false">전체</button>
-        <button :class="{ active: unreadOnly }" :aria-pressed="unreadOnly" @click="unreadOnly = true">읽지 않음</button>
-      </div>
-      <span>{{ unreadNotificationCount }}개의 새 알림</span>
-    </div>
-
-    <div class="notification-layout">
-      <div class="notification-list">
-        <button
-          v-for="item in visible"
-          :key="item.id"
-          :class="['notification-item', 'card', { unread: !item.read }]"
-          @click="markNotificationRead(item.id)"
-        >
-          <span class="notification-dot" />
-          <div><small>알림</small><h2>{{ item.title }}</h2><p>{{ item.message }}</p></div>
-          <time>{{ item.time }}</time>
+        <button :class="{ active: !unreadOnly }" :aria-pressed="!unreadOnly" @click="unreadOnly = false">
+          전체 {{ notificationItems.length }}
+        </button>
+        <button :class="{ active: unreadOnly }" :aria-pressed="unreadOnly" @click="unreadOnly = true">
+          읽지 않음 {{ unreadNotificationCount }}
         </button>
       </div>
-      <aside class="card notification-guide">
-        <h2>알림 안내</h2>
-        <p>읽지 않은 알림을 확인하면 상태가 자동으로 변경돼요.</p>
-        <RouterLink to="/mypage">알림 설정 ›</RouterLink>
-      </aside>
+      <button
+        class="notification-read-all"
+        type="button"
+        :disabled="unreadNotificationCount === 0"
+        @click="markAllNotificationsRead"
+      >
+        모두 읽음
+      </button>
+    </div>
+
+    <div class="notification-list">
+      <button
+        v-for="(item, index) in visible"
+        :key="item.id"
+        :class="['notification-item', { unread: !item.read }]"
+        @click="markNotificationRead(item.id)"
+      >
+        <span class="notification-item__top">
+          <small :class="`tag--${notificationCategory(item, index).tone}`">
+            {{ notificationCategory(item, index).label }}
+          </small>
+          <time>{{ item.read ? '읽음' : '안 읽음' }}</time>
+        </span>
+        <strong>{{ item.title }}</strong>
+        <span class="notification-item__bottom">
+          <span>{{ item.message }}</span>
+          <b aria-hidden="true">›</b>
+        </span>
+      </button>
     </div>
   </section>
 </template>
 
 <style scoped>
+.notification-page {
+  width: min(100%, 760px);
+  margin: 0 auto;
+}
+
+.notification-description {
+  margin: 8px 0 16px;
+  color: #999;
+  font-size: 14px;
+}
+
 .notification-tools {
   display: flex;
   align-items: center;
-  gap: 10px;
   justify-content: space-between;
-  padding: 0;
+  gap: 10px;
 }
 
 .notification-filter {
-  display: inline-grid;
-  grid-template-columns: 1fr 1fr;
-  min-width: 230px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: #f3f5f8;
+  display: flex;
+  gap: 10px;
 }
 
-.notification-filter button {
-  min-width: 108px;
-  min-height: 38px;
+.notification-filter button,
+.notification-read-all {
+  min-height: 32px;
+  padding: 0 15px;
   border-radius: 999px;
-  color: var(--muted);
-  font-size: var(--font-small);
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  background: #f1f2f6;
+  color: #222;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .notification-filter button.active {
-  background: var(--primary);
-  color: white;
-  box-shadow: 0 2px 7px rgb(10 22 128 / 20%);
+  background: #fbedb0;
 }
 
-.notification-tools span {
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: var(--primary-soft);
-  color: var(--muted);
-  font-size: var(--font-small);
+.notification-read-all {
+  padding: 0 17px;
 }
 
-.notification-layout {
-  display: grid;
-  grid-template-columns: 1fr 230px;
-  gap: 24px;
-  margin-top: 22px;
+.notification-read-all:disabled {
+  color: #999;
 }
 
 .notification-list {
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  margin-top: 20px;
 }
 
 .notification-item {
   display: grid;
-  grid-template-columns: 12px 1fr auto;
-  align-items: center;
-  gap: 16px;
-  min-height: 108px;
-  padding: 20px 24px;
+  gap: 10px;
+  min-height: 102px;
+  padding: 13px 20px 17px;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
   text-align: left;
 }
 
 .notification-item.unread {
-  border-color: var(--sky);
-  background: #fcfdff;
+  outline: 1px solid #8799e8;
+  box-shadow: 0 1px 5px rgb(10 22 128 / 100%);
 }
 
-.notification-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--border);
+.notification-item__top,
+.notification-item__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
 }
 
-.unread .notification-dot {
-  background: var(--warning);
+.notification-item__top small {
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #222;
+  font-size: 11px;
+  font-weight: 700;
 }
 
-.notification-item small,
-.notification-item p,
 .notification-item time {
-  color: var(--muted);
-  font-size: var(--font-small);
+  color: #677080;
+  font-size: 11px;
 }
 
-.notification-item h2 {
-  margin: 3px 0;
-  color: var(--primary);
-  font-size: var(--font-card-title);
-}
-
-.notification-guide {
-  min-height: 430px;
-  padding: 28px;
-  background: var(--sky-soft);
-}
-
-.notification-guide h2 {
-  color: var(--primary);
-  font-size: var(--font-card-title);
-}
-
-.notification-guide p {
-  margin-top: 26px;
-  color: var(--muted);
-  font-size: var(--font-body);
-  line-height: 1.8;
-}
-
-.notification-guide a {
-  display: inline-block;
-  margin-top: 30px;
-  color: var(--primary);
-  font-size: var(--font-small);
+.notification-item > strong {
+  color: #222;
+  font-size: 15px;
   font-weight: 800;
 }
 
+.notification-item__bottom > span {
+  overflow: hidden;
+  color: #667085;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-item__bottom b {
+  flex: none;
+  color: #000;
+  font-size: 24px;
+  line-height: 0.7;
+}
+
+.tag--finance { background: #ecfdf5; }
+.tag--policy { background: #fdecec; }
+.tag--quest { background: #eceefd; }
+.tag--reward { background: #fafdec; }
+.tag--service { background: #f5ecfd; }
+
 @media (max-width: 800px) {
-  .notification-tools {
-    align-items: stretch;
-    gap: 10px;
+  .notification-page {
+    padding: 0 1px;
   }
 
-  .notification-filter {
-    min-width: 0;
-    flex: 1;
+  .notification-description {
+    margin-top: 0;
   }
 
   .notification-filter button {
-    min-width: 0;
+    padding: 0 14px;
   }
 
-  .notification-tools span {
-    display: grid;
-    flex: none;
-    place-items: center;
-    padding: 5px 10px;
-  }
-
-  .notification-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .notification-guide {
-    display: none;
+  .notification-list {
+    gap: 14px;
+    margin-top: 18px;
   }
 }
 </style>

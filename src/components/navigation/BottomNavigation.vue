@@ -8,7 +8,7 @@ const menus = [
   { to: '/', label: '홈', icon: 'home' },
   { to: '/finance', label: '내 재정', icon: 'wallet' },
   { to: '/simulation', label: '시뮬레이션', icon: 'trend' },
-  { to: '/search', label: '검색', icon: 'search' },
+  { to: '/search', label: '정책', icon: 'search' },
   { to: '/mypage', label: '마이페이지', icon: 'user' },
 ]
 

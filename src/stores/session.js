@@ -82,6 +82,7 @@ function mapEmployment(employment) {
     targetDate: goalDate.replaceAll('-', '.'),
     region: employment.employmentPrepRegion,
     family: employment.familyCount,
+    financialRiskAlertAmount: Number(employment.minimumLivingFund) || 0,
   }
 }
 
@@ -253,6 +254,7 @@ export const useSessionStore = defineStore('session', () => {
       targetEmploymentDate: profile.goalDate,
       region: profile.region,
       familyCount: Number(profile.family),
+      minimumLivingFund: Number(profile.financialRiskAlertAmount),
     }
 
     if (!isMockMode) await updateEmploymentPreparationApi(payload)
@@ -260,6 +262,7 @@ export const useSessionStore = defineStore('session', () => {
     updateProfile({
       ...profile,
       family: Number(profile.family),
+      financialRiskAlertAmount: Number(profile.financialRiskAlertAmount),
       targetDate: profile.goalDate.replaceAll('-', '.'),
       employmentPreparationRegistered: true,
     })

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
@@ -76,6 +76,13 @@ const notificationSettings = reactive({
 })
 const twoFactorEnabled = ref(localStorage.getItem('buttie-two-factor') === 'true')
 
+onMounted(async () => {
+  const focusTarget = route.query.focus
+  if (!['goal-date', 'risk-amount'].includes(focusTarget)) return
+  await nextTick()
+  document.getElementById(`${focusTarget}-field`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+})
+
 const regions = [
   '서울특별시',
   '부산광역시',
@@ -106,6 +113,7 @@ const form = reactive({
   goal: session.currentUser.goalDate,
   region: session.currentUser.region,
   family: session.currentUser.family,
+  financialRiskAlertAmount: Number(session.currentUser.financialRiskAlertAmount) || 600000,
   password: '',
 })
 
@@ -191,6 +199,7 @@ async function saveJobProfile() {
       goalDate: form.goal,
       region: form.region,
       family: Number(form.family),
+      financialRiskAlertAmount: Math.max(0, Math.round(Number(form.financialRiskAlertAmount) || 0)),
     })
     profileMessage.value = '취업 준비 정보가 저장되었습니다.'
     router.push('/mypage')
@@ -397,7 +406,7 @@ function clearMockData() {
         <label
           ><span>준비 시작일</span><input v-model="form.start" type="date" :max="form.goal"
         /></label>
-        <label
+        <label id="goal-date-field"
           ><span>목표 취업일</span><input v-model="form.goal" type="date" :min="form.start"
         /></label>
         <label>
@@ -409,6 +418,17 @@ function clearMockData() {
         <label>
           <span>세대원 수</span>
           <input v-model.number="form.family" type="number" min="1" max="99" inputmode="numeric" />
+        </label>
+        <label id="risk-amount-field" class="risk-alert-field">
+          <span>재정 위험 알림 금액</span>
+          <small>설정한 금액에 도달하면 알려드려요</small>
+          <input
+            v-model.number="form.financialRiskAlertAmount"
+            type="number"
+            min="1"
+            step="10000"
+            inputmode="numeric"
+          />
         </label>
         <p
           v-if="profileMessage"
@@ -779,6 +799,19 @@ function clearMockData() {
   margin-top: 4px;
 }
 
+.job-card .risk-alert-field {
+  position: relative;
+}
+
+.job-card .risk-alert-field small {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: var(--type-supporting-color);
+  font-size: var(--type-meta-size);
+  font-weight: 400;
+}
+
 .toggle-card {
   display: flex;
   min-height: 76px;
@@ -861,7 +894,8 @@ function clearMockData() {
 .security-card h2,
 .devices-card h2,
 .accounts-card h2 {
-  font-size: var(--font-body);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .password-button {
   width: 100%;
@@ -979,7 +1013,8 @@ function clearMockData() {
   color: #ff5e61;
 }
 .delete-data h2 {
-  font-size: var(--font-body);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .delete-data p {
   margin-top: 4px;
@@ -1217,7 +1252,8 @@ function clearMockData() {
     margin-top: 14px;
   }
   .devices-card h2 {
-    font-size: var(--font-body);
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
   .device-row {
     min-height: 65px;
