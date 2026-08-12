@@ -3,6 +3,11 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTransactionDetailApi } from '@/api/transactions'
 import {
+  calendarState,
+  calendarTransactions,
+  loadCalendar,
+} from '@/features/finance/calendarStore'
+import {
   addTransaction,
   deleteTransaction,
   financeState,
@@ -15,6 +20,7 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 
 const router = useRouter()
 const simulation = useSimulationStore()
+const useCalendarApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 const formatLocalIso = (date = new Date()) =>
   [
     date.getFullYear(),
@@ -113,9 +119,18 @@ function changeMonth(offset) {
   setSelectedMonth(next.getFullYear(), next.getMonth() + 1)
 }
 
+async function loadSelectedCalendar(force = false) {
+  const [year, selectedMonth] = month.value.split('-').map(Number)
+  return loadCalendar(year, selectedMonth, force)
+}
+
+async function reloadFinanceData() {
+  await Promise.allSettled([loadTransactions(true), loadSelectedCalendar(true)])
+}
+
 const monthRows = computed(() =>
-  financeTransactions.value
-    .filter((row) => row.date.startsWith(month.value))
+  (useCalendarApi ? calendarTransactions.value : financeTransactions.value)
+    .filter((row) => row.date?.startsWith(month.value))
     .sort((a, b) => `${b.date}${b.time || ''}`.localeCompare(`${a.date}${a.time || ''}`)),
 )
 const filteredMonthRows = computed(() =>
@@ -137,10 +152,14 @@ watch(categoryOptions, (options) => {
   if (!options.includes(categoryFilter.value)) categoryFilter.value = 'all'
 })
 const income = computed(() =>
-  monthRows.value.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0),
+  useCalendarApi
+    ? calendarState.totalIncome
+    : monthRows.value.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0),
 )
 const expense = computed(() =>
-  monthRows.value.filter((r) => r.amount < 0).reduce((s, r) => s + Math.abs(r.amount), 0),
+  useCalendarApi
+    ? calendarState.totalExpense
+    : monthRows.value.filter((r) => r.amount < 0).reduce((s, r) => s + Math.abs(r.amount), 0),
 )
 const dayRows = computed(() =>
   filteredMonthRows.value.filter((row) => row.date === selectedDate.value),
@@ -149,6 +168,12 @@ const fixedTotal = computed(() =>
   monthRows.value.filter((r) => r.fixed).reduce((s, r) => s + Math.abs(r.amount), 0),
 )
 const categoryTotals = computed(() => {
+  if (useCalendarApi) {
+    return calendarState.categoryExpenses
+      .map((item) => [item.category, item.amount])
+      .sort((a, b) => b[1] - a[1])
+  }
+
   const result = {}
   monthRows.value
     .filter((r) => r.amount < 0)
@@ -297,6 +322,7 @@ async function save() {
   try {
     if (editingId.value) await updateTransaction(editingId.value, payload)
     else await addTransaction(payload)
+    await loadSelectedCalendar(true).catch(() => {})
     panel.value = ''
   } catch (error) {
     actionError.value = error.message || '거래를 저장하지 못했습니다.'
@@ -310,6 +336,7 @@ async function remove() {
   isSaving.value = true
   try {
     await deleteTransaction(editingId.value)
+    await loadSelectedCalendar(true).catch(() => {})
     panel.value = ''
   } catch (error) {
     actionError.value = error.message || '거래를 삭제하지 못했습니다.'
@@ -332,10 +359,16 @@ function detailDateLabel(row) {
   return `${year}년 ${Number(monthNumber)}월 ${Number(day)}일 ${row.time || ''}`.trim()
 }
 
+watch(month, () => {
+  loadSelectedCalendar().catch(() => {})
+})
+
 onMounted(async () => {
-  try {
-    await loadTransactions()
-  } catch {}
+  await Promise.allSettled([
+    loadTransactions(),
+    loadSelectedCalendar(),
+    simulation.hydrateConfirmed(),
+  ])
 })
 </script>
 
@@ -365,12 +398,18 @@ onMounted(async () => {
         <small>수입 − 지출</small>
       </article>
     </div>
-    <p v-if="financeState.loading && !financeState.loaded" class="finance-state">
-      거래 내역을 불러오는 중이에요.
+    <p
+      v-if="(calendarState.loading && !calendarState.loaded) || (financeState.loading && !financeState.loaded)"
+      class="finance-state"
+    >
+      재정 데이터를 불러오는 중이에요.
     </p>
-    <p v-else-if="financeState.error" class="finance-state finance-state--error">
-      {{ financeState.error }}
-      <button type="button" @click="loadTransactions(true)">다시 시도</button>
+    <p
+      v-else-if="calendarState.error || financeState.error"
+      class="finance-state finance-state--error"
+    >
+      {{ calendarState.error || financeState.error }}
+      <button type="button" @click="reloadFinanceData">다시 시도</button>
     </p>
     <div class="desktop-add-row">
       <button class="add-btn" @click="openAdd">＋ 거래 추가</button>
@@ -557,6 +596,7 @@ onMounted(async () => {
         :target-months="simulation.targetMonths"
         :current-months="simulation.currentMonths"
         :expected-months="simulation.expectedMonths"
+        :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []"
         :unknown="!simulation.state.confirmed"
       />
       <p class="timeline-note">

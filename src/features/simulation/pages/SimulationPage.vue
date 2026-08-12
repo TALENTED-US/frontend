@@ -191,14 +191,25 @@ onMounted(async () => {
       </article>
     </section>
 
-    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline"><h2>월별 재정 타임라인</h2><SimulationTimelineChart :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="simulation.currentMonths" :expected-months="simulation.expectedMonths" /></article>
-
     <section class="sim-report">
       <h2>현재 재정 리포트</h2>
       <div class="sim-report-grid">
         <article><span>총자산</span><strong>{{ manwon(simulation.totalAssets) }}</strong></article><article><span>월평균 수입</span><strong>{{ manwon(simulation.monthlyIncome) }}</strong></article><article><span>월평균 지출</span><strong>{{ manwon(simulation.monthlyExpense) }}</strong></article><article><span>순현금흐름</span><strong>{{ simulation.monthlyIncome - simulation.monthlyExpense > 0 ? '+' : '' }}{{ manwon(simulation.monthlyIncome - simulation.monthlyExpense) }}</strong></article>
       </div>
     </section>
+
+    <article v-if="simulation.state.confirmed" class="sim-card sim-timeline">
+      <h2>월별 재정 타임라인</h2>
+      <SimulationTimelineChart
+        :assets="simulation.availableAssets"
+        :monthly-expense="simulation.monthlyExpense"
+        :monthly-income="simulation.monthlyIncome"
+        :target-months="simulation.targetMonths"
+        :current-months="simulation.currentMonths"
+        :expected-months="simulation.expectedMonths"
+        :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []"
+      />
+    </article>
 
     <button v-if="simulation.state.confirmed" class="simulation-create-new-bottom" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
 

@@ -8,7 +8,6 @@ import {
   setUnauthorizedHandler,
 } from '@/api/client'
 import {
-  createEmploymentPreparationApi,
   getEmploymentPreparationApi,
   getMyProfileApi,
   getMyProfileSummaryApi,
@@ -18,6 +17,8 @@ import {
 } from '@/api/user'
 import { mockCredentials, myData, user } from '@/data/mockData'
 import { normalizeButtieProgression, useProgressionStore } from '@/stores/progression'
+import { clearCalendar } from '@/features/finance/calendarStore'
+import { clearTransactions } from '@/features/finance/financeStore'
 
 const AUTH_KEY = 'buttie-auth'
 const API_PROFILE_KEY = 'buttie-api-profile'
@@ -122,6 +123,8 @@ export const useSessionStore = defineStore('session', () => {
     sessionStorage.removeItem(AUTH_KEY)
     sessionStorage.removeItem(API_PROFILE_KEY)
     setAccessToken('')
+    clearCalendar()
+    clearTransactions()
   }
 
   function handleUnauthorized() {
@@ -252,13 +255,7 @@ export const useSessionStore = defineStore('session', () => {
       familyCount: Number(profile.family),
     }
 
-    if (!isMockMode) {
-      if (currentUser.value.employmentPreparationRegistered === false) {
-        await createEmploymentPreparationApi(payload)
-      } else {
-        await updateEmploymentPreparationApi(payload)
-      }
-    }
+    if (!isMockMode) await updateEmploymentPreparationApi(payload)
 
     updateProfile({
       ...profile,
