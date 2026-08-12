@@ -63,6 +63,17 @@ onMounted(async () => {
 
 async function startSimulation() {
   if (!startDate.value || !endDate.value || endDate.value <= startDate.value) return
+
+  // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
+  // 먼저 Draft로 되돌려 새 시뮬레이션 생성 요청(409)을 방지한다.
+  const confirmed = await simulation.hydrateConfirmed()
+  if (confirmed) {
+    const reverted = await simulation.revertConfirmedScenario()
+    if (!reverted) return
+  } else if (simulation.syncError) {
+    return
+  }
+
   simulation.prepareNewScenario()
   simulation.state.startDate = startDate.value
   simulation.state.endDate = endDate.value
@@ -182,7 +193,6 @@ async function confirm() {
     </template>
 
     <template v-else>
-      <button class="sim-back" type="button" @click="router.push('/simulation/policy/preview')">‹ 입력 내용 수정</button>
       <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
       <p class="sim-subtitle">항목을 눌러 각 단계로 돌아가 수정할 수 있어요.</p>
 
@@ -205,9 +215,19 @@ async function confirm() {
       <div class="final-result"><span>예상 버티는 기간</span><p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ simulation.expectedMonths }}개월</strong></p><em>+{{ simulation.addedMonths }}개월 연장</em></div>
       <p class="api-notice neutral">확정하면 이 계획을 기준으로 퀘스트가 생성됩니다.</p>
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
-      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing" type="button" @click="confirm">
-        {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기 →' }}
-      </button>
+      <div class="wizard-actions confirm-actions">
+        <button
+          class="sim-text-button confirm-back-button"
+          type="button"
+          aria-label="입력 내용 수정"
+          @click="router.push('/simulation/policy/preview')"
+        >
+          ‹
+        </button>
+        <button class="sim-btn sim-btn--yellow" :disabled="simulation.syncing" type="button" @click="confirm">
+          {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기 →' }}
+        </button>
+      </div>
     </template>
   </section>
 </template>
@@ -293,7 +313,7 @@ async function confirm() {
 .report-preview__period > span {
   grid-column: 1 / -1;
   color: #555d6c;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .report-preview__period p {
@@ -342,7 +362,7 @@ async function confirm() {
 
 .report-preview__charts figcaption {
   margin-bottom: 6px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -373,7 +393,7 @@ async function confirm() {
 }
 
 .preview-text {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -398,7 +418,7 @@ async function confirm() {
   justify-items: center;
   gap: 5px;
   color: #89909d;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .preview-bar i {
@@ -421,6 +441,53 @@ async function confirm() {
     padding-bottom: 48px;
   }
 
+  .sim-flow-confirm .edit-summary h2 {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .sim-flow-confirm .confirm-back-button {
+    color: #222;
+    font-size: 24px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .sim-flow-confirm .edit-summary header button {
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .sim-flow-confirm .edit-summary > p,
+  .sim-flow-confirm .edit-summary > p strong {
+    font-size: var(--type-item-size);
+    font-weight: var(--type-item-weight);
+  }
+
+  .sim-flow-confirm .edit-summary > .empty-row {
+    font-size: var(--type-empty-size) !important;
+    font-weight: var(--type-empty-weight);
+  }
+
+  .sim-flow-confirm .final-result > span {
+    font-size: 13px;
+    font-weight: 400;
+  }
+
+  .sim-flow-confirm .final-result del {
+    font-size: 14px;
+  }
+
+  .sim-flow-confirm .final-result strong {
+    font-size: var(--type-result-size);
+    font-weight: var(--type-result-weight);
+  }
+
+  .sim-flow-confirm .final-result em {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
   .sim-flow-continue .resume-hero {
     min-height: min(58vh, 560px);
   }
@@ -438,6 +505,10 @@ async function confirm() {
   .report-preview__period em {
     font-size: 10px;
     font-weight: 700;
+  }
+
+  .report-preview__period > span {
+    font-size: 12px;
   }
 
   .report-preview__period {
@@ -468,13 +539,13 @@ async function confirm() {
   }
 
   .report-preview__charts figcaption {
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
   }
 
   .preview-text,
   .preview-bar {
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
   }
 }
@@ -499,6 +570,12 @@ async function confirm() {
 }
 
 @media (min-width: 768px) {
+  .sim-flow-confirm > .confirm-actions {
+    grid-column: 1 / -1;
+    width: min(100%, 540px);
+    justify-self: center;
+  }
+
   .sim-wizard.sim-flow-categories {
     display: block;
     width: min(100%, 1120px);
@@ -525,7 +602,7 @@ async function confirm() {
 
   .sim-flow-categories > .sim-subtitle {
     margin-top: 4px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .sim-flow-categories > .buttie-transition {

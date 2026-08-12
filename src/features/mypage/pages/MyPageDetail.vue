@@ -861,7 +861,8 @@ function clearMockData() {
 .security-card h2,
 .devices-card h2,
 .accounts-card h2 {
-  font-size: var(--font-body);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .password-button {
   width: 100%;
@@ -979,7 +980,8 @@ function clearMockData() {
   color: #ff5e61;
 }
 .delete-data h2 {
-  font-size: var(--font-body);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .delete-data p {
   margin-top: 4px;
@@ -1217,7 +1219,8 @@ function clearMockData() {
     margin-top: 14px;
   }
   .devices-card h2 {
-    font-size: var(--font-body);
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
   .device-row {
     min-height: 65px;

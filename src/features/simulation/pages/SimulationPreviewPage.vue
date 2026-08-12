@@ -110,6 +110,11 @@ const arrowPath = (before, after) => {
 }
 
 @media (max-width: 767px) {
+  .preview-page > .wizard-progress-tabs {
+    top: 64px;
+    margin-top: -10px;
+  }
+
   .preview-page > .wizard-progress-tabs span {
     font-size: 12px;
   }

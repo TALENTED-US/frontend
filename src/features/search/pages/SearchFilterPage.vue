@@ -121,16 +121,16 @@ function applyFilters() {
 
     <footer>
       <button type="button" @click="reset">초기화</button>
-      <button type="button" @click="applyFilters">선택한 조건으로 검색하기</button>
+      <button type="button" @click="applyFilters">선택한 조건으로 정책 보기</button>
     </footer>
   </section>
 </template>
 
 <style scoped>
 .filter-page { padding-bottom: 5px; }
-.filter-back { color: #222; font-size: var(--font-section-title); font-weight: 900; }
-.filter-page > p { margin-top: 5px; color: #777; font-size: var(--font-small); }
-.filter-tip { margin-top: 18px; padding: 13px 18px; border-radius: 10px; background: var(--accent); box-shadow: var(--shadow-figma); color: #222; font-size: var(--font-small); }
+.filter-back { color: #222; font-size: var(--type-page-title-size); font-weight: var(--type-page-title-weight); }
+.filter-page > p { margin-top: 5px; color: var(--type-supporting-color); font-size: var(--type-supporting-size); font-weight: var(--type-supporting-weight); }
+.filter-tip { margin-top: 18px; padding: 13px 18px; border-radius: 10px; background: var(--accent); box-shadow: var(--shadow-figma); color: #222; font-size: var(--type-supporting-size); font-weight: var(--type-supporting-weight); }
 .filter-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 25px 45px; margin-top: 27px; }
 .filter-groups section { display: grid; gap: 11px; align-content: start; }
 .group-0 { grid-column: 1; grid-row: 1; }
@@ -142,26 +142,26 @@ function applyFilters() {
 .group-5 { grid-column: 2; grid-row: 2; }
 .group-6 { grid-column: 2; grid-row: 3; }
 .group-7 { grid-column: 2; grid-row: 4; }
-.filter-groups h2 { color: #222; font-size: var(--font-body); }
+.filter-groups h2 { color: #222; font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); }
 .filter-groups section > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.filter-groups button { min-width: 88px; padding: 8px 15px; border: 1px solid #eceef3; border-radius: 999px; background: white; box-shadow: var(--shadow-figma); color: #555; font-size: var(--font-caption); }
-.filter-groups button.active { border-color: #f1b94c; background: var(--accent); color: #222; font-weight: 800; }
+.filter-groups button { min-width: 88px; padding: 8px 15px; border: 1px solid #eceef3; border-radius: 999px; background: white; box-shadow: var(--shadow-figma); color: #555; font-size: var(--type-item-size); font-weight: 600; }
+.filter-groups button.active { border-color: #f1b94c; background: var(--accent); color: #222; font-weight: var(--type-item-weight); }
 .amount-filter input { min-width: 260px; flex: 1; accent-color: var(--accent-strong); }
-.amount-filter strong { flex: none; color: #222; font-size: var(--font-caption); }
+.amount-filter strong { flex: none; color: #222; font-size: var(--type-meta-size); font-weight: var(--type-meta-weight); }
 .filter-page > footer { position: sticky; bottom: 0; display: grid; grid-template-columns: 120px 1fr; gap: 20px; margin-top: 55px; padding: 14px 0; background: var(--background); }
-.filter-page > footer button { min-height: 50px; color: #777; font-size: var(--font-small); }
-.filter-page > footer button:last-child { border-radius: 11px; background: var(--accent); box-shadow: var(--shadow-figma); color: #222; font-weight: 800; }
+.filter-page > footer button { min-height: 50px; color: #666; font-size: var(--type-action-size); font-weight: var(--type-action-weight); }
+.filter-page > footer button:last-child { border-radius: 11px; background: var(--accent); box-shadow: var(--shadow-figma); color: #222; font-size: var(--type-primary-action-size); font-weight: var(--type-primary-action-weight); }
 
 @media (max-width: 767px) {
   .filter-page { padding-top: 5px; padding-bottom: 74px; }
-  .filter-back { color: #222; font-size: var(--font-card-title); }
-  .filter-page > p { font-size: var(--font-caption); }
-  .filter-tip { margin-top: 16px; background: var(--accent); font-size: var(--font-caption); }
+  .filter-back { color: #222; font-size: var(--type-page-title-size); }
+  .filter-page > p { font-size: var(--type-supporting-size); }
+  .filter-tip { margin-top: 16px; background: var(--accent); font-size: var(--type-supporting-size); }
   .filter-groups { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 20px; }
   .filter-groups section { gap: 9px; }
   .filter-groups section[class] { grid-column: 1; grid-row: auto; }
-  .filter-groups h2 { color: #222; font-size: var(--font-body); }
-  .filter-groups button { min-width: 0; padding: 8px 14px; font-size: var(--font-caption); }
+  .filter-groups h2 { color: #222; font-size: var(--type-section-title-size); }
+  .filter-groups button { min-width: 0; padding: 8px 14px; font-size: var(--type-item-size); }
   .filter-groups button.active { border-color: #f4bf40; background: var(--accent); color: #222; }
   .amount-filter { grid-row: 6 !important; }
   .amount-filter input { min-width: 0; }

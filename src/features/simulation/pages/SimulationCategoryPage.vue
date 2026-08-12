@@ -575,7 +575,7 @@ function skip() {
 }
 
 .expense-category-tabs button.active {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .sim-category-page .expense-target-info > strong {
@@ -588,9 +588,15 @@ function skip() {
   font-size: 14px;
 }
 
+.expense-target-editor > label > span,
+.expense-target-editor label b {
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .expense-target-editor input::placeholder {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .expense-target-editor input,
@@ -893,6 +899,11 @@ function skip() {
     margin-top: -10px;
   }
 
+  .sim-category-page .policy-selected-empty {
+    font-size: var(--type-empty-size);
+    font-weight: var(--type-empty-weight);
+  }
+
   .sim-category-page .added-expense-goals .expense-goal-controls > span > button {
     font-size: 12px !important;
   }
@@ -901,16 +912,83 @@ function skip() {
     font-size: 13px;
   }
 
-  .sim-category-page .added-expense-goals .section-heading h2 {
-    font-size: 16px;
+  .sim-category-page .added-expense-goals .section-heading h2,
+  .sim-category-page .added-income-plans .section-heading h2,
+  .sim-category-page .policy-selected-heading h2 {
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
 
-  .sim-category-page .added-expense-goals .section-heading > span {
-    font-size: 12px;
+  .sim-category-page .added-expense-goals .section-heading > span,
+  .sim-category-page .added-income-plans .section-heading > span,
+  .sim-category-page .policy-selected-heading > span,
+  .sim-category-page .policy-catalog-heading > span {
+    font-size: var(--type-meta-size);
+    font-weight: var(--type-meta-weight);
   }
 
   .sim-category-page .added-expense-goals article > strong {
+    font-size: var(--type-item-size);
+    font-weight: var(--type-item-weight);
+  }
+
+  .sim-category-page .added-income-plans article > div:nth-child(2) > strong,
+  .sim-category-page .policy-selected-list article strong {
+    font-size: var(--type-item-size);
+    font-weight: var(--type-item-weight);
+  }
+
+  .sim-category-page .policy-catalog-list h2 {
+    font-size: var(--type-item-size);
+    font-weight: var(--type-item-weight);
+  }
+
+  .sim-category-page .added-income-plans .income-plan-controls > strong {
+    font-size: 13px;
+  }
+
+  .sim-category-page .income-plan-form label,
+  .sim-category-page .income-plan-form legend {
+    font-size: var(--type-field-label-size);
+    font-weight: var(--type-field-label-weight);
+  }
+
+  .sim-category-page .income-form-heading strong::after {
+    font-size: var(--type-field-label-size);
+    font-weight: var(--type-field-label-weight);
+  }
+
+  .sim-category-page input.income-field,
+  .sim-category-page .income-money-field input,
+  .sim-category-page .income-money-field b {
     font-size: 14px;
+    font-weight: 700;
+  }
+
+  .sim-category-page .income-money-field input,
+  .sim-category-page .income-plan-form fieldset button,
+  .sim-category-page .income-name-field input.income-field,
+  .sim-category-page input.income-field[type='date'],
+  .sim-category-page select.income-field {
+    font-size: var(--type-input-size);
+    font-weight: var(--type-input-weight);
+  }
+
+  .sim-category-page .added-expense-goals footer,
+  .sim-category-page .added-expense-goals footer strong,
+  .sim-category-page .added-income-plans footer,
+  .sim-category-page .added-income-plans footer strong,
+  .sim-category-page .policy-selected-card footer p,
+  .sim-category-page .policy-selected-card footer span,
+  .sim-category-page .policy-selected-card footer strong {
+    font-size: var(--type-total-size);
+    font-weight: var(--type-total-weight);
+  }
+
+  .sim-category-page .policy-selected-card footer p,
+  .sim-category-page .policy-selected-card footer span,
+  .sim-category-page .policy-selected-card footer strong {
+    color: #222222 !important;
   }
 
   .expense-analysis-total > span {
@@ -957,9 +1035,21 @@ function skip() {
   }
 
   .policy-filter-button,
+  .sim-category-page > .sim-btn.wide {
+    font-size: 17px;
+    font-weight: 800;
+  }
+
   .policy-selected-list article button,
   .policy-catalog-list button {
-    font-size: 17px;
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .policy-section-heading h2,
+  .policy-selected-heading h2,
+  .policy-catalog-heading h2 {
+    font-size: 16px;
     font-weight: 800;
   }
 
@@ -969,7 +1059,7 @@ function skip() {
   .policy-selected-card footer strong,
   .policy-catalog-list article > strong {
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 700;
   }
 }
 

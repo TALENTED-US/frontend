@@ -575,26 +575,25 @@ const targetMonthText = computed(() =>
 
     <section class="summary">
       <div class="section-head">
-        <h2>재정 요약</h2>
+        <h2>현재 재정 리포트</h2>
         <RouterLink to="/finance">전체 내역 <span>›</span></RouterLink>
       </div>
-      <div class="summary__grid">
-        <article class="summary-card summary-card--asset">
-          <span>총 자산</span>
+      <div class="dashboard-report__grid">
+        <article>
+          <span>총자산</span>
           <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
-          <small>연결 계좌 기준</small>
         </article>
-        <article class="summary-card summary-card--income">
-          <span>↗ 최근 3개월 월평균 수입</span>
-          <strong>{{ formatWon(monthlyIncome, { sign: true }) }}</strong>
+        <article>
+          <span>월평균 수입</span>
+          <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
         </article>
-        <article class="summary-card summary-card--expense">
-          <span>↘ 최근 3개월 월평균 지출</span>
-          <strong>{{ formatWon(-monthlyExpense) }}</strong>
+        <article>
+          <span>월평균 지출</span>
+          <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
         </article>
-        <article class="summary-card summary-card--cash">
-          <span>월평균 순현금흐름<small>(수입-지출)</small></span>
-          <strong>{{ formatWon(netCashFlow) }}</strong>
+        <article>
+          <span>순현금흐름</span>
+          <strong>{{ formatSignedCompactWon(netCashFlow) }}</strong>
         </article>
       </div>
     </section>
@@ -955,14 +954,16 @@ const targetMonthText = computed(() =>
 }
 
 .dashboard__heading h1 {
-  font-size: var(--font-page-title);
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
   line-height: 1.35;
 }
 
 .dashboard__heading p {
   margin-top: 8px;
-  color: var(--muted);
-  font-size: var(--font-small);
+  color: var(--type-supporting-color);
+  font-size: var(--type-supporting-size);
+  font-weight: var(--type-supporting-weight);
 }
 
 .dashboard-api-notice {
@@ -991,7 +992,8 @@ const targetMonthText = computed(() =>
 
 .section-label {
   margin-bottom: 7px;
-  font-size: var(--font-body);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .survival-card {
@@ -1224,16 +1226,59 @@ const targetMonthText = computed(() =>
 
 .section-head h2,
 .block-title {
-  font-size: var(--font-card-title);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .section-head a {
   color: #555;
-  font-size: var(--font-small);
+  font-size: 15px;
+  font-weight: var(--type-action-weight);
 }
 
 .section-head a span {
   margin-left: 3px;
+}
+
+.dashboard-report__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.dashboard-report__grid article {
+  display: grid;
+  min-height: 92px;
+  align-content: center;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #dfe8ff;
+}
+
+.dashboard-report__grid article:nth-child(2) {
+  background: #e7faf2;
+}
+
+.dashboard-report__grid article:nth-child(3) {
+  background: #ffeff0;
+}
+
+.dashboard-report__grid article:nth-child(4) {
+  background: #f2effb;
+}
+
+.dashboard-report__grid span {
+  color: #657086;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dashboard-report__grid strong {
+  color: #394760;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .summary__grid {
@@ -1462,8 +1507,8 @@ const targetMonthText = computed(() =>
 }
 
 .block-heading h2 {
-  font-size: var(--font-section-title);
-  font-weight: 800;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .confirmed-badge {
@@ -2044,7 +2089,9 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__message p {
-    font-size: var(--font-small);
+    color: var(--type-supporting-color);
+    font-size: var(--type-supporting-size);
+    font-weight: var(--type-supporting-weight);
     line-height: 1.55;
   }
 
@@ -2064,7 +2111,18 @@ const targetMonthText = computed(() =>
 
   .section-head h2,
   .block-title {
-    font-size: var(--font-body);
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+  }
+
+  .dashboard-report__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard-report__grid article {
+    min-height: 82px;
+    padding: 13px;
   }
 
   .summary__grid {
@@ -2177,7 +2235,8 @@ const targetMonthText = computed(() =>
   }
 
   .block-heading h2 {
-    font-size: 22px;
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
 
   .confirmed-badge {

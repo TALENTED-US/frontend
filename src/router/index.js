@@ -109,7 +109,7 @@ router.afterEach((to) => {
     simulation: '시뮬레이션',
     simulationEdit: '시뮬레이션 수정하기',
     timeline: '타임라인',
-    search: '검색',
+    search: '정책',
     notifications: '알림함',
     mypage: '마이페이지',
     login: '로그인',

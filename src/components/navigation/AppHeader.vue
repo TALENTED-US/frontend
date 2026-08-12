@@ -25,7 +25,7 @@ const titles = {
   simulationPreview: '예상 재정 계획 만들기',
   simulationConfirm: '시나리오 확정하기',
   timeline: '내 재정',
-  search: '검색',
+  search: '정책',
   searchFilter: '정책 상세 필터',
   notifications: '알림',
   mypage: '마이페이지',
@@ -336,7 +336,7 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
   }
   .app-header__title {
     color: var(--text);
-    font-size: var(--font-body);
+    font-size: 17px;
     font-weight: 900;
   }
   .header-chip {

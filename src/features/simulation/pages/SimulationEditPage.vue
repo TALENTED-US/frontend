@@ -112,7 +112,7 @@ async function createNewSimulation() {
       <div><span>현재 버티는 기간</span><strong>{{ simulation.currentMonths }}<small>개월</small></strong></div>
       <div><span>예상 버티는 기간</span><strong>{{ simulation.expectedMonths }}<small>개월</small></strong></div>
       <p class="simulation-edit-increase">증가 기간: +{{ simulation.addedMonths }}개월</p>
-      <p v-if="recurringBenefit || oneTimeBenefit" class="simulation-edit-benefit">
+      <p class="simulation-edit-benefit">
         반영 혜택: 월 {{ compactWon(recurringBenefit) }}<template v-if="oneTimeBenefit"> · 일시 {{ compactWon(oneTimeBenefit) }}</template>
       </p>
     </section>
@@ -261,6 +261,8 @@ async function createNewSimulation() {
   font-weight: 600;
 }
 .simulation-edit-benefit { text-align: right; }
+.simulation-edit-increase { grid-column: 1; }
+.simulation-edit-benefit { grid-column: 2; }
 .simulation-edit-all { width: 100%; min-height: 56px; margin-top: 20px; font-size: 16px; }
 
 .simulation-create-new {
@@ -399,8 +401,10 @@ async function createNewSimulation() {
   .simulation-edit-benefit {
     font-size: 13px;
     font-weight: 600;
-    text-align: left;
   }
+
+  .simulation-edit-increase { text-align: left; }
+  .simulation-edit-benefit { text-align: right; }
 
   .simulation-edit-all,
   .simulation-create-new,
