@@ -8,6 +8,7 @@ import '@/features/simulation/styles/simulation.css'
 const route = useRoute()
 const router = useRouter()
 const simulation = useSimulationStore()
+simulation.restoreConfirmedSnapshot()
 const category = computed(() => route.params.category)
 const meta = computed(() => ({
   expense: { step: 1, label: '지출 줄이기', title: '지출 줄이기로', next: '/simulation/income', delta: `지출 월 ${Math.round(simulation.expenseSaving / 10000)}만원 감소` },
@@ -15,8 +16,10 @@ const meta = computed(() => ({
   policy: { step: 3, label: '정책 혜택', title: '정책 혜택으로', next: '/simulation/confirm', delta: `정책 ${simulation.state.policies.length}개 반영` },
 })[category.value])
 const report = computed(() => simulation.remoteReport || {})
-const beforeMonths = computed(() => Number(report.value.currentPrepMonths ?? simulation.currentMonths).toFixed(1))
-const afterMonths = computed(() => Number(report.value.expectPrepMonths ?? simulation.expectedMonths).toFixed(1))
+// 기간 비교는 확정 시점의 프론트 계산 기준을 사용한다. remoteReport의 기간 값은
+// 서버 계산 기준이 달라 확정 화면과 서로 다른 값(예: 15.0 → 68.3)을 만들 수 있다.
+const beforeMonths = computed(() => Number(simulation.currentMonths).toFixed(1))
+const afterMonths = computed(() => Number(simulation.expectedMonths).toFixed(1))
 const extension = computed(() => Math.max(0, Number(afterMonths.value) - Number(beforeMonths.value)).toFixed(1))
 const cashflow = computed(() => report.value.cashflow || {
   beforeMonthlyIncome: simulation.monthlyIncome,

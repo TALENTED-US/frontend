@@ -51,8 +51,8 @@ async function loadButtieDashboard() {
 
 onMounted(async () => {
   await loadButtieDashboard()
-  await simulation.hydrateConfirmed()
-  if (simulation.state.confirmed) await quests.fetchQuests()
+  const confirmed = await simulation.hydrateConfirmed()
+  if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
   loadTransactions().catch(() => {
     // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
   })
@@ -207,7 +207,16 @@ const recentFinancialAnalysis = computed(() =>
 )
 const monthlyExpense = computed(() => recentFinancialAnalysis.value.monthlyExpense)
 const monthlyIncome = computed(() => recentFinancialAnalysis.value.monthlyIncome)
+const hasConfirmedSimulationDurations = computed(
+  () =>
+    Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
+    Number.isFinite(Number(simulation.recentConfirmed?.expectedMonths)),
+)
+
 const survivalMonths = computed(() => {
+  if (hasConfirmedSimulationDurations.value) {
+    return Math.max(0, Number(simulation.recentConfirmed.currentMonths))
+  }
   const apiMonths = Number(buttieDashboard.value?.currentPrepMonths)
   if (Number.isFinite(apiMonths)) return Math.max(0, apiMonths)
   return monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0
@@ -218,9 +227,15 @@ const apiExpectedMonths = computed(() => {
   return value === null || value === undefined ? Number.NaN : Number(value)
 })
 const hasConfirmedScenario = computed(
-  () => Number.isFinite(apiExpectedMonths.value) || simulation.state.confirmed,
+  () =>
+    hasConfirmedSimulationDurations.value ||
+    Number.isFinite(apiExpectedMonths.value) ||
+    simulation.state.confirmed,
 )
 const displayedExpectedMonths = computed(() => {
+  if (hasConfirmedSimulationDurations.value) {
+    return Math.max(0, Number(simulation.recentConfirmed.expectedMonths)).toFixed(1)
+  }
   if (Number.isFinite(apiExpectedMonths.value)) return apiExpectedMonths.value.toFixed(1)
   return simulation.state.confirmed ? simulation.expectedMonths.toFixed(1) : '-'
 })

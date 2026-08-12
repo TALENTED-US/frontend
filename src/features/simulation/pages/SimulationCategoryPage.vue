@@ -10,6 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const simulation = useSimulationStore()
 const session = useSessionStore()
+simulation.restoreConfirmedSnapshot()
 const category = computed(() => route.params.category)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
 const goalAmount = (value) =>
@@ -53,6 +54,9 @@ const activeExpense = computed(
 )
 const visibleBreakdown = computed(() => simulation.expenseBreakdown.slice(0, 4))
 const policyCount = computed(() => simulation.state.policies.length)
+const isEditingConfirmedScenario = computed(() =>
+  Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
+)
 
 watch(
   category,
@@ -327,17 +331,19 @@ function skip() {
           <span>지출 절약 합계</span><strong>월 {{ goalAmount(simulation.expenseSaving) }}</strong>
         </footer>
       </section>
-      <div class="wizard-actions">
-        <button class="sim-text-button" @click="skip">건너뛰기</button
-        ><button
-          class="sim-btn sim-btn--yellow"
-          :disabled="!simulation.expenseSaving || simulation.syncing"
-          @click="apply('expense')"
-        >
-          적용하기 →
-        </button>
-      </div>
-    </template>
+     <div class="wizard-actions">
+  <button class="sim-text-button" @click="skip">건너뛰기</button>
+  <button
+    class="sim-btn sim-btn--yellow"
+    :disabled="
+      (!simulation.expenseSaving && !isEditingConfirmedScenario) || simulation.syncing
+    "
+    @click="apply('expense')"
+  >
+    적용하기 →
+  </button>
+</div>
+ </template>
 
     <template v-else-if="category === 'income'">
       <h1 class="wizard-title">수입을 늘릴 계획을 세워보세요</h1>
@@ -422,17 +428,20 @@ function skip() {
           ><span>일시 수입 합계</span><strong>+{{ goalAmount(simulation.oneTimeIncome) }}</strong>
         </footer>
       </section>
-      <div class="wizard-actions">
-        <button class="sim-text-button" @click="skip">건너뛰기</button
-        ><button
-          class="sim-btn sim-btn--yellow"
-          :disabled="!simulation.state.incomes.length || simulation.syncing"
-          @click="apply('income')"
-        >
-          시뮬레이션에 적용
-        </button>
-      </div>
-    </template>
+<div class="wizard-actions">
+  <button class="sim-text-button" @click="skip">건너뛰기</button>
+  <button
+    class="sim-btn sim-btn--yellow"
+    :disabled="
+      (!simulation.state.incomes.length && !isEditingConfirmedScenario) ||
+      simulation.syncing
+    "
+    @click="apply('income')"
+  >
+    시뮬레이션에 적용
+  </button>
+</div>
+ </template>
 
     <template v-else>
       <h1 class="wizard-title">나에게 맞는 정책을 찾아보세요</h1>

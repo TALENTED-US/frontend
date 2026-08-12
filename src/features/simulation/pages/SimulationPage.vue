@@ -97,8 +97,6 @@ async function toggleQuest(item) {
 
 async function start() {
   if (simulation.state.confirmed) {
-    const reverted = await simulation.revertConfirmedScenario()
-    if (!reverted) return
     router.push('/simulation/edit')
     return
   }
@@ -115,9 +113,20 @@ async function createNewSimulation() {
 }
 
 onMounted(async () => {
+  // 확정 직후에는 확인 화면에 표시했던 계산 결과를 그대로 유지한다.
+  // 새로고침/직접 접근처럼 메모리 스냅샷이 없을 때만 서버 결과를 조회한다.
+  simulation.restoreConfirmedSnapshot()
+  if (simulation.state.confirmed && simulation.recentConfirmed) {
+    await quests.fetchQuests(
+      simulation.recentConfirmed.simulationId,
+      simulation.recentConfirmed,
+    )
+    return
+  }
+
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) {
-    await quests.fetchQuests()
+    await quests.fetchQuests(confirmed.simulationId, confirmed)
     return
   }
   quests.resetQuests()
