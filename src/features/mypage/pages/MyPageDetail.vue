@@ -3,7 +3,14 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
-import { clearTransactions } from '@/features/finance/financeStore'
+import { clearTransactions, loadTransactions } from '@/features/finance/financeStore'
+import {
+  disconnectMyDataAsset,
+  loadMyDataCatalog,
+  selectedMyDataAccounts,
+  selectedMyDataCards,
+  syncMyData,
+} from '@/features/mydata/mydataStore'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
 import { useProgressionStore } from '@/stores/progression'
@@ -56,6 +63,8 @@ const profileMessage = ref('')
 const profileMessageError = ref(false)
 const profileSaving = ref(false)
 const dataRefreshMessage = ref('')
+const dataLoading = ref(false)
+const disconnectingAssetId = ref('')
 const withdrawError = ref('')
 const withdrawVerified = ref(false)
 const withdrawSubmitting = ref(false)
@@ -80,7 +89,9 @@ onMounted(async () => {
   const focusTarget = route.query.focus
   if (!['goal-date', 'risk-amount'].includes(focusTarget)) return
   await nextTick()
-  document.getElementById(`${focusTarget}-field`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  document
+    .getElementById(`${focusTarget}-field`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 })
 
 const regions = [
@@ -134,7 +145,9 @@ let savedAccounts = null
 try {
   savedAccounts = JSON.parse(localStorage.getItem('buttie-linked-accounts'))
 } catch {}
-const accounts = ref(Array.isArray(savedAccounts) ? savedAccounts : defaultAccounts)
+const accounts = ref(
+  session.isMockMode ? (Array.isArray(savedAccounts) ? savedAccounts : defaultAccounts) : [],
+)
 const accountGroups = computed(() =>
   ['계좌', '카드'].map((type) => ({
     type,
@@ -148,9 +161,57 @@ watch(
   { deep: true },
 )
 watch(twoFactorEnabled, (value) => localStorage.setItem('buttie-two-factor', String(value)))
-watch(accounts, (value) => localStorage.setItem('buttie-linked-accounts', JSON.stringify(value)), {
-  deep: true,
-})
+if (session.isMockMode) {
+  watch(
+    accounts,
+    (value) => localStorage.setItem('buttie-linked-accounts', JSON.stringify(value)),
+    {
+      deep: true,
+    },
+  )
+}
+
+watch(
+  () => route.name,
+  (name) => {
+    if (name === 'dataManagement' && !session.isMockMode) loadLinkedAssets()
+  },
+  { immediate: true },
+)
+
+function mapLinkedAssets() {
+  accounts.value = [
+    ...selectedMyDataAccounts.value.map((account) => ({
+      id: String(account.accountId),
+      assetType: 'ACCOUNT',
+      type: '계좌',
+      name: `${account.institutionName} ${account.accountName}`.trim(),
+      number: account.accountNumberMasked,
+      amount: `${Number(account.balance || 0).toLocaleString()}원`,
+    })),
+    ...selectedMyDataCards.value.map((card) => ({
+      id: String(card.cardId),
+      assetType: 'CARD',
+      type: '카드',
+      name: `${card.institutionName} ${card.cardName}`.trim(),
+      number: card.cardNumberMasked,
+      amount: '',
+    })),
+  ]
+}
+
+async function loadLinkedAssets() {
+  dataLoading.value = true
+  dataRefreshMessage.value = ''
+  try {
+    await loadMyDataCatalog()
+    mapLinkedAssets()
+  } catch (error) {
+    dataRefreshMessage.value = error.message || '연결된 마이데이터 자산을 불러오지 못했습니다.'
+  } finally {
+    dataLoading.value = false
+  }
+}
 
 function startNicknameEdit() {
   nicknameDraft.value = session.displayName
@@ -229,9 +290,25 @@ function formatDateTime(value) {
     .replace(/\.$/, '')
 }
 
-function refreshMyData() {
-  session.refreshMyData()
-  dataRefreshMessage.value = `마이데이터를 ${formatDateTime(session.myDataLastUpdated)}에 갱신했습니다.`
+async function refreshMyData() {
+  if (session.isMockMode) {
+    session.refreshMyData()
+    dataRefreshMessage.value = `마이데이터를 ${formatDateTime(session.myDataLastUpdated)}에 갱신했습니다.`
+    return
+  }
+
+  dataLoading.value = true
+  dataRefreshMessage.value = ''
+  try {
+    const result = await syncMyData()
+    await loadTransactions(true)
+    session.refreshMyData(result?.lastSyncedAt)
+    dataRefreshMessage.value = `마이데이터를 ${formatDateTime(session.myDataLastUpdated)}에 갱신했습니다. 새 거래 ${result?.insertedTransactionCount || 0}건을 반영했습니다.`
+  } catch (error) {
+    dataRefreshMessage.value = error.message || '마이데이터를 갱신하지 못했습니다.'
+  } finally {
+    dataLoading.value = false
+  }
 }
 
 function resetWithdrawVerification() {
@@ -282,9 +359,25 @@ async function syncAllNotifications(changedKey) {
   if (notificationSettings[changedKey]) await enableDeviceNotifications()
 }
 
-function disconnectAccount(account) {
-  accounts.value = accounts.value.filter((item) => item !== account)
-  dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
+async function disconnectAccount(account) {
+  if (session.isMockMode) {
+    accounts.value = accounts.value.filter((item) => item !== account)
+    dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
+    return
+  }
+
+  if (!window.confirm(`${account.name} 연결을 해제할까요?`)) return
+  disconnectingAssetId.value = `${account.assetType}:${account.id}`
+  dataRefreshMessage.value = ''
+  try {
+    await disconnectMyDataAsset(account.assetType, account.id)
+    accounts.value = accounts.value.filter((item) => item !== account)
+    dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
+  } catch (error) {
+    dataRefreshMessage.value = error.message || '연결을 해제하지 못했습니다.'
+  } finally {
+    disconnectingAssetId.value = ''
+  }
 }
 
 function addMockAccount(type) {
@@ -302,6 +395,30 @@ function clearMockData() {
   clearTransactions()
   localStorage.removeItem('buttie-mydata')
   dataRefreshMessage.value = '거래 내역과 연결된 마이데이터 목 정보를 모두 삭제했습니다.'
+}
+
+async function disconnectAllAssets() {
+  if (session.isMockMode) {
+    clearMockData()
+    return
+  }
+  if (!accounts.value.length) return
+  if (!window.confirm('연결된 계좌와 카드를 모두 해제할까요?')) return
+
+  dataLoading.value = true
+  dataRefreshMessage.value = ''
+  try {
+    for (const account of [...accounts.value]) {
+      await disconnectMyDataAsset(account.assetType, account.id)
+    }
+    accounts.value = []
+    dataRefreshMessage.value = '연결된 금융 자산을 모두 해제했습니다.'
+  } catch (error) {
+    mapLinkedAssets()
+    dataRefreshMessage.value = error.message || '일부 금융 자산의 연결을 해제하지 못했습니다.'
+  } finally {
+    dataLoading.value = false
+  }
 }
 </script>
 
@@ -509,11 +626,20 @@ function clearMockData() {
       <article class="accounts-card">
         <header>
           <h2>마이데이터 연결</h2>
-          <button type="button" @click="refreshMyData">⟳ 새로고침</button>
+          <button type="button" :disabled="dataLoading" @click="refreshMyData">
+            {{ dataLoading ? '갱신 중...' : '⟳ 새로고침' }}
+          </button>
         </header>
+        <p v-if="dataLoading && !accounts.length" class="refresh-status">
+          연결 자산을 불러오는 중...
+        </p>
         <template v-for="group in accountGroups" :key="group.type">
           <p class="account-count">{{ group.type }} · {{ group.rows.length }}</p>
-          <div v-for="account in group.rows" :key="account.name" class="account-row">
+          <div
+            v-for="account in group.rows"
+            :key="`${account.assetType || account.type}:${account.id || account.name}`"
+            class="account-row"
+          >
             <i><AppIcon :name="account.type === '카드' ? 'wallet' : 'briefcase'" :size="17" /></i>
             <span>
               <strong>{{ account.name }}</strong>
@@ -523,9 +649,22 @@ function clearMockData() {
                 ><br />갱신: {{ formatDateTime(session.myDataLastUpdated) }}</small
               >
             </span>
-            <button type="button" @click="disconnectAccount(account)">해제</button>
+            <button
+              type="button"
+              :disabled="disconnectingAssetId === `${account.assetType}:${account.id}`"
+              @click="disconnectAccount(account)"
+            >
+              {{
+                disconnectingAssetId === `${account.assetType}:${account.id}` ? '해제 중' : '해제'
+              }}
+            </button>
           </div>
-          <button class="add-account" type="button" @click="addMockAccount(group.type)">
+          <button
+            v-if="session.isMockMode"
+            class="add-account"
+            type="button"
+            @click="addMockAccount(group.type)"
+          >
             ＋ {{ group.type }} 추가 연결
           </button>
         </template>
@@ -534,9 +673,15 @@ function clearMockData() {
         </p>
       </article>
       <article class="delete-data desktop-only">
-        <h2>⚠ 전체 데이터 삭제</h2>
-        <p>모든 거래 내역, 시뮬레이션, 저장 데이터가 영구 삭제됩니다.</p>
-        <button type="button" @click="clearMockData">데이터 전체 삭제</button>
+        <h2>⚠ 금융 자산 연결 해제</h2>
+        <p>연결한 계좌와 카드의 마이데이터 동기화를 중단합니다.</p>
+        <button
+          type="button"
+          :disabled="dataLoading || !accounts.length"
+          @click="disconnectAllAssets"
+        >
+          전체 연결 해제
+        </button>
       </article>
     </template>
 

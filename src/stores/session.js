@@ -291,12 +291,15 @@ export const useSessionStore = defineStore('session', () => {
     return password === currentPassword.value
   }
 
-  function refreshMyData() {
+  function refreshMyData(lastSyncedAt = new Date().toISOString()) {
     myDataConnected.value = true
-    myDataLastUpdated.value = new Date().toISOString()
+    myDataLastUpdated.value = lastSyncedAt || new Date().toISOString()
+    currentUser.value.mydataStatus = 'CONNECTED'
+    currentUser.value.lastSyncedAt = myDataLastUpdated.value
     myData.connected = myDataConnected.value
     myData.lastUpdated = myDataLastUpdated.value
-    localStorage.setItem('buttie-mydata', JSON.stringify(myData))
+    if (isMockMode) localStorage.setItem('buttie-mydata', JSON.stringify(myData))
+    else persistApiProfile()
   }
 
   setAccessTokenReissueHandler(reissueAccessTokenApi)

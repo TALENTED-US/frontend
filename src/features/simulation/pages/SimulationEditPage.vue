@@ -13,6 +13,7 @@ const toDateInputValue = (value) => {
 const startDate = ref(toDateInputValue(simulation.state.startDate))
 const endDate = ref(toDateInputValue(simulation.state.endDate))
 const periodError = ref('')
+const periodSaving = ref(false)
 const showNewSimulationModal = ref(false)
 
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
@@ -40,12 +41,37 @@ onMounted(async () => {
 })
 
 async function updatePeriod() {
+  if (periodSaving.value) return
   if (!startDate.value || !endDate.value || endDate.value <= startDate.value) {
     periodError.value = '종료일은 시작일보다 뒤여야 해요.'
     return
   }
+
+  const previousStartDate = toDateInputValue(simulation.state.startDate)
+  const previousEndDate = toDateInputValue(simulation.state.endDate)
   periodError.value = ''
-  await simulation.savePeriod(startDate.value, endDate.value)
+  periodSaving.value = true
+
+  try {
+    if (simulation.state.confirmed) {
+      const reverted = await simulation.revertConfirmedScenario()
+      if (!reverted) {
+        periodError.value = simulation.syncError || '시뮬레이션을 수정 상태로 전환하지 못했습니다.'
+        return
+      }
+    }
+
+    const saved = await simulation.savePeriod(startDate.value, endDate.value)
+    if (!saved) {
+      simulation.state.startDate = previousStartDate
+      simulation.state.endDate = previousEndDate
+      startDate.value = previousStartDate
+      endDate.value = previousEndDate
+      periodError.value = simulation.syncError || '시뮬레이션 기간을 저장하지 못했습니다.'
+    }
+  } finally {
+    periodSaving.value = false
+  }
 }
 
 async function editCategory(category) {
@@ -79,10 +105,11 @@ async function createNewSimulation() {
       <h2>시뮬레이션 기간</h2>
       <p>시작일은 오늘, 종료일은 목표 취업일이 기본이에요.</p>
       <div class="simulation-edit-period__grid">
-        <label><span>시작일</span><input v-model="startDate" type="date" aria-label="시뮬레이션 시작일" @change="updatePeriod" /></label>
+        <label><span>시작일</span><input v-model="startDate" type="date" aria-label="시뮬레이션 시작일" :disabled="periodSaving" @change="updatePeriod" /></label>
         <i>~</i>
-        <label><span>종료일</span><input v-model="endDate" type="date" aria-label="시뮬레이션 종료일" @change="updatePeriod" /></label>
+        <label><span>종료일</span><input v-model="endDate" type="date" aria-label="시뮬레이션 종료일" :disabled="periodSaving" @change="updatePeriod" /></label>
       </div>
+      <p v-if="periodSaving" class="api-notice">시뮬레이션 기간을 저장하고 있어요.</p>
       <p v-if="periodError" class="form-error">{{ periodError }}</p>
     </section>
 

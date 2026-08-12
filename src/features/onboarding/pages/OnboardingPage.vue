@@ -1,9 +1,17 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import buttieLoadingImage from '@/assets/images/onboarding/buttie-loading.png'
+import { loadTransactions, setFixed } from '@/features/finance/financeStore'
+import {
+  ensureMyDataConnection,
+  loadMyDataCatalog,
+  mydataState,
+  registerMyDataSelection,
+  syncMyData,
+} from '@/features/mydata/mydataStore'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
@@ -15,7 +23,9 @@ const bankSearch = ref('')
 const selectedBanks = ref([])
 const employmentSubmitting = ref(false)
 const employmentError = ref('')
-let loadingTimer
+const mydataError = ref('')
+const mydataSubmitting = ref(false)
+const fixedSubmitting = ref(false)
 
 const regions = [
   '서울특별시',
@@ -46,93 +56,30 @@ const form = ref({
   minimumLivingFund: '',
 })
 
-const banks = [
-  { name: 'KB국민은행', mark: 'KB' },
-  { name: '신한은행', mark: '신' },
-  { name: '우리은행', mark: '우' },
-  { name: '하나은행', mark: '하' },
-  { name: 'KEB하나은행', mark: 'KEB' },
-]
+const accounts = ref([])
+const cards = ref([])
+const fixedExpenses = ref([])
 
-const accounts = ref([
-  {
-    name: 'KB국민은행 입출금',
-    meta: '****-**-****-2847 · 입출금',
-    amount: 1800000,
-    selected: false,
-    kind: 'account',
-  },
-  {
-    name: 'KB국민은행 적금',
-    meta: '****-**-****-5931 · 예·적금',
-    amount: 1200000,
-    selected: false,
-    kind: 'account',
-  },
-])
-
-const fixedExpenses = ref([
-  {
-    category: '보장',
-    categoryTotal: '4.5만원',
-    color: '#a78bfa',
-    icon: '실',
-    name: '실비보험',
-    day: '매월 5일',
-    amount: 45000,
-    checked: true,
-  },
-  {
-    category: '구독',
-    categoryTotal: '3.2만원',
-    color: '#5973e8',
-    icon: '넷',
-    name: '넷플릭스',
-    day: '매월 14일',
-    amount: 17000,
-    checked: true,
-  },
-  {
-    category: '',
-    categoryTotal: '',
-    color: '#5973e8',
-    icon: '유',
-    name: '유튜브 프리미엄',
-    day: '매월 20일',
-    amount: 14900,
-    checked: false,
-  },
-  {
-    category: '월세',
-    categoryTotal: '50만원',
-    color: '#f0c95d',
-    icon: '월',
-    name: '월세',
-    day: '매월 1일',
-    amount: 500000,
-    checked: true,
-  },
-  {
-    category: '교통',
-    categoryTotal: '5.5만원',
-    color: '#f6a3a3',
-    icon: '정',
-    name: '교통카드 정기권',
-    day: '매월 1일',
-    amount: 55000,
-    checked: true,
-  },
-])
+const banks = computed(() =>
+  mydataState.institutions.map((institution) => ({
+    name: institution.institutionName,
+    mark: institution.institutionName.slice(0, 2),
+    accountCount: Number(institution.accountCount) || 0,
+    cardCount: Number(institution.cardCount) || 0,
+  })),
+)
 
 const filteredBanks = computed(() => {
   const keyword = bankSearch.value.trim().toLowerCase()
-  if (!keyword) return banks
-  return banks.filter((bank) => bank.name.toLowerCase().includes(keyword))
+  if (!keyword) return banks.value
+  return banks.value.filter((bank) => bank.name.toLowerCase().includes(keyword))
 })
 
 const selectedAccountCount = computed(
   () => accounts.value.filter((account) => account.selected).length,
 )
+const selectedCardCount = computed(() => cards.value.filter((card) => card.selected).length)
+const selectedAssetCount = computed(() => selectedAccountCount.value + selectedCardCount.value)
 const hasMinimumLivingFund = computed(() => Number(form.value.minimumLivingFund) >= 1)
 const hasValidEmploymentPreparation = computed(() => {
   const household = Number(form.value.household)
@@ -155,20 +102,20 @@ const selectedBalance = computed(() =>
 )
 
 function createGroupSelection(kind) {
+  const source = kind === 'card' ? cards : accounts
   return computed({
     get: () => {
-      const group = accounts.value.filter((account) => account.kind === kind)
+      const group = source.value
       return group.length > 0 && group.every((account) => account.selected)
     },
     set: (checked) => {
-      accounts.value
-        .filter((account) => account.kind === kind)
-        .forEach((account) => (account.selected = checked))
+      source.value.forEach((account) => (account.selected = checked))
     },
   })
 }
 
 const allAccountsSelected = createGroupSelection('account')
+const allCardsSelected = createGroupSelection('card')
 
 const allFixedChecked = computed({
   get: () => fixedExpenses.value.every((item) => item.checked),
@@ -186,10 +133,7 @@ const selectedFixedTotalLabel = computed(() => {
 
 watch(
   step,
-  (currentStep) => {
-    clearTimeout(loadingTimer)
-    if (currentStep === 4) loadingTimer = setTimeout(() => (step.value = 5), 1500)
-    if (currentStep === 7) loadingTimer = setTimeout(() => (step.value = 8), 1800)
+  () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   },
   { immediate: true },
@@ -203,12 +147,117 @@ watch(
   { deep: true },
 )
 
-onBeforeUnmount(() => clearTimeout(loadingTimer))
-
 function toggleBank(bank) {
   selectedBanks.value = selectedBanks.value.includes(bank)
     ? selectedBanks.value.filter((item) => item !== bank)
     : [...selectedBanks.value, bank]
+}
+
+function hydrateAssets() {
+  const selectedInstitutions = new Set(selectedBanks.value)
+  accounts.value = mydataState.accounts
+    .filter((item) => selectedInstitutions.has(item.institutionName))
+    .map((item) => ({
+      id: String(item.accountId),
+      name: `${item.institutionName} ${item.accountName}`.trim(),
+      meta: `${item.accountNumberMasked} · ${item.accountType || '계좌'}`,
+      amount: Number(item.balance) || 0,
+      selected: true,
+    }))
+  cards.value = mydataState.cards
+    .filter((item) => selectedInstitutions.has(item.institutionName))
+    .map((item) => ({
+      id: String(item.cardId),
+      name: `${item.institutionName} ${item.cardName}`.trim(),
+      meta: `${item.cardNumberMasked} · ${item.cardType || '카드'}`,
+      selected: true,
+    }))
+}
+
+function mapFixedExpenseCandidates() {
+  fixedExpenses.value = mydataState.fixedExpenseCandidates.map((item) => ({
+    id: item.representativeTransactionId,
+    category: item.expenseCategory || '기타',
+    categoryTotal: '',
+    color: '#5973e8',
+    icon: (item.transactionContent || '고').slice(0, 1),
+    name: item.transactionContent || '고정지출 후보',
+    day: `매월 ${item.expectedPaymentDay || '-'}일 · ${item.occurrenceCount || 0}회 감지`,
+    amount: Math.abs(Number(item.expectedAmount) || 0),
+    checked: true,
+  }))
+}
+
+async function connectAndLoadCatalog() {
+  mydataSubmitting.value = true
+  mydataError.value = ''
+  step.value = 4
+  try {
+    if (session.isMockMode) {
+      mydataState.institutions = [{ institutionName: 'KB국민은행', accountCount: 2, cardCount: 1 }]
+      mydataState.accounts = [
+        {
+          accountId: 'mock-account-1',
+          institutionName: 'KB국민은행',
+          accountName: '입출금',
+          accountType: '입출금',
+          accountNumberMasked: '****-**-****-2847',
+          balance: 1800000,
+          isConsent: true,
+        },
+        {
+          accountId: 'mock-account-2',
+          institutionName: 'KB국민은행',
+          accountName: '적금',
+          accountType: '예·적금',
+          accountNumberMasked: '****-**-****-5931',
+          balance: 1200000,
+          isConsent: true,
+        },
+      ]
+      mydataState.cards = []
+    } else {
+      await ensureMyDataConnection()
+      await loadMyDataCatalog()
+    }
+    selectedBanks.value = mydataState.institutions.map((item) => item.institutionName)
+    step.value = 5
+  } catch (error) {
+    mydataError.value = error.message || '마이데이터 금융기관을 불러오지 못했습니다.'
+  } finally {
+    mydataSubmitting.value = false
+  }
+}
+
+async function registerAndSyncAssets() {
+  mydataSubmitting.value = true
+  mydataError.value = ''
+  step.value = 7
+  try {
+    if (session.isMockMode) {
+      mydataState.lastSync = {
+        insertedTransactionCount: 128,
+        lastSyncedAt: new Date().toISOString(),
+      }
+      fixedExpenses.value = []
+      session.refreshMyData(mydataState.lastSync.lastSyncedAt)
+      step.value = 8
+      return
+    }
+    await registerMyDataSelection({
+      accountIds: accounts.value.filter((item) => item.selected).map((item) => item.id),
+      cardIds: cards.value.filter((item) => item.selected).map((item) => item.id),
+    })
+    const syncResult = await syncMyData()
+    await loadTransactions(true)
+    mapFixedExpenseCandidates()
+    session.refreshMyData(syncResult?.lastSyncedAt)
+    step.value = 8
+  } catch (error) {
+    mydataError.value = error.message || '선택한 금융정보를 동기화하지 못했습니다.'
+  } finally {
+    mydataSubmitting.value = false
+  }
 }
 
 function goBack() {
@@ -260,13 +309,27 @@ async function next() {
   if (step.value === 1) {
     if (await saveInitialEmploymentPreparation()) step.value = 2
   } else if (step.value === 2) step.value = 3
-  else if (step.value === 3 && consentChecked.value) step.value = 4
-  else if (step.value === 5 && selectedBanks.value.length) step.value = 6
-  else if (step.value === 6 && selectedAccountCount.value) step.value = 7
+  else if (step.value === 3 && consentChecked.value) await connectAndLoadCatalog()
+  else if (step.value === 5 && selectedBanks.value.length) {
+    hydrateAssets()
+    step.value = 6
+  } else if (step.value === 6 && selectedAssetCount.value) await registerAndSyncAssets()
   else if (step.value === 8) step.value = 9
   else if (step.value === 9) {
-    session.login()
-    router.push('/')
+    fixedSubmitting.value = true
+    mydataError.value = ''
+    try {
+      const ids = selectedFixedExpenses.value.map((item) => item.id).filter(Boolean)
+      if (ids.length && !(await setFixed(ids, true))) {
+        throw new Error('선택한 고정지출을 등록하지 못했습니다.')
+      }
+      session.login()
+      router.push('/')
+    } catch (error) {
+      mydataError.value = error.message || '고정지출을 저장하지 못했습니다.'
+    } finally {
+      fixedSubmitting.value = false
+    }
   }
 }
 </script>
@@ -341,7 +404,9 @@ async function next() {
           </label>
 
           <label class="field-group">
-            <span class="field-label"><AppIcon name="wallet" :size="16" /> 재정 위험 알림 금액</span>
+            <span class="field-label"
+              ><AppIcon name="wallet" :size="16" /> 재정 위험 알림 금액</span
+            >
             <input
               v-model.number="form.minimumLivingFund"
               class="control"
@@ -440,15 +505,25 @@ async function next() {
           <p>계좌와 거래내역을 불러오고 있어요</p>
           <div class="loading-status">
             <div>
-              <i class="status-dot done">✓</i><span>계좌 조회 완료</span><strong>2개</strong>
+              <i class="status-dot done">✓</i><span>마이데이터 인증</span><strong>완료</strong>
             </div>
             <div>
-              <i class="status-dot working" /><span>거래내역 분석 중…</span><strong>128건</strong>
+              <i class="status-dot working" /><span>금융기관 조회 중…</span><strong>연결 중</strong>
             </div>
-            <div><i class="status-dot" /><span>재정 현황 계산</span><strong>대기 중</strong></div>
+            <div><i class="status-dot" /><span>계좌·카드 조회</span><strong>대기 중</strong></div>
           </div>
           <div class="progress-track"><span /></div>
           <small>완료되면 자동으로 다음 화면으로 이동해요</small>
+          <p v-if="mydataError" class="employment-error" role="alert">{{ mydataError }}</p>
+          <button
+            v-if="mydataError"
+            class="primary-cta"
+            type="button"
+            :disabled="mydataSubmitting"
+            @click="connectAndLoadCatalog"
+          >
+            다시 시도
+          </button>
         </div>
       </template>
 
@@ -488,7 +563,10 @@ async function next() {
             <span class="bank-mark">{{ bank.mark }}</span>
             <span class="bank-name">
               <strong>{{ bank.name }}</strong>
-              <small>{{ selectedBanks.includes(bank.name) ? '연결됨' : '연결 가능' }}</small>
+              <small
+                >계좌 {{ bank.accountCount }}개 · 카드 {{ bank.cardCount }}개 ·
+                {{ selectedBanks.includes(bank.name) ? '선택됨' : '연결 가능' }}</small
+              >
             </span>
             <span v-if="selectedBanks.includes(bank.name)" class="round-check">✓</span>
           </button>
@@ -506,18 +584,18 @@ async function next() {
 
       <template v-else-if="step === 6">
         <div class="stage-heading">
-          <h1>계좌 선택</h1>
-          <p>분석에 사용할 계좌를 선택하세요.</p>
+          <h1>금융 자산 선택</h1>
+          <p>분석에 사용할 계좌와 카드를 선택하세요.</p>
         </div>
 
         <div class="asset-section">
           <div class="asset-section__header">
-            <span>계좌 · 2</span>
+            <span>계좌 · {{ accounts.length }}</span>
             <label>전체 선택 <input v-model="allAccountsSelected" type="checkbox" /></label>
           </div>
           <button
-            v-for="account in accounts.filter((item) => item.kind === 'account')"
-            :key="account.name"
+            v-for="account in accounts"
+            :key="account.id"
             class="asset-card"
             :class="{ selected: account.selected }"
             type="button"
@@ -526,16 +604,36 @@ async function next() {
             <span>
               <strong>{{ account.name }}</strong>
               <small>{{ account.meta }}</small>
-              <small class="app-only">갱신 2026-07-15 10:32</small>
             </span>
             <b>{{ account.amount.toLocaleString() }}원</b>
             <i v-if="account.selected" class="round-check">✓</i>
           </button>
         </div>
 
+        <div v-if="cards.length" class="asset-section">
+          <div class="asset-section__header">
+            <span>카드 · {{ cards.length }}</span>
+            <label>전체 선택 <input v-model="allCardsSelected" type="checkbox" /></label>
+          </div>
+          <button
+            v-for="card in cards"
+            :key="card.id"
+            class="asset-card"
+            :class="{ selected: card.selected }"
+            type="button"
+            @click="card.selected = !card.selected"
+          >
+            <span>
+              <strong>{{ card.name }}</strong>
+              <small>{{ card.meta }}</small>
+            </span>
+            <i v-if="card.selected" class="round-check">✓</i>
+          </button>
+        </div>
+
         <p class="selected-balance">총 선택 잔액: {{ selectedBalance.toLocaleString() }}원</p>
-        <button class="primary-cta" type="button" :disabled="!selectedAccountCount" @click="next">
-          <strong>선택 완료 ({{ selectedAccountCount }}개)</strong>
+        <button class="primary-cta" type="button" :disabled="!selectedAssetCount" @click="next">
+          <strong>선택 완료 ({{ selectedAssetCount }}개)</strong>
         </button>
       </template>
 
@@ -546,15 +644,27 @@ async function next() {
           <p>계좌와 거래내역을 불러오고 있어요</p>
           <div class="loading-status">
             <div>
-              <i class="status-dot done">✓</i><span>계좌 조회 완료</span><strong>2개</strong>
+              <i class="status-dot done">✓</i><span>선택 자산 등록</span
+              ><strong>{{ selectedAssetCount }}개</strong>
             </div>
             <div>
-              <i class="status-dot working" /><span>거래내역 분석 중...</span><strong>128건</strong>
+              <i class="status-dot working" /><span>거래내역 동기화 중...</span
+              ><strong>진행 중</strong>
             </div>
             <div><i class="status-dot" /><span>재정 현황 계산</span><strong>대기 중</strong></div>
           </div>
           <div class="progress-track"><span /></div>
           <small>완료되면 자동으로 다음 화면으로 이동해요</small>
+          <p v-if="mydataError" class="employment-error" role="alert">{{ mydataError }}</p>
+          <button
+            v-if="mydataError"
+            class="primary-cta"
+            type="button"
+            :disabled="mydataSubmitting"
+            @click="registerAndSyncAssets"
+          >
+            다시 시도
+          </button>
         </div>
       </template>
 
@@ -566,9 +676,18 @@ async function next() {
             <p>금융 데이터를 성공적으로 불러왔어요.</p>
           </div>
           <div class="completion-summary">
-            <span>총 자산 <strong>3,000,000원</strong></span>
-            <span>연결 계좌 <strong>2개</strong></span>
-            <span>월평균 지출 <strong class="danger">80만원</strong></span>
+            <span
+              >총 자산 <strong>{{ selectedBalance.toLocaleString() }}원</strong></span
+            >
+            <span
+              >연결 자산 <strong>{{ selectedAssetCount }}개</strong></span
+            >
+            <span
+              >가져온 거래
+              <strong class="danger"
+                >{{ mydataState.lastSync?.insertedTransactionCount || 0 }}건</strong
+              ></span
+            >
           </div>
           <button class="primary-cta" type="button" @click="next">
             <strong>고정지출 확인하기 →</strong>
@@ -594,6 +713,9 @@ async function next() {
         </label>
 
         <div class="expense-list">
+          <p v-if="!fixedExpenses.length" class="bottom-helper">
+            반복 결제로 확인된 고정지출 후보가 없어요. 나중에 거래내역에서 직접 등록할 수 있어요.
+          </p>
           <div v-for="item in fixedExpenses" :key="item.name" class="expense-block">
             <div v-if="item.category" class="expense-category">
               <span><i :style="{ background: item.color }" />{{ item.category }}</span>
@@ -611,8 +733,14 @@ async function next() {
           </div>
         </div>
 
-        <button class="primary-cta fixed-cta" type="button" @click="next">
-          <strong>확인 완료하고 홈으로 →</strong>
+        <p v-if="mydataError" class="employment-error" role="alert">{{ mydataError }}</p>
+        <button
+          class="primary-cta fixed-cta"
+          type="button"
+          :disabled="fixedSubmitting"
+          @click="next"
+        >
+          <strong>{{ fixedSubmitting ? '저장 중...' : '확인 완료하고 홈으로 →' }}</strong>
         </button>
         <p class="bottom-helper">체크를 해제한 항목은 고정지출에 반영되지 않아요.</p>
       </template>
