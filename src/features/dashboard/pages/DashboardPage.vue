@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
-import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
@@ -464,24 +463,40 @@ watch(
 const initialAssets = computed(() =>
   Math.max(0, Number(dashboard.initialAssets ?? dashboard.totalAssets) || 0),
 )
-const financialRiskAmount = computed(() => Math.round(initialAssets.value * 0.2))
-const financialStabilityAmount = computed(() =>
-  Math.round(monthlyExpense.value * preparationMonthsValue.value + financialRiskAmount.value),
+const financialRiskAmount = computed(
+  () => Number(currentUser.value.financialRiskAlertAmount) || Math.round(initialAssets.value * 0.2),
 )
 const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
-const targetDateText = computed(() => {
-  const date = targetEmploymentDate.value
-  if (!date) return '-'
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-')
+const monthlyDecrease = computed(() => Math.max(0, -netCashFlow.value))
+const reportBarMaximum = computed(() => Math.max(monthlyIncome.value, monthlyExpense.value, 1))
+const incomeBarWidth = computed(() => (monthlyIncome.value / reportBarMaximum.value) * 100)
+const expenseBarWidth = computed(() => (monthlyExpense.value / reportBarMaximum.value) * 100)
+const reportDepletionMonths = computed(() => {
+  if (monthlyDecrease.value <= 0) return null
+  return Math.max(0, Number(dashboard.totalAssets) || 0) / monthlyDecrease.value
 })
+const displayedReportDepletionMonths = computed(() => reportDepletionMonths.value?.toFixed(1))
 const remainingDurationText = computed(() => {
   if (remainingDays.value <= 0) return '목표일 도달'
   return `${remainingDuration.value.months}개월 ${remainingDuration.value.days}일`
 })
+const targetDateDisplayText = computed(() => {
+  const date = targetEmploymentDate.value
+  return date ? `${date.getFullYear()}년 ${date.getMonth() + 1}월` : '-'
+})
+const preparationProgress = computed(() => {
+  const start = preparationStartDate.value
+  const target = targetEmploymentDate.value
+  if (!start || !target) return 0
+  const total = target.getTime() - start.getTime()
+  if (total <= 0) return 100
+  return Math.min(100, Math.max(0, Math.round(((today.value.getTime() - start.getTime()) / total) * 100)))
+})
+const financialRiskProgress = computed(() =>
+  initialAssets.value > 0
+    ? Math.min(100, Math.max(0, Math.round((financialRiskAmount.value / initialAssets.value) * 100)))
+    : 0,
+)
 const currentMonthText = computed(() => formatMonthLabel(today.value))
 const targetMonthText = computed(() =>
   targetEmploymentDate.value ? formatMonthLabel(targetEmploymentDate.value) : '-',
@@ -619,30 +634,77 @@ const targetMonthText = computed(() =>
       </article>
     </section>
 
-    <section class="summary">
-      <div class="section-head">
-        <h2>현재 재정 리포트</h2>
-        <RouterLink to="/finance">전체 내역 <span>›</span></RouterLink>
-      </div>
-      <div class="dashboard-report__grid">
-        <article>
+    <div class="dashboard-overview">
+      <section class="summary">
+        <div class="section-head">
+          <h2>현재 재정 리포트</h2>
+          <RouterLink to="/finance">전체 내역 <span>›</span></RouterLink>
+        </div>
+        <div class="dashboard-report">
+        <div class="dashboard-report__summary">
+          <article>
           <span>총자산</span>
           <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
+          </article>
+          <article>
+            <span>매달 줄어드는 금액</span>
+            <strong>{{ formatCompactWon(monthlyDecrease) }}</strong>
+          </article>
+        </div>
+        <div class="dashboard-report__bars">
+          <div class="dashboard-report__bar-row dashboard-report__bar-row--income">
+            <div><span>월평균 수입</span><strong>{{ formatCompactWon(monthlyIncome) }}</strong></div>
+            <div class="dashboard-report__track"><i :style="{ width: `${incomeBarWidth}%` }" /></div>
+          </div>
+          <div class="dashboard-report__bar-row dashboard-report__bar-row--expense">
+            <div><span>월평균 지출</span><strong>{{ formatCompactWon(monthlyExpense) }}</strong></div>
+            <div class="dashboard-report__track"><i :style="{ width: `${expenseBarWidth}%` }" /></div>
+          </div>
+        </div>
+        <p class="dashboard-report__notice">
+          <template v-if="displayedReportDepletionMonths === undefined">
+            현재 속도라면 총자산이 줄어들지 않아요
+          </template>
+          <template v-else>
+            지금 속도라면 총자산 {{ formatCompactWon(dashboard.totalAssets) }}은
+            <strong>약 {{ displayedReportDepletionMonths }}개월 뒤</strong> 소진돼요
+          </template>
+        </p>
+        </div>
+      </section>
+
+      <section class="goal-section">
+        <div class="section-head section-head--goal">
+          <h2>목표 정보</h2>
+        </div>
+        <article class="goal-card">
+          <section class="goal-card__item">
+            <header>
+              <span>목표 취업일</span>
+              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'goal-date' } }">수정하기 ›</RouterLink>
+            </header>
+            <strong class="goal-card__value">{{ targetDateDisplayText }}</strong>
+            <div class="goal-card__progress"><i :style="{ width: `${preparationProgress}%` }" /></div>
+            <footer>
+              <span>남은 준비 기간 {{ remainingDurationText }}</span>
+              <span>{{ preparationProgress }}% 경과</span>
+            </footer>
+          </section>
+          <section class="goal-card__item">
+            <header>
+              <span>재정 위험 알림 금액</span>
+              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }">수정하기 ›</RouterLink>
+            </header>
+            <div class="goal-card__amount-row">
+              <strong class="goal-card__value">{{ formatCompactWon(financialRiskAmount) }}</strong>
+              <span>현재 잔액 {{ formatCompactWon(dashboard.totalAssets) }}</span>
+            </div>
+            <div class="goal-card__progress"><i :style="{ width: `${financialRiskProgress}%` }" /></div>
+            <p>잔액이 이 금액에 도달하면 알림을 보내드려요.<br />마이페이지에서 언제든 바꿀 수 있어요.</p>
+          </section>
         </article>
-        <article>
-          <span>월평균 수입</span>
-          <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
-        </article>
-        <article>
-          <span>월평균 지출</span>
-          <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
-        </article>
-        <article>
-          <span>순현금흐름</span>
-          <strong>{{ formatSignedCompactWon(netCashFlow) }}</strong>
-        </article>
-      </div>
-    </section>
+      </section>
+    </div>
 
     <div class="dashboard__bottom">
       <section class="quest-section">
@@ -783,33 +845,6 @@ const targetMonthText = computed(() =>
         </article>
       </section>
 
-      <section>
-        <div class="section-head section-head--goal">
-          <h2>목표 정보</h2>
-        </div>
-        <article class="goal-card">
-          <div>
-            <AppIcon name="calendar" :size="15" />
-            <span>목표 취업일</span>
-            <strong>{{ targetDateText }}</strong>
-          </div>
-          <div>
-            <AppIcon name="clock" :size="15" />
-            <span>남은 준비 기간</span>
-            <strong>{{ remainingDurationText }}</strong>
-          </div>
-          <div>
-            <b class="goal-card__symbol">!</b>
-            <span>재정 위험 금액</span>
-            <strong>{{ formatCompactWon(financialRiskAmount) }}</strong>
-          </div>
-          <div>
-            <b class="goal-card__symbol">◎</b>
-            <span>재정 안정 금액</span>
-            <strong>{{ formatCompactWon(financialStabilityAmount) }}</strong>
-          </div>
-        </article>
-      </section>
     </div>
   </section>
 </template>
@@ -991,7 +1026,7 @@ const targetMonthText = computed(() =>
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #51392e;
+  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
   transition: width 0.25s ease;
 }
 
@@ -1118,17 +1153,17 @@ const targetMonthText = computed(() =>
 }
 
 .survival-card__progress {
-  height: 14px;
+  height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: #f8fafc;
+  background: #fbf7df;
 }
 
 .survival-card__progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #f5a623 0%, #f1b94c 100%);
+  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
   transition: width 0.25s ease;
 }
 
@@ -1269,7 +1304,19 @@ const targetMonthText = computed(() =>
 }
 
 .summary {
+  min-width: 0;
+}
+
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr);
+  align-items: start;
+  gap: 28px;
   margin-top: 32px;
+}
+
+.goal-section {
+  min-width: 0;
 }
 
 .section-head {
@@ -1295,45 +1342,117 @@ const targetMonthText = computed(() =>
   margin-left: 3px;
 }
 
-.dashboard-report__grid {
+.dashboard-report {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 20px;
   margin-top: 10px;
 }
 
-.dashboard-report__grid article {
+.dashboard-report__summary {
   display: grid;
-  min-height: 92px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dashboard-report__summary article {
+  display: grid;
+  min-height: 112px;
   align-content: center;
   gap: 6px;
-  padding: 18px;
-  border-radius: 12px;
-  background: #dfe8ff;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: none !important;
 }
 
-.dashboard-report__grid article:nth-child(2) {
-  background: #e7faf2;
-}
-
-.dashboard-report__grid article:nth-child(3) {
-  background: #ffeff0;
-}
-
-.dashboard-report__grid article:nth-child(4) {
-  background: #f2effb;
-}
-
-.dashboard-report__grid span {
+.dashboard-report__summary span {
   color: #657086;
   font-size: 14px;
   font-weight: 600;
 }
 
-.dashboard-report__grid strong {
+.dashboard-report__summary strong {
+  min-width: 0;
   color: #394760;
-  font-size: 20px;
+  font-size: clamp(16px, 2.2vw, 20px);
   font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-report__bars {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-report__bar-row > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.dashboard-report__bar-row span {
+  position: relative;
+  padding-left: 17px;
+  color: #171717;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.dashboard-report__bar-row span::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f1b94c;
+  content: '';
+  transform: translateY(-50%);
+}
+
+.dashboard-report__bar-row strong {
+  color: #f1b94c;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.dashboard-report__bar-row--expense span::before,
+.dashboard-report__bar-row--expense .dashboard-report__track i {
+  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
+}
+
+.dashboard-report__bar-row--expense strong {
+  color: #f1b94c;
+}
+
+.dashboard-report__track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #fbf7df;
+}
+
+.dashboard-report__track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
+  transition: width 0.25s ease;
+}
+
+.dashboard-report__notice {
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: #fbf7df;
+  color: #555f73;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dashboard-report__notice strong {
+  font-weight: 500;
 }
 
 .summary__grid {
@@ -1507,48 +1626,87 @@ const targetMonthText = computed(() =>
 
 .goal-card {
   display: grid;
-  min-height: 182px;
-  grid-template-columns: 1fr 1fr;
-  gap: 22px 30px;
-  padding: 28px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: white;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.goal-card__item {
+  display: grid;
+  min-height: 0;
+  align-content: start;
+  padding: 24px;
+  border: 1px solid #ebeaeb;
+  border-radius: 22px;
+  background: #fcfdff;
   box-shadow: var(--shadow-sm);
 }
 
-.goal-card > div {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  align-content: center;
+.goal-card__item header,
+.goal-card__item footer,
+.goal-card__amount-row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.goal-card span {
-  color: #676f7b;
-  font-size: var(--font-small);
+.goal-card__item header span,
+.goal-card__item header a,
+.goal-card__item footer span,
+.goal-card__amount-row > span,
+.goal-card__item p {
+  color: var(--type-supporting-color);
+  font-size: var(--type-supporting-size);
+  font-weight: var(--type-supporting-weight);
 }
 
-.goal-card strong {
-  grid-column: 1 / -1;
-  margin-top: 5px;
-  font-size: var(--font-card-title);
+.goal-card__item header a {
+  color: #666;
+  white-space: nowrap;
 }
 
-.goal-card__symbol {
-  display: grid;
-  width: 15px;
-  height: 15px;
-  place-items: center;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  color: #606a7a;
-  font-size: var(--font-caption);
-  line-height: 1;
+.goal-card__value {
+  margin-top: 14px;
+  color: #51392e;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.goal-card__amount-row {
+  align-items: end;
+}
+
+.goal-card__progress {
+  height: 10px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ebeaeb;
+}
+
+.goal-card__progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(81 57 46 / 38%) 0%, rgb(81 57 46 / 70%) 50%, #51392e 100%);
+}
+
+.goal-card__item footer {
+  margin-top: 8px;
+}
+
+.goal-card__item p {
+  margin-top: 12px;
+  line-height: 1.55;
 }
 
 .dashboard__bottom {
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
@@ -1672,7 +1830,7 @@ const targetMonthText = computed(() =>
 }
 
 .quest-completion__track {
-  height: 12px;
+  height: 10px;
   overflow: hidden;
   border-radius: 999px;
   background: #eceef2;
@@ -1684,7 +1842,7 @@ const targetMonthText = computed(() =>
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #f6c34c, #f0a93d);
+  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
   transition: width 0.3s ease;
 }
 
@@ -2097,7 +2255,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__progress {
-    height: 14px;
+    height: 10px;
     background: rgb(241 185 76 / 35%);
   }
 
@@ -2295,7 +2453,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__progress {
-    height: 11px;
+    height: 10px;
   }
 
   .survival-card__character-panel {
@@ -2370,7 +2528,9 @@ const targetMonthText = computed(() =>
     margin-top: 0;
   }
 
-  .summary {
+  .dashboard-overview {
+    grid-template-columns: 1fr;
+    gap: 22px;
     margin-top: 20px;
   }
 
@@ -2384,14 +2544,49 @@ const targetMonthText = computed(() =>
     font-weight: var(--type-section-title-weight);
   }
 
-  .dashboard-report__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .dashboard-report {
+    gap: 14px;
+  }
+
+  .dashboard-report__summary {
+    gap: 9px;
+  }
+
+  .dashboard-report__summary article {
+    min-height: 104px;
+    padding: 14px 16px;
+    border-radius: 15px;
+  }
+
+  .dashboard-report__summary strong {
+    font-size: clamp(15px, 5.6vw, 20px);
+    white-space: nowrap;
+  }
+
+  .dashboard-report__bars {
     gap: 8px;
   }
 
-  .dashboard-report__grid article {
-    min-height: 82px;
-    padding: 13px;
+  .dashboard-report__bar-row > div:first-child {
+    margin-bottom: 4px;
+  }
+
+  .dashboard-report__bar-row span {
+    padding-left: 17px;
+    font-size: 13px;
+  }
+
+  .dashboard-report__bar-row strong {
+    font-size: 18px;
+  }
+
+  .dashboard-report__track {
+    height: 10px;
+  }
+
+  .dashboard-report__notice {
+    padding: 9px 14px;
+    font-size: 12px;
   }
 
   .summary__grid {
@@ -2479,19 +2674,18 @@ const targetMonthText = computed(() =>
   }
 
   .goal-card {
-    min-height: 145px;
-    gap: 16px 12px;
-    padding: 18px 16px;
-    border-radius: 16px;
-    box-shadow: var(--shadow-sm);
+    grid-template-columns: 1fr;
+    gap: 18px;
   }
 
-  .goal-card span {
-    font-size: var(--font-small);
+  .goal-card__item {
+    min-height: 0;
+    padding: 20px;
+    border-radius: 20px;
   }
 
-  .goal-card strong {
-    font-size: var(--font-body);
+  .goal-card__value {
+    font-size: 32px;
   }
 
   .dashboard__bottom {
@@ -2528,7 +2722,7 @@ const targetMonthText = computed(() =>
   }
 
   .quest-completion__track {
-    height: 14px;
+    height: 10px;
   }
 
   .quest-period + .quest-period {
