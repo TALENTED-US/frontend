@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 import AppLayout from '@/layouts/AppLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import AdminLayout from '@/features/admin/layouts/AdminLayout.vue'
@@ -54,9 +55,14 @@ const routes = [
     ],
   },
   {
+    path: '/admin/login',
+    name: 'adminLogin',
+    component: () => import('@/features/admin/pages/AdminLoginPage.vue'),
+  },
+  {
     path: '/admin',
     component: AdminLayout,
-    meta: { requiresAuth: true },
+    meta: { requiresAdminAuth: true },
     children: [
       { path: '', redirect: { name: 'adminDashboard' } },
       { path: 'dashboard', name: 'adminDashboard', component: () => import('@/features/admin/pages/AdminDashboardPage.vue') },
@@ -85,6 +91,9 @@ const router = createRouter({
 
 router.beforeEach((to, from) => {
   const session = useSessionStore()
+  const adminAuth = useAdminAuthStore()
+  if (to.meta.requiresAdminAuth && !adminAuth.isAdminAuthenticated) return { name: 'adminLogin' }
+  if (to.name === 'adminLogin' && adminAuth.isAdminAuthenticated) return { name: 'adminDashboard' }
   if (to.meta.requiresAuth && !session.isAuthenticated) return { name: 'login' }
   if (to.name === 'login' && session.isAuthenticated) return { name: 'dashboard' }
   if (to.name === 'passwordVerification' && from.name !== 'passwordChange') {
@@ -142,6 +151,7 @@ router.afterEach((to) => {
     adminPolicyEdit: '정책 등록·수정',
     adminPolicyHistory: '정책 변경 이력·검수',
     adminLevel: '경험치 및 버티 관리',
+    adminLogin: '관리자 로그인',
   }
   document.title = `${titles[to.name] || to.meta.title || 'Buttie'} | Buttie`
 })

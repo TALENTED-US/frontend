@@ -1,9 +1,9 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useSessionStore } from '@/stores/session'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 
-const session = useSessionStore()
+const adminAuth = useAdminAuthStore()
 const router = useRouter()
 const menuOpen = ref(false)
 const menuAnchor = ref(null)
@@ -14,8 +14,8 @@ function toggleMenu() {
 
 function handleLogout() {
   menuOpen.value = false
-  session.logout()
-  router.push({ name: 'login' })
+  adminAuth.logoutAdmin()
+  router.push({ name: 'adminLogin' })
 }
 
 function closeOnOutsideClick(event) {
@@ -31,7 +31,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
     <div class="admin-header__spacer" />
     <div ref="menuAnchor" class="admin-header__profile">
       <button type="button" class="admin-header__profile-button" @click="toggleMenu">
-        관리자 {{ session.currentUser.name }} ▾
+        관리자 {{ adminAuth.adminUser?.id }} ▾
       </button>
       <div v-if="menuOpen" class="admin-header__menu">
         <button type="button" @click="handleLogout">로그아웃</button>
