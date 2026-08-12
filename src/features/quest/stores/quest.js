@@ -20,6 +20,78 @@ const EXPENSE_ICONS = Object.freeze({
   ETC_EXPENSE: '🧾',
 })
 
+const EXPENSE_CATEGORY_BY_NAME = Object.freeze({
+  '식비': 'FOOD',
+  '교통': 'TRANSPORT',
+  '교통비': 'TRANSPORT',
+  '주거': 'HOUSING',
+  '월세': 'HOUSING',
+  '통신비': 'COMMUNICATION',
+  '구독': 'SUBSCRIPTION',
+  '구독비': 'SUBSCRIPTION',
+  '교육': 'EDUCATION',
+  '교육비': 'EDUCATION',
+  '자격증': 'CERTIFICATE',
+  '자격증 비용': 'CERTIFICATE',
+  '기타': 'ETC_EXPENSE',
+})
+
+function questMatchesPlan(item, plan) {
+  if (!plan) return true
+
+  const category = item?.simulationItemCategory
+  const amount = Number(item?.amount) || 0
+  const matchesRemoteItem = (planItem) =>
+    !planItem.remoteId
+    || !item?.simulationItemId
+    || String(planItem.remoteId) === String(item.simulationItemId)
+
+  if (category === 'EXPENSE') {
+    return (plan.expenses || []).some((expense) =>
+      matchesRemoteItem(expense)
+      && EXPENSE_CATEGORY_BY_NAME[expense.name] === item?.expenseCategory
+      && Number(expense.saving) === amount,
+    )
+  }
+
+  if (category === 'INCOME') {
+    return (plan.incomes || []).some((income) =>
+      matchesRemoteItem(income)
+      && income.name === item?.displayName
+      && Number(income.amount) === amount
+      && (income.type === 'once' ? 'ONCE' : 'MONTHLY') === item?.recurrenceType,
+    )
+  }
+
+  if (category === 'POLICY') {
+    return (plan.policies || []).some((policy) =>
+      matchesRemoteItem(policy)
+      && policy.name === (item?.policyName || item?.displayName),
+    )
+  }
+
+  return false
+}
+
+function dedupeQuests(quests) {
+  const unique = new Map()
+
+  quests.forEach((item) => {
+    const fallbackKey = [
+      item?.simulationItemCategory,
+      item?.expenseCategory,
+      item?.displayName || item?.policyName,
+      item?.amount,
+      item?.recurrenceType,
+    ].join('|')
+    const key = String(item?.simulationItemId || fallbackKey)
+    // 같은 항목으로 퀘스트가 여러 번 생성된 경우 응답의 마지막 항목을 사용한다.
+    unique.set(key, item)
+  })
+
+  return [...unique.values()]
+}
+
 function mapQuestResponse(item) {
   const category = CATEGORY_META[item?.simulationItemCategory] || CATEGORY_META.EXPENSE
   const amount = Number(item?.amount) || 0
@@ -53,6 +125,8 @@ export const useQuestStore = defineStore('quest', () => {
   const error = ref('')
   const pendingIds = ref([])
   const loaded = ref(false)
+  const activeSimulationId = ref('')
+  const activePlan = ref(null)
 
   const rows = computed(() => items.value.map(mapQuestResponse))
 
@@ -60,13 +134,24 @@ export const useQuestStore = defineStore('quest', () => {
     return pendingIds.value.includes(questId)
   }
 
-  async function fetchQuests() {
+  async function fetchQuests(
+    simulationId = activeSimulationId.value,
+    plan = activePlan.value,
+  ) {
     if (!remoteEnabled) return []
     loading.value = true
     error.value = ''
     try {
       const result = await getQuestsApi()
-      items.value = Array.isArray(result) ? result : []
+      const nextSimulationId = String(simulationId || '')
+      activeSimulationId.value = nextSimulationId
+      activePlan.value = plan || null
+      items.value = Array.isArray(result)
+        ? dedupeQuests(result.filter((item) =>
+            (!nextSimulationId || String(item?.simulationId || '') === nextSimulationId)
+            && questMatchesPlan(item, activePlan.value),
+          ))
+        : []
       loaded.value = true
       return items.value
     } catch (requestError) {
@@ -91,6 +176,8 @@ export const useQuestStore = defineStore('quest', () => {
     pendingIds.value = []
     error.value = ''
     loaded.value = false
+    activeSimulationId.value = ''
+    activePlan.value = null
   }
 
   async function toggleQuest(questId) {

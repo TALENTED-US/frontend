@@ -27,17 +27,14 @@ const recurringBenefit = computed(() => simulation.recurringIncome + simulation.
 const oneTimeBenefit = computed(() => simulation.oneTimeIncome + simulation.oneTimePolicy)
 
 onMounted(async () => {
-  if (!simulation.state.confirmed && !simulation.state.draftStarted) await simulation.hydrateConfirmed()
-  if (simulation.state.confirmed) {
-    const reverted = await simulation.revertConfirmedScenario()
-    if (!reverted) {
-      router.replace('/simulation')
-      return
-    }
+  simulation.restoreConfirmedSnapshot()
+
+  if (simulation.state.draftStarted && !simulation.state.confirmed) {
+    await simulation.hydrateDraft()
+  } else if (!simulation.state.confirmed) {
+    await simulation.hydrateConfirmed()
   }
 
-  const data = await simulation.hydrateDraft()
-  if (!data) return
   startDate.value = toDateInputValue(simulation.state.startDate)
   endDate.value = toDateInputValue(simulation.state.endDate)
 })
@@ -51,12 +48,18 @@ async function updatePeriod() {
   await simulation.savePeriod(startDate.value, endDate.value)
 }
 
-function editCategory(category) {
+async function editCategory(category) {
+  if (simulation.state.confirmed) {
+    const reverted = await simulation.revertConfirmedScenario()
+    if (!reverted) return
+  }
   router.push(`/simulation/${category}`)
 }
 
 async function createNewSimulation() {
-  const ok = await simulation.deleteDraftScenario()
+  const ok = simulation.state.confirmed
+    ? await simulation.deleteConfirmedScenario()
+    : await simulation.deleteDraftScenario()
   if (!ok) return
   simulation.prepareNewScenario()
   showNewSimulationModal.value = false
