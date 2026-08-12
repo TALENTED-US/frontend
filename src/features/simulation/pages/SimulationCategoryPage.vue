@@ -332,8 +332,8 @@ function skip() {
         </footer>
       </section>
       <div class="wizard-actions">
-        <button class="sim-text-button" @click="skip">건너뛰기</button
-        ><button
+        <button class="sim-text-button" @click="skip">건너뛰기</button>
+        <button
           class="sim-btn sim-btn--yellow"
           :disabled="
             (!simulation.expenseSaving && !isEditingConfirmedScenario) || simulation.syncing
@@ -429,8 +429,8 @@ function skip() {
         </footer>
       </section>
       <div class="wizard-actions">
-        <button class="sim-text-button" @click="skip">건너뛰기</button
-        ><button
+        <button class="sim-text-button" @click="skip">건너뛰기</button>
+        <button
           class="sim-btn sim-btn--yellow"
           :disabled="
             (!simulation.state.incomes.length && !isEditingConfirmedScenario) ||
