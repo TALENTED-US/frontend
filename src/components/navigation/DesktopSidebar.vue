@@ -8,7 +8,7 @@ const menus = [
   { to: '/', label: '홈' },
   { to: '/finance', label: '내 재정' },
   { to: '/simulation', label: '시뮬레이션' },
-  { to: '/search', label: '검색' },
+  { to: '/search', label: '정책' },
   { to: '/mypage', label: '마이페이지' },
 ]
 
@@ -58,7 +58,7 @@ function isMenuActive(to) {
   padding: 8px 18px;
   border-radius: 9px;
   color: #353535;
-  font-size: var(--font-ui);
+  font-size: 17px;
   line-height: 1.4;
 }
 

@@ -401,6 +401,20 @@ const achievementRate = computed(() => {
 const shortageMonths = computed(() =>
   Math.max(0, remainingMonthsValue.value - survivalMonths.value),
 )
+const displayedShortageMonths = computed(() => shortageMonths.value.toFixed(1))
+const displayedTargetMonths = computed(() => {
+  const months = Math.max(0, remainingMonthsValue.value)
+  return Number.isInteger(months) ? String(months) : months.toFixed(1)
+})
+const survivalCardTitle = computed(() =>
+  shortageMonths.value > 0
+    ? `지금 자금으로는 ${displayedShortageMonths.value}개월이 부족해요`
+    : '지금 자금으로 목표 기간을 채울 수 있어요',
+)
+const survivalCardDescription = computed(
+  () =>
+    `목표 취업 시기까지 ${displayedTargetMonths.value}개월, 버틸 수 있는 기간은 ${displayedSurvivalMonths.value}개월이에요`,
+)
 const financialStatus = computed(() => {
   const apiRisk = buttieDashboard.value?.riskLevel
   const isDanger = apiRisk === 'DANGER' || (!apiRisk && achievementRate.value <= 30)
@@ -540,20 +554,32 @@ const targetMonthText = computed(() =>
     <section class="survival-section" aria-labelledby="survival-title">
       <h2 id="survival-title" class="mobile-only section-label">버티는 기간</h2>
       <article :class="['survival-card', `survival-card--${financialStatus.key}`]">
-        <div class="survival-card__metric survival-card__metric--current">
-          <span>버티는 기간</span>
-          <strong>{{ displayedSurvivalMonths }} <i>개월</i></strong>
-        </div>
+        <header class="survival-card__intro mobile-only">
+          <h3>{{ survivalCardTitle }}</h3>
+          <p>{{ survivalCardDescription }}</p>
+        </header>
 
-        <div class="survival-card__metric survival-card__metric--expected">
-          <span>예상 버티는 기간</span>
-          <strong>{{ displayedExpectedMonths }} <i>개월</i></strong>
-          <small v-if="!hasConfirmedScenario">시뮬레이션하면 확인 가능</small>
-          <small v-else>확정 시나리오 기준</small>
+        <div class="survival-card__metrics">
+          <div class="survival-card__metric survival-card__metric--current">
+            <span>버티는 기간</span>
+            <strong>{{ displayedSurvivalMonths }}<i>개월</i></strong>
+          </div>
+
+          <div class="survival-card__metric survival-card__metric--target mobile-only">
+            <span>목표 취업 시기</span>
+            <strong>{{ displayedTargetMonths }}<i>개월 후</i></strong>
+          </div>
+
+          <div class="survival-card__metric survival-card__metric--expected desktop-only">
+            <span>예상 버티는 기간</span>
+            <strong>{{ displayedExpectedMonths }} <i>개월</i></strong>
+            <small v-if="!hasConfirmedScenario">시뮬레이션하면 확인 가능</small>
+            <small v-else>확정 시나리오 기준</small>
+          </div>
         </div>
 
         <div class="survival-card__progress-area">
-          <b>목표 충족률 {{ achievementRate }}%</b>
+          <b><span>목표 충족률</span><strong>{{ achievementRate }}%</strong></b>
           <div
             class="survival-card__progress"
             role="progressbar"
@@ -570,49 +596,50 @@ const targetMonthText = computed(() =>
           </div>
         </div>
 
-        <div class="survival-card__character">
-          <span class="survival-card__character-halo" aria-hidden="true" />
-          <ButtieImage
-            :src="financialStatus.image"
-            :fallback="financialStatus.fallbackImage"
-            :alt="financialStatus.imageAlt"
-          />
-          <b class="survival-card__level survival-card__level--mobile">Lv.{{ buttieLevel }}</b>
+        <div class="survival-card__character-panel">
+          <div class="survival-card__character">
+            <span class="survival-card__character-halo" aria-hidden="true" />
+            <ButtieImage
+              :src="financialStatus.image"
+              :fallback="financialStatus.fallbackImage"
+              :alt="financialStatus.imageAlt"
+            />
+            <b class="survival-card__level survival-card__level--mobile">Lv.{{ buttieLevel }}</b>
+          </div>
+
+          <p class="survival-card__speech" aria-live="polite">{{ levelMessage }}</p>
+
+          <div class="survival-card__message">
+            <p aria-live="polite">{{ financialStatus.message }}</p>
+            <em>{{ financialStatus.label }}</em>
+          </div>
+
+          <b class="survival-card__level survival-card__level--desktop">Lv.{{ buttieLevel }}</b>
         </div>
-
-        <p class="survival-card__speech" aria-live="polite">{{ levelMessage }}</p>
-
-        <div class="survival-card__message">
-          <p>{{ financialStatus.message }}</p>
-          <em>{{ financialStatus.label }}</em>
-        </div>
-
-        <b class="survival-card__level survival-card__level--desktop">Lv.{{ buttieLevel }}</b>
       </article>
     </section>
 
     <section class="summary">
       <div class="section-head">
-        <h2>재정 요약</h2>
+        <h2>현재 재정 리포트</h2>
         <RouterLink to="/finance">전체 내역 <span>›</span></RouterLink>
       </div>
-      <div class="summary__grid">
-        <article class="summary-card summary-card--asset">
-          <span>총 자산</span>
+      <div class="dashboard-report__grid">
+        <article>
+          <span>총자산</span>
           <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
-          <small>연결 계좌 기준</small>
         </article>
-        <article class="summary-card summary-card--income">
-          <span>↗ 최근 3개월 월평균 수입</span>
-          <strong>{{ formatWon(monthlyIncome, { sign: true }) }}</strong>
+        <article>
+          <span>월평균 수입</span>
+          <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
         </article>
-        <article class="summary-card summary-card--expense">
-          <span>↘ 최근 3개월 월평균 지출</span>
-          <strong>{{ formatWon(-monthlyExpense) }}</strong>
+        <article>
+          <span>월평균 지출</span>
+          <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
         </article>
-        <article class="summary-card summary-card--cash">
-          <span>월평균 순현금흐름<small>(수입-지출)</small></span>
-          <strong>{{ formatWon(netCashFlow) }}</strong>
+        <article>
+          <span>순현금흐름</span>
+          <strong>{{ formatSignedCompactWon(netCashFlow) }}</strong>
         </article>
       </div>
     </section>
@@ -973,14 +1000,16 @@ const targetMonthText = computed(() =>
 }
 
 .dashboard__heading h1 {
-  font-size: var(--font-page-title);
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
   line-height: 1.35;
 }
 
 .dashboard__heading p {
   margin-top: 8px;
-  color: var(--muted);
-  font-size: var(--font-small);
+  color: var(--type-supporting-color);
+  font-size: var(--type-supporting-size);
+  font-weight: var(--type-supporting-weight);
 }
 
 .dashboard-api-notice {
@@ -1009,7 +1038,8 @@ const targetMonthText = computed(() =>
 
 .section-label {
   margin-bottom: 7px;
-  font-size: var(--font-body);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .survival-card {
@@ -1019,6 +1049,11 @@ const targetMonthText = computed(() =>
   border-radius: 28px;
   background: rgb(251 237 176 / 54%);
   box-shadow: none;
+}
+
+.survival-card__metrics,
+.survival-card__character-panel {
+  display: contents;
 }
 
 .survival-card__metric {
@@ -1242,16 +1277,59 @@ const targetMonthText = computed(() =>
 
 .section-head h2,
 .block-title {
-  font-size: var(--font-card-title);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .section-head a {
   color: #555;
-  font-size: var(--font-small);
+  font-size: 15px;
+  font-weight: var(--type-action-weight);
 }
 
 .section-head a span {
   margin-left: 3px;
+}
+
+.dashboard-report__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.dashboard-report__grid article {
+  display: grid;
+  min-height: 92px;
+  align-content: center;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #dfe8ff;
+}
+
+.dashboard-report__grid article:nth-child(2) {
+  background: #e7faf2;
+}
+
+.dashboard-report__grid article:nth-child(3) {
+  background: #ffeff0;
+}
+
+.dashboard-report__grid article:nth-child(4) {
+  background: #f2effb;
+}
+
+.dashboard-report__grid span {
+  color: #657086;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dashboard-report__grid strong {
+  color: #394760;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .summary__grid {
@@ -1480,8 +1558,8 @@ const targetMonthText = computed(() =>
 }
 
 .block-heading h2 {
-  font-size: var(--font-section-title);
-  font-weight: 800;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .confirmed-badge {
@@ -1770,6 +1848,10 @@ const targetMonthText = computed(() =>
   font-weight: 800;
 }
 
+.quest-groups .quest-row__copy > strong {
+  font-weight: 600;
+}
+
 .quest-row__copy small {
   overflow: hidden;
   color: #727985;
@@ -1968,20 +2050,58 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card {
-    min-height: 600px;
+    min-height: 623px;
     border-radius: 28px;
   }
 
-  .survival-card__metric {
-    top: 23px;
-  }
-
-  .survival-card__metric--current {
+  .survival-card__intro {
+    position: absolute;
+    z-index: 3;
+    top: 26px;
+    right: 20px;
     left: 20px;
   }
 
-  .survival-card__metric--expected {
+  .survival-card__intro h3 {
+    max-width: 290px;
+    font-size: var(--type-page-title-size);
+    font-weight: var(--type-page-title-weight);
+    line-height: 1.45;
+  }
+
+  .survival-card__intro p {
+    max-width: 290px;
+    margin-top: 6px;
+    color: var(--type-supporting-color);
+    font-size: var(--type-supporting-size);
+    font-weight: var(--type-supporting-weight);
+    line-height: 1.45;
+  }
+
+  .survival-card__metrics {
+    position: absolute;
+    z-index: 3;
+    top: 155px;
     right: 20px;
+    left: 20px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .survival-card__metric {
+    position: static;
+    min-height: 100px;
+    align-content: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: white;
+  }
+
+  .survival-card__metric--target {
+    justify-items: start;
+    text-align: left;
   }
 
   .survival-card__metric span {
@@ -1989,42 +2109,52 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__metric strong {
-    font-size: var(--font-display);
+    font-size: 28px;
   }
 
   .survival-card__metric i {
-    font-size: var(--font-body);
+    margin-left: 2px;
+    font-size: var(--font-small);
   }
 
   .survival-card__progress-area {
-    top: 106px;
+    top: 282px;
     bottom: auto;
     left: 20px;
     width: calc(100% - 40px);
+  }
+
+  .survival-card__progress-area b {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
   }
 
   .survival-card__progress {
     height: 14px;
   }
 
+  .survival-card__character-panel {
+    position: absolute;
+    z-index: 2;
+    top: 375px;
+    right: 20px;
+    bottom: 27px;
+    left: 20px;
+    display: block;
+    overflow: hidden;
+    border-radius: 20px;
+    background: white;
+  }
+
   .survival-card__character {
-    top: 270px;
-    width: 275px;
-    height: 185px;
+    top: 54px;
+    width: 100%;
+    height: 145px;
   }
 
   .survival-card__speech {
-    top: 185px;
-    right: 20px;
-    left: auto;
-    width: min(260px, calc(100% - 40px));
-    min-height: 70px;
-    padding: 11px 16px;
-    border-radius: 18px;
-  }
-
-  .survival-card__speech::after {
-    left: 35px;
+    display: none;
   }
 
   .survival-card__character-halo {
@@ -2033,15 +2163,12 @@ const targetMonthText = computed(() =>
 
   .survival-card__character img {
     top: 0;
-    width: 275px;
-    height: 185px;
+    width: min(250px, 82%);
+    height: 145px;
   }
 
   .survival-card__level--mobile {
-    display: block;
-    right: 1px;
-    bottom: 9px;
-    min-width: 56px;
+    display: none;
   }
 
   .survival-card__level--desktop {
@@ -2049,27 +2176,34 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__message {
+    position: static;
     display: block;
-    right: 50%;
-    bottom: 25px;
-    left: auto;
-    width: 255px;
-    min-height: 92px;
-    padding: 18px 18px 12px;
-    border-radius: 28px;
-    background: white;
-    transform: translateX(50%);
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    text-align: left;
+    transform: none;
   }
 
   .survival-card__message p {
-    font-size: var(--font-small);
+    position: absolute;
+    right: 18px;
+    bottom: 16px;
+    left: 18px;
+    color: var(--type-supporting-color);
+    font-size: var(--type-supporting-size);
+    font-weight: var(--type-supporting-weight);
     line-height: 1.55;
+    text-align: center;
   }
 
   .survival-card__message em {
+    position: absolute;
+    top: 14px;
+    left: 14px;
     min-width: 55px;
     min-height: 23px;
-    margin-top: 8px;
+    margin-top: 0;
   }
 
   .summary {
@@ -2082,7 +2216,18 @@ const targetMonthText = computed(() =>
 
   .section-head h2,
   .block-title {
-    font-size: var(--font-body);
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+  }
+
+  .dashboard-report__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard-report__grid article {
+    min-height: 82px;
+    padding: 13px;
   }
 
   .summary__grid {
@@ -2195,7 +2340,8 @@ const targetMonthText = computed(() =>
   }
 
   .block-heading h2 {
-    font-size: 22px;
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
   }
 
   .confirmed-badge {
