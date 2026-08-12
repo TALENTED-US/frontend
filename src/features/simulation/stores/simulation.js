@@ -1,7 +1,11 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { dashboard } from '@/data/mockData'
-import { financeTransactions } from '@/features/finance/financeStore'
+import {
+  financeState,
+  financeTransactions,
+  loadTransactions,
+} from '@/features/finance/financeStore'
 import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalytics'
 import { useSessionStore } from '@/stores/session'
 import {
@@ -27,7 +31,7 @@ import {
 
 const STORAGE_KEY = 'buttie-simulation-v4'
 const CONFIRMED_SNAPSHOT_KEY = 'buttie-simulation-confirmed-snapshot-v1'
-const CLIENT_CALCULATION_VERSION = 1
+const CLIENT_CALCULATION_VERSION = 2
 const CATEGORY_META = {
   주거: { icon: '🏠', color: '#ffe197' }, 월세: { icon: '🏠', color: '#ffe197' },
   식비: { icon: '🍚', color: '#ffd0d0' },
@@ -114,6 +118,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   const remoteReport = ref(null)
   const recentConfirmed = ref(null)
   const remoteDraftExists = ref(null)
+  const financialDataReady = computed(() => financeState.loaded && !financeState.loading)
   const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
@@ -212,11 +217,14 @@ export const useSimulationStore = defineStore('simulation', () => {
   const availableAssets = ref(dashboard.liquidAssets ?? dashboard.totalAssets)
   const monthlyIncome = computed(() => recentAnalysis.value.monthlyIncome)
   const monthlyExpense = computed(() => recentAnalysis.value.monthlyExpense)
+  const runwayCalculationReady = computed(() =>
+    financialDataReady.value && monthlyExpense.value > 0,
+  )
   const targetMonths = computed(() => remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate))
   const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value))
-  const localCurrentMonths = computed(() => monthlyExpense.value > 0
+  const localCurrentMonths = computed(() => runwayCalculationReady.value
     ? Math.round((availableAssets.value / currentMonthlyBurn.value) * 10) / 10
-    : 0)
+    : null)
   // 확정 시점의 기준 기간은 수정 흐름에서도 유지한다. 서버의 draft/report 값은
   // 확정 결과와 계산 기준이 다를 수 있으므로 수정 화면 진입 시 기준값을 덮지 않는다.
   const currentMonths = computed(() => recentConfirmed.value
@@ -240,6 +248,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   )
   const baseExpectedMonths = computed(() => scenarioAssets.value / scenarioMonthlyBurn.value)
   const localExpectedMonths = computed(() => {
+    if (!runwayCalculationReady.value) return null
     const baseIncrease = Math.max(0, baseExpectedMonths.value - currentMonths.value)
     const periodRatio = DEFAULT_SCENARIO_MONTHS > 0
       ? scenarioPeriodMonths.value / DEFAULT_SCENARIO_MONTHS
@@ -265,6 +274,8 @@ export const useSimulationStore = defineStore('simulation', () => {
   const hasDraft = computed(() => state.draftStarted || completedCategories.value > 0)
 
   function buildClientConfirmedSnapshot(identity = {}) {
+    if (!runwayCalculationReady.value) return null
+
     return {
       clientCalculationVersion: CLIENT_CALCULATION_VERSION,
       simulationId: identity.simulationId || '',
@@ -443,7 +454,20 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   async function confirmScenario() {
+    if (!financialDataReady.value) {
+      try {
+        await loadTransactions()
+      } catch (error) {
+        syncError.value = error.message || '거래 내역을 불러온 뒤 다시 시도해 주세요.'
+        return false
+      }
+    }
+
     const localSnapshot = buildClientConfirmedSnapshot()
+    if (!localSnapshot) {
+      syncError.value = '거래 내역을 불러온 뒤 다시 시도해 주세요.'
+      return false
+    }
 
     syncing.value = true
     syncError.value = ''
@@ -586,6 +610,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncing.value = true
     syncError.value = ''
     try {
+      await loadTransactions()
       const restored = restoreConfirmedSnapshot()
       const remoteConfirmed = mapConfirmedSimulationResponse(
         await getLatestConfirmedSimulationApi(),
@@ -615,6 +640,7 @@ export const useSimulationStore = defineStore('simulation', () => {
           confirmedAt: remoteConfirmed.confirmedAt,
           endAmount: remoteConfirmed.endAmount,
         })
+        if (!confirmed) throw new Error('거래 내역을 불러온 뒤 시뮬레이션을 다시 확인해 주세요.')
       }
 
       recentConfirmed.value = confirmed
@@ -760,6 +786,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     oneTimeIncome, recurringPolicy, oneTimePolicy, monthlyImprovement, addedMonths,
     expectedMonths, expensePreviewMonths, scenarioStartDate, scenarioEndDate,
     completedCategories, hasDraft, syncing, syncError, remoteReport, recentConfirmed,
+    financialDataReady, runwayCalculationReady,
     adjustExpense, setExpenseSaving, toggleExpense,
     addIncome, updateIncome, removeIncome, togglePolicy, removePolicy, applyExpenses, resetExpenses,
     saveExpenseGoal, deleteExpenseGoal, saveIncomePlan, deleteIncomePlan, deletePolicyPlan,

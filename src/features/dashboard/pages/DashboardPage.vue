@@ -6,7 +6,11 @@ import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import { pickButtieMessage } from '@/data/buttieMessages'
-import { financeTransactions, loadTransactions } from '@/features/finance/financeStore'
+import {
+  financeState,
+  financeTransactions,
+  loadTransactions,
+} from '@/features/finance/financeStore'
 import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalytics'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
@@ -50,11 +54,13 @@ async function loadButtieDashboard() {
 
 onMounted(async () => {
   await loadButtieDashboard()
+  try {
+    await loadTransactions()
+  } catch {
+    // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
+  }
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
-  loadTransactions().catch(() => {
-    // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
-  })
 })
 const DAY_MS = 24 * 60 * 60 * 1000
 const AVERAGE_MONTH_DAYS = 365.2425 / 12
@@ -208,6 +214,10 @@ const monthlyExpense = computed(() => recentFinancialAnalysis.value.monthlyExpen
 const monthlyIncome = computed(() => recentFinancialAnalysis.value.monthlyIncome)
 const hasConfirmedSimulationDurations = computed(
   () =>
+    simulation.recentConfirmed?.currentMonths !== null &&
+    simulation.recentConfirmed?.currentMonths !== undefined &&
+    simulation.recentConfirmed?.expectedMonths !== null &&
+    simulation.recentConfirmed?.expectedMonths !== undefined &&
     Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
     Number.isFinite(Number(simulation.recentConfirmed?.expectedMonths)),
 )
@@ -216,27 +226,23 @@ const survivalMonths = computed(() => {
   if (hasConfirmedSimulationDurations.value) {
     return Math.max(0, Number(simulation.recentConfirmed.currentMonths))
   }
-  const apiMonths = Number(buttieDashboard.value?.currentPrepMonths)
-  if (Number.isFinite(apiMonths)) return Math.max(0, apiMonths)
+  if (!financeState.loaded) return null
   return monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0
 })
-const displayedSurvivalMonths = computed(() => survivalMonths.value.toFixed(1))
-const apiExpectedMonths = computed(() => {
-  const value = buttieDashboard.value?.expectPrepMonths
-  return value === null || value === undefined ? Number.NaN : Number(value)
-})
+const displayedSurvivalMonths = computed(() => survivalMonths.value === null
+  ? '-'
+  : survivalMonths.value.toFixed(1))
 const hasConfirmedScenario = computed(
   () =>
     hasConfirmedSimulationDurations.value ||
-    Number.isFinite(apiExpectedMonths.value) ||
     simulation.state.confirmed,
 )
 const displayedExpectedMonths = computed(() => {
   if (hasConfirmedSimulationDurations.value) {
     return Math.max(0, Number(simulation.recentConfirmed.expectedMonths)).toFixed(1)
   }
-  if (Number.isFinite(apiExpectedMonths.value)) return apiExpectedMonths.value.toFixed(1)
-  return simulation.state.confirmed ? simulation.expectedMonths.toFixed(1) : '-'
+  if (!simulation.state.confirmed || simulation.expectedMonths === null) return '-'
+  return Number(simulation.expectedMonths).toFixed(1)
 })
 const confirmedExpenseRows = computed(() =>
   simulation.state.expenseApplied
@@ -572,19 +578,21 @@ const targetMonthText = computed(() =>
       <h2 id="survival-title" class="mobile-only section-label">버티 현황</h2>
       <article :class="['survival-card', `survival-card--${financialStatus.key}`]">
         <header class="survival-card__intro">
-          <h3>
+          <h3 v-if="survivalMonths !== null">
             지금 자금으로<span class="mobile-only"><br /></span> {{ survivalCardTitle }}
           </h3>
-          <p>
+          <h3 v-else>지금 자금으로 버틸 수 있는 기간을 계산 중이에요</h3>
+          <p v-if="survivalMonths !== null">
             목표 취업 시기까지 {{ displayedTargetMonths }}개월,<br />
             버틸 수 있는 기간은 {{ displayedSurvivalMonths }}개월이에요
           </p>
+          <p v-else>재정 정보를 불러오면 버틸 수 있는 기간을 알려드릴게요</p>
         </header>
 
         <div class="survival-card__metrics">
           <div class="survival-card__metric survival-card__metric--current">
             <span>버티는 기간</span>
-            <strong>{{ displayedSurvivalMonths }}<i>개월</i></strong>
+            <strong>{{ displayedSurvivalMonths }}<i v-if="survivalMonths !== null">개월</i></strong>
           </div>
 
           <div class="survival-card__metric survival-card__metric--target">
