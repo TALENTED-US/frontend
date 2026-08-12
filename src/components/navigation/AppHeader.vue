@@ -17,6 +17,9 @@ const popoverItems = computed(() => notificationItems.value.filter((item) => !it
 const titles = {
   dashboard: '홈',
   finance: '내 재정',
+  fixedExpenses: '고정지출',
+  fixedExpenseAdd: '고정지출 추가',
+  fixedExpenseDelete: '고정지출 삭제',
   simulation: '시뮬레이션',
   simulationEdit: '시뮬레이션 수정하기',
   simulationCategory: '시뮬레이션',
@@ -45,8 +48,10 @@ const isSimulationEdit = computed(() => route.name === 'simulationEdit')
 const isSimulationContinue = computed(() => route.name === 'simulationContinue')
 const isSimulationCategory = computed(() => route.name === 'simulationCategory')
 const isSimulationPreview = computed(() => route.name === 'simulationCategoryPreview')
+const isFixedExpense = computed(() => ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name))
+const isNotifications = computed(() => route.name === 'notifications')
 const hasMobileBack = computed(
-  () => isMyPageDetail.value || isSimulationStart.value || isSimulationEdit.value || isSimulationContinue.value || isSimulationCategory.value || isSimulationPreview.value,
+  () => isMyPageDetail.value || isSimulationStart.value || isSimulationEdit.value || isSimulationContinue.value || isSimulationCategory.value || isSimulationPreview.value || isFixedExpense.value || isNotifications.value,
 )
 const mobileTitle = computed(() => {
   if (isMyPageDetail.value) return '마이페이지'
@@ -68,7 +73,9 @@ function goBackFromMyPageDetail() {
 }
 
 function goBack() {
-  if (isSimulationStart.value) router.push('/simulation')
+  if (isNotifications.value) router.back()
+  else if (isFixedExpense.value) router.push('/finance')
+  else if (isSimulationStart.value) router.push('/simulation')
   else if (isSimulationEdit.value) router.push('/simulation')
   else if (isSimulationContinue.value) router.push('/')
   else if (isSimulationPreview.value) router.push(`/simulation/${route.params.category}`)
@@ -108,14 +115,14 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
       v-if="hasMobileBack"
       class="app-header__back mobile-only"
       type="button"
-      :aria-label="isSimulationStart || isSimulationEdit || isSimulationContinue ? '시뮬레이션에서 나가기' : isSimulationCategory || isSimulationPreview ? '이전 시뮬레이션 단계로 돌아가기' : '마이페이지로 돌아가기'"
+      :aria-label="isNotifications ? '이전 화면으로 돌아가기' : isFixedExpense ? '내 재정으로 돌아가기' : isSimulationStart || isSimulationEdit || isSimulationContinue ? '시뮬레이션에서 나가기' : isSimulationCategory || isSimulationPreview ? '이전 시뮬레이션 단계로 돌아가기' : '마이페이지로 돌아가기'"
       @click="goBack"
     >
       ‹
     </button>
     <strong class="app-header__title mobile-only">{{ mobileTitle }}</strong>
     <div class="app-header__spacer" />
-    <div ref="popoverAnchor" class="popover-anchor">
+    <div v-if="!isFixedExpense && !isNotifications" ref="popoverAnchor" class="popover-anchor">
       <button
         :class="['header-chip', { active: openPopover === 'notification' }]"
         type="button"

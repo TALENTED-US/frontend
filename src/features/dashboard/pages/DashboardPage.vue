@@ -1800,6 +1800,10 @@ const targetMonthText = computed(() =>
   font-weight: 800;
 }
 
+.quest-groups .quest-row__copy > strong {
+  font-weight: 600;
+}
+
 .quest-row__copy small {
   overflow: hidden;
   color: #727985;

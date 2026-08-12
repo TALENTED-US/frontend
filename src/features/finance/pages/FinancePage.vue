@@ -56,7 +56,7 @@ const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(value))
 const signed = (value) => `${value >= 0 ? '+' : '-'}${money(value)}원`
 const amountTextStyle = (text) => {
   const length = String(text).length
-  const fontSize = length <= 8 ? 20 : length <= 10 ? 18 : length <= 12 ? 16 : length <= 14 ? 14 : 12
+  const fontSize = length <= 8 ? 20 : length <= 10 ? 18 : length <= 12 ? 15 : length <= 14 ? 13 : 11
   return { fontSize: `${fontSize}px` }
 }
 const compactCalendarAmount = (value) => {
@@ -826,8 +826,8 @@ button {
   font-size: 20px;
   font-weight: 700;
   line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  letter-spacing: -0.02em;
   white-space: nowrap;
 }
 .summary small {
@@ -1771,7 +1771,7 @@ button {
   }
   .summary article {
     height: 74px;
-    padding: 14px 12px;
+    padding: 14px 4px 14px 12px;
     border-radius: 14px;
     box-shadow: 0 2px 4px #0002;
   }

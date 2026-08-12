@@ -141,6 +141,27 @@ body {
   box-shadow: var(--shadow-figma) !important;
 }
 
+/* 고정지출 합계는 외곽선 없이 공통 바깥쪽 그림자로 표시합니다. */
+#app .fixed-page .total {
+  border: 0;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+/* 고정지출 후보 안내 영역에는 바깥쪽 그림자를 표시하지 않습니다. */
+#app .fixed-page .suggest {
+  box-shadow: none !important;
+}
+
+/* 고정지출 거래명 검색창의 부모 영역은 별도 카드처럼 표시하지 않습니다. */
+#app .fixed-page .search {
+  box-shadow: none !important;
+}
+
+/* 기타 카테고리의 고정지출 버튼에만 공통 바깥쪽 그림자를 적용합니다. */
+#app .fixed-page .expense-list > button.category-other {
+  box-shadow: var(--shadow-figma) !important;
+}
+
 /* 취업 준비 정보 입력 영역은 개별 필드만 구분하고 바깥 카드로 묶지 않습니다. */
 #app .onboarding-page .job-form {
   border: 0;
