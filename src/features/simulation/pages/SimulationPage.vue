@@ -275,7 +275,7 @@ onMounted(async () => {
 .simulation-quest-api-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 11px 13px; border-radius: 12px; background: #f7f8fa; color: #727985; font-size: 12px; font-weight: 700; }
 .simulation-quest-api-notice.error { background: #fff1f1; color: #cf3f3f; }
 .simulation-quest-api-notice button { flex: none; color: inherit; font-size: inherit; font-weight: 900; text-decoration: underline; }
-.simulation-quest-tabs { display: grid; width: min(72%, 520px); height: 44px; grid-template-columns: 1fr 1fr; margin-bottom: 20px; padding: 3px; border: 1px solid #e1e4ea; border-radius: 999px; background: #f2f3f6; }
+.simulation-quest-tabs { display: grid; width: min(72%, 520px); height: 48px; grid-template-columns: 1fr 1fr; margin: 0 auto 20px; padding: 3px; border: 1px solid #e1e4ea; border-radius: 999px; background: #f2f3f6; }
 .simulation-quest-tabs button { border-radius: 999px; color: #9a9da5; font-weight: 700; }
 .simulation-quest-tabs button.active { background: white; box-shadow: 0 2px 6px rgb(0 0 0 / 12%); color: #222; font-weight: 800; }
 .simulation-quest-progress { display: grid; gap: 8px; margin-bottom: 20px; }

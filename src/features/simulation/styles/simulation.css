@@ -49,6 +49,76 @@
   }
 }
 
+/* Desktop interaction sizing follows the mobile product UI while using the
+   extra width for alignment instead of stretching controls edge to edge. */
+@media (min-width: 768px) {
+  .sim-wizard > .wizard-progress-tabs {
+    width: min(100%, 760px);
+    justify-self: center;
+    gap: 16px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .wizard-progress-tabs span {
+    min-height: 44px;
+    align-content: end;
+    font-size: 14px;
+  }
+
+  .wizard-progress-tabs span i {
+    height: 4px;
+  }
+
+  .sim-btn,
+  .wizard-actions .sim-btn {
+    min-height: 54px;
+    padding-right: 28px;
+    padding-left: 28px;
+    font-size: 16px;
+  }
+
+  .sim-wizard > .wizard-actions,
+  .sim-category-page > .wizard-actions,
+  .preview-page > .wizard-actions {
+    width: min(100%, 520px);
+    grid-template-columns: minmax(140px, 0.8fr) minmax(240px, 1.4fr);
+    justify-self: center;
+    margin: 36px auto 0;
+  }
+
+  .sim-wizard > .wizard-actions.vertical,
+  .preview-page > .wizard-actions.vertical {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wizard-actions .sim-text-button {
+    min-height: 54px;
+    margin: 0;
+    border: 1px solid #dfe3e9;
+    border-radius: 13px;
+    background: #fff;
+    color: #697180;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .expense-category-tabs {
+    gap: 10px;
+  }
+
+  .expense-category-tabs button {
+    min-width: 96px;
+    min-height: 44px;
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .choice-card {
+    min-height: 120px;
+  }
+}
+
 /* Title-adjacent descriptions share one readable style across simulation pages. */
 .sim-page .sim-subtitle,
 .sim-page .sim-heading p,
@@ -86,7 +156,7 @@
 .result-delta-badges{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:14px;text-align:center}.result-delta-badges span,.result-delta-badges i{justify-self:center;padding:7px 12px;border-radius:999px;font-size:9px;font-style:normal;white-space:nowrap}.result-delta-badges .income{background:#e9faf4;color:#2cbd88}.result-delta-badges .expense{background:#edf3ff;color:#5f8df7}.result-delta-badges .policy{background:#f2effb;color:#7e66c6}.bar-pair{position:relative}.bar-change-arrow{position:absolute;inset:0;width:90px;height:82px;overflow:visible;pointer-events:none}.bar-change-arrow>path{fill:none;stroke:#17329b;stroke-width:1.6;stroke-dasharray:3 3}.bar-change-arrow marker path{fill:#17329b;stroke:none}
 
 @media(min-width:768px){
-  .sim-wizard{width:100%;max-width:1066px;margin:0 auto;padding:24px 0 72px}.sim-wizard>*{min-width:0}.sim-wizard .sim-back{width:auto;justify-self:start;margin-bottom:20px;font-size:16px;text-align:left}.sim-wizard .wizard-title{font-size:28px!important;line-height:1.35}.sim-wizard>.sim-subtitle{margin-top:8px;font-size:14px}.sim-wizard>.wizard-progress-tabs{margin:0 0 28px}.wizard-progress-tabs span{min-width:0;font-size:12px;white-space:normal}.wizard-progress-tabs span i{height:4px}
+  .sim-wizard{width:100%;max-width:1066px;margin:0 auto;padding:24px 0 72px}.sim-wizard>*{min-width:0}.sim-wizard .sim-back{width:auto;justify-self:start;margin-bottom:20px;font-size:16px;text-align:left}.sim-wizard .wizard-title{font-size:28px!important;line-height:1.35}.sim-wizard>.sim-subtitle{margin-top:8px;font-size:14px}.sim-wizard>.wizard-progress-tabs{margin:0 auto 28px}.wizard-progress-tabs span{min-width:0;font-size:14px;white-space:normal}.wizard-progress-tabs span i{height:4px}
   .expense-analysis-total span{font-size:14px}.expense-analysis-total strong{font-size:28px}.expense-analysis-body li,.expense-target-card>p,.expense-target-info>span,.expense-target-editor>label,.added-expense-goals footer{font-size:12px}.expense-analysis-body li>strong{font-size:12px}.expense-analysis-body li small,.expense-target-editor>small{font-size:10px}.expense-target-card>h2{font-size:18px}.expense-category-tabs button{min-height:40px;font-size:14px}.expense-target-info>strong{font-size:15px}.expense-add-button{min-height:46px;font-size:14px}.added-expense-goals .section-heading h2,.added-income-plans .section-heading h2{font-size:17px}.added-expense-goals article>strong,.added-income-plans article>div:nth-child(2)>strong{font-size:13px}.expense-goal-controls>strong,.income-plan-controls>strong{font-size:12px}.added-expense-goals .expense-goal-controls button,.income-plan-controls button{font-size:11px}
   .income-plan-form{gap:17px;padding:24px;border:1px solid #e2e5eb;border-radius:20px;background:#fff;box-shadow:0 2px 8px rgb(20 30 60 / 8%)}.income-plan-form label,.income-form-heading,.income-plan-form legend{font-size:13px}.income-form-heading strong{font-size:18px}.income-form-heading button{font-size:12px}.income-field,.income-money-field{height:50px}.income-plan-form fieldset button{min-height:42px;font-size:13px}.income-add-button{min-height:50px;font-size:14px}.added-income-plans article small{font-size:11px}.added-income-plans footer{font-size:12px}
   .qualification-grid.compact article{padding:17px}.qualification-grid.compact span{font-size:12px}.qualification-grid.compact strong{font-size:15px}.wizard-policy-list article{padding:20px}.wizard-policy-list article h2{font-size:17px}.wizard-policy-list article p{font-size:13px}.wizard-policy-list article em{font-size:11px}

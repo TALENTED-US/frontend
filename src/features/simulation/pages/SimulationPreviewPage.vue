@@ -129,14 +129,15 @@ const arrowPath = (before, after) => {
 
 @media (min-width: 768px) {
   .preview-page > .wizard-progress-tabs {
-    margin-right: 0;
-    margin-left: 0;
+    width: min(100%, 760px);
+    margin-right: auto;
+    margin-left: auto;
     padding-right: 0;
     padding-left: 0;
   }
 
   .preview-page > .wizard-progress-tabs span {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .preview-page > .wizard-progress-tabs span.active {

@@ -129,7 +129,7 @@ const monthLabels = computed(() => {
       <span><i class="current" />현재 기준</span>
       <span><i class="scenario" />시나리오 적용</span>
       <span><i class="target" />목표 취업 시기</span>
-      <span v-if="previewMode"><i class="minimum" />최소 생활자금</span>
+      <span v-if="previewMode"><i class="minimum" />재정 위험 알림 금액</span>
     </div>
     <div class="timeline-chart__plot">
       <svg viewBox="0 0 600 260" role="img" aria-label="현재 기준과 시나리오 적용 후 월별 재정 타임라인">

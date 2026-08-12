@@ -331,19 +331,19 @@ function skip() {
           <span>지출 절약 합계</span><strong>월 {{ goalAmount(simulation.expenseSaving) }}</strong>
         </footer>
       </section>
-     <div class="wizard-actions">
-  <button class="sim-text-button" @click="skip">건너뛰기</button>
-  <button
-    class="sim-btn sim-btn--yellow"
-    :disabled="
-      (!simulation.expenseSaving && !isEditingConfirmedScenario) || simulation.syncing
-    "
-    @click="apply('expense')"
-  >
-    적용하기 →
-  </button>
-</div>
- </template>
+      <div class="wizard-actions">
+        <button class="sim-text-button" @click="skip">건너뛰기</button>
+        <button
+          class="sim-btn sim-btn--yellow"
+          :disabled="
+            (!simulation.expenseSaving && !isEditingConfirmedScenario) || simulation.syncing
+          "
+          @click="apply('expense')"
+        >
+          적용하기 →
+        </button>
+      </div>
+    </template>
 
     <template v-else-if="category === 'income'">
       <h1 class="wizard-title">수입을 늘릴 계획을 세워보세요</h1>
@@ -428,20 +428,20 @@ function skip() {
           ><span>일시 수입 합계</span><strong>+{{ goalAmount(simulation.oneTimeIncome) }}</strong>
         </footer>
       </section>
-<div class="wizard-actions">
-  <button class="sim-text-button" @click="skip">건너뛰기</button>
-  <button
-    class="sim-btn sim-btn--yellow"
-    :disabled="
-      (!simulation.state.incomes.length && !isEditingConfirmedScenario) ||
-      simulation.syncing
-    "
-    @click="apply('income')"
-  >
-    시뮬레이션에 적용
-  </button>
-</div>
- </template>
+      <div class="wizard-actions">
+        <button class="sim-text-button" @click="skip">건너뛰기</button>
+        <button
+          class="sim-btn sim-btn--yellow"
+          :disabled="
+            (!simulation.state.incomes.length && !isEditingConfirmedScenario) ||
+            simulation.syncing
+          "
+          @click="apply('income')"
+        >
+          시뮬레이션에 적용
+        </button>
+      </div>
+    </template>
 
     <template v-else>
       <h1 class="wizard-title">나에게 맞는 정책을 찾아보세요</h1>
@@ -1074,14 +1074,15 @@ function skip() {
 
 @media (min-width: 768px) {
   .sim-category-page > .wizard-progress-tabs {
-    margin-right: 0;
-    margin-left: 0;
+    width: min(100%, 760px);
+    margin-right: auto;
+    margin-left: auto;
     padding-right: 0;
     padding-left: 0;
   }
 
   .sim-category-page > .wizard-progress-tabs span {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .sim-category-page > .wizard-progress-tabs span.active {

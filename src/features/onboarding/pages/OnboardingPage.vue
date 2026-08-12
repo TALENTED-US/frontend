@@ -245,6 +245,7 @@ async function saveInitialEmploymentPreparation() {
       goalDate: form.value.targetDate,
       region: form.value.region,
       family: Number(form.value.household),
+      financialRiskAlertAmount: Number(form.value.minimumLivingFund),
     })
     return true
   } catch (error) {
@@ -340,7 +341,7 @@ async function next() {
           </label>
 
           <label class="field-group">
-            <span class="field-label"><AppIcon name="wallet" :size="16" /> 최소 생활자금</span>
+            <span class="field-label"><AppIcon name="wallet" :size="16" /> 재정 위험 알림 금액</span>
             <input
               v-model.number="form.minimumLivingFund"
               class="control"
@@ -348,7 +349,7 @@ async function next() {
               min="1"
               step="10000"
               inputmode="numeric"
-              placeholder="최소 생활자금을 입력하세요"
+              placeholder="재정 위험 알림 금액을 입력하세요"
             />
             <small>이 금액 이하로 떨어지면 위험 단계로 알려드릴게요</small>
           </label>
