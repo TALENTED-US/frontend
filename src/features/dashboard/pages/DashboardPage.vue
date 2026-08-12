@@ -411,10 +411,6 @@ const survivalCardTitle = computed(() =>
     ? `지금 자금으로는 ${displayedShortageMonths.value}개월이 부족해요`
     : '지금 자금으로 목표 기간을 채울 수 있어요',
 )
-const survivalCardDescription = computed(
-  () =>
-    `목표 취업 시기까지 ${displayedTargetMonths.value}개월, 버틸 수 있는 기간은 ${displayedSurvivalMonths.value}개월이에요`,
-)
 const financialStatus = computed(() => {
   const apiRisk = buttieDashboard.value?.riskLevel
   const isDanger = apiRisk === 'DANGER' || (!apiRisk && achievementRate.value <= 30)
@@ -552,11 +548,14 @@ const targetMonthText = computed(() =>
     </div>
 
     <section class="survival-section" aria-labelledby="survival-title">
-      <h2 id="survival-title" class="mobile-only section-label">버티는 기간</h2>
+      <h2 id="survival-title" class="mobile-only section-label">버티 현황</h2>
       <article :class="['survival-card', `survival-card--${financialStatus.key}`]">
-        <header class="survival-card__intro mobile-only">
+        <header class="survival-card__intro">
           <h3>{{ survivalCardTitle }}</h3>
-          <p>{{ survivalCardDescription }}</p>
+          <p>
+            목표 취업 시기까지 {{ displayedTargetMonths }}개월,<br />
+            버틸 수 있는 기간은 {{ displayedSurvivalMonths }}개월이에요
+          </p>
         </header>
 
         <div class="survival-card__metrics">
@@ -565,7 +564,7 @@ const targetMonthText = computed(() =>
             <strong>{{ displayedSurvivalMonths }}<i>개월</i></strong>
           </div>
 
-          <div class="survival-card__metric survival-card__metric--target mobile-only">
+          <div class="survival-card__metric survival-card__metric--target">
             <span>목표 취업 시기</span>
             <strong>{{ displayedTargetMonths }}<i>개월 후</i></strong>
           </div>
@@ -592,6 +591,7 @@ const targetMonthText = computed(() =>
           </div>
           <div class="survival-card__legend">
             <small>현재 {{ currentMonthText }}</small>
+            <small>자금 소진 예상</small>
             <small>목표 {{ targetMonthText }}</small>
           </div>
         </div>
@@ -741,7 +741,7 @@ const targetMonthText = computed(() =>
                     <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
                     <span class="quest-row__copy">
                       <strong>{{ item.name }}</strong>
-                      <small v-if="item.subtitle">{{ item.subtitle }}</small>
+                      <small v-if="item.subtitle" class="quest-row__subtitle">{{ item.subtitle }}</small>
                       <small class="quest-row__exp">
                         +{{ formatExp(questExp(item)) }} EXP
                         <template v-if="isQuestRewarded(item)"> · 지급 완료 </template>
@@ -1044,11 +1044,15 @@ const targetMonthText = computed(() =>
 
 .survival-card {
   position: relative;
+  width: 100%;
+  max-width: 1040px;
   min-height: 300px;
   overflow: hidden;
   border-radius: 28px;
-  background: rgb(251 237 176 / 54%);
+  background: rgb(251 237 176 / 40%);
   box-shadow: none;
+  color: #222;
+  font-family: Pretendard;
 }
 
 .survival-card__metrics,
@@ -1124,7 +1128,7 @@ const targetMonthText = computed(() =>
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #f1b94c;
+  background: linear-gradient(90deg, #f5a623 0%, #f1b94c 100%);
   transition: width 0.25s ease;
 }
 
@@ -1995,26 +1999,186 @@ const targetMonthText = computed(() =>
   white-space: nowrap;
 }
 
-@media (min-width: 1101px) {
+@media (min-width: 768px) {
   .survival-card {
-    overflow: visible;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1100px) {
-  .survival-card {
-    min-height: 520px;
+    min-height: 460px;
+    overflow: hidden;
+    border-radius: 24px;
   }
 
-  .survival-card__speech {
-    top: 135px;
-    left: 50%;
-    width: min(205px, calc(100% - 40px));
-    transform: translateX(-50%);
+  .survival-card__intro {
+    position: absolute;
+    top: 42px;
+    left: 3.4%;
+    display: block;
+    width: 52%;
+  }
+
+  .survival-card__intro h3 {
+    color: #222;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.42;
+  }
+
+  .survival-card__intro p {
+    margin-top: 12px;
+    color: #222;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+  }
+
+  .survival-card__metrics {
+    position: absolute;
+    top: 164px;
+    left: 3.4%;
+    display: grid;
+    width: 52%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .survival-card__metric {
+    position: static;
+    min-height: 112px;
+    align-content: center;
+    gap: 10px;
+    padding: 18px 20px;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .survival-card__metric--target {
+    display: grid;
+  }
+
+  .survival-card__metric--current,
+  .survival-card__metric--target {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .survival-card__metric--expected {
+    display: none;
+  }
+
+  .survival-card__metric span {
+    color: #222;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .survival-card__metric strong {
+    color: #6b4e3d;
+    font-size: 28px;
+    font-weight: 800;
+  }
+
+  .survival-card__metric i {
+    margin-left: 2px;
+    color: #222;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .survival-card__progress-area {
+    bottom: 54px;
+    left: 3.4%;
+    width: 52%;
+  }
+
+  .survival-card__progress-area b {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    color: #222;
+    font-size: 13px;
+  }
+
+  .survival-card__progress {
+    height: 14px;
+    background: rgb(241 185 76 / 35%);
+  }
+
+  .survival-card__legend {
+    margin-top: 9px;
+    color: #666;
+    font-size: 11px;
+  }
+
+  .survival-card__character-panel {
+    position: absolute;
+    top: 26px;
+    right: 3.6%;
+    bottom: 26px;
+    display: block;
+    width: 36%;
+    overflow: hidden;
+    border-radius: 20px;
+    background: #fff;
   }
 
   .survival-card__character {
-    top: 220px;
+    top: 112px;
+    width: 100%;
+    height: 160px;
+  }
+
+  .survival-card__character-halo,
+  .survival-card__speech,
+  .survival-card__level {
+    display: none;
+  }
+
+  .survival-card__character img {
+    top: 0;
+    width: min(330px, 88%);
+    height: 160px;
+  }
+
+  .survival-card__message {
+    position: static;
+    display: block;
+    width: auto;
+    text-align: initial;
+    transform: none;
+  }
+
+  .survival-card__message p {
+    position: absolute;
+    right: 28px;
+    bottom: 38px;
+    left: 28px;
+    color: #222;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+    text-align: center;
+  }
+
+  .survival-card__message em {
+    position: absolute;
+    top: 28px;
+    left: 28px;
+    min-width: 52px;
+    min-height: 25px;
+    background: #fbd8d1;
+    color: #d9502d;
+    font-size: 11px;
+  }
+
+  .survival-card--caution .survival-card__message em,
+  .survival-card--stable .survival-card__message em {
+    color: #fff;
+  }
+
+  .survival-card--caution .survival-card__message em {
+    background: #eea63a;
+  }
+
+  .survival-card--stable .survival-card__message em {
+    background: var(--success);
   }
 }
 
@@ -2050,51 +2214,51 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card {
-    min-height: 623px;
-    border-radius: 28px;
+    min-height: 550px;
+    border-radius: 20px;
   }
 
   .survival-card__intro {
     position: absolute;
     z-index: 3;
-    top: 26px;
-    right: 20px;
-    left: 20px;
+    top: 21px;
+    right: 17px;
+    left: 17px;
   }
 
   .survival-card__intro h3 {
     max-width: 290px;
     font-size: var(--type-page-title-size);
     font-weight: var(--type-page-title-weight);
-    line-height: 1.45;
+    line-height: 1.35;
   }
 
   .survival-card__intro p {
     max-width: 290px;
-    margin-top: 6px;
+    margin-top: 5px;
     color: var(--type-supporting-color);
     font-size: var(--type-supporting-size);
     font-weight: var(--type-supporting-weight);
-    line-height: 1.45;
+    line-height: 1.4;
   }
 
   .survival-card__metrics {
     position: absolute;
     z-index: 3;
-    top: 155px;
-    right: 20px;
-    left: 20px;
+    top: 126px;
+    right: 17px;
+    left: 17px;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 11px;
   }
 
   .survival-card__metric {
     position: static;
-    min-height: 100px;
+    min-height: 85px;
     align-content: center;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 9px;
+    padding: 12px 14px;
     border-radius: 16px;
     background: white;
   }
@@ -2109,7 +2273,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__metric strong {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .survival-card__metric i {
@@ -2118,39 +2282,39 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__progress-area {
-    top: 282px;
+    top: 233px;
     bottom: auto;
-    left: 20px;
-    width: calc(100% - 40px);
+    left: 17px;
+    width: calc(100% - 34px);
   }
 
   .survival-card__progress-area b {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
+    margin-bottom: 9px;
   }
 
   .survival-card__progress {
-    height: 14px;
+    height: 11px;
   }
 
   .survival-card__character-panel {
     position: absolute;
     z-index: 2;
-    top: 375px;
-    right: 20px;
-    bottom: 27px;
-    left: 20px;
+    top: 313px;
+    right: 17px;
+    bottom: 23px;
+    left: 17px;
     display: block;
     overflow: hidden;
-    border-radius: 20px;
+    border-radius: 18px;
     background: white;
   }
 
   .survival-card__character {
-    top: 54px;
+    top: 43px;
     width: 100%;
-    height: 145px;
+    height: 112px;
   }
 
   .survival-card__speech {
@@ -2163,8 +2327,8 @@ const targetMonthText = computed(() =>
 
   .survival-card__character img {
     top: 0;
-    width: min(250px, 82%);
-    height: 145px;
+    width: min(215px, 78%);
+    height: 112px;
   }
 
   .survival-card__level--mobile {
@@ -2188,20 +2352,20 @@ const targetMonthText = computed(() =>
   .survival-card__message p {
     position: absolute;
     right: 18px;
-    bottom: 16px;
+    bottom: 13px;
     left: 18px;
     color: var(--type-supporting-color);
     font-size: var(--type-supporting-size);
     font-weight: var(--type-supporting-weight);
-    line-height: 1.55;
+    line-height: 1.45;
     text-align: center;
   }
 
   .survival-card__message em {
     position: absolute;
-    top: 14px;
-    left: 14px;
-    min-width: 55px;
+    top: 12px;
+    left: 12px;
+    min-width: 45px;
     min-height: 23px;
     margin-top: 0;
   }
@@ -2411,6 +2575,10 @@ const targetMonthText = computed(() =>
     white-space: normal;
   }
 
+  .quest-row__copy .quest-row__subtitle {
+    font-size: 10px;
+  }
+
   .quest-card__footer {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -2431,10 +2599,6 @@ const targetMonthText = computed(() =>
 }
 
 @media (max-width: 390px) {
-  .survival-card__message {
-    width: 235px;
-  }
-
   .summary-card {
     padding-right: 7px;
     padding-left: 7px;
