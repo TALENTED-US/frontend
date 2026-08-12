@@ -407,8 +407,8 @@ const displayedTargetMonths = computed(() => {
 })
 const survivalCardTitle = computed(() =>
   shortageMonths.value > 0
-    ? `지금 자금으로는 ${displayedShortageMonths.value}개월이 부족해요`
-    : '지금 자금으로 목표 기간을 채울 수 있어요',
+    ? `${displayedShortageMonths.value}개월이 부족해요`
+    : '목표 기간을 채울 수 있어요',
 )
 const financialStatus = computed(() => {
   const apiRisk = buttieDashboard.value?.riskLevel
@@ -490,11 +490,17 @@ const preparationProgress = computed(() => {
   if (!start || !target) return 0
   const total = target.getTime() - start.getTime()
   if (total <= 0) return 100
-  return Math.min(100, Math.max(0, Math.round(((today.value.getTime() - start.getTime()) / total) * 100)))
+  return Math.min(
+    100,
+    Math.max(0, Math.round(((today.value.getTime() - start.getTime()) / total) * 100)),
+  )
 })
 const financialRiskProgress = computed(() =>
   initialAssets.value > 0
-    ? Math.min(100, Math.max(0, Math.round((financialRiskAmount.value / initialAssets.value) * 100)))
+    ? Math.min(
+        100,
+        Math.max(0, Math.round((financialRiskAmount.value / initialAssets.value) * 100)),
+      )
     : 0,
 )
 const currentMonthText = computed(() => formatMonthLabel(today.value))
@@ -566,7 +572,9 @@ const targetMonthText = computed(() =>
       <h2 id="survival-title" class="mobile-only section-label">버티 현황</h2>
       <article :class="['survival-card', `survival-card--${financialStatus.key}`]">
         <header class="survival-card__intro">
-          <h3>{{ survivalCardTitle }}</h3>
+          <h3>
+            지금 자금으로<span class="mobile-only"><br /></span> {{ survivalCardTitle }}
+          </h3>
           <p>
             목표 취업 시기까지 {{ displayedTargetMonths }}개월,<br />
             버틸 수 있는 기간은 {{ displayedSurvivalMonths }}개월이에요
@@ -593,7 +601,9 @@ const targetMonthText = computed(() =>
         </div>
 
         <div class="survival-card__progress-area">
-          <b><span>목표 충족률</span><strong>{{ achievementRate }}%</strong></b>
+          <b
+            ><span>목표 충족률</span><strong>{{ achievementRate }}%</strong></b
+          >
           <div
             class="survival-card__progress"
             role="progressbar"
@@ -641,35 +651,43 @@ const targetMonthText = computed(() =>
           <RouterLink to="/finance">전체 내역 <span>›</span></RouterLink>
         </div>
         <div class="dashboard-report">
-        <div class="dashboard-report__summary">
-          <article>
-          <span>총자산</span>
-          <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
-          </article>
-          <article>
-            <span>매달 줄어드는 금액</span>
-            <strong>{{ formatCompactWon(monthlyDecrease) }}</strong>
-          </article>
-        </div>
-        <div class="dashboard-report__bars">
-          <div class="dashboard-report__bar-row dashboard-report__bar-row--income">
-            <div><span>월평균 수입</span><strong>{{ formatCompactWon(monthlyIncome) }}</strong></div>
-            <div class="dashboard-report__track"><i :style="{ width: `${incomeBarWidth}%` }" /></div>
+          <div class="dashboard-report__summary">
+            <article>
+              <span>총자산</span>
+              <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
+            </article>
+            <article>
+              <span>매달 줄어드는 금액</span>
+              <strong>{{ formatCompactWon(monthlyDecrease) }}</strong>
+            </article>
           </div>
-          <div class="dashboard-report__bar-row dashboard-report__bar-row--expense">
-            <div><span>월평균 지출</span><strong>{{ formatCompactWon(monthlyExpense) }}</strong></div>
-            <div class="dashboard-report__track"><i :style="{ width: `${expenseBarWidth}%` }" /></div>
+          <div class="dashboard-report__bars">
+            <div class="dashboard-report__bar-row dashboard-report__bar-row--income">
+              <div>
+                <span>월평균 수입</span><strong>{{ formatCompactWon(monthlyIncome) }}</strong>
+              </div>
+              <div class="dashboard-report__track">
+                <i :style="{ width: `${incomeBarWidth}%` }" />
+              </div>
+            </div>
+            <div class="dashboard-report__bar-row dashboard-report__bar-row--expense">
+              <div>
+                <span>월평균 지출</span><strong>{{ formatCompactWon(monthlyExpense) }}</strong>
+              </div>
+              <div class="dashboard-report__track">
+                <i :style="{ width: `${expenseBarWidth}%` }" />
+              </div>
+            </div>
           </div>
-        </div>
-        <p class="dashboard-report__notice">
-          <template v-if="displayedReportDepletionMonths === undefined">
-            현재 속도라면 총자산이 줄어들지 않아요
-          </template>
-          <template v-else>
-            지금 속도라면 총자산 {{ formatCompactWon(dashboard.totalAssets) }}은
-            <strong>약 {{ displayedReportDepletionMonths }}개월 뒤</strong> 소진돼요
-          </template>
-        </p>
+          <p class="dashboard-report__notice">
+            <template v-if="displayedReportDepletionMonths === undefined">
+              현재 속도라면 총자산이 줄어들지 않아요
+            </template>
+            <template v-else>
+              지금 속도라면 총자산 {{ formatCompactWon(dashboard.totalAssets) }}은
+              <strong>약 {{ displayedReportDepletionMonths }}개월 뒤</strong> 소진돼요
+            </template>
+          </p>
         </div>
       </section>
 
@@ -681,10 +699,14 @@ const targetMonthText = computed(() =>
           <section class="goal-card__item">
             <header>
               <span>목표 취업일</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'goal-date' } }">수정하기 ›</RouterLink>
+              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'goal-date' } }"
+                >수정하기 ›</RouterLink
+              >
             </header>
             <strong class="goal-card__value">{{ targetDateDisplayText }}</strong>
-            <div class="goal-card__progress"><i :style="{ width: `${preparationProgress}%` }" /></div>
+            <div class="goal-card__progress">
+              <i :style="{ width: `${preparationProgress}%` }" />
+            </div>
             <footer>
               <span>남은 준비 기간 {{ remainingDurationText }}</span>
               <span>{{ preparationProgress }}% 경과</span>
@@ -693,14 +715,21 @@ const targetMonthText = computed(() =>
           <section class="goal-card__item">
             <header>
               <span>재정 위험 알림 금액</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }">수정하기 ›</RouterLink>
+              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }"
+                >수정하기 ›</RouterLink
+              >
             </header>
             <div class="goal-card__amount-row">
               <strong class="goal-card__value">{{ formatCompactWon(financialRiskAmount) }}</strong>
               <span>현재 잔액 {{ formatCompactWon(dashboard.totalAssets) }}</span>
             </div>
-            <div class="goal-card__progress"><i :style="{ width: `${financialRiskProgress}%` }" /></div>
-            <p>잔액이 이 금액에 도달하면 알림을 보내드려요.<br />마이페이지에서 언제든 바꿀 수 있어요.</p>
+            <div class="goal-card__progress">
+              <i :style="{ width: `${financialRiskProgress}%` }" />
+            </div>
+            <p>
+              잔액이 이 금액에 도달하면 알림을 보내드려요.<br />마이페이지에서 언제든 바꿀 수
+              있어요.
+            </p>
           </section>
         </article>
       </section>
@@ -803,7 +832,9 @@ const targetMonthText = computed(() =>
                     <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
                     <span class="quest-row__copy">
                       <strong>{{ item.name }}</strong>
-                      <small v-if="item.subtitle" class="quest-row__subtitle">{{ item.subtitle }}</small>
+                      <small v-if="item.subtitle" class="quest-row__subtitle">{{
+                        item.subtitle
+                      }}</small>
                       <small class="quest-row__exp">
                         +{{ formatExp(questExp(item)) }} EXP
                         <template v-if="isQuestRewarded(item)"> · 지급 완료 </template>
@@ -844,7 +875,6 @@ const targetMonthText = computed(() =>
           <RouterLink to="/simulation/new">시뮬레이션 하러가기 <span>→</span></RouterLink>
         </article>
       </section>
-
     </div>
   </section>
 </template>
@@ -1019,14 +1049,19 @@ const targetMonthText = computed(() =>
   height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e3e3e3;
+  background: #fff3c8;
 }
 
 .level-overview__progress i span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
+  background: linear-gradient(
+    90deg,
+    rgb(241 185 76 / 35%) 0%,
+    rgb(241 185 76 / 70%) 55%,
+    #f1b94c 100%
+  );
   transition: width 0.25s ease;
 }
 
@@ -1156,14 +1191,19 @@ const targetMonthText = computed(() =>
   height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: #fbf7df;
+  background: #fff3c8;
 }
 
 .survival-card__progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
+  background: linear-gradient(
+    90deg,
+    rgb(241 185 76 / 35%) 0%,
+    rgb(241 185 76 / 70%) 55%,
+    #f1b94c 100%
+  );
   transition: width 0.25s ease;
 }
 
@@ -1420,7 +1460,7 @@ const targetMonthText = computed(() =>
 
 .dashboard-report__bar-row--expense span::before,
 .dashboard-report__bar-row--expense .dashboard-report__track i {
-  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
+  background: #f1b94c;
 }
 
 .dashboard-report__bar-row--expense strong {
@@ -1431,14 +1471,14 @@ const targetMonthText = computed(() =>
   height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: #fbf7df;
+  background: #fff3c8;
 }
 
 .dashboard-report__track i {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
+  background: #f1b94c;
   transition: width 0.25s ease;
 }
 
@@ -1671,9 +1711,9 @@ const targetMonthText = computed(() =>
 
 .goal-card__value {
   margin-top: 14px;
-  color: #51392e;
-  font-size: clamp(26px, 3vw, 34px);
-  font-weight: 800;
+  color: #666666;
+  font-size: 28px;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -1686,14 +1726,19 @@ const targetMonthText = computed(() =>
   margin-top: 14px;
   overflow: hidden;
   border-radius: 999px;
-  background: #ebeaeb;
+  background: #fff3c8;
 }
 
 .goal-card__progress i {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(81 57 46 / 38%) 0%, rgb(81 57 46 / 70%) 50%, #51392e 100%);
+  background: linear-gradient(
+    90deg,
+    rgb(241 185 76 / 35%) 0%,
+    rgb(241 185 76 / 70%) 55%,
+    #f1b94c 100%
+  );
 }
 
 .goal-card__item footer {
@@ -1833,7 +1878,7 @@ const targetMonthText = computed(() =>
   height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: #eceef2;
+  background: #fff3c8;
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 8%);
 }
 
@@ -1842,7 +1887,12 @@ const targetMonthText = computed(() =>
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(248 189 67 / 45%) 0%, rgb(248 189 67 / 72%) 48%, #f8bd43 100%);
+  background: linear-gradient(
+    90deg,
+    rgb(241 185 76 / 35%) 0%,
+    rgb(241 185 76 / 70%) 55%,
+    #f1b94c 100%
+  );
   transition: width 0.3s ease;
 }
 
@@ -2372,7 +2422,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card {
-    min-height: 550px;
+    min-height: 556px;
     border-radius: 20px;
   }
 
@@ -2386,7 +2436,7 @@ const targetMonthText = computed(() =>
 
   .survival-card__intro h3 {
     max-width: 290px;
-    font-size: var(--type-page-title-size);
+    font-size: 23px;
     font-weight: var(--type-page-title-weight);
     line-height: 1.35;
   }
@@ -2403,7 +2453,7 @@ const targetMonthText = computed(() =>
   .survival-card__metrics {
     position: absolute;
     z-index: 3;
-    top: 126px;
+    top: 142px;
     right: 17px;
     left: 17px;
     display: grid;
@@ -2440,7 +2490,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__progress-area {
-    top: 233px;
+    top: 237px;
     bottom: auto;
     left: 17px;
     width: calc(100% - 34px);
@@ -2459,7 +2509,7 @@ const targetMonthText = computed(() =>
   .survival-card__character-panel {
     position: absolute;
     z-index: 2;
-    top: 313px;
+    top: 319px;
     right: 17px;
     bottom: 23px;
     left: 17px;
@@ -2685,7 +2735,7 @@ const targetMonthText = computed(() =>
   }
 
   .goal-card__value {
-    font-size: 32px;
+    font-size: 24px;
   }
 
   .dashboard__bottom {
