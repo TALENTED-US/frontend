@@ -20,6 +20,21 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 
 const router = useRouter()
 const simulation = useSimulationStore()
+const hasConfirmedSimulationDurations = computed(
+  () =>
+    Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
+    Number.isFinite(Number(simulation.recentConfirmed?.expectedMonths)),
+)
+const confirmedCurrentMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.currentMonths))
+    : simulation.currentMonths,
+)
+const confirmedExpectedMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.expectedMonths))
+    : simulation.expectedMonths,
+)
 const useCalendarApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 const formatLocalIso = (date = new Date()) =>
   [
@@ -582,16 +597,16 @@ onMounted(async () => {
         :monthly-expense="simulation.monthlyExpense"
         :monthly-income="simulation.monthlyIncome"
         :target-months="simulation.targetMonths"
-        :current-months="simulation.currentMonths"
-        :expected-months="simulation.expectedMonths"
-        :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []"
-        :unknown="!simulation.state.confirmed"
-      />
-      <p class="timeline-note">
-        직전 3개월 월평균 기준 · 현재 {{ simulation.currentMonths }}개월
-        <template v-if="simulation.state.confirmed"> → 시나리오 {{ simulation.expectedMonths }}개월</template>
-        <template v-else> · 시나리오 미설정</template>
-      </p>
+          :current-months="confirmedCurrentMonths"
+          :expected-months="confirmedExpectedMonths"
+          :monthly-projections="simulation.recentConfirmed?.monthlyProjections || []"
+          :unknown="!hasConfirmedSimulationDurations"
+        />
+        <p class="timeline-note">
+          직전 3개월 월평균 기준 · 현재 {{ confirmedCurrentMonths }}개월
+          <template v-if="hasConfirmedSimulationDurations"> → 시나리오 {{ confirmedExpectedMonths }}개월</template>
+          <template v-else> · 시나리오 미설정</template>
+        </p>
     </section>
 
     <div v-if="panel" class="overlay" @click.self="panel = ''">

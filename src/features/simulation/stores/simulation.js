@@ -26,6 +26,8 @@ import {
 } from '@/mappers/simulation'
 
 const STORAGE_KEY = 'buttie-simulation-v4'
+const CONFIRMED_SNAPSHOT_KEY = 'buttie-simulation-confirmed-snapshot-v1'
+const CLIENT_CALCULATION_VERSION = 1
 const CATEGORY_META = {
   주거: { icon: '🏠', color: '#ffe197' }, 월세: { icon: '🏠', color: '#ffe197' },
   식비: { icon: '🍚', color: '#ffd0d0' },
@@ -117,6 +119,45 @@ export const useSimulationStore = defineStore('simulation', () => {
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
   )
 
+  function currentUserKey() {
+    return String(session.currentUser.email || '').trim().toLowerCase()
+  }
+
+  function clearConfirmedSnapshot() {
+    recentConfirmed.value = null
+    sessionStorage.removeItem(CONFIRMED_SNAPSHOT_KEY)
+  }
+
+  function persistConfirmedSnapshot(snapshot) {
+    const userKey = currentUserKey()
+    if (!userKey) return
+    sessionStorage.setItem(CONFIRMED_SNAPSHOT_KEY, JSON.stringify({ userKey, snapshot }))
+  }
+
+  function restoreConfirmedSnapshot() {
+    let savedSnapshot = null
+    try {
+      savedSnapshot = JSON.parse(sessionStorage.getItem(CONFIRMED_SNAPSHOT_KEY) || 'null')
+    } catch {
+      clearConfirmedSnapshot()
+      return null
+    }
+
+    const userKey = currentUserKey()
+    if (!savedSnapshot?.snapshot || !userKey || savedSnapshot.userKey !== userKey) {
+      if (savedSnapshot && userKey && savedSnapshot.userKey !== userKey) clearConfirmedSnapshot()
+      return null
+    }
+
+    if (savedSnapshot.snapshot.clientCalculationVersion !== CLIENT_CALCULATION_VERSION) {
+      clearConfirmedSnapshot()
+      return null
+    }
+
+    recentConfirmed.value = savedSnapshot.snapshot
+    return recentConfirmed.value
+  }
+
   function buildExpenseCategories(existing = state.expenses) {
     const breakdownRows = previousMonthExpenseAnalysis.value.categories.map(({ name, current }) => ({
       id: name,
@@ -176,7 +217,9 @@ export const useSimulationStore = defineStore('simulation', () => {
   const localCurrentMonths = computed(() => monthlyExpense.value > 0
     ? Math.round((availableAssets.value / currentMonthlyBurn.value) * 10) / 10
     : 0)
-  const currentMonths = computed(() => state.confirmed && recentConfirmed.value
+  // 확정 시점의 기준 기간은 수정 흐름에서도 유지한다. 서버의 draft/report 값은
+  // 확정 결과와 계산 기준이 다를 수 있으므로 수정 화면 진입 시 기준값을 덮지 않는다.
+  const currentMonths = computed(() => recentConfirmed.value
     ? recentConfirmed.value.currentMonths
     : localCurrentMonths.value)
 
@@ -204,6 +247,8 @@ export const useSimulationStore = defineStore('simulation', () => {
     const adjusted = currentMonths.value + baseIncrease * periodRatio
     return Math.min(60, Math.round(adjusted * 10) / 10)
   })
+  // 확정 결과를 보는 동안에만 확정 스냅샷을 사용한다. 수정(revert) 이후에는
+  // 기존 확정값을 비교 기준으로 보존하되, 변경된 항목으로 예상 기간을 다시 계산한다.
   const expectedMonths = computed(() => state.confirmed && recentConfirmed.value
     ? recentConfirmed.value.expectedMonths
     : localExpectedMonths.value)
@@ -218,6 +263,45 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.policies.length > 0,
   ].filter(Boolean).length)
   const hasDraft = computed(() => state.draftStarted || completedCategories.value > 0)
+
+  function buildClientConfirmedSnapshot(identity = {}) {
+    return {
+      clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+      simulationId: identity.simulationId || '',
+      confirmedAt: identity.confirmedAt || '',
+      startDate: state.startDate,
+      endDate: state.endDate,
+      currentMonths: Number(currentMonths.value) || 0,
+      expectedMonths: Number(expectedMonths.value) || 0,
+      endAmount: Number(identity.endAmount) || 0,
+      expenses: selectedExpenses.value.map((item) => ({ ...item })),
+      incomes: state.incomes.map((item) => ({ ...item })),
+      policies: state.policies.map((item) => ({ ...item })),
+      // 서버 projection은 확정 전 미리보기와 계산 기준이 달라질 수 있어
+      // 동일한 프론트 계산값으로 그리는 fallback 타임라인을 사용한다.
+      monthlyProjections: [],
+    }
+  }
+
+  function applyConfirmedItems(confirmed) {
+    state.startDate = confirmed.startDate || state.startDate
+    state.endDate = confirmed.endDate || state.endDate
+    state.expenses = state.expenses.map((item) => {
+      const remoteItem = confirmed.expenses.find((entry) => entry.name === item.name)
+      return remoteItem
+        ? {
+            ...item,
+            saving: Math.max(0, Number(remoteItem.saving) || 0),
+            selected: Number(remoteItem.saving) > 0,
+            remoteId: remoteItem.remoteId,
+            remoteSynced: true,
+          }
+        : { ...item, saving: 0, selected: false, remoteId: undefined, remoteSynced: false }
+    })
+    state.incomes = confirmed.incomes.map((item) => ({ ...item }))
+    state.policies = confirmed.policies.map((item) => ({ ...item }))
+    state.expenseApplied = confirmed.expenses.length > 0
+  }
 
   watch(state, (value) => localStorage.setItem(STORAGE_KEY, JSON.stringify(value)), { deep: true })
 
@@ -358,15 +442,50 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  function confirmScenario() {
-    return runScenarioMutation(confirmSimulationApi, () => {
+  async function confirmScenario() {
+    const localSnapshot = buildClientConfirmedSnapshot()
+
+    syncing.value = true
+    syncError.value = ''
+
+    try {
+      let confirmed = localSnapshot
+
+      if (remoteEnabled) {
+        await confirmSimulationApi()
+        const remoteConfirmed = mapConfirmedSimulationResponse(
+          await getLatestConfirmedSimulationApi(),
+          policyCatalog,
+        )
+
+        if (!remoteConfirmed) {
+          throw new Error('확정된 시뮬레이션 결과를 불러오지 못했습니다.')
+        }
+
+        confirmed = {
+          ...localSnapshot,
+          simulationId: remoteConfirmed.simulationId,
+          confirmedAt: remoteConfirmed.confirmedAt,
+          endAmount: remoteConfirmed.endAmount,
+        }
+      }
+
       state.completedQuestIds = []
       state.confirmed = true
       state.draftStarted = false
       state.ignoreRemoteDraft = false
       remoteDraftExists.value = false
-      recentConfirmed.value = null
-    })
+      recentConfirmed.value = confirmed
+      persistConfirmedSnapshot(confirmed)
+      state.startDate = confirmed.startDate || state.startDate
+      state.endDate = confirmed.endDate || state.endDate
+      return true
+    } catch (error) {
+      syncError.value = error.message
+      return false
+    } finally {
+      syncing.value = false
+    }
   }
 
   function revertConfirmedScenario() {
@@ -375,7 +494,8 @@ export const useSimulationStore = defineStore('simulation', () => {
       state.draftStarted = true
       state.ignoreRemoteDraft = false
       remoteDraftExists.value = true
-      recentConfirmed.value = null
+      // 확정 스냅샷은 수정 중인 시나리오의 비교 기준으로 계속 사용한다.
+      // 새 시뮬레이션 생성/삭제/로그아웃 경로에서만 제거한다.
     })
   }
 
@@ -412,7 +532,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   function resetScenario() {
     Object.assign(state, defaultState())
     remoteReport.value = null
-    recentConfirmed.value = null
+    clearConfirmedSnapshot()
     remoteDraftExists.value = null
     syncError.value = ''
   }
@@ -433,7 +553,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.draftStarted = true
     state.ignoreRemoteDraft = true
     remoteReport.value = null
-    recentConfirmed.value = null
+    clearConfirmedSnapshot()
     syncError.value = ''
   }
 
@@ -466,30 +586,45 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncing.value = true
     syncError.value = ''
     try {
-      const confirmed = mapConfirmedSimulationResponse(
+      const restored = restoreConfirmedSnapshot()
+      const remoteConfirmed = mapConfirmedSimulationResponse(
         await getLatestConfirmedSimulationApi(),
         policyCatalog,
       )
-      if (!confirmed) return null
+      if (!remoteConfirmed) return null
+
+      const canReuseClientSnapshot =
+        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION
+        && restored.simulationId === remoteConfirmed.simulationId
+        && restored.confirmedAt === remoteConfirmed.confirmedAt
+      let confirmed
+
+      if (canReuseClientSnapshot) {
+        confirmed = {
+          ...remoteConfirmed,
+          ...restored,
+          simulationId: remoteConfirmed.simulationId,
+          confirmedAt: remoteConfirmed.confirmedAt,
+        }
+        applyConfirmedItems(confirmed)
+      } else {
+        applyConfirmedItems(remoteConfirmed)
+        recentConfirmed.value = null
+        confirmed = buildClientConfirmedSnapshot({
+          simulationId: remoteConfirmed.simulationId,
+          confirmedAt: remoteConfirmed.confirmedAt,
+          endAmount: remoteConfirmed.endAmount,
+        })
+      }
 
       recentConfirmed.value = confirmed
-      state.startDate = confirmed.startDate || state.startDate
-      state.endDate = confirmed.endDate || state.endDate
-      state.expenses = state.expenses.map((item) => {
-        const remoteItem = confirmed.expenses.find((entry) => entry.name === item.name)
-        return remoteItem
-          ? { ...item, saving: Math.min(item.current, remoteItem.saving), selected: remoteItem.saving > 0, remoteId: remoteItem.remoteId, remoteSynced: true }
-          : { ...item, saving: 0, selected: false, remoteId: undefined, remoteSynced: false }
-      })
-      state.incomes = confirmed.incomes
-      state.policies = confirmed.policies
-      state.expenseApplied = confirmed.expenses.length > 0
+      persistConfirmedSnapshot(confirmed)
       state.confirmed = true
       state.draftStarted = false
       state.ignoreRemoteDraft = false
       return confirmed
     } catch (error) {
-      if (error.status === 404) { recentConfirmed.value = null; state.confirmed = false }
+      if (error.status === 404) { clearConfirmedSnapshot(); state.confirmed = false }
       else syncError.value = error.message
       return null
     } finally {
@@ -633,6 +768,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     deleteConfirmedScenario, deleteDraftScenario, toggleQuestCompletion,
     migrateRecurringQuestCompletions, resetScenario, prepareNewScenario,
     hydrateDraft, hydrateConfirmed, beginSimulation, savePeriod,
+    restoreConfirmedSnapshot,
     syncCategory, refreshCategory, hydrateCategory,
   }
 })

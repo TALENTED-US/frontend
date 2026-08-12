@@ -10,6 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const simulation = useSimulationStore()
 const session = useSessionStore()
+simulation.restoreConfirmedSnapshot()
 const category = computed(() => route.params.category)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
 const goalAmount = (value) => Number(value) % 10000 === 0 ? `${money(Number(value) / 10000)}만원` : `${money(value)}원`
@@ -30,6 +31,9 @@ const expenseAmount = ref('')
 const activeExpense = computed(() => simulation.state.expenses.find((item) => item.id === selectedExpenseId.value) || simulation.state.expenses[0])
 const visibleBreakdown = computed(() => simulation.expenseBreakdown.slice(0, 4))
 const policyCount = computed(() => simulation.state.policies.length)
+const isEditingConfirmedScenario = computed(() =>
+  Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
+)
 
 watch(category, (value) => {
   if (value === 'expense') simulation.initializeExpensesFromAnalysis()
@@ -186,7 +190,7 @@ function skip() {
         <article v-for="item in simulation.selectedExpenses" :key="item.id"><i>{{ item.icon }}</i><strong>{{ item.name }} {{ goalAmount(item.saving) }} 줄이기</strong><div class="expense-goal-controls"><strong>-{{ goalAmount(item.saving) }}</strong><span><button @click="editExpenseGoal(item)">수정</button><button @click="deleteExpenseGoal(item)">삭제</button></span></div></article>
         <footer><span>지출 절약 합계</span><strong>월 {{ goalAmount(simulation.expenseSaving) }}</strong></footer>
       </section>
-      <div class="wizard-actions"><button class="sim-text-button" @click="skip">건너뛰기</button><button class="sim-btn sim-btn--yellow" :disabled="!simulation.expenseSaving || simulation.syncing" @click="apply('expense')">적용하기 →</button></div>
+      <div class="wizard-actions"><button class="sim-text-button" @click="skip">건너뛰기</button><button class="sim-btn sim-btn--yellow" :disabled="(!simulation.expenseSaving && !isEditingConfirmedScenario) || simulation.syncing" @click="apply('expense')">적용하기 →</button></div>
     </template>
 
     <template v-else-if="category === 'income'">
@@ -206,7 +210,7 @@ function skip() {
         <article v-for="item in simulation.state.incomes" :key="item.id"><i>{{ incomeIcon(item) }}</i><div><strong>{{ item.name }} <em v-if="item.type === 'monthly'">↻ 정기</em></strong><small>{{ incomeSchedule(item) }}</small></div><div class="income-plan-controls"><strong>{{ goalAmount(item.amount) }}{{ item.type === 'once' ? ' (일시)' : '' }}</strong><span><button type="button" @click="editIncome(item)">수정</button><button type="button" @click="deleteIncome(item.id)">삭제</button></span></div></article>
         <footer><span>월 정기 수입 합계</span><strong>+{{ goalAmount(simulation.recurringIncome) }} / 월</strong><span>일시 수입 합계</span><strong>+{{ goalAmount(simulation.oneTimeIncome) }}</strong></footer>
       </section>
-      <div class="wizard-actions"><button class="sim-text-button" @click="skip">건너뛰기</button><button class="sim-btn sim-btn--yellow" :disabled="!simulation.state.incomes.length || simulation.syncing" @click="apply('income')">시뮬레이션에 적용</button></div>
+      <div class="wizard-actions"><button class="sim-text-button" @click="skip">건너뛰기</button><button class="sim-btn sim-btn--yellow" :disabled="(!simulation.state.incomes.length && !isEditingConfirmedScenario) || simulation.syncing" @click="apply('income')">시뮬레이션에 적용</button></div>
     </template>
 
     <template v-else>
