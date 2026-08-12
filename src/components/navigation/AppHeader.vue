@@ -4,8 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { notifyLatestOncePerDay } from '@/features/notification/notificationService'
 import {
+  loadNotifications,
   markNotificationRead,
   notificationItems,
+  notificationState,
+  refreshUnreadNotificationCheck,
   unreadNotificationCount,
 } from '@/features/notification/notificationStore'
 
@@ -13,7 +16,9 @@ const route = useRoute()
 const router = useRouter()
 const openPopover = ref('')
 const popoverAnchor = ref(null)
-const popoverItems = computed(() => notificationItems.value.filter((item) => !item.read).slice(0, 3))
+const popoverItems = computed(() =>
+  notificationItems.value.filter((item) => !item.read).slice(0, 3),
+)
 const titles = {
   dashboard: '홈',
   finance: '내 재정',
@@ -48,23 +53,43 @@ const isSimulationEdit = computed(() => route.name === 'simulationEdit')
 const isSimulationContinue = computed(() => route.name === 'simulationContinue')
 const isSimulationCategory = computed(() => route.name === 'simulationCategory')
 const isSimulationPreview = computed(() => route.name === 'simulationCategoryPreview')
-const isFixedExpense = computed(() => ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name))
+const isFixedExpense = computed(() =>
+  ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name),
+)
 const isNotifications = computed(() => route.name === 'notifications')
 const hasMobileBack = computed(
-  () => isMyPageDetail.value || isSimulationStart.value || isSimulationEdit.value || isSimulationContinue.value || isSimulationCategory.value || isSimulationPreview.value || isFixedExpense.value || isNotifications.value,
+  () =>
+    isMyPageDetail.value ||
+    isSimulationStart.value ||
+    isSimulationEdit.value ||
+    isSimulationContinue.value ||
+    isSimulationCategory.value ||
+    isSimulationPreview.value ||
+    isFixedExpense.value ||
+    isNotifications.value,
 )
 const mobileTitle = computed(() => {
   if (isMyPageDetail.value) return '마이페이지'
   if (isSimulationPreview.value) return '미리보기'
   if (isSimulationCategory.value) {
-    return { expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 맞춤 추천' }[route.params.category] || '시뮬레이션'
+    return (
+      { expense: '지출 줄이기', income: '수입 늘리기', policy: '정책 맞춤 추천' }[
+        route.params.category
+      ] || '시뮬레이션'
+    )
   }
   return title.value
 })
 const isFinanceMain = computed(() => route.name === 'finance')
 
-function toggle(name) {
+async function toggle(name) {
   openPopover.value = openPopover.value === name ? '' : name
+  if (openPopover.value === 'notification') {
+    await refreshUnreadNotificationCheck()
+    try {
+      await loadNotifications(true)
+    } catch {}
+  }
 }
 
 function goBackFromMyPageDetail() {
@@ -86,13 +111,13 @@ function goBack() {
       policy: '/simulation/income/preview',
     }[route.params.category]
     router.push(previousPath || '/simulation')
-  }
-  else goBackFromMyPageDetail()
+  } else goBackFromMyPageDetail()
 }
 
-function openNotification(item) {
-  markNotificationRead(item.id)
+async function openNotification(item) {
+  if (!(await markNotificationRead(item.id))) return
   openPopover.value = ''
+  router.push(item.url?.startsWith('/') ? item.url : '/notifications')
 }
 
 function closePopoverOnOutsideClick(event) {
@@ -101,12 +126,20 @@ function closePopoverOnOutsideClick(event) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('pointerdown', closePopoverOnOutsideClick)
+  try {
+    await loadNotifications()
+  } catch {}
   notifyLatestOncePerDay()
 })
 onBeforeUnmount(() => document.removeEventListener('pointerdown', closePopoverOnOutsideClick))
-watch(() => route.fullPath, () => { openPopover.value = '' })
+watch(
+  () => route.fullPath,
+  () => {
+    openPopover.value = ''
+  },
+)
 </script>
 
 <template>
@@ -115,7 +148,17 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
       v-if="hasMobileBack"
       class="app-header__back mobile-only"
       type="button"
-      :aria-label="isNotifications ? '이전 화면으로 돌아가기' : isFixedExpense ? '내 재정으로 돌아가기' : isSimulationStart || isSimulationEdit || isSimulationContinue ? '시뮬레이션에서 나가기' : isSimulationCategory || isSimulationPreview ? '이전 시뮬레이션 단계로 돌아가기' : '마이페이지로 돌아가기'"
+      :aria-label="
+        isNotifications
+          ? '이전 화면으로 돌아가기'
+          : isFixedExpense
+            ? '내 재정으로 돌아가기'
+            : isSimulationStart || isSimulationEdit || isSimulationContinue
+              ? '시뮬레이션에서 나가기'
+              : isSimulationCategory || isSimulationPreview
+                ? '이전 시뮬레이션 단계로 돌아가기'
+                : '마이페이지로 돌아가기'
+      "
       @click="goBack"
     >
       ‹
@@ -129,7 +172,9 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
         aria-label="알림"
         @click="toggle('notification')"
       >
-        <AppIcon name="bell" :size="19" /><b v-if="unreadNotificationCount" class="header-badge">{{ unreadNotificationCount }}</b>
+        <AppIcon name="bell" :size="19" /><b v-if="unreadNotificationCount" class="header-badge">{{
+          unreadNotificationCount
+        }}</b>
       </button>
       <section v-if="openPopover === 'notification'" class="header-popover notification-popover">
         <header>
@@ -139,8 +184,8 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
         <RouterLink
           v-for="item in popoverItems"
           :key="item.id"
-          to="/notifications"
-          @click="openNotification(item)"
+          :to="item.url?.startsWith('/') ? item.url : '/notifications'"
+          @click.prevent="openNotification(item)"
         >
           <i>•</i>
           <div>
@@ -149,7 +194,12 @@ watch(() => route.fullPath, () => { openPopover.value = '' })
           </div>
           <time>{{ item.time }}</time>
         </RouterLink>
-        <p v-if="popoverItems.length === 0" class="notification-popover__empty">새 알림이 없어요.</p>
+        <p v-if="notificationState.error" class="notification-popover__empty">
+          알림을 불러오지 못했어요.
+        </p>
+        <p v-else-if="popoverItems.length === 0" class="notification-popover__empty">
+          새 알림이 없어요.
+        </p>
       </section>
     </div>
   </header>

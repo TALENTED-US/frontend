@@ -1,27 +1,44 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
+  loadNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   notificationItems,
+  notificationState,
   unreadNotificationCount,
 } from '@/features/notification/notificationStore'
 
+const router = useRouter()
 const unreadOnly = ref(false)
 const visible = computed(() =>
-  unreadOnly.value
-    ? notificationItems.value.filter((item) => !item.read)
-    : notificationItems.value,
+  unreadOnly.value ? notificationItems.value.filter((item) => !item.read) : notificationItems.value,
 )
 
-function notificationCategory(item, index) {
+function notificationCategory(item) {
+  const categoryByType = {
+    POLICY: { label: '정책', tone: 'policy' },
+    QUEST: { label: '퀘스트', tone: 'quest' },
+    REWARD: { label: '리워드', tone: 'reward' },
+    FINANCIAL_CHANGE: { label: '재정 변화', tone: 'finance' },
+  }
+  if (categoryByType[item.type]) return categoryByType[item.type]
+
   const text = `${item.title} ${item.message}`
   if (/정책|지원|월세/.test(text)) return { label: '정책', tone: 'policy' }
-  if (/퀘스트|기간|목표/.test(text) && index > 0) return { label: '퀘스트', tone: 'quest' }
+  if (/퀘스트|기간|목표/.test(text)) return { label: '퀘스트', tone: 'quest' }
   if (/리워드|보상|경험치/.test(text)) return { label: '리워드', tone: 'reward' }
   if (/재정|금액|경고/.test(text)) return { label: '재정 변화', tone: 'finance' }
   return { label: '서비스 공지', tone: 'service' }
 }
+
+async function openNotification(item) {
+  if (!(await markNotificationRead(item.id))) return
+  if (item.url?.startsWith('/')) router.push(item.url)
+}
+
+onMounted(() => loadNotifications(true).catch(() => {}))
 </script>
 
 <template>
@@ -34,33 +51,50 @@ function notificationCategory(item, index) {
 
     <div class="notification-tools">
       <div class="notification-filter" role="group" aria-label="알림 표시 범위">
-        <button :class="{ active: !unreadOnly }" :aria-pressed="!unreadOnly" @click="unreadOnly = false">
+        <button
+          :class="{ active: !unreadOnly }"
+          :aria-pressed="!unreadOnly"
+          @click="unreadOnly = false"
+        >
           전체 {{ notificationItems.length }}
         </button>
-        <button :class="{ active: unreadOnly }" :aria-pressed="unreadOnly" @click="unreadOnly = true">
+        <button
+          :class="{ active: unreadOnly }"
+          :aria-pressed="unreadOnly"
+          @click="unreadOnly = true"
+        >
           읽지 않음 {{ unreadNotificationCount }}
         </button>
       </div>
       <button
         class="notification-read-all"
         type="button"
-        :disabled="unreadNotificationCount === 0"
+        :disabled="unreadNotificationCount === 0 || notificationState.loading"
         @click="markAllNotificationsRead"
       >
-        모두 읽음
+        {{ notificationState.loading ? '처리 중' : '모두 읽음' }}
       </button>
     </div>
 
+    <p v-if="notificationState.error" class="notification-error" role="alert">
+      {{ notificationState.error }}
+    </p>
+    <p v-if="notificationState.loading && !notificationItems.length" class="notification-empty">
+      알림을 불러오는 중이에요.
+    </p>
+    <p v-else-if="!notificationState.loading && !visible.length" class="notification-empty">
+      {{ unreadOnly ? '읽지 않은 알림이 없어요.' : '도착한 알림이 없어요.' }}
+    </p>
     <div class="notification-list">
       <button
-        v-for="(item, index) in visible"
+        v-for="item in visible"
         :key="item.id"
         :class="['notification-item', { unread: !item.read }]"
-        @click="markNotificationRead(item.id)"
+        @click="openNotification(item)"
       >
         <span class="notification-item__top">
-          <small :class="`tag--${notificationCategory(item, index).tone}`">
-            {{ notificationCategory(item, index).label }}
+          <small :class="`tag--${notificationCategory(item).tone}`">
+            {{ notificationCategory(item).label }}
           </small>
           <time>{{ item.read ? '읽음' : '안 읽음' }}</time>
         </span>
@@ -84,6 +118,21 @@ function notificationCategory(item, index) {
   margin: 8px 0 16px;
   color: #999;
   font-size: 14px;
+}
+
+.notification-error,
+.notification-empty {
+  margin: 18px 0;
+  padding: 20px;
+  border-radius: 14px;
+  background: #f7f8fa;
+  color: #858b97;
+  text-align: center;
+}
+
+.notification-error {
+  background: #fff2f2;
+  color: #d94f55;
 }
 
 .notification-tools {
@@ -187,11 +236,21 @@ function notificationCategory(item, index) {
   line-height: 0.7;
 }
 
-.tag--finance { background: #ecfdf5; }
-.tag--policy { background: #fdecec; }
-.tag--quest { background: #eceefd; }
-.tag--reward { background: #fafdec; }
-.tag--service { background: #f5ecfd; }
+.tag--finance {
+  background: #ecfdf5;
+}
+.tag--policy {
+  background: #fdecec;
+}
+.tag--quest {
+  background: #eceefd;
+}
+.tag--reward {
+  background: #fafdec;
+}
+.tag--service {
+  background: #f5ecfd;
+}
 
 @media (max-width: 800px) {
   .notification-page {
