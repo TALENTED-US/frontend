@@ -97,6 +97,7 @@ function openFilter() {
   router.push({
     path: '/search/filter',
     query: {
+      ...(query.value.trim() ? { q: query.value.trim() } : {}),
       filters: toFilterQuery(activeFilters.value),
       ...(amount.value ? { amount: String(amount.value) } : {}),
     },
