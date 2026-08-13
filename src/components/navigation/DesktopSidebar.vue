@@ -1,8 +1,11 @@
 <script setup>
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useSessionStore } from '@/stores/session'
 import BrandLogo from './BrandLogo.vue'
 
 const route = useRoute()
+const router = useRouter()
+const session = useSessionStore()
 
 const menus = [
   { to: '/', label: '홈' },
@@ -15,6 +18,11 @@ const menus = [
 function isMenuActive(to) {
   if (to === '/') return route.path === '/'
   return route.path === to || route.path.startsWith(`${to}/`)
+}
+
+async function logout() {
+  await session.logout()
+  router.replace('/auth/login')
 }
 </script>
 
@@ -31,6 +39,7 @@ function isMenuActive(to) {
         {{ menu.label }}
       </RouterLink>
     </nav>
+    <button class="sidebar__logout" type="button" @click="logout">로그아웃</button>
   </aside>
 </template>
 
@@ -39,6 +48,8 @@ function isMenuActive(to) {
   position: fixed;
   z-index: 50;
   inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
   width: var(--sidebar-width);
   padding: 32px 24px;
   background: #fbfcff;
@@ -70,6 +81,19 @@ function isMenuActive(to) {
   background: #eef0fb;
   box-shadow: var(--shadow-figma);
   color: var(--primary);
+  font-weight: 800;
+}
+
+.sidebar__logout {
+  width: 100%;
+  min-height: 56px;
+  margin-top: auto;
+  border: 1px solid #e2e3e8;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+  color: #666;
+  font-size: var(--font-body);
   font-weight: 800;
 }
 </style>
