@@ -1,5 +1,10 @@
+<script setup>
+import SkipLink from '@/components/ui/SkipLink.vue'
+</script>
+
 <template>
-  <main class="auth-shell">
+  <SkipLink />
+  <main id="main-content" class="auth-shell" tabindex="-1">
     <RouterView />
   </main>
 </template>

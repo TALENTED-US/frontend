@@ -22,18 +22,28 @@ function closeOnOutsideClick(event) {
   if (menuOpen.value && !menuAnchor.value?.contains(event.target)) menuOpen.value = false
 }
 
-onMounted(() => document.addEventListener('pointerdown', closeOnOutsideClick))
-onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutsideClick))
+function closeOnEscape(event) {
+  if (event.key === 'Escape') menuOpen.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', closeOnOutsideClick)
+  document.addEventListener('keydown', closeOnEscape)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', closeOnOutsideClick)
+  document.removeEventListener('keydown', closeOnEscape)
+})
 </script>
 
 <template>
   <header class="admin-header">
     <div class="admin-header__spacer" />
     <div ref="menuAnchor" class="admin-header__profile">
-      <button type="button" class="admin-header__profile-button" @click="toggleMenu">
+      <button type="button" class="admin-header__profile-button" aria-haspopup="menu" :aria-expanded="menuOpen" aria-controls="admin-profile-menu" @click="toggleMenu">
         관리자 {{ session.currentUser.name }} ▾
       </button>
-      <div v-if="menuOpen" class="admin-header__menu">
+      <div v-if="menuOpen" id="admin-profile-menu" class="admin-header__menu" role="menu">
         <button type="button" @click="handleLogout">로그아웃</button>
       </div>
     </div>
@@ -49,7 +59,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
   align-items: center;
   min-height: 64px;
   padding: 0 32px;
-  background: rgb(251 252 255 / 94%);
+  background: rgb(252 253 255 / 92%);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
@@ -63,9 +73,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
 }
 
 .admin-header__profile-button {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
+  padding: 0 16px;
+  border: 1px solid rgb(10 22 128 / 14%);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary);
   font-size: var(--font-small);
 }
 

@@ -5,10 +5,14 @@ html {
   background: var(--canvas);
   font-family: var(--font-family-base);
   font-size: var(--font-body);
+  scroll-behavior: smooth;
+  text-size-adjust: 100%;
 }
 
 body {
-  background: var(--canvas);
+  background:
+    radial-gradient(circle at 92% 4%, rgb(251 237 176 / 45%), transparent 25rem),
+    var(--canvas);
   font-family: var(--font-family-base);
   font-size: var(--font-body);
   line-height: var(--line-height-body);
@@ -60,8 +64,1293 @@ svg text {
 }
 
 :focus-visible {
-  outline: 3px solid rgb(169 194 251 / 65%);
-  outline-offset: 2px;
+  outline: 3px solid #4569d4;
+  outline-offset: 3px;
+}
+
+#main-content:focus {
+  outline: none;
+}
+
+#app :where(button, [role='button'], input:not([type='checkbox']):not([type='radio']), select) {
+  min-height: 44px;
+}
+
+#app :where(button, a, input, select, textarea) {
+  -webkit-tap-highlight-color: rgb(69 105 212 / 20%);
+}
+
+#app :where(input, select, textarea)::placeholder {
+  color: #686d78;
+  opacity: 1;
+}
+
+#app :where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
+#app :where(.app-shell, .auth-shell, .admin-shell) :where(small, figcaption) {
+  font-size: max(13px, .8125rem);
+  line-height: 1.45;
+}
+
+#app :where(.app-shell, .auth-shell, .admin-shell) :where(p, li, label, input, select, textarea, button) {
+  line-height: max(1.45, var(--line-height-body));
+}
+
+@media (max-width: 767px) {
+  #app :where(input, select, textarea) {
+    font-size: 16px;
+  }
+}
+
+/* Readability floor for app content. Preserve hierarchy while removing unreadable microcopy. */
+#app .app-shell main :where(
+  p,
+  small,
+  label,
+  figcaption,
+  dt,
+  dd,
+  li,
+  button,
+  input,
+  select,
+  textarea
+) {
+  font-size: max(14px, 1em) !important;
+}
+
+#app .app-shell main :where(
+  p,
+  small,
+  figcaption,
+  dt,
+  .sim-subtitle,
+  .api-notice,
+  .timeline-note,
+  .result-heading span,
+  .result-card p,
+  .result-card small
+) {
+  color: #6b7684;
+  line-height: 1.55;
+}
+
+#app .app-shell .sim-page :where(
+  .wizard-progress-tabs span,
+  .expense-analysis-total span,
+  .expense-analysis-body li,
+  .expense-analysis-body li > strong,
+  .expense-analysis-body li small,
+  .expense-analysis-card > p,
+  .expense-target-card > p,
+  .expense-target-info > span,
+  .expense-target-editor > label,
+  .expense-target-editor > small,
+  .expense-target-editor input,
+  .section-heading > span,
+  .added-expense-goals article > strong,
+  .expense-goal-controls > strong,
+  .expense-goal-controls button,
+  .added-expense-goals footer,
+  .income-plan-form label,
+  .income-form-heading,
+  .income-form-heading button,
+  .income-plan-form legend,
+  .income-plan-form fieldset button,
+  .income-money-field b,
+  .added-income-plans article small,
+  .added-income-plans article em,
+  .income-plan-controls > strong,
+  .income-plan-controls button,
+  .added-income-plans footer,
+  .policy-condition-grid span,
+  .policy-catalog-list p,
+  .policy-catalog-list small,
+  .period-change-card small,
+  .preview-section-title p,
+  .cashflow-comparison small,
+  .cashflow-comparison strong,
+  .comparison-legend,
+  .net-cashflow-row small,
+  .net-cashflow-row strong,
+  .result-delta-badges span,
+  .result-delta-badges i,
+  .edit-summary header button,
+  .edit-summary > p,
+  .final-result > span,
+  .final-result em,
+  .simulation-edit-card small,
+  .simulation-edit-card em,
+  .simulation-edit-card > b
+) {
+  font-size: 14px !important;
+  line-height: 1.5;
+}
+
+#app .app-shell .sim-page :where(
+  .expense-analysis-body li small,
+  .expense-target-editor > small,
+  .added-income-plans article small,
+  .policy-catalog-list p,
+  .policy-catalog-list small,
+  .preview-section-title p,
+  .net-cashflow-row small,
+  .simulation-edit-card small
+) {
+  color: #6b7684 !important;
+}
+
+#app .app-shell .sim-page :where(
+  .added-expense-goals article > strong,
+  .added-income-plans article > div:nth-child(2) > strong,
+  .expense-goal-controls > strong,
+  .income-plan-controls > strong,
+  .cashflow-comparison strong,
+  .net-cashflow-row strong
+) {
+  color: var(--text);
+  font-weight: 750;
+}
+
+#app .app-shell .dashboard :where(
+  .level-overview span,
+  .survival-card small,
+  .survival-card__legend small,
+  .summary-card small,
+  .quest-period__heading p,
+  .quest-period__heading > span,
+  .quest-row__copy small,
+  .quest-card__footer span,
+  .quest-card__footer p,
+  .goal-card span
+),
+#app .app-shell .finance :where(
+  .summary small,
+  .calendar small,
+  .transaction small,
+  .list-actions > span,
+  .category li,
+  .category-insight,
+  .timeline-note,
+  .sheet label,
+  .transaction-detail__list dt,
+  .transaction-detail__list dd
+),
+#app .app-shell .search-page :where(
+  .search-heading p,
+  .filter-chip,
+  .result-heading span,
+  .result-card p,
+  .result-card small
+),
+#app .app-shell .mypage :where(
+  p,
+  small,
+  dt,
+  dd,
+  label
+) {
+  font-size: 14px !important;
+  line-height: 1.5;
+}
+
+@media (max-width: 767px) {
+  #app .app-shell main :where(
+    p,
+    small,
+    label,
+    figcaption,
+    dt,
+    dd,
+    li,
+    button
+  ) {
+    font-size: max(13px, 1em) !important;
+  }
+
+  #app .app-shell .sim-page :where(
+    .wizard-progress-tabs span,
+    .expense-analysis-body li,
+    .expense-analysis-body li > strong,
+    .expense-analysis-body li small,
+    .expense-target-info > span,
+    .expense-target-editor > label,
+    .expense-target-editor > small,
+    .added-expense-goals article > strong,
+    .expense-goal-controls > strong,
+    .expense-goal-controls button,
+    .income-plan-form label,
+    .income-form-heading,
+    .income-form-heading button,
+    .income-plan-form legend,
+    .added-income-plans article small,
+    .added-income-plans article em,
+    .income-plan-controls > strong,
+    .income-plan-controls button,
+    .comparison-legend,
+    .net-cashflow-row small
+  ) {
+    font-size: 13px !important;
+  }
+}
+
+/* Timeline and policy controls: stronger contrast without changing page structure. */
+#app .app-shell :where(.finance, .sim-page) .timeline-chart {
+  margin-top: 16px;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart__legend {
+  gap: 10px 20px;
+  color: #4e5968;
+  font-size: 14px !important;
+  font-weight: 700;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart__legend i.current {
+  background: #8b95a1;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart__legend i.scenario {
+  background: var(--primary);
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart__legend i.target {
+  background: var(--accent-strong);
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart__plot {
+  margin-top: 14px;
+  padding: 10px 12px 4px;
+  border: 0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #eef0f2;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart__plot svg {
+  min-height: 260px;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .chart-grid path {
+  stroke: #e5e8eb;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart :where(.y-axis text, .x-axis text) {
+  fill: #6b7684;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .scenario-area {
+  fill: rgb(10 22 128 / 9%) !important;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .current-line {
+  stroke: #8b95a1;
+  stroke-width: 3.5;
+  stroke-dasharray: 7 6;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .scenario-line {
+  stroke: var(--primary);
+  stroke-width: 5;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .current-dot {
+  fill: #8b95a1;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .scenario-dot {
+  fill: var(--primary);
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .goal-line {
+  stroke: var(--accent-strong);
+  stroke-width: 3;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .current-badge rect {
+  fill: #6b7684;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart .scenario-badge rect {
+  fill: var(--primary);
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart :where(.current-badge text, .scenario-badge text) {
+  font-size: 14px;
+  font-weight: 850;
+}
+
+#app .app-shell :where(.finance, .sim-page) .timeline-chart :where(.burn-label, .danger-label) {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#app .app-shell .finance .timeline {
+  padding: 24px 26px 28px;
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .finance .timeline h2 {
+  color: var(--text);
+  font-size: 21px;
+  font-weight: 850;
+}
+
+#app .app-shell .finance .timeline-note {
+  color: #6b7684;
+  font-size: 13px !important;
+  line-height: 1.5;
+}
+
+#app .app-shell .search-page .search-input input {
+  min-height: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text);
+  font-size: 16px !important;
+}
+
+#app .app-shell .search-page .search-input input::placeholder {
+  color: #8b95a1;
+}
+
+#app .app-shell .search-page .quick-filters {
+  gap: 10px;
+}
+
+#app .app-shell .search-page .filter-chip {
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid rgb(241 185 76 / 40%);
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--primary);
+  font-size: 14px;
+}
+
+#app .app-shell .search-page .filter-button {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .search-page :where(.result-card p, .result-card small, .result-heading span) {
+  color: #6b7684;
+  font-size: 14px !important;
+  line-height: 1.5;
+}
+
+#app .app-shell .filter-page > p,
+#app .app-shell .filter-page .filter-tip {
+  color: #6b7684;
+  font-size: 15px !important;
+  line-height: 1.5;
+}
+
+#app .app-shell .filter-page .filter-tip {
+  border: 1px solid rgb(241 185 76 / 28%);
+  border-radius: 14px;
+  background: var(--accent);
+  box-shadow: none;
+  color: #51392e;
+}
+
+#app .app-shell .filter-page .filter-groups {
+  gap: 18px;
+}
+
+#app .app-shell .filter-page .filter-groups section {
+  padding: 20px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .filter-page .filter-groups h2 {
+  color: var(--text);
+  font-size: 18px !important;
+  font-weight: 850;
+}
+
+#app .app-shell .filter-page .filter-groups button {
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #f2f4f6;
+  box-shadow: none;
+  color: #4e5968;
+  font-size: 14px !important;
+  font-weight: 700;
+}
+
+#app .app-shell .filter-page .filter-groups button.active {
+  border-color: rgb(10 22 128 / 16%);
+  background: var(--accent);
+  color: var(--primary);
+  font-weight: 850;
+}
+
+#app .app-shell .filter-page .amount-filter input[type='range'] {
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  accent-color: var(--primary);
+}
+
+#app .app-shell .filter-page .amount-filter strong {
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: 14px !important;
+}
+
+#app .app-shell .filter-page > footer button {
+  border-radius: 13px;
+  background: #eef0f2;
+  color: #4e5968;
+  box-shadow: none;
+}
+
+#app .app-shell .filter-page > footer button:last-child {
+  background: var(--accent);
+  color: var(--primary);
+  font-weight: 850;
+}
+
+@media (max-width: 767px) {
+  #app .app-shell :where(.finance, .sim-page) .timeline-chart__legend {
+    gap: 8px 12px;
+    font-size: 13px !important;
+  }
+
+  #app .app-shell :where(.finance, .sim-page) .timeline-chart__plot {
+    margin-top: 10px;
+    padding: 4px;
+    border-radius: 14px;
+  }
+
+  #app .app-shell :where(.finance, .sim-page) .timeline-chart__plot svg {
+    min-height: 210px;
+  }
+
+  #app .app-shell .filter-page .filter-groups {
+    gap: 12px;
+  }
+
+  #app .app-shell .filter-page .filter-groups section {
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+}
+
+/* Butter + navy product polish: navy builds structure, butter highlights action. */
+#app .app-shell .sim-page {
+  --sim-butter: #ffe78f;
+  --sim-butter-soft: #fff8dc;
+  --sim-butter-deep: #f1b94c;
+  color: var(--text);
+}
+
+/* Let the app canvas show through instead of stacking a white page panel on it. */
+#app .app-shell .sim-page.sim-wizard:not(.sim-flow-continue) {
+  background: transparent !important;
+}
+
+#app .app-shell .sim-page :where(.wizard-title, .sim-heading h1) {
+  color: var(--text) !important;
+  font-size: clamp(30px, 3vw, 40px) !important;
+  font-weight: 850;
+  letter-spacing: -.045em;
+  line-height: 1.25;
+}
+
+#app .app-shell .sim-page :where(.sim-subtitle, .sim-heading p) {
+  color: var(--muted);
+  font-size: 15px !important;
+}
+
+#app .app-shell .sim-page .wizard-progress-tabs {
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+#app .app-shell .sim-page .wizard-progress-tabs span {
+  color: var(--subtle);
+  font-weight: 700;
+}
+
+#app .app-shell .sim-page .wizard-progress-tabs span i {
+  height: 5px;
+  border-radius: 999px;
+  background: #e5e8eb;
+}
+
+#app .app-shell .sim-page .wizard-progress-tabs span.active {
+  color: var(--primary);
+  font-weight: 850;
+}
+
+#app .app-shell .sim-page .wizard-progress-tabs span.active i {
+  background: var(--sim-butter-deep);
+}
+
+#app .app-shell .sim-page .wizard-progress-tabs span.done {
+  color: var(--primary);
+}
+
+#app .app-shell .sim-page .wizard-progress-tabs span.done i {
+  background: var(--primary);
+}
+
+#app .app-shell .sim-page :where(
+  .expense-analysis-card,
+  .expense-target-card,
+  .added-expense-goals,
+  .income-plan-form,
+  .added-income-plans,
+  .policy-qualification,
+  .policy-selected-card,
+  .policy-catalog-scroll,
+  .period-section,
+  .baseline-report,
+  .period-change-card,
+  .preview-timeline-section,
+  .application-result,
+  .edit-summary,
+  .simulation-edit-period,
+  .simulation-edit-card
+) {
+  border: 0 !important;
+  border-radius: 22px !important;
+  background: #fff !important;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .app-shell .sim-page :where(.expense-analysis-card, .period-change-card, .final-result) {
+  background:
+    radial-gradient(circle at 12% 8%, rgb(255 231 143 / 76%), transparent 18rem),
+    #fff !important;
+}
+
+#app .app-shell .sim-page :where(.expense-target-card, .income-plan-form, .policy-qualification) {
+  padding: clamp(22px, 3vw, 30px);
+}
+
+#app .app-shell .sim-page :where(input, select) {
+  border: 0 !important;
+  border-radius: 13px !important;
+  background: #f2f4f6 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell .sim-page :where(input, select):focus {
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgb(10 22 128 / 12%) !important;
+}
+
+#app .app-shell .sim-page .expense-category-tabs button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  background: #f2f4f6;
+  box-shadow: none;
+  color: #4e5968;
+}
+
+#app .app-shell .sim-page .expense-category-tabs button.active {
+  border-color: rgb(10 22 128 / 12%);
+  background: var(--sim-butter);
+  color: var(--primary);
+  font-weight: 850;
+}
+
+#app .app-shell .sim-page .expense-target-editor {
+  border: 0;
+  border-radius: 18px;
+  background: var(--sim-butter-soft);
+}
+
+#app .app-shell .sim-page :where(
+  .sim-btn--yellow,
+  .sim-btn--orange,
+  .expense-add-button,
+  .income-add-button,
+  .policy-filter-button
+) {
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: var(--sim-butter) !important;
+  box-shadow: none !important;
+  color: var(--primary) !important;
+  font-weight: 850 !important;
+}
+
+#app .app-shell .sim-page :where(
+  .sim-btn--yellow,
+  .sim-btn--orange,
+  .expense-add-button,
+  .income-add-button,
+  .policy-filter-button
+):not(:disabled):hover {
+  background: #ffdc66 !important;
+  transform: translateY(-1px);
+}
+
+#app .app-shell .sim-page :where(.added-expense-goals article, .selected-policies article, .policy-selected-list article) {
+  border: 0;
+  border-radius: 14px;
+  background: var(--sim-butter-soft);
+}
+
+#app .app-shell .sim-page .added-expense-goals .section-heading h2 > i,
+#app .app-shell .sim-page .added-income-plans .section-heading h2 > i {
+  background: var(--sim-butter-deep);
+}
+
+#app .app-shell .sim-page .added-expense-goals .section-heading > span,
+#app .app-shell .sim-page .added-income-plans .section-heading > span {
+  color: var(--primary);
+}
+
+#app .app-shell .sim-page .added-income-plans article {
+  border-radius: 14px;
+  background: #f7f8fa;
+}
+
+#app .app-shell .sim-page .income-plan-form fieldset button {
+  border: 0;
+  background: #f2f4f6;
+  box-shadow: none;
+}
+
+#app .app-shell .sim-page .income-plan-form fieldset button.active {
+  background: var(--sim-butter);
+  color: var(--primary);
+}
+
+#app .app-shell .sim-page .policy-condition-grid article {
+  border: 0;
+  border-radius: 14px;
+  background: var(--sim-butter-soft);
+}
+
+#app .app-shell .sim-page .policy-catalog-list article {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: none;
+}
+
+#app .app-shell .sim-page .policy-catalog-list article.selected {
+  border-color: var(--sim-butter-deep);
+  background: var(--sim-butter-soft);
+}
+
+#app .app-shell .sim-page .policy-catalog-list article button {
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+}
+
+#app .app-shell .sim-page .policy-catalog-list article.selected button {
+  background: var(--sim-butter);
+  color: var(--primary);
+}
+
+#app .app-shell .sim-page .buttie-transition {
+  border: 0 !important;
+  background:
+    radial-gradient(circle, rgb(255 231 143 / 68%), transparent 68%),
+    #fff !important;
+  box-shadow: var(--shadow-figma);
+}
+
+/* The report already owns its card surface; keep the outer section transparent. */
+#app .app-shell .sim-flow-categories > .baseline-report {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell .sim-flow-categories .period-grid label {
+  border-color: rgb(241 185 76 / 42%) !important;
+  background: var(--sim-butter-soft) !important;
+}
+
+#app .app-shell .sim-flow-categories .period-grid input[type='date'] {
+  background: transparent !important;
+  color: var(--text);
+}
+
+#app .app-shell .sim-page .report-preview__badge,
+#app .app-shell .sim-page .period-change-card header em,
+#app .app-shell .sim-page .final-result em {
+  border-color: var(--sim-butter-deep);
+  background: var(--sim-butter-soft);
+  color: var(--primary);
+}
+
+#app .app-shell .sim-page :where(.preview-bar--after i, .bar-pair .after) {
+  border-color: var(--sim-butter-deep);
+  background: var(--sim-butter);
+}
+
+#app .app-shell .sim-page .simulation-quest-progress__track span,
+#app .app-shell .dashboard :where(.quest-completion__track span, .survival-card__progress span) {
+  background: linear-gradient(90deg, var(--accent-strong), #ffda62);
+}
+
+#app .app-shell .sim-page .sim-report-grid article {
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .sim-page .sim-report-grid article:first-child,
+#app .app-shell .sim-page .sim-report-grid article:last-child {
+  background: var(--sim-butter-soft);
+}
+
+/* Search: one obvious search action, light result rows, butter benefits. */
+#app .app-shell .search-page .search-heading {
+  margin-bottom: 24px;
+}
+
+#app .app-shell .search-page .search-input {
+  height: 64px;
+  padding: 0 9px 0 20px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: #fff;
+}
+
+#app .app-shell .search-page .search-input:focus-within {
+  border-color: rgb(10 22 128 / 18%);
+  box-shadow: 0 0 0 4px rgb(255 231 143 / 35%);
+}
+
+#app .app-shell .search-page .search-input button {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--primary);
+}
+
+#app .app-shell .search-page .filter-chip {
+  min-width: 0;
+  border: 0;
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--primary);
+}
+
+#app .app-shell .search-page .filter-button {
+  display: flex;
+  width: auto;
+  height: 44px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+  color: var(--primary);
+}
+
+#app .app-shell .search-page .filter-button i {
+  display: grid;
+  gap: 3px;
+  font-style: normal;
+}
+
+#app .app-shell .search-page .filter-button strong {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+#app .app-shell .search-page .filter-button span {
+  width: 17px;
+  background: var(--primary);
+}
+
+#app .app-shell .search-page .filter-button span::after {
+  width: 6px;
+  height: 6px;
+  border-color: var(--primary);
+}
+
+#app .app-shell .search-page .result-list {
+  gap: 10px;
+}
+
+#app .app-shell .search-page .result-card {
+  min-height: 108px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .search-page .result-card:hover {
+  border-color: var(--accent-strong);
+  background: #fffdf5;
+}
+
+#app .app-shell .search-page .result-card strong {
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--primary);
+}
+
+/* Dashboard: the survival number leads; butter carries progress and warmth. */
+#app .app-shell .dashboard .level-overview {
+  border: 0;
+  background: linear-gradient(100deg, var(--accent), #fff 58%);
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .dashboard .dashboard__heading {
+  margin-bottom: 22px;
+}
+
+#app .app-shell .dashboard .dashboard__heading h1 {
+  max-width: 700px;
+}
+
+#app .app-shell .dashboard .dashboard__heading p {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+#app .app-shell .dashboard .survival-card {
+  background:
+    radial-gradient(circle at 72% 42%, rgb(255 231 143 / 72%), transparent 19rem),
+    #fff;
+}
+
+#app .app-shell .dashboard .survival-card__metric--current strong {
+  color: var(--primary);
+}
+
+#app .app-shell .dashboard .survival-card__speech {
+  border: 1px solid rgb(241 185 76 / 30%);
+  background: var(--accent);
+  color: #51392e;
+}
+
+#app .app-shell .dashboard .secondary-details > summary b {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+#app .app-shell .dashboard .summary-card {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .dashboard .summary-card--asset,
+#app .app-shell .dashboard .summary-card--cash {
+  background: var(--accent);
+}
+
+#app .app-shell .dashboard :where(.quest-card, .quest-empty, .goal-card) {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .app-shell .dashboard .quest-tabs {
+  padding: 4px;
+  border: 0;
+  background: #eef0f2;
+}
+
+#app .app-shell .dashboard .quest-tabs button.is-active {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+#app .app-shell .dashboard .quest-empty a,
+#app .app-shell .dashboard .quest-card__footer a {
+  border-radius: 13px;
+  background: var(--accent);
+  color: var(--primary);
+}
+
+@media (max-width: 767px) {
+  #app .app-shell .sim-page :where(.wizard-title, .sim-heading h1) {
+    font-size: 29px !important;
+  }
+
+  #app .app-shell .sim-page .wizard-progress-tabs {
+    gap: 7px;
+    margin-bottom: 24px;
+  }
+
+  #app .app-shell .sim-page :where(
+    .expense-analysis-card,
+    .expense-target-card,
+    .added-expense-goals,
+    .income-plan-form,
+    .added-income-plans,
+    .policy-qualification,
+    .policy-selected-card,
+    .policy-catalog-scroll,
+    .period-change-card,
+    .preview-timeline-section,
+    .application-result
+  ) {
+    border-radius: 18px !important;
+    box-shadow: none !important;
+  }
+
+  #app .app-shell .search-page .search-input {
+    height: 58px;
+  }
+
+  #app .app-shell .search-page .quick-filters {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  #app .app-shell .search-page .filter-button {
+    justify-self: end;
+  }
+
+  #app .app-shell .search-page .result-card {
+    min-height: 120px;
+    padding: 18px 16px;
+    box-shadow: none;
+  }
+
+  #app .app-shell .dashboard .level-overview {
+    background: var(--accent);
+    box-shadow: none;
+  }
+
+  #app .app-shell .dashboard .survival-card {
+    background:
+      radial-gradient(circle at 50% 70%, rgb(255 231 143 / 74%), transparent 14rem),
+      #fff;
+  }
+}
+
+/* Toss-inspired clarity layer: calm surfaces, large hierarchy, one clear action. */
+#app .app-shell {
+  color: var(--text);
+}
+
+#app .app-shell :where(.card, .profile-card, .settings-card, .form-card, .sim-card, .result-card, .flow-card) {
+  border-color: transparent !important;
+  background: #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .app-shell :where(input, select, textarea) {
+  border-color: transparent;
+  border-radius: 14px;
+  background: #f2f4f6;
+  box-shadow: none;
+}
+
+#app .app-shell :where(input, select, textarea):focus {
+  border-color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(10 22 128 / 12%);
+}
+
+#app .app-shell :where(
+  .primary-action,
+  .btn-primary,
+  .btn-secondary,
+  .save,
+  .add-btn,
+  .sim-btn--orange,
+  .sim-btn--yellow
+) {
+  min-height: 50px;
+  border-radius: 14px;
+  box-shadow: none !important;
+  transition: background .16s ease, transform .16s ease;
+}
+
+#app .app-shell :where(
+  .primary-action,
+  .btn-primary,
+  .btn-secondary,
+  .save,
+  .add-btn,
+  .sim-btn--orange,
+  .sim-btn--yellow
+):not(:disabled):hover {
+  box-shadow: none !important;
+  transform: translateY(-1px);
+}
+
+#app .app-shell :where(.tabs, [role='tablist']) {
+  padding: 4px;
+  border: 0;
+  border-radius: 14px;
+  background: #e9edf1;
+}
+
+#app .app-shell :where(.tabs, [role='tablist']) button {
+  border-radius: 11px;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance .heading,
+  .sim-heading,
+  .search-heading,
+  .mypage > .mypage__title
+) {
+  padding-top: 0;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance .heading,
+  .sim-heading,
+  .search-heading,
+  .mypage > .mypage__title
+)::before {
+  display: none;
+}
+
+#app .app-shell :where(.dashboard__heading h1, .finance .heading h1, .sim-heading h1, .search-heading h1, .mypage__title) {
+  color: var(--text) !important;
+  font-size: clamp(32px, 3vw, 40px) !important;
+  font-weight: 850;
+  letter-spacing: -.045em;
+}
+
+#app .app-shell :where(.summary-card, .summary article, .sim-report-grid article) {
+  border-top: 0;
+}
+
+#app .app-shell :where(.result-card, .policy-card, .transaction, .settings-card button):hover {
+  border-color: transparent;
+  background: #f7f8fa;
+}
+
+#app .dashboard .level-overview {
+  padding: 18px 22px;
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .dashboard .level-overview__level strong,
+#app .dashboard .level-overview__progress b {
+  color: var(--primary);
+}
+
+#app .dashboard .level-overview__progress i {
+  background: #edf0f3;
+}
+
+#app .dashboard .level-overview__progress i span {
+  background: var(--primary);
+}
+
+#app .dashboard .survival-card {
+  border: 0;
+  background:
+    radial-gradient(circle at 52% 45%, rgb(255 239 174 / 68%), transparent 18rem),
+    #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .dashboard .survival-card__metric strong {
+  color: var(--text);
+  font-size: clamp(40px, 4vw, 54px);
+}
+
+#app .dashboard .survival-card__speech {
+  background: #f2f4f6;
+  box-shadow: none;
+  color: #4e5968;
+}
+
+#app .dashboard .survival-card__speech::after {
+  display: none;
+}
+
+#app .dashboard .survival-card__progress {
+  background: #edf0f3;
+}
+
+#app .dashboard .survival-card__progress span {
+  background: var(--primary);
+}
+
+#app .secondary-details {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .secondary-details > summary b {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+#app .finance .summary {
+  grid-template-columns: 1.28fr 1fr 1fr;
+}
+
+#app .finance .summary article {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .finance .summary article:nth-child(3) {
+  order: -1;
+  background: linear-gradient(135deg, var(--primary), #2535a8);
+  color: #fff;
+}
+
+#app .finance .summary article:nth-child(3) :where(span, strong, small) {
+  color: #fff !important;
+}
+
+#app .finance :where(.list-card, .calendar-card, .insights .card, .timeline) {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .finance .transaction {
+  min-height: 68px;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+}
+
+#app .finance .transaction + .transaction {
+  border-top: 1px solid #f0f2f4;
+}
+
+#app .finance .transaction i {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+#app .sim-page .sim-hero {
+  border: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgb(255 239 174 / 72%), transparent 24rem),
+    #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .sim-page .sim-hero__result {
+  border: 0;
+  background: #f7f8fa;
+  box-shadow: none !important;
+}
+
+#app .search-page .search-input {
+  border: 0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .search-page .filter-chip {
+  border: 0;
+  background: var(--primary-soft);
+}
+
+#app .search-page .result-card {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .mypage .profile-card {
+  border: 0;
+  background:
+    radial-gradient(circle at 8% 20%, rgb(255 239 174 / 58%), transparent 15rem),
+    #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .mypage .settings-title {
+  color: var(--text);
+}
+
+#app .mypage .settings-card {
+  border: 0;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .mypage .logout-button {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+  color: var(--primary);
+}
+
+@media (max-width: 767px) {
+  #app .app-shell :where(.dashboard__heading h1, .finance .heading h1, .sim-heading h1, .search-heading h1, .mypage__title) {
+    font-size: 30px !important;
+  }
+
+  #app .finance .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #app .finance .summary article:nth-child(3) {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  #app .dashboard .survival-card,
+  #app .sim-page .sim-hero,
+  #app .mypage .profile-card {
+    box-shadow: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid CanvasText;
+  }
 }
 
 .page {
@@ -83,6 +1372,18 @@ svg text {
   line-height: var(--line-height-tight);
 }
 
+#app :where(.app-shell, .auth-shell, .admin-shell) h1 {
+  color: var(--primary);
+  font-weight: 900;
+  letter-spacing: -.045em;
+}
+
+#app :where(.app-shell, .auth-shell, .admin-shell) h2 {
+  color: #252631;
+  font-weight: 850;
+  letter-spacing: -.025em;
+}
+
 .page-description {
   margin-top: 5px;
   color: var(--muted);
@@ -97,6 +1398,344 @@ svg text {
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-figma);
+}
+
+/* Landing-inspired application system */
+#app :where(.app-shell, .auth-shell, .admin-shell) :where(
+  .card,
+  article,
+  .profile-card,
+  .settings-card,
+  .form-card,
+  .sim-card,
+  .result-card,
+  .flow-card,
+  .sheet
+) {
+  border-color: rgb(10 22 128 / 14%);
+  border-radius: var(--radius-md);
+}
+
+#app :where(.app-shell, .auth-shell, .admin-shell) :where(input, select, textarea) {
+  border: 1px solid rgb(10 22 128 / 16%);
+  border-radius: 13px;
+  background: #fffdf4;
+  color: var(--text);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+#app :where(.app-shell, .auth-shell, .admin-shell) :where(input, select, textarea):focus {
+  border-color: var(--sky);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(147 178 248 / 24%);
+}
+
+#app :where(.app-shell, .auth-shell) :where(
+  .primary-action,
+  .btn-primary,
+  .btn-secondary,
+  .login-submit,
+  .save,
+  .add-btn,
+  .sim-btn--orange
+) {
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 7px 0 rgb(10 22 128 / 11%);
+  font-weight: 850;
+}
+
+#app :where(.app-shell, .auth-shell) :where(
+  .primary-action,
+  .btn-primary,
+  .btn-secondary,
+  .login-submit,
+  .save,
+  .add-btn,
+  .sim-btn--orange
+):not(:disabled):hover {
+  box-shadow: 0 10px 0 rgb(10 22 128 / 11%);
+  transform: translateY(-3px);
+}
+
+#app .app-shell :where(.tabs, [role='tablist']) {
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 999px;
+  background: #eef1ff;
+  box-shadow: none !important;
+}
+
+#app .app-shell :where(.tabs, [role='tablist']) button {
+  border-radius: 999px;
+}
+
+#app .app-shell :where(.tabs, [role='tablist']) button:is(.active, .is-active) {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: none;
+}
+
+#app .app-shell :where(.pill, .badge, .confirmed-badge, .welcome-badge) {
+  border: 1px solid rgb(10 22 128 / 10%);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--primary);
+  font-weight: 850;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance .heading,
+  .sim-heading,
+  .search-heading,
+  .mypage > .mypage__title
+) {
+  position: relative;
+  padding-top: 0;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance .heading,
+  .sim-heading,
+  .search-heading,
+  .mypage > .mypage__title
+)::before {
+  display: none;
+  content: none;
+}
+
+#app .app-shell :where(.summary-card, .summary article, .sim-report-grid article) {
+  border-top: 0;
+}
+
+#app .app-shell :where(.summary-card, .summary article, .sim-report-grid article):nth-child(2n) {
+  border-top-color: transparent;
+}
+
+#app .app-shell :where(.summary-card, .summary article, .sim-report-grid article):nth-child(3n) {
+  border-top-color: transparent;
+}
+
+#app .app-shell :where(.result-card, .policy-card, .transaction, .settings-card button) {
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+#app .app-shell :where(.result-card, .policy-card, .transaction, .settings-card button):hover {
+  border-color: transparent;
+  background: #f7f8fa;
+}
+
+/* Page signatures: same visual language, different information roles */
+#app .dashboard .level-overview {
+  border: 0;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .dashboard .survival-card {
+  border: 0;
+  border-radius: 28px;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .finance .summary article {
+  border-color: rgb(10 22 128 / 14%);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .finance .summary article:first-child {
+  background: #fff;
+}
+
+#app .finance .summary article:nth-child(2) {
+  background: #fff;
+}
+
+#app .finance .summary article:nth-child(3) {
+  background: linear-gradient(135deg, var(--primary), #2535a8);
+  color: #fff;
+}
+
+#app .finance .summary article:nth-child(3) :where(span, strong, small) {
+  color: #fff !important;
+}
+
+#app .sim-page .sim-hero {
+  border: 0;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 20% 20%, rgb(255 239 174 / 72%), transparent 24rem),
+    #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .sim-page .sim-hero__result {
+  border-color: rgb(10 22 128 / 14%);
+  border-radius: 22px;
+  background: #fff;
+}
+
+#app .search-page .search-input {
+  border: 0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .search-page .filter-chip {
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+#app .search-page .result-card {
+  border: 1px solid rgb(10 22 128 / 14%);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--shadow-figma);
+}
+
+#app .mypage .profile-card {
+  border: 0;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 8% 20%, rgb(255 239 174 / 58%), transparent 15rem),
+    #fff;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .mypage .profile-avatar__ring {
+  border: 1px solid rgb(10 22 128 / 14%);
+  background: #fff;
+}
+
+#app .mypage .settings-title {
+  color: var(--text);
+}
+
+#app .mypage .settings-card {
+  overflow: hidden;
+  border: 1px solid rgb(10 22 128 / 14%);
+  border-radius: 22px;
+  box-shadow: var(--shadow-figma) !important;
+}
+
+#app .mypage .settings-card button {
+  min-height: 68px;
+  padding-inline: 20px;
+}
+
+#app .mypage .settings-card button strong {
+  color: #252631;
+  font-size: 16px;
+}
+
+#app .mypage .logout-button {
+  border-radius: 16px;
+  background: #fff;
+  color: var(--primary);
+}
+
+#app .notification-page :where(.notification-card, article) {
+  border-color: rgb(10 22 128 / 14%);
+  border-radius: 18px;
+}
+
+@media (max-width: 767px) {
+  #app .mypage .profile-card {
+    background:
+      radial-gradient(circle at 50% 8%, rgb(255 239 174 / 60%), transparent 13rem),
+      #fff;
+    box-shadow: none !important;
+  }
+
+  #app .dashboard .survival-card,
+  #app .sim-page .sim-hero {
+    border-radius: 22px;
+    box-shadow: none !important;
+  }
+}
+
+.secondary-details {
+  margin-top: 28px;
+  border: 1px solid #dfe3ec;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 8%);
+}
+
+.secondary-details > summary {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 20px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.secondary-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.secondary-details > summary span {
+  display: grid;
+  gap: 3px;
+}
+
+.secondary-details > summary strong {
+  color: #20222a;
+  font-size: 17px;
+}
+
+.secondary-details > summary small {
+  color: #676d79;
+  font-size: 14px;
+}
+
+.secondary-details > summary b {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgb(10 22 128 / 12%);
+  background: var(--accent);
+  color: var(--primary);
+  font-size: 21px;
+  transition: transform .2s ease;
+}
+
+.secondary-details[open] > summary b {
+  transform: rotate(45deg);
+}
+
+.secondary-details__body {
+  padding: 4px 20px 24px;
+  border-top: 1px solid #edf0f5;
+}
+
+@media (max-width: 767px) {
+  .secondary-details {
+    margin-top: 18px;
+    border-radius: 14px;
+  }
+
+  .secondary-details > summary {
+    min-height: 66px;
+    padding: 13px 15px;
+  }
+
+  .secondary-details__body {
+    padding: 3px 12px 18px;
+  }
 }
 
 /* Figma의 공통 바깥쪽 그림자: X 0, Y 1, blur 5, black 25% */
@@ -490,5 +2129,100 @@ svg text {
 @media (min-width: 768px) {
   .mobile-only {
     display: none !important;
+  }
+}
+
+/*
+ * Readability pass
+ * Keep secondary copy comfortably readable without flattening the visual
+ * hierarchy of amounts, page titles, or chart values.
+ */
+#app .app-shell main small,
+#app .app-shell main figcaption {
+  font-size: 14px !important;
+  line-height: 1.5;
+}
+
+#app .app-shell :where(.dashboard, .finance, .fixed-page, .sim-page, .search-page, .mypage) {
+  line-height: 1.55;
+}
+
+#app .app-shell .finance :where(
+  .heading p,
+  .finance-state,
+  .filters button,
+  .list-actions > span,
+  .list-filter select,
+  .legend,
+  .category li,
+  .category-insight,
+  .fixed p,
+  .fixed button,
+  .timeline-legend,
+  .timeline-note,
+  .sheet-error,
+  .transaction-detail__summary div span
+) {
+  font-size: 14px !important;
+}
+
+#app .app-shell .fixed-page :where(
+  header p,
+  .total span,
+  .total small,
+  .suggest p,
+  .suggest button,
+  .selection-head,
+  .empty-message,
+  .expense-list small,
+  .actions button,
+  footer,
+  footer button
+) {
+  font-size: 14px !important;
+}
+
+#app .app-shell .sim-page :where(
+  .sim-subtitle,
+  .sim-hero__copy small,
+  .sim-hero__result span,
+  .sim-hero__result b,
+  .simulation-quest-api-notice,
+  .simulation-quest-progress span,
+  .simulation-quest-period > header p,
+  .simulation-quest-period > header > span,
+  .simulation-quest-empty-row,
+  .simulation-quest-footer span,
+  .simulation-quest-footer p,
+  .report-preview__badge,
+  .report-preview__period > span,
+  .report-preview__period em,
+  .period-grid label > span,
+  .preview-bar,
+  .simulation-edit-period > p,
+  .simulation-edit-period__grid label > span,
+  .simulation-edit-card em,
+  .simulation-edit-card > b,
+  .simulation-edit-forecast span,
+  .simulation-edit-benefit,
+  .api-notice
+) {
+  font-size: 14px !important;
+  line-height: 1.5;
+}
+
+#app .app-shell main :where(.timeline-marker span, .events button > span) {
+  font-size: 14px !important;
+  line-height: 1.45;
+}
+
+@media (max-width: 767px) {
+  #app .app-shell main small,
+  #app .app-shell main figcaption {
+    font-size: 13px !important;
+  }
+
+  #app .app-shell :where(.finance, .fixed-page, .sim-page, .search-page, .mypage) {
+    width: 100%;
   }
 }
