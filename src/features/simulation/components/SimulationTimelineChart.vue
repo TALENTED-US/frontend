@@ -103,7 +103,8 @@ const goalX = computed(() => hasMonthlyProjections.value
   ? plotEndX
   : Math.min(plotEndX, plotStartX + props.targetMonths * monthWidth))
 const dangerY = computed(() => balanceY(dangerBalance))
-const assetLabels = computed(() => [1, .75, .5, .25].map((ratio) => `${Math.round(chartMaxBalance.value * ratio / 10000)}만`))
+const formatWon = (value) => `${new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))}원`
+const assetLabels = computed(() => [1, .75, .5, .25].map((ratio) => formatWon(chartMaxBalance.value * ratio)))
 const burn = computed(() => Math.max(0, props.monthlyExpense))
 const monthLabels = computed(() => {
   if (hasMonthlyProjections.value) {
@@ -150,7 +151,7 @@ const monthLabels = computed(() => {
 
         <path class="scenario-area" :d="scenarioAreaPath" />
         <path class="danger-threshold" :d="`M58 ${dangerY}H572`" />
-        <text class="danger-label" x="568" :y="dangerY - 6">위험 잔액 50만</text>
+        <text class="danger-label" x="568" :y="dangerY - 6">위험 잔액 500,000원</text>
         <path class="goal-line" :d="`M${goalX} 18V218`" />
 
         <path class="current-line" :d="currentPath" />
@@ -168,7 +169,7 @@ const monthLabels = computed(() => {
         </g>
         <text v-if="unknown" class="question" x="305" y="132">?</text>
         <text class="burn-label" x="58" y="15">
-          {{ hasMonthlyProjections ? '확정 시뮬레이션 월별 예상 잔액' : `직전 3개월 월평균 지출 ${Math.round(burn / 10000)}만원` }}
+          {{ hasMonthlyProjections ? '확정 시뮬레이션 월별 예상 잔액' : `직전 3개월 월평균 지출 ${formatWon(burn)}` }}
         </text>
 
         <g class="x-axis">

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
-import SimulationTimelineChart from '@/features/simulation/components/SimulationTimelineChart.vue'
+import ConfirmedFinancialTimeline from '@/features/simulation/components/ConfirmedFinancialTimeline.vue'
 import '@/features/simulation/styles/simulation.css'
 
 const route = useRoute()
@@ -10,9 +10,14 @@ const router = useRouter()
 const simulation = useSimulationStore()
 simulation.restoreConfirmedSnapshot()
 const category = computed(() => route.params.category)
+const wizardSteps = [
+  { label: '01 지출 줄이기', to: '/simulation/expense' },
+  { label: '02 수입 늘리기', to: '/simulation/income' },
+  { label: '03 정책 맞춤 추천', to: '/simulation/policy' },
+]
 const meta = computed(() => ({
-  expense: { step: 1, label: '지출 줄이기', title: '지출 줄이기로', next: '/simulation/income', delta: `지출 월 ${Math.round(simulation.expenseSaving / 10000)}만원 감소` },
-  income: { step: 2, label: '수입 늘리기', title: '수입 늘리기로', next: '/simulation/policy', delta: `월수입 ${Math.round(simulation.recurringIncome / 10000)}만원 증가` },
+  expense: { step: 1, label: '지출 줄이기', title: '지출 줄이기로', next: '/simulation/income', delta: `지출 월 ${money(simulation.expenseSaving)}원 감소` },
+  income: { step: 2, label: '수입 늘리기', title: '수입 늘리기로', next: '/simulation/policy', delta: `월수입 ${money(simulation.recurringIncome)}원 증가` },
   policy: { step: 3, label: '정책 혜택', title: '정책 혜택으로', next: '/simulation/confirm', delta: `정책 ${simulation.state.policies.length}개 반영` },
 })[category.value])
 const report = computed(() => simulation.remoteReport || {})
@@ -39,9 +44,7 @@ const comparisonMaximum = computed(() => Math.max(
 ))
 const barPixelHeight = (value) => Math.max(20, Math.round((Math.max(0, Number(value) || 0) / comparisonMaximum.value) * 76))
 const barHeight = (value) => `${barPixelHeight(value)}px`
-const compactMoney = (value) => Number(value) % 10000 === 0
-  ? `${money(Number(value) / 10000)}만원`
-  : `${money(value)}원`
+const compactMoney = (value) => `${money(value)}원`
 const incomeDelta = computed(() => (Number(cashflow.value.afterMonthlyIncome) || 0) - (Number(cashflow.value.beforeMonthlyIncome) || 0))
 const expenseDelta = computed(() => (Number(cashflow.value.beforeMonthlyExpense) || 0) - (Number(cashflow.value.afterMonthlyExpense) || 0))
 const deltaLabel = (prefix, value, positiveWord, negativeWord) => {
@@ -58,8 +61,20 @@ const arrowPath = (before, after) => {
 
 <template>
   <section class="page sim-page sim-wizard preview-page">
-    <button class="sim-back desktop-only" type="button" @click="router.push(`/simulation/${category}`)">‹ 미리보기</button>
-    <div class="wizard-progress-tabs"><span v-for="(label, index) in ['01 지출 줄이기', '02 수입 늘리기', '03 정책 맞춤 추천']" :key="label" :class="{ active: index + 1 === meta.step, done: index + 1 < meta.step }">{{ label }}<i /></span></div>
+    <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push(`/simulation/${category}`)">‹</button>
+    <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
+      <RouterLink
+        v-for="(wizardStep, index) in wizardSteps"
+        :key="wizardStep.to"
+        :to="wizardStep.to"
+        class="wizard-progress-link"
+        :aria-current="index + 1 === meta.step ? 'step' : undefined"
+      >
+        <span :class="{ active: index + 1 === meta.step, done: index + 1 < meta.step }">
+          {{ wizardStep.label }}<i />
+        </span>
+      </RouterLink>
+    </div>
     <h1 class="wizard-title">{{ meta.title }}<br />버티는 기간이 얼마나 늘어날까요?</h1>
 
     <article class="period-change-card">
@@ -67,10 +82,13 @@ const arrowPath = (before, after) => {
       <div><span><strong>{{ beforeMonths }}개월</strong><small>{{ meta.label }} 전</small></span><b>→</b><span><strong>{{ afterMonths }}개월</strong><small>{{ meta.label }} 후</small></span></div>
     </article>
 
-    <section class="preview-timeline-section">
-      <div class="preview-section-title"><h2>버티는 기간 타임라인</h2><p>시뮬레이션 전후, 자금 소진 시점의 변화를 알 수 있어요.</p></div>
-      <SimulationTimelineChart preview-mode :assets="simulation.availableAssets" :monthly-expense="simulation.monthlyExpense" :monthly-income="simulation.monthlyIncome" :target-months="simulation.targetMonths" :current-months="Number(beforeMonths)" :expected-months="Number(afterMonths)" />
-    </section>
+    <ConfirmedFinancialTimeline
+      class="preview-timeline-section"
+      :current-months="Number(beforeMonths)"
+      :expected-months="Number(afterMonths)"
+      :target-months="Number(simulation.targetMonths)"
+      description="계획 적용 시 현재 자금의 유지 기간이 얼마나 늘어나는지 확인하세요."
+    />
 
     <section class="application-result">
       <div class="section-heading"><h2>시뮬레이션 적용 결과</h2></div>
@@ -86,21 +104,29 @@ const arrowPath = (before, after) => {
       <div class="net-cashflow-row"><span><strong>월평균 순현금흐름</strong><small>월수입 - 월지출</small></span><b>{{ compactMoney(cashflow.beforeMonthlyNetCashFlow) }} → {{ compactMoney(cashflow.afterMonthlyNetCashFlow) }}</b></div>
     </section>
 
-    <div v-if="category !== 'policy'" class="wizard-actions"><button class="sim-text-button" @click="router.push(`/simulation/${category}`)">이전으로</button><button class="sim-btn sim-btn--yellow" @click="router.push(meta.next)">다음으로 →</button></div>
-    <div v-else class="wizard-actions vertical"><button class="sim-btn sim-btn--yellow" @click="router.push('/simulation/confirm')">시뮬레이션 확인하기 →</button><button class="sim-text-button" @click="router.push('/simulation/confirm')">입력 내용 수정하기</button></div>
+    <div v-if="category !== 'policy'" class="wizard-actions"><button class="sim-text-button" @click="router.push(`/simulation/${category}`)">이전으로</button><button class="sim-btn sim-btn--yellow simulation-primary-cta" @click="router.push(meta.next)">다음으로</button></div>
+    <div v-else class="wizard-actions vertical"><button class="sim-btn sim-btn--yellow simulation-primary-cta" @click="router.push('/simulation/confirm')">시뮬레이션 확인하기</button><button class="sim-text-button" @click="router.push('/simulation/confirm')">입력 내용 수정하기</button></div>
   </section>
 </template>
 
 <style scoped>
 .preview-page > .wizard-progress-tabs {
-  position: sticky;
-  z-index: 30;
-  top: var(--header-height);
   margin: -4px -18px 28px;
   padding: 10px 18px 14px;
-  background: rgb(252 253 255 / 96%);
-  box-shadow: 0 1px 0 rgb(20 30 60 / 7%);
-  backdrop-filter: blur(8px);
+  background: transparent;
+}
+
+.wizard-progress-link {
+  display: block;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.wizard-progress-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #f4ad1d;
+  outline-offset: 4px;
 }
 
 .preview-page > .wizard-progress-tabs span {
@@ -114,7 +140,6 @@ const arrowPath = (before, after) => {
 
 @media (max-width: 767px) {
   .preview-page > .wizard-progress-tabs {
-    top: 64px;
     margin-top: -10px;
   }
 
@@ -129,19 +154,17 @@ const arrowPath = (before, after) => {
 
 @media (min-width: 768px) {
   .preview-page > .wizard-progress-tabs {
-    width: min(100%, 760px);
-    margin-right: auto;
-    margin-left: auto;
+    width: 100%;
     padding-right: 0;
     padding-left: 0;
   }
 
   .preview-page > .wizard-progress-tabs span {
-    font-size: 14px;
+    font-size: 26px;
   }
 
   .preview-page > .wizard-progress-tabs span.active {
-    font-size: 15px;
+    font-size: 29px;
   }
 }
 </style>

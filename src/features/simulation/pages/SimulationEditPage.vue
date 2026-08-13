@@ -19,7 +19,7 @@ const showNewSimulationModal = ref(false)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
 const compactWon = (value) => {
   const amount = Math.max(0, Math.round(Number(value) || 0))
-  return amount >= 10000 && amount % 10000 === 0 ? `${money(amount / 10000)}만원` : `${money(amount)}원`
+  return `${money(amount)}원`
 }
 const recurringIncomeCount = computed(() => simulation.state.incomes.filter((item) => item.type === 'monthly').length)
 const oneTimeIncomeCount = computed(() => simulation.state.incomes.filter((item) => item.type === 'once').length)
@@ -95,7 +95,7 @@ async function createNewSimulation() {
 
 <template>
   <section class="page sim-page simulation-edit-page">
-    <button class="sim-back desktop-only" type="button" @click="router.push('/simulation')">‹ 시뮬레이션 수정하기</button>
+    <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push('/simulation')">‹</button>
 
     <header class="simulation-edit-intro">
       <h1>현재 적용된 계획을 확인하고,<br />변경할 카테고리를 선택해보세요.</h1>
@@ -146,7 +146,7 @@ async function createNewSimulation() {
         반영 혜택: 월 {{ compactWon(recurringBenefit) }}<template v-if="oneTimeBenefit"> · 일시 {{ compactWon(oneTimeBenefit) }}</template>
       </p>
     </section>
-    <button class="sim-btn sim-btn--yellow simulation-edit-all" type="button" @click="editCategory('expense')">시뮬레이션 전체 수정하기</button>
+    <button class="sim-btn sim-btn--yellow simulation-edit-all simulation-primary-cta" type="button" @click="editCategory('expense')">시뮬레이션 전체 수정하기</button>
     <button class="simulation-create-new" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
     <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
 
@@ -164,7 +164,7 @@ async function createNewSimulation() {
         <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
         <div>
           <button type="button" :disabled="simulation.syncing" @click="showNewSimulationModal = false">취소</button>
-          <button type="button" :disabled="simulation.syncing" @click="createNewSimulation">
+          <button class="simulation-primary-cta" type="button" :disabled="simulation.syncing" @click="createNewSimulation">
             {{ simulation.syncing ? '삭제하는 중…' : '새로 만들기' }}
           </button>
         </div>

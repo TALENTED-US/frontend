@@ -5,9 +5,8 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
 import { loadTransactions } from '@/features/finance/financeStore'
 import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
-import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
-import cautionImage from '@/assets/images/dashboard/buttie-caution.png'
-import stableImage from '@/assets/images/dashboard/buttie-stable.png'
+import simulationBannerButtie from '@/assets/images/dashboard/buttie-melting.png'
+import ConfirmedFinancialTimeline from '@/features/simulation/components/ConfirmedFinancialTimeline.vue'
 import '@/features/simulation/styles/simulation.css'
 
 const router = useRouter()
@@ -15,35 +14,11 @@ const simulation = useSimulationStore()
 const progression = useProgressionStore()
 const quests = useQuestStore()
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
-const manwon = (value) => value ? `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value / 10000)}만원` : '없음'
-const currentLabel = computed(() => simulation.currentMonths === null ? '-' : simulation.currentMonths)
-const expectedLabel = computed(() => {
-  if (!simulation.state.confirmed) return '?'
-  return simulation.expectedMonths === null ? '-' : simulation.expectedMonths
-})
-const confirmedTimelineItems = computed(() => {
-  const current = Math.max(0, Number(simulation.currentMonths) || 0)
-  const expected = Math.max(current, Number(simulation.expectedMonths) || 0)
-  const target = Math.max(0, Math.ceil(Number(simulation.targetMonths) || 0))
-  const scale = Math.max(current, expected, target, 1)
-  const position = (value) => `${Math.min(96, Math.max(4, (value / scale) * 92 + 4))}%`
-  const sameDuration = current === expected
-
-  return [
-    { id: 'now', label: '현재', value: '지금', position: '4%', tone: 'current' },
-    { id: 'current-limit', label: sameDuration ? '현재 자금 · 계획 적용 후' : '현재 자금 기준', value: `${current}개월`, position: position(current), tone: sameDuration ? 'scenario' : 'limit' },
-    ...(!sameDuration ? [{ id: 'scenario', label: '계획 적용 후', value: `${expected}개월`, position: position(expected), tone: 'scenario', staggered: true }] : []),
-    ...(target ? [{ id: 'target', label: '취업 목표', value: `${target}개월`, position: position(target), tone: 'target' }] : []),
-  ]
-})
-const statusImages = { danger: meltingImage, caution: cautionImage, safe: stableImage }
-const currentStatusImage = computed(() => statusImages[simulation.currentStatus.key])
-const expectedStatusImage = computed(() => statusImages[simulation.expectedStatus.key])
 const questTab = ref('active')
 const showNewSimulationModal = ref(false)
 const compactWon = (value) => {
   const amount = Math.max(0, Math.round(Number(value) || 0))
-  return amount >= 10000 && amount % 10000 === 0 ? `${money(amount / 10000)}만원` : `${money(amount)}원`
+  return `${money(amount)}원`
 }
 const signedWon = (value) => {
   const amount = Math.round(Number(value) || 0)
@@ -175,23 +150,28 @@ onMounted(async () => {
       <p>계획을 세우고 버티는 기간이 얼마나 늘어나는지 확인해보세요.</p>
     </header>
 
-    <article class="sim-hero">
-      <div class="sim-hero__copy">
-        <small :class="{ 'result-link': simulation.state.confirmed }">💡 {{ simulation.state.confirmed ? '시뮬레이션 결과보기' : '시뮬레이션 해보기' }}</small>
-        <h2 v-if="simulation.state.confirmed">시뮬레이션대로 실천하면<br />{{ simulation.addedMonths }}개월 더 버틸 수 있어요.</h2>
-        <h2 v-else>지출을 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</h2>
-        <button class="sim-btn sim-btn--orange desktop-cta" type="button" :disabled="simulation.syncing" @click="start">
-          {{ simulation.syncing ? '전환하는 중…' : simulation.state.confirmed ? '시뮬레이션 수정하기 →' : simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
+    <article class="simulation-banner">
+      <div class="simulation-banner__copy">
+        <small>💡 시뮬레이션 해보기</small>
+        <h2>내 선택에 따라<br />버티는 기간이 얼마나 달라질까요?</h2>
+        <p>지출을 줄이고, 수입을 늘리고,<br />받을 수 있는 정책을 적용해보세요.</p>
+
+        <ul class="simulation-banner__benefits" aria-label="시뮬레이션에서 설정할 수 있는 항목">
+          <li><i class="expense" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 7.5 10 14l3.5-3.5L20.5 17"/><path d="M20.5 12.6V17h-4.4"/></svg></i><span>지출 줄이기</span></li>
+          <li><i class="income" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 16.5 10 10l3.5 3.5L20.5 6.5"/><path d="M16.1 6.5h4.4v4.4"/></svg></i><span>수입 늘리기</span></li>
+          <li><i class="policy" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3.2 19 6v5.4c0 4.2-2.9 7.5-7 9.4-4.1-1.9-7-5.2-7-9.4V6l7-2.8Z"/><path d="m8.9 11.8 2.2 2.2 4-4.3"/></svg></i><span>정책 혜택</span></li>
+        </ul>
+      </div>
+
+      <div class="simulation-banner__action">
+        <div class="simulation-banner__character">
+          <p>계획을 바꾸면<br />버티는 기간도 달라져요</p>
+          <img :src="simulationBannerButtie" alt="버티 캐릭터" />
+        </div>
+        <button class="simulation-primary-cta" type="button" :disabled="simulation.syncing" @click="start">
+          {{ simulation.syncing ? '전환하는 중…' : '시뮬레이션 시작' }}
         </button>
       </div>
-      <div class="sim-hero__result">
-        <div><span>현재 버티는 기간</span><strong>{{ currentLabel }}<em v-if="simulation.currentMonths !== null">개월</em></strong><img v-if="simulation.currentMonths !== null" :src="currentStatusImage" :alt="`${simulation.currentStatus.label} 상태의 버티`" /><b v-if="simulation.currentMonths !== null" :class="simulation.currentStatus.key">{{ simulation.currentStatus.label }}</b></div>
-        <i>→</i>
-        <div><span>예상 버티는 기간</span><strong>{{ expectedLabel }}<em v-if="!simulation.state.confirmed || simulation.expectedMonths !== null">개월</em></strong><img v-if="simulation.state.confirmed && simulation.expectedMonths !== null" :src="expectedStatusImage" :alt="`${simulation.expectedStatus.label} 상태의 버티`" /><b v-if="simulation.state.confirmed && simulation.expectedMonths !== null" :class="simulation.expectedStatus.key">{{ simulation.expectedStatus.label }}</b></div>
-      </div>
-      <button class="sim-btn sim-btn--orange mobile-cta" type="button" :disabled="simulation.syncing" @click="start">
-        {{ simulation.syncing ? '전환하는 중…' : simulation.state.confirmed ? '시뮬레이션 수정하기 →' : simulation.hasDraft ? '시나리오 수정하기 →' : '지금 시뮬레이션 하기 →' }}
-      </button>
     </article>
     <p v-if="simulation.syncError" class="api-notice" role="alert">{{ simulation.syncError }}</p>
 
@@ -218,42 +198,19 @@ onMounted(async () => {
         </section>
         <footer class="simulation-quest-footer">
           <button type="button" :disabled="simulation.syncing" @click="start">
-            {{ simulation.syncing ? '전환하는 중…' : '시뮬레이션 수정하기 →' }}
+            {{ simulation.syncing ? '전환하는 중…' : '시뮬레이션 수정하기' }}
           </button>
           <p>퀘스트를 추가하려면 시뮬레이션을 수정하세요.</p>
         </footer>
       </article>
     </section>
 
-    <section class="sim-report">
-      <h2>현재 재정 리포트</h2>
-      <div class="sim-report-grid">
-        <article><span>총자산</span><strong>{{ manwon(simulation.totalAssets) }}</strong></article><article><span>월평균 수입</span><strong>{{ manwon(simulation.monthlyIncome) }}</strong></article><article><span>월평균 지출</span><strong>{{ manwon(simulation.monthlyExpense) }}</strong></article><article><span>순현금흐름</span><strong>{{ simulation.monthlyIncome - simulation.monthlyExpense > 0 ? '+' : '' }}{{ manwon(simulation.monthlyIncome - simulation.monthlyExpense) }}</strong></article>
-      </div>
-    </section>
-
-    <article v-if="simulation.state.confirmed && simulation.runwayCalculationReady" class="sim-card sim-timeline">
-      <h2>월별 재정 타임라인</h2>
-      <p class="confirmed-timeline-description">확정한 계획이 현재 자금의 유지 기간을 얼마나 늘리는지 확인하세요.</p>
-      <div class="confirmed-timeline-track" role="list" aria-label="확정 시뮬레이션 재정 주요 시점">
-        <div class="confirmed-timeline-track__line" />
-        <div
-          v-for="item in confirmedTimelineItems"
-          :key="item.id"
-          class="confirmed-timeline-marker"
-          :class="[`confirmed-timeline-marker--${item.tone}`, { 'is-staggered': item.staggered }]"
-          :style="{ left: item.position }"
-          role="listitem"
-        >
-          <i />
-          <div class="confirmed-timeline-marker__copy">
-            <strong>{{ item.value }}</strong>
-            <span>{{ item.label }}</span>
-          </div>
-        </div>
-      </div>
-      <p class="confirmed-timeline-note">직전 3개월 월평균 기준 · 계획 적용 후 {{ simulation.expectedMonths }}개월</p>
-    </article>
+    <ConfirmedFinancialTimeline
+      v-if="simulation.state.confirmed && simulation.runwayCalculationReady"
+      :current-months="Number(simulation.currentMonths)"
+      :expected-months="Number(simulation.expectedMonths)"
+      :target-months="Number(simulation.targetMonths)"
+    />
 
     <button v-if="simulation.state.confirmed" class="simulation-create-new-bottom" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
 
@@ -271,7 +228,7 @@ onMounted(async () => {
         <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
         <div>
           <button type="button" :disabled="simulation.syncing" @click="showNewSimulationModal = false">취소</button>
-          <button type="button" :disabled="simulation.syncing" @click="createNewSimulation">
+          <button class="simulation-primary-cta" type="button" :disabled="simulation.syncing" @click="createNewSimulation">
             {{ simulation.syncing ? '삭제하는 중…' : '새로 만들기' }}
           </button>
         </div>
@@ -281,28 +238,30 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.mobile-cta { display: none; }
-.sim-hero__copy .result-link { font-weight: 800; }
-.sim-hero__result { background: #fffbef; }
-.sim-hero__result > div > span {
-  font-size: 14px !important;
-}
-.sim-hero__result > div > strong {
-  font-size: 34px !important;
-  font-weight: 800;
-  line-height: 1.15;
-}
-.sim-hero__result > div > strong em {
-  font-size: 16px !important;
-  font-weight: 600;
-}
-.sim-hero__result > div { align-self: stretch; grid-template-rows: auto auto 1fr auto; }
-.sim-hero__result > i { color: #b49b58; font-size: 30px; font-style: normal; font-weight: 700; }
-.sim-hero__result .danger { background: #ffe5df; color: #ef5b52; }
-.sim-hero__result .caution { background: #f4b63c; color: #fff; }
-.sim-hero__result .safe { background: #c7ead9; color: #35a87e; }
-.sim-report-grid span { font-size: 14px; font-weight: 600; }
-.sim-report-grid strong { font-weight: 700 !important; }
+.simulation-banner { position: relative; display: grid; min-height: max(500px,calc(100dvh - var(--header-height) - 210px)); grid-template-columns: minmax(0,1fr) minmax(360px,432px); gap: 48px; overflow: hidden; padding: 56px; border-radius: 28px; background: linear-gradient(105deg,#fff3c4 0%,#fff8de 34%,#fffdf6 62%,#fff 100%); box-shadow: 0 2px 16px rgb(120 100 20 / 7%); }
+.simulation-banner::after { position: absolute; top: -140px; right: -80px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle,rgb(255 220 110 / 30%),rgb(255 220 110 / 0%) 70%); content: ''; pointer-events: none; }
+.simulation-banner__copy,.simulation-banner__action { position: relative; z-index: 1; }
+.simulation-banner__copy { display: flex; min-width: 0; flex-direction: column; }
+.simulation-banner__copy > small { color: #b08a16; font-size: 15px; font-weight: 600; }
+.simulation-banner__copy h2 { margin-top: 18px; color: #2a2620; font-size: 38px; font-weight: 800; letter-spacing: -1.1px; line-height: 1.36; }
+.simulation-banner__copy > p { margin-top: 20px; color: #7c7568; font-size: 17px; letter-spacing: -.3px; line-height: 1.65; }
+.simulation-banner__benefits { display: grid; gap: 14px; margin-top: auto; padding-top: 36px; }
+.simulation-banner__benefits li { display: flex; align-items: center; gap: 14px; color: #3e3930; font-size: 17px; font-weight: 600; }
+.simulation-banner__benefits i { display: grid; width: 46px; height: 46px; flex: none; place-items: center; border-radius: 50%; }
+.simulation-banner__benefits i.expense { background: #ffe9a8; color: #b37f0c; }
+.simulation-banner__benefits i.income { background: #dcf0d6; color: #43823a; }
+.simulation-banner__benefits i.policy { background: #e4e6fa; color: #5257c4; }
+.simulation-banner__benefits svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.simulation-banner__action { display: flex; flex-direction: column; justify-content: space-between; gap: 28px; }
+.simulation-banner__character { display: flex; flex: 1; align-items: center; justify-content: flex-end; gap: 18px; }
+.simulation-banner__character p { position: relative; padding: 16px 20px; border: 1px solid rgb(190 160 50 / 22%); border-radius: 18px; background: #fff; box-shadow: 0 3px 14px rgb(150 120 20 / 9%); color: #5c554a; font-size: 16px; font-weight: 600; letter-spacing: -.3px; line-height: 1.55; }
+.simulation-banner__character p::after { position: absolute; top: 50%; right: -7px; width: 13px; height: 13px; margin-top: -7px; border-top: 1px solid rgb(190 160 50 / 22%); border-right: 1px solid rgb(190 160 50 / 22%); background: #fff; content: ''; transform: rotate(45deg); }
+.simulation-banner__character img { width: 210px; height: auto; }
+.simulation-banner__action > button { display: flex; width: 100%; height: 50px; min-height: 50px; align-items: center; justify-content: center; gap: 10px; border-radius: 18px; background: #f1b94c; box-shadow: 0 4px 0 rgb(198 160 30 / 35%); color: #3a3222; font-size: 20px; font-weight: 700; transition: transform .16s ease,box-shadow .16s ease,background .16s ease; }
+.simulation-banner__action > button:hover:not(:disabled) { background: #e5ac3c; box-shadow: 0 6px 0 rgb(198 160 30 / 35%); transform: translateY(-2px); }
+.simulation-banner__action > button:active:not(:disabled) { box-shadow: 0 1px 0 rgb(198 160 30 / 35%); transform: translateY(2px); }
+.simulation-banner__action > button:disabled { cursor: wait; opacity: .6; }
+.simulation-banner__action > button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
 .simulation-quest-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .simulation-quest-heading h2 { font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); }
 .simulation-quest-heading > span { padding: 10px 18px; border-radius: 999px; background: #f6bb37; color: white; font-weight: 800; box-shadow: 0 4px 10px rgb(0 0 0 / 12%); }
@@ -389,6 +348,20 @@ onMounted(async () => {
 }
 
 @media (max-width: 767px) {
+  .simulation-banner { min-height: 0; grid-template-columns: 1fr; gap: 26px; padding: 28px 20px 24px; border-radius: 22px; }
+  .simulation-banner::after { top: -170px; right: -170px; }
+  .simulation-banner__copy > small { font-size: 13px; }
+  .simulation-banner__copy h2 { margin-top: 14px; font-size: 25px; letter-spacing: -.7px; line-height: 1.4; }
+  .simulation-banner__copy > p { margin-top: 14px; font-size: 14px; }
+  .simulation-banner__benefits { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 24px; padding: 0; }
+  .simulation-banner__benefits li { min-width: 0; flex-direction: column; gap: 7px; font-size: 13px; text-align: center; }
+  .simulation-banner__benefits i { width: 42px; height: 42px; }
+  .simulation-banner__benefits svg { width: 21px; height: 21px; }
+  .simulation-banner__action { gap: 20px; }
+  .simulation-banner__character { justify-content: center; gap: 8px; }
+  .simulation-banner__character p { padding: 12px 14px; font-size: 12px; }
+  .simulation-banner__character img { width: min(42vw,170px); }
+  .simulation-banner__action > button { height: 50px; min-height: 50px; border-radius: 15px; font-size: 17px; }
   .confirmed-timeline-description { font-size: 13px; line-height: 1.5; }
   .confirmed-timeline-track { display: grid; height: auto; gap: 14px; margin: 22px 0 8px; padding-left: 2px; }
   .confirmed-timeline-track__line { top: 18px; right: auto; bottom: 18px; left: 22px; width: 5px; height: auto; background: linear-gradient(180deg,var(--primary),#8facf5 68%,var(--accent-strong)); }
@@ -400,19 +373,6 @@ onMounted(async () => {
   .confirmed-timeline-marker__copy strong { grid-column: 2; margin: 0; font-size: 15px; }
   .confirmed-timeline-marker__copy span { grid-row: 1; grid-column: 1; max-width: none; font-size: 14px; }
   .confirmed-timeline-note { margin-top: 14px; font-size: 13px; text-align: left; }
-  .sim-hero__result {
-    padding: 20px 14px 16px;
-    border-radius: 36px;
-  }
-  .sim-hero__result > div { gap: 7px; }
-  .sim-hero__result img { width: 112px; height: 82px; }
-  .sim-hero__result b { min-width: 72px; padding: 6px 18px; text-align: center; }
-  .sim-hero__result > i { font-size: 28px; }
-  .sim-hero__copy .desktop-cta { display: none; }
-  .sim-hero > .mobile-cta {
-    display: inline-flex;
-    width: 100%;
-  }
   .simulation-quest-heading h2 { font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); }
   .simulation-quest-heading > span { padding: 8px 15px; font-size: 10px; font-weight: 700; }
   .simulation-quest-card { padding: 14px 12px 16px; }
@@ -427,7 +387,6 @@ onMounted(async () => {
   .simulation-quest-row { min-height: 84px; grid-template-columns: 44px minmax(0,1fr) auto 30px; gap: 8px; padding: 12px 10px; border-radius: 18px; }
   .simulation-quest-row__icon { width: 40px; height: 40px; }
   .simulation-quest-row__copy strong,.simulation-quest-row__amount { font-size: 14px; font-weight: 800; }
-  .sim-report-grid strong { font-size: 20px; }
   .simulation-quest-api-notice,
   .simulation-quest-progress span,
   .simulation-quest-period > header p,

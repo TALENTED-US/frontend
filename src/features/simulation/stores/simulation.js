@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { dashboard } from '@/data/mockData'
 import {
   financeState,
+  financialReport,
   financeTransactions,
   loadTransactions,
 } from '@/features/finance/financeStore'
@@ -154,7 +155,6 @@ export const useSimulationStore = defineStore('simulation', () => {
   const policyCatalogLoading = ref(false)
   const policyCatalogError = ref('')
   const financialDataReady = computed(() => financeState.loaded && !financeState.loading)
-  const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
   )
@@ -255,12 +255,12 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!hasSavedExpensePlan) syncExpenseCategories(false)
   }
   watch(financeTransactions, () => syncExpenseCategories(true), { deep: true, immediate: true })
-  const totalAssets = ref(dashboard.totalAssets)
+  const totalAssets = computed(() => financialReport.value.totalAssets)
   const availableAssets = ref(dashboard.liquidAssets ?? dashboard.totalAssets)
-  const monthlyIncome = computed(() => recentAnalysis.value.monthlyIncome)
-  const monthlyExpense = computed(() => recentAnalysis.value.monthlyExpense)
-  const runwayCalculationReady = computed(
-    () => financialDataReady.value && monthlyExpense.value > 0,
+  const monthlyIncome = computed(() => financialReport.value.monthlyIncome)
+  const monthlyExpense = computed(() => financialReport.value.monthlyExpense)
+  const runwayCalculationReady = computed(() =>
+    financialDataReady.value && monthlyExpense.value > 0,
   )
   const targetMonths = computed(() =>
     remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate),

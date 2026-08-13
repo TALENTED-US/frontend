@@ -21,6 +21,26 @@
   text-underline-offset: 2px;
 }
 
+@media (min-width: 768px) {
+  .sim-page .simulation-back-button {
+    display: block;
+    width: fit-content;
+    min-width: 32px;
+    margin: 0 0 20px;
+    padding: 0;
+    color: #222;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    text-align: left;
+  }
+
+  .sim-flow-confirm > .confirm-actions {
+    grid-template-columns: 1fr;
+  }
+
+}
+
 /* Shared section/card title scale across simulation views. */
 .sim-page section > h2,
 .sim-page section > header h2,
@@ -432,5 +452,205 @@
   .sim-page:not(.simulation-edit-page) .result-delta-badges i {
     font-size: 10px;
     font-weight: 700;
+  }
+}
+
+/* Shared desktop back control for every simulation subpage. */
+@media (min-width: 768px) {
+  .sim-page .simulation-back-button {
+    display: inline-flex !important;
+    width: 48px;
+    height: 45px;
+    min-width: 48px;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0 0 20px !important;
+    padding: 0;
+    color: transparent !important;
+    font-size: 0 !important;
+    font-weight: 900 !important;
+    line-height: .8 !important;
+    text-align: left;
+  }
+
+  .sim-page .simulation-back-button::before {
+    width: 13px;
+    height: 13px;
+    border-bottom: 5px solid #222;
+    border-left: 5px solid #222;
+    content: '';
+    transform: rotate(45deg);
+  }
+
+  .sim-page > .wizard-progress-tabs {
+    width: calc(100% - 78px) !important;
+    margin: -77px 0 28px 78px !important;
+  }
+}
+
+/* Shared bottom actions across the simulation flow. */
+.sim-page > .wizard-actions {
+  width: 100% !important;
+  max-width: 1052px !important;
+  justify-self: center;
+}
+
+.sim-page > .wizard-actions > button {
+  height: 50px !important;
+  min-height: 50px !important;
+}
+
+.sim-page .sim-btn--yellow,
+.sim-page .sim-btn--orange,
+.sim-page .expense-add-button,
+.sim-page .income-add-button,
+.simulation-new-modal section > div button:last-child {
+  display: inline-flex;
+  width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 18px;
+  background: #f1b94c !important;
+  box-shadow: 0 4px 0 rgb(198 160 30 / 35%) !important;
+  color: #3a3222 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.sim-page .sim-btn--yellow:hover:not(:disabled),
+.sim-page .sim-btn--orange:hover:not(:disabled),
+.sim-page .expense-add-button:hover:not(:disabled),
+.sim-page .income-add-button:hover:not(:disabled),
+.simulation-new-modal section > div button:last-child:hover:not(:disabled) {
+  background: #e5ac3c !important;
+  box-shadow: 0 6px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(-2px);
+}
+
+.sim-page .sim-btn--yellow:active:not(:disabled),
+.sim-page .sim-btn--orange:active:not(:disabled),
+.sim-page .expense-add-button:active:not(:disabled),
+.sim-page .income-add-button:active:not(:disabled),
+.simulation-new-modal section > div button:last-child:active:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(2px);
+}
+
+@media (max-width: 767px) {
+  .sim-page .sim-btn--yellow,
+  .sim-page .sim-btn--orange,
+  .sim-page .expense-add-button,
+  .sim-page .income-add-button,
+  .simulation-new-modal section > div button:last-child {
+    border-radius: 15px;
+    font-size: 17px !important;
+  }
+}
+
+.sim-page > .wizard-actions > .sim-text-button {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+button.simulation-primary-cta {
+  display: inline-flex !important;
+  width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: #f1b94c !important;
+  box-shadow: 0 4px 0 rgb(198 160 30 / 35%) !important;
+  color: #3a3222 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease !important;
+}
+
+button.simulation-primary-cta:hover:not(:disabled) {
+  background: #e5ac3c !important;
+  box-shadow: 0 6px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(-2px) !important;
+}
+
+button.simulation-primary-cta:active:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(2px) !important;
+}
+
+.sim-page.sim-flow-confirm > .final-result,
+.sim-page.sim-flow-confirm > .wizard-actions.confirm-actions {
+  grid-column: 1 / -1 !important;
+  width: min(100%, 1052px) !important;
+  max-width: 1052px !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+  justify-self: center !important;
+}
+
+.sim-page.sim-flow-confirm > .wizard-actions.confirm-actions > button {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+@media (max-width: 767px) {
+  button.simulation-primary-cta {
+    border-radius: 15px !important;
+    font-size: 17px !important;
+  }
+}
+
+/* Keep actual icon containers visually consistent without changing chart dots/bars. */
+.sim-page :is(
+  .simulation-banner__benefits li,
+  .choice-card,
+  .continue-row,
+  .goal-category,
+  .expense-target-info,
+  .added-expense-goals article,
+  .added-income-plans article,
+  .policy-selected-list article,
+  .confirm-row,
+  .edit-summary header
+) > i,
+.sim-page .edit-summary header > div > i {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  flex: 0 0 42px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.sim-page .added-expense-goals article,
+.sim-page .added-income-plans article,
+.sim-page .policy-selected-list article {
+  grid-template-columns: 42px minmax(0, 1fr) auto !important;
+}
+
+.sim-page .confirm-row {
+  grid-template-columns: 42px minmax(0, 1fr) auto auto auto auto;
+}
+
+@media (max-width: 767px) {
+  .sim-page .confirm-row {
+    grid-template-columns: 42px minmax(0, 1fr) auto auto;
   }
 }

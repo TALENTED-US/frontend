@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
+import FinancialReportCard from '@/features/finance/components/FinancialReportCard.vue'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import { pickButtieMessage } from '@/data/buttieMessages'
@@ -472,16 +473,6 @@ const initialAssets = computed(() =>
 const financialRiskAmount = computed(
   () => Number(currentUser.value.financialRiskAlertAmount) || Math.round(initialAssets.value * 0.2),
 )
-const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
-const monthlyDecrease = computed(() => Math.max(0, -netCashFlow.value))
-const reportBarMaximum = computed(() => Math.max(monthlyIncome.value, monthlyExpense.value, 1))
-const incomeBarWidth = computed(() => (monthlyIncome.value / reportBarMaximum.value) * 100)
-const expenseBarWidth = computed(() => (monthlyExpense.value / reportBarMaximum.value) * 100)
-const reportDepletionMonths = computed(() => {
-  if (monthlyDecrease.value <= 0) return null
-  return Math.max(0, Number(dashboard.totalAssets) || 0) / monthlyDecrease.value
-})
-const displayedReportDepletionMonths = computed(() => reportDepletionMonths.value?.toFixed(1))
 const remainingDurationText = computed(() => {
   if (remainingDays.value <= 0) return '목표일 도달'
   return `${remainingDuration.value.months}개월 ${remainingDuration.value.days}일`
@@ -653,51 +644,7 @@ const targetMonthText = computed(() =>
     </section>
 
     <div class="dashboard-overview">
-      <section class="summary">
-        <div class="section-head">
-          <h2>현재 재정 리포트</h2>
-          <RouterLink to="/finance">전체 내역 <span>›</span></RouterLink>
-        </div>
-        <div class="dashboard-report">
-          <div class="dashboard-report__summary">
-            <article>
-              <span>총자산</span>
-              <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
-            </article>
-            <article>
-              <span>매달 줄어드는 금액</span>
-              <strong>{{ formatCompactWon(monthlyDecrease) }}</strong>
-            </article>
-          </div>
-          <div class="dashboard-report__bars">
-            <div class="dashboard-report__bar-row dashboard-report__bar-row--income">
-              <div>
-                <span>월평균 수입</span><strong>{{ formatCompactWon(monthlyIncome) }}</strong>
-              </div>
-              <div class="dashboard-report__track">
-                <i :style="{ width: `${incomeBarWidth}%` }" />
-              </div>
-            </div>
-            <div class="dashboard-report__bar-row dashboard-report__bar-row--expense">
-              <div>
-                <span>월평균 지출</span><strong>{{ formatCompactWon(monthlyExpense) }}</strong>
-              </div>
-              <div class="dashboard-report__track">
-                <i :style="{ width: `${expenseBarWidth}%` }" />
-              </div>
-            </div>
-          </div>
-          <p class="dashboard-report__notice">
-            <template v-if="displayedReportDepletionMonths === undefined">
-              현재 속도라면 총자산이 줄어들지 않아요
-            </template>
-            <template v-else>
-              지금 속도라면 총자산 {{ formatCompactWon(dashboard.totalAssets) }}은
-              <strong>약 {{ displayedReportDepletionMonths }}개월 뒤</strong> 소진돼요
-            </template>
-          </p>
-        </div>
-      </section>
+      <FinancialReportCard />
 
       <section class="goal-section">
         <div class="section-head section-head--goal">
@@ -1388,119 +1335,6 @@ const targetMonthText = computed(() =>
 
 .section-head a span {
   margin-left: 3px;
-}
-
-.dashboard-report {
-  display: grid;
-  gap: 20px;
-  margin-top: 10px;
-}
-
-.dashboard-report__summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.dashboard-report__summary article {
-  display: grid;
-  min-height: 112px;
-  align-content: center;
-  gap: 6px;
-  padding: 20px 24px;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: none !important;
-}
-
-.dashboard-report__summary span {
-  color: #657086;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.dashboard-report__summary strong {
-  min-width: 0;
-  color: #394760;
-  font-size: clamp(16px, 2.2vw, 20px);
-  font-weight: 700;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.dashboard-report__bars {
-  display: grid;
-  gap: 12px;
-}
-
-.dashboard-report__bar-row > div:first-child {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 7px;
-}
-
-.dashboard-report__bar-row span {
-  position: relative;
-  padding-left: 17px;
-  color: #171717;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.dashboard-report__bar-row span::before {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #f1b94c;
-  content: '';
-  transform: translateY(-50%);
-}
-
-.dashboard-report__bar-row strong {
-  color: #f1b94c;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.dashboard-report__bar-row--expense span::before,
-.dashboard-report__bar-row--expense .dashboard-report__track i {
-  background: #f1b94c;
-}
-
-.dashboard-report__bar-row--expense strong {
-  color: #f1b94c;
-}
-
-.dashboard-report__track {
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #fff3c8;
-}
-
-.dashboard-report__track i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #f1b94c;
-  transition: width 0.25s ease;
-}
-
-.dashboard-report__notice {
-  padding: 14px 18px;
-  border-radius: 10px;
-  background: #fbf7df;
-  color: #555f73;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.dashboard-report__notice strong {
-  font-weight: 500;
 }
 
 .summary__grid {
@@ -2600,51 +2434,6 @@ const targetMonthText = computed(() =>
   .block-title {
     font-size: var(--type-section-title-size);
     font-weight: var(--type-section-title-weight);
-  }
-
-  .dashboard-report {
-    gap: 14px;
-  }
-
-  .dashboard-report__summary {
-    gap: 9px;
-  }
-
-  .dashboard-report__summary article {
-    min-height: 104px;
-    padding: 14px 16px;
-    border-radius: 15px;
-  }
-
-  .dashboard-report__summary strong {
-    font-size: clamp(15px, 5.6vw, 20px);
-    white-space: nowrap;
-  }
-
-  .dashboard-report__bars {
-    gap: 8px;
-  }
-
-  .dashboard-report__bar-row > div:first-child {
-    margin-bottom: 4px;
-  }
-
-  .dashboard-report__bar-row span {
-    padding-left: 17px;
-    font-size: 13px;
-  }
-
-  .dashboard-report__bar-row strong {
-    font-size: 18px;
-  }
-
-  .dashboard-report__track {
-    height: 10px;
-  }
-
-  .dashboard-report__notice {
-    padding: 9px 14px;
-    font-size: 12px;
   }
 
   .summary__grid {

@@ -20,18 +20,30 @@ const getTodayDate = () => {
 }
 const startDate = ref(step.value === 'categories' ? getTodayDate() : simulation.state.startDate)
 const endDate = ref(simulation.state.endDate)
+const selectedPeriod = ref(null)
+const periodOptions = [1, 3, 6, 12]
+
+function addMonths(dateValue, months) {
+  const [year, month, day] = String(dateValue).split('-').map(Number)
+  if (!year || !month || !day) return ''
+  const result = new Date(year, month - 1 + months, day)
+  return [
+    result.getFullYear(),
+    String(result.getMonth() + 1).padStart(2, '0'),
+    String(result.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function selectPeriod(months) {
+  if (!startDate.value) startDate.value = getTodayDate()
+  selectedPeriod.value = months
+  endDate.value = addMonths(startDate.value, months)
+}
+
+function clearSelectedPeriod() {
+  selectedPeriod.value = null
+}
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
-const manwon = (value) => `${money((Number(value) || 0) / 10000)}만원`
-const previewExpectedMonths = computed(() => {
-  const currentMonths = Number(simulation.currentMonths) || 0
-  const currentBurn = Math.max(1, simulation.monthlyExpense - simulation.monthlyIncome)
-  const reducedBurn = Math.max(1, currentBurn - 100000)
-  const targetMonths = Math.max(currentMonths, Number(simulation.targetMonths) || currentMonths)
-  return Math.round(Math.min(targetMonths, currentMonths * (currentBurn / reducedBurn)) * 10) / 10
-})
-const previewAddedMonths = computed(
-  () => Math.max(0, Math.round((previewExpectedMonths.value - simulation.currentMonths) * 10) / 10),
-)
 const nextDraftPath = computed(() => {
   if (!simulation.state.expenseApplied) return '/simulation/expense'
   if (!simulation.state.incomes.length) return '/simulation/income'
@@ -105,8 +117,8 @@ async function confirm() {
         <h1>시뮬레이션을 하는 중이었어요.<br />이어서 만드시겠어요?</h1>
       </div>
       <div class="wizard-actions vertical resume-actions">
-        <button class="sim-btn sim-btn--yellow" type="button" @click="router.push(nextDraftPath)">
-          <span class="desktop-only">이어서 계속하기 →</span>
+        <button class="sim-btn sim-btn--yellow simulation-primary-cta" type="button" @click="router.push(nextDraftPath)">
+          <span class="desktop-only">이어서 계속하기</span>
           <span class="mobile-only">이어서 만들기</span>
         </button>
         <button class="resume-reset" type="button" @click="reset">
@@ -117,82 +129,41 @@ async function confirm() {
     </template>
 
     <template v-else-if="step === 'categories'">
-      <button class="sim-back categories-desktop-back desktop-only" type="button" @click="router.push('/simulation')">
-        ‹ 예상 재정 계획 만들기
+      <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push('/simulation')">
+        ‹
       </button>
-      <h1 class="wizard-title">
-        <span class="desktop-only">지출을 매달 10만원 줄이면<br />생존기간이 얼마나 늘어날까요?</span>
-        <span class="mobile-only">지출을 매달 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</span>
-      </h1>
-      <p class="sim-subtitle">
-        <span class="desktop-only">생존 기간이 늘어나면 버티도 살아나요!</span>
-        <span class="mobile-only">현재 재정 상태를 기준으로 나만의 계획을 만들어보세요.</span>
-      </p>
+      <h1 class="wizard-title">지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?</h1>
+      <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
 
       <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
-        <div><img :src="meltingImage" alt="현재 상태의 버티" /><span>현재</span></div>
-        <b>→</b>
-        <div><img :src="stableImage" alt="목표 상태의 버티" /><span>목표</span></div>
+        <div><span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small class="danger">위험</small></div>
+        <b aria-hidden="true"><i />→</b>
+        <div><span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small class="safe">안정</small></div>
       </div>
 
       <section class="period-section">
-        <h2><span class="desktop-only">예상 재정 계획 기간</span><span class="mobile-only">시뮬레이션 기간</span></h2>
-        <p>
-          <span class="desktop-only">시작일은 오늘, 종료일은 목표 취업 시점이 기본이에요</span>
-          <span class="mobile-only">오늘부터 목표 취업일까지 자동으로 설정했어요.</span>
-        </p>
+        <h2>시뮬레이션 기간</h2>
+        <p>시작일은 오늘, 종료일은 목표 취업 시점이 기본이에요</p>
+        <div class="period-presets" aria-label="시뮬레이션 기간 빠른 선택">
+          <button v-for="months in periodOptions" :key="months" type="button" :class="{ active: selectedPeriod === months }" @click="selectPeriod(months)">{{ months }}개월</button>
+        </div>
         <div class="period-grid">
-          <label><span>시작일</span><input v-model="startDate" type="date" /></label>
-          <i class="period-separator desktop-only">~</i>
-          <label><span>종료일</span><input v-model="endDate" type="date" /></label>
+          <label><span>시작일</span><input v-model="startDate" type="date" @input="clearSelectedPeriod" /></label>
+          <i class="period-separator">~</i>
+          <label><span>종료일</span><input v-model="endDate" type="date" @input="clearSelectedPeriod" /></label>
         </div>
         <p v-if="endDate && startDate && endDate <= startDate" class="form-error">종료일은 시작일보다 뒤여야 해요.</p>
       </section>
 
-      <section class="baseline-report report-preview">
-        <h2>리포트 미리보기</h2>
-        <article class="report-preview__card">
-          <strong>시뮬레이션을 하면 이런 리포트를 받아볼 수 있어요</strong>
-          <span class="report-preview__badge">지출 줄이기</span>
-          <div class="report-preview__period">
-            <span>예상 버티는 기간 변화</span>
-            <p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ previewExpectedMonths }}개월</strong></p>
-            <em>+{{ previewAddedMonths }}개월 연장</em>
-          </div>
-          <div class="report-preview__charts">
-            <figure>
-              <figcaption>월별 타임라인</figcaption>
-              <svg viewBox="0 0 180 86" role="img" aria-label="시뮬레이션 전후 재정 타임라인 예시">
-                <line x1="12" y1="12" x2="92" y2="72" class="preview-line preview-line--before" />
-                <line x1="12" y1="12" x2="162" y2="72" class="preview-line preview-line--after" />
-                <circle cx="92" cy="72" r="4" class="preview-dot preview-dot--before" />
-                <circle cx="162" cy="72" r="4" class="preview-dot preview-dot--after" />
-                <text x="24" y="57" class="preview-text preview-text--before">적용 전</text>
-                <text x="116" y="34" class="preview-text preview-text--after">적용 후</text>
-              </svg>
-            </figure>
-            <figure>
-              <figcaption>시뮬레이션 적용 결과</figcaption>
-              <div class="preview-bars" aria-label="적용 전후 버티는 기간 비교">
-                <span class="preview-bar preview-bar--before"><i />적용 전</span>
-                <span class="preview-bar preview-bar--after"><i />적용 후</span>
-              </div>
-            </figure>
-          </div>
-        </article>
-      </section>
-
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
-      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
+      <button class="sim-btn sim-btn--yellow wide simulation-primary-cta" :disabled="simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
         <span v-if="simulation.syncing">불러오는 중…</span>
-        <template v-else>
-          <span class="desktop-only">예상 재정 계획 만들기 →</span>
-          <span class="mobile-only">시뮬레이션 시작하기 →</span>
-        </template>
+        <span v-else>시뮬레이션 시작하기</span>
       </button>
     </template>
 
     <template v-else>
+      <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push('/simulation/policy/preview')">‹</button>
       <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
       <p class="sim-subtitle">항목을 눌러 각 단계로 돌아가 수정할 수 있어요.</p>
 
@@ -216,16 +187,8 @@ async function confirm() {
       <p class="api-notice neutral">확정하면 이 계획을 기준으로 퀘스트가 생성됩니다.</p>
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
       <div class="wizard-actions confirm-actions">
-        <button
-          class="sim-text-button confirm-back-button"
-          type="button"
-          aria-label="입력 내용 수정"
-          @click="router.push('/simulation/policy/preview')"
-        >
-          ‹
-        </button>
-        <button class="sim-btn sim-btn--yellow" :disabled="simulation.syncing" type="button" @click="confirm">
-          {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기 →' }}
+        <button class="sim-btn sim-btn--yellow simulation-primary-cta" :disabled="simulation.syncing" type="button" @click="confirm">
+          {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기' }}
         </button>
       </div>
     </template>
@@ -273,169 +236,6 @@ async function confirm() {
   color: #777;
 }
 
-.report-preview > h2 {
-  font-size: 16px;
-}
-
-.report-preview__card {
-  margin-top: 12px;
-  padding: 20px;
-  border: 1px solid #e4e7ed;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 2px 7px rgb(20 30 60 / 9%);
-}
-
-.report-preview__card > strong {
-  display: block;
-  font-size: 14px;
-}
-
-.report-preview__badge {
-  display: inline-flex;
-  margin-top: 14px;
-  padding: 5px 14px;
-  border-radius: 999px;
-  background: #edf3ff;
-  color: #6c94ee;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.report-preview__period {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 8px 14px;
-  margin-top: 14px;
-}
-
-.report-preview__period > span {
-  grid-column: 1 / -1;
-  color: #555d6c;
-  font-size: 14px;
-}
-
-.report-preview__period p {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.report-preview__period del {
-  color: #a2a7b0;
-  font-size: 18px;
-  text-decoration: none;
-}
-
-.report-preview__period b {
-  color: #8e949d;
-}
-
-.report-preview__period strong {
-  color: #71442e;
-  font-size: 27px;
-}
-
-.report-preview__period em {
-  min-width: 122px;
-  padding: 7px 13px;
-  border: 1px solid #f4ad24;
-  border-radius: 999px;
-  color: #e8a01c;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 800;
-  text-align: center;
-}
-
-.report-preview__charts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 22px;
-}
-
-.report-preview__charts figure {
-  min-width: 0;
-}
-
-.report-preview__charts figcaption {
-  margin-bottom: 6px;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.report-preview__charts svg {
-  display: block;
-  width: 100%;
-  min-height: 90px;
-}
-
-.preview-line {
-  stroke-width: 2;
-}
-
-.preview-line--before {
-  stroke: #161616;
-}
-
-.preview-line--after {
-  stroke: #8eaff7;
-}
-
-.preview-dot--before {
-  fill: #161616;
-}
-
-.preview-dot--after {
-  fill: #8eaff7;
-}
-
-.preview-text {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.preview-text--before {
-  fill: #ef625a;
-}
-
-.preview-text--after {
-  fill: #7298ed;
-}
-
-.preview-bars {
-  display: flex;
-  min-height: 90px;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 12px;
-}
-
-.preview-bar {
-  display: grid;
-  justify-items: center;
-  gap: 5px;
-  color: #89909d;
-  font-size: 11px;
-}
-
-.preview-bar i {
-  display: block;
-  width: 40px;
-  height: 58px;
-  border: 1px dashed #9da2ab;
-  border-radius: 4px 4px 0 0;
-  background: #f4f4f4;
-}
-
-.preview-bar--after i {
-  height: 72px;
-  border: 1px solid #6f94ea;
-  background: #8faff7;
-}
-
 @media (max-width: 767px) {
   .sim-flow-continue {
     padding-bottom: 48px;
@@ -448,7 +248,7 @@ async function confirm() {
 
   .sim-flow-confirm .confirm-back-button {
     color: #222;
-    font-size: 24px;
+    font-size: 16px;
     font-weight: 700;
     text-decoration: none;
   }
@@ -492,66 +292,19 @@ async function confirm() {
     min-height: min(58vh, 560px);
   }
 
-  .report-preview__card {
-    padding: 17px 14px;
-  }
-
-  .report-preview__card > strong {
-    font-size: 14px;
-  }
-
-  .report-preview__badge,
-  .report-preview__period > span,
-  .report-preview__period em {
-    font-size: 10px;
-    font-weight: 700;
-  }
-
-  .report-preview__period > span {
-    font-size: 12px;
-  }
-
-  .report-preview__period {
-    gap: 8px;
-  }
-
-  .report-preview__period p {
-    gap: 7px;
-  }
-
-  .report-preview__period del {
-    font-size: 16px;
-  }
-
-  .report-preview__period strong {
-    font-size: 25px;
-    font-weight: 800;
-  }
-
-  .report-preview__period em {
-    min-width: 108px;
-    padding: 6px 9px;
-    font-size: 12px;
-  }
-
-  .report-preview__charts {
-    gap: 10px;
-  }
-
-  .report-preview__charts figcaption {
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .preview-text,
-  .preview-bar {
-    font-size: 11px;
-    font-weight: 600;
-  }
 }
 
 .sim-flow-categories .period-grid label {
   min-width: 0;
+  background: #fcfdff;
+  box-shadow: none;
+}
+
+.sim-flow-categories > .buttie-transition {
+  border: 0;
+  background: none !important;
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .sim-flow-categories .period-grid input[type='date'] {
@@ -561,6 +314,7 @@ async function confirm() {
   min-width: 0;
   box-sizing: border-box;
   padding-right: 24px;
+  background: #fcfdff;
 }
 
 .sim-flow-categories .period-grid input[type='date']::-webkit-calendar-picker-indicator {
@@ -572,8 +326,16 @@ async function confirm() {
 @media (min-width: 768px) {
   .sim-flow-confirm > .confirm-actions {
     grid-column: 1 / -1;
-    width: min(100%, 540px);
-    justify-self: center;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .sim-flow-confirm > .final-result {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
   }
 
   .sim-wizard.sim-flow-categories {
@@ -582,15 +344,6 @@ async function confirm() {
     max-width: 1120px;
     margin: 0 auto;
     padding: 24px 0 72px;
-  }
-
-  .sim-flow-categories .categories-desktop-back {
-    display: flex;
-    width: fit-content;
-    margin: 0 0 26px;
-    color: #181818;
-    font-size: 14px;
-    font-weight: 800;
   }
 
   .sim-flow-categories > .wizard-title {
@@ -639,14 +392,12 @@ async function confirm() {
     text-align: center;
   }
 
-  .sim-flow-categories > .period-section,
-  .sim-flow-categories > .baseline-report {
+  .sim-flow-categories > .period-section {
     width: 100%;
     margin: 0;
   }
 
-  .sim-flow-categories > .period-section h2,
-  .sim-flow-categories > .baseline-report > h2 {
+  .sim-flow-categories > .period-section h2 {
     font-size: 16px;
   }
 
@@ -667,7 +418,7 @@ async function confirm() {
     min-height: 62px;
     padding: 11px 18px;
     border-color: #d5eee2;
-    background: #edfff6;
+    background: #fcfdff;
   }
 
   .sim-flow-categories .period-grid input {
@@ -678,34 +429,6 @@ async function confirm() {
     display: block;
     color: #555;
     font-style: normal;
-  }
-
-  .sim-flow-categories > .baseline-report {
-    margin-top: 24px;
-  }
-
-  .sim-flow-categories .report-preview__card {
-    min-height: 350px;
-    padding: 24px 28px;
-  }
-
-  .sim-flow-categories .report-preview__charts {
-    gap: 88px;
-    margin-top: 30px;
-  }
-
-  .sim-flow-categories .report-preview__charts svg,
-  .sim-flow-categories .preview-bars {
-    min-height: 142px;
-  }
-
-  .sim-flow-categories .preview-bar i {
-    width: 54px;
-    height: 82px;
-  }
-
-  .sim-flow-categories .preview-bar--after i {
-    height: 104px;
   }
 
   .sim-flow-categories > .api-notice,
@@ -759,6 +482,290 @@ async function confirm() {
     min-height: 58px;
     border-radius: 12px;
     font-size: 15px;
+  }
+}
+
+/* Renewed /simulation/new layout */
+.sim-wizard.sim-flow-categories {
+  width: min(100%, 700px);
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 10px 0 24px;
+}
+
+.sim-flow-categories > .wizard-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 27px !important;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.38;
+}
+
+.sim-flow-categories > .wizard-title em {
+  color: #b37f0c;
+  font-style: normal;
+}
+
+.sim-flow-categories > .sim-subtitle {
+  margin-top: 5px;
+  color: #837b6e;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.sim-flow-categories > .buttie-transition {
+  display: grid;
+  width: 100%;
+  min-height: 158px;
+  grid-template-columns: 1fr 70px 1fr;
+  align-items: center;
+  margin: 14px 0;
+  padding: 14px 30px 12px;
+  border: 1px solid rgb(190 160 50 / 16%);
+  border-radius: 24px;
+  background: linear-gradient(100deg,#fffdf6 0%,#fff6d8 55%,#ffedb4 100%) !important;
+  box-shadow: none;
+}
+
+.sim-flow-categories .buttie-transition > div {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+
+.sim-flow-categories .buttie-transition span {
+  display: block;
+  color: #918876;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sim-flow-categories .buttie-transition img {
+  width: 112px;
+  height: 76px;
+  object-fit: contain;
+}
+
+.sim-flow-categories .buttie-transition > div:last-child img {
+  width: 86px;
+}
+
+.sim-flow-categories .buttie-transition small {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sim-flow-categories .buttie-transition small.danger {
+  background: #fce3e1;
+  color: #c0473f;
+}
+
+.sim-flow-categories .buttie-transition small.safe {
+  background: #dff1d9;
+  color: #3e7a34;
+}
+
+.sim-flow-categories .buttie-transition > b {
+  display: flex;
+  align-items: center;
+  color: #d99b19;
+  font-size: 25px;
+  font-weight: 500;
+}
+
+.sim-flow-categories .buttie-transition > b i {
+  width: 38px;
+  border-top: 2px dashed currentColor;
+}
+
+.sim-flow-categories > .period-section {
+  width: 100%;
+  margin: 0;
+  padding: 15px 18px 17px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.sim-flow-categories > .period-section h2 {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.sim-flow-categories > .period-section > p {
+  margin-top: 4px;
+  color: #837b6e;
+  font-size: 13px;
+}
+
+.sim-flow-categories .period-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.sim-flow-categories .period-presets button {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid #dedfe5;
+  border-radius: 999px;
+  background: #fff;
+  color: #57503f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sim-flow-categories .period-presets button.active {
+  border-color: var(--accent-strong);
+  background: #fff6dc;
+  color: #8a6407;
+  font-weight: 700;
+}
+
+.sim-flow-categories .period-grid {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 20px minmax(0,1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.sim-flow-categories .period-grid label {
+  min-height: 62px;
+  padding: 8px 13px;
+  border: 1px solid rgb(190 160 50 / 24%);
+  border-radius: 14px;
+  background: #fffbec;
+  box-shadow: none;
+}
+
+.sim-flow-categories .period-grid label > span {
+  color: #918876;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sim-flow-categories .period-grid input[type='date'] {
+  height: 30px;
+  padding: 0 24px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sim-flow-categories .period-separator {
+  display: block;
+  color: #aaa292;
+  font-size: 15px;
+  font-style: normal;
+  text-align: center;
+}
+
+.sim-flow-categories > .wide {
+  width: 100%;
+  min-height: 56px;
+  margin: 18px 0 0;
+  border-radius: 16px;
+  background: var(--accent-strong);
+  box-shadow: 0 4px 0 rgb(180 140 30 / 30%);
+  color: #3a3222;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+@media (max-width: 767px) {
+  .sim-wizard.sim-flow-categories {
+    width: 100%;
+    padding: 2px 4px 82px;
+  }
+
+  .sim-flow-categories > .wizard-title {
+    font-size: 22px !important;
+  }
+
+  .sim-flow-categories > .sim-subtitle {
+    font-size: 14px;
+  }
+
+  .sim-flow-categories > .buttie-transition {
+    min-height: 148px;
+    grid-template-columns: 1fr 48px 1fr;
+    margin: 12px 0;
+    padding: 12px 10px 10px;
+    border-radius: 20px;
+  }
+
+  .sim-flow-categories .buttie-transition img {
+    width: 96px;
+    height: 66px;
+  }
+
+  .sim-flow-categories .buttie-transition > div:last-child img {
+    width: 76px;
+  }
+
+  .sim-flow-categories .buttie-transition > b i {
+    width: 22px;
+  }
+
+  .sim-flow-categories > .period-section {
+    padding: 14px 14px 16px;
+  }
+
+  .sim-flow-categories .period-grid {
+    grid-template-columns: minmax(0,1fr) 14px minmax(0,1fr) !important;
+    gap: 5px;
+  }
+
+  .sim-flow-categories .period-grid label {
+    min-height: 60px;
+    padding: 8px 9px;
+  }
+
+  .sim-flow-categories .period-grid input[type='date'] {
+    font-size: 14px;
+  }
+
+  .sim-flow-categories > .wide {
+    min-height: 54px;
+    margin-top: 16px;
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 768px) {
+  .sim-flow-categories > .simulation-back-button {
+    display: inline-flex !important;
+    width: 48px !important;
+    height: 45px !important;
+    min-width: 48px !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    margin: 0 0 20px !important;
+    padding: 0 !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    font-weight: 900 !important;
+    line-height: 0.8 !important;
+    text-align: left !important;
+  }
+
+  .sim-flow-categories > .simulation-back-button::before {
+    width: 13px;
+    height: 13px;
+    border-bottom: 5px solid #222;
+    border-left: 5px solid #222;
+    content: '';
+    transform: rotate(45deg);
   }
 }
 </style>
