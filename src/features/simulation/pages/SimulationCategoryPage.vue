@@ -54,8 +54,8 @@ const activeExpense = computed(
 )
 const visibleBreakdown = computed(() => simulation.expenseBreakdown)
 const policyCount = computed(() => simulation.state.policies.length)
-const isEditingConfirmedScenario = computed(() =>
-  Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
+const isEditingConfirmedScenario = computed(
+  () => Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
 )
 
 watch(
@@ -209,8 +209,13 @@ function skip() {
 
 <template>
   <section class="page sim-page sim-wizard sim-category-page">
-    <button class="sim-back desktop-only" type="button" @click="router.push(backPath)">
-      ‹ {{ title }}
+    <button
+      class="sim-back desktop-only"
+      type="button"
+      :aria-label="title"
+      @click="router.push(backPath)"
+    >
+      ‹
     </button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <RouterLink
@@ -242,7 +247,9 @@ function skip() {
                 ><strong
                   >{{ money(item.current / 10000) }}만원<small
                     >{{
-                      Math.round((item.current / Math.max(1, simulation.totalCurrentExpense)) * 100)
+                      Math.round(
+                        (item.current / Math.max(1, simulation.totalCurrentExpense)) * 100,
+                      )
                     }}%</small
                   ></strong
                 >
@@ -436,8 +443,7 @@ function skip() {
         <button
           class="sim-btn sim-btn--yellow"
           :disabled="
-            (!simulation.state.incomes.length && !isEditingConfirmedScenario) ||
-            simulation.syncing
+            (!simulation.state.incomes.length && !isEditingConfirmedScenario) || simulation.syncing
           "
           @click="apply('income')"
         >
@@ -548,14 +554,9 @@ function skip() {
 
 <style scoped>
 .sim-category-page > .wizard-progress-tabs {
-  position: sticky;
-  z-index: 30;
-  top: var(--header-height);
   margin: -4px -18px 28px;
   padding: 10px 18px 14px;
-  background: rgb(252 253 255 / 96%);
-  box-shadow: 0 1px 0 rgb(20 30 60 / 7%);
-  backdrop-filter: blur(8px);
+  background: transparent;
 }
 
 .wizard-progress-link {
@@ -925,7 +926,6 @@ function skip() {
 
 @media (max-width: 767px) {
   .sim-category-page > .wizard-progress-tabs {
-    top: 64px;
     margin-top: -10px;
   }
 
@@ -1094,20 +1094,23 @@ function skip() {
 }
 
 @media (min-width: 768px) {
+  .sim-category-page > .sim-back {
+    font-size: 48px;
+    font-weight: 900;
+  }
+
   .sim-category-page > .wizard-progress-tabs {
-    width: min(100%, 760px);
-    margin-right: auto;
-    margin-left: auto;
+    width: 100%;
     padding-right: 0;
     padding-left: 0;
   }
 
   .sim-category-page > .wizard-progress-tabs span {
-    font-size: 14px;
+    font-size: 26px;
   }
 
   .sim-category-page > .wizard-progress-tabs span.active {
-    font-size: 15px;
+    font-size: 29px;
   }
 
   .expense-analysis-body li,
