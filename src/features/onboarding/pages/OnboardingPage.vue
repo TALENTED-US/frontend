@@ -324,7 +324,7 @@ async function next() {
         throw new Error('선택한 고정지출을 등록하지 못했습니다.')
       }
       session.login()
-      router.push('/')
+      router.push('/dashboard')
     } catch (error) {
       mydataError.value = error.message || '고정지출을 저장하지 못했습니다.'
     } finally {
@@ -765,6 +765,7 @@ async function next() {
 }
 
 .onboarding-stage {
+  position: relative;
   width: min(100% - 40px, 460px);
   margin: 0 auto;
   padding: 195px 0 70px;
@@ -775,12 +776,29 @@ async function next() {
   padding-top: 150px;
 }
 
-.mobile-back,
 .mobile-hero-icon,
 .mobile-copy,
 .app-only,
 .security-note {
   display: none;
+}
+
+.mobile-back {
+  position: absolute;
+  top: 120px;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: #666;
+  font-size: var(--font-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mobile-back:hover {
+  color: #222;
 }
 
 .stage-heading h1 {
@@ -1791,6 +1809,7 @@ input[type='checkbox'] {
 
   .mobile-back {
     display: block;
+    position: static;
     margin-bottom: 20px;
     color: #666;
     font-size: var(--font-body);

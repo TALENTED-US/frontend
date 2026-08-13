@@ -496,22 +496,24 @@ export const useSimulationStore = defineStore('simulation', () => {
     return [...firstPage.content, ...remainingPages.flatMap((page) => mapPolicyPage(page).content)]
   }
 
-  async function loadPolicyCatalog() {
+  async function loadPolicyCatalog(customParams) {
     policyCatalogLoading.value = true
     policyCatalogError.value = ''
     const employmentPrepStatus =
       session.currentUser.jobType === 'again' ? 'UNEMPLOYED' : 'FIRST_JOB'
-    const params = {
-      size: 100,
-      policyStatus: 'AVAILABLE',
-      employmentPrepStatus,
-      ...(calculateAge(session.currentUser.birth) !== undefined
-        ? { age: calculateAge(session.currentUser.birth) }
-        : {}),
-      ...(normalizePolicyRegion(session.currentUser.region)
-        ? { policyRegion: normalizePolicyRegion(session.currentUser.region) }
-        : {}),
-    }
+    const params = customParams
+      ? { ...customParams, size: 100 }
+      : {
+          size: 100,
+          policyStatus: 'AVAILABLE',
+          employmentPrepStatus,
+          ...(calculateAge(session.currentUser.birth) !== undefined
+            ? { age: calculateAge(session.currentUser.birth) }
+            : {}),
+          ...(normalizePolicyRegion(session.currentUser.region)
+            ? { policyRegion: normalizePolicyRegion(session.currentUser.region) }
+            : {}),
+        }
 
     try {
       const catalog = await fetchPolicyCatalogPages(params)
