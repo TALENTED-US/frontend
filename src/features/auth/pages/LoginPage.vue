@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import buttieStable from '@/assets/images/dashboard/buttie-stable.png'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
@@ -32,7 +33,7 @@ async function submit() {
   }
 
   error.value = ''
-  router.push('/')
+  router.push({ name: 'dashboard' })
 }
 
 function clearError() {
@@ -45,18 +46,30 @@ function clearError() {
   <div class="login-page">
     <aside class="login-visual desktop-only">
       <BrandLogo />
-      <div>
-        <small>취업 준비, 막막하지 않게</small>
-        <h2>내 재정으로 취업 준비를 설계하세요.</h2>
-        <p>수입·지출·청년 정책을 함께 살펴보고 목표 취업일까지의 계획을 보여드려요.</p>
+      <div class="visual-copy">
+        <small><i></i> MYDATA FINANCIAL CARE</small>
+        <h2><span>취준,</span> 감으로<br /><em>버티지 마세요.</em></h2>
+        <p>
+          소득 공백기의 자산을 분석하고 미래를 시뮬레이션해요.<br />내 상황에 맞는 현실적인 자산
+          방어 전략을 만나보세요.
+        </p>
+      </div>
+      <div class="visual-stage" aria-hidden="true">
+        <i class="orbit orbit-large"></i>
+        <i class="orbit orbit-small"></i>
+        <span class="visual-chip chip-one">지금 자산 체크</span>
+        <span class="visual-chip chip-two">정책 매칭 92%</span>
+        <span class="buttie-speech">같이 버텨요!</span>
+        <img :src="buttieStable" alt="" />
       </div>
     </aside>
 
     <main class="login-main">
       <BrandLogo class="mobile-only mobile-brand" />
       <section class="login-card">
+        <img class="login-buttie" :src="buttieStable" alt="" aria-hidden="true" />
         <div class="desktop-only">
-          <small>WELCOME BACK</small>
+          <small class="welcome-badge">WELCOME BACK</small>
           <h1>다시 만나서 반가워요</h1>
           <p>버티와 함께 취업 준비 계획을 이어가세요.</p>
         </div>
@@ -67,7 +80,7 @@ function clearError() {
 
         <form @submit.prevent="submit">
           <label
-            ><span>이메일</span
+            ><span>아이디</span
             ><input
               v-model="email"
               type="email"
@@ -110,62 +123,192 @@ function clearError() {
 <style scoped>
 .login-page {
   display: grid;
-  grid-template-columns: minmax(420px, 500px) minmax(0, 1fr);
+  grid-template-columns: minmax(520px, 48%) minmax(0, 1fr);
   width: 100%;
   min-height: 100dvh;
-  background: #fff;
+  background: #fcfdff;
 }
 .login-visual {
   position: relative;
-  padding: 38px 42px;
-  border-right: 1px solid #eceef3;
-  background: #f0f2f7;
+  padding: 34px 44px;
+  overflow: hidden;
+  border-right: 1px solid rgb(10 22 128 / 18%);
+  background: #fbedb0;
 }
-.login-visual > div {
+.login-visual::after {
   position: absolute;
-  top: 23%;
-  right: 58px;
-  left: 58px;
+  right: -12%;
+  bottom: -20%;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: rgb(147 178 248 / 32%);
+  content: '';
 }
-.login-visual small {
-  color: #222;
-  font-size: var(--font-body);
-  font-weight: 800;
+.visual-copy {
+  position: absolute;
+  z-index: 2;
+  top: 17%;
+  right: 46px;
+  left: 46px;
 }
-.login-visual h2 {
-  max-width: 380px;
-  margin-top: 18px;
-  font-size: clamp(32px, 2.45vw, 39px);
-  line-height: 1.12;
-  letter-spacing: -0.035em;
+.visual-copy small {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
 }
-.login-visual p {
-  max-width: 390px;
+.visual-copy small i {
+  width: 30px;
+  height: 2px;
+  background: #222;
+}
+.visual-copy h2 {
+  max-width: 520px;
   margin-top: 24px;
-  color: #586174;
-  font-size: var(--font-body);
-  line-height: 1.75;
+  color: #0a1680;
+  font-size: clamp(48px, 4.4vw, 72px);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.065em;
+}
+.visual-copy h2 span,
+.visual-copy h2 em {
+  position: relative;
+  z-index: 0;
+  font-style: normal;
+}
+.visual-copy h2 span::after,
+.visual-copy h2 em::after {
+  position: absolute;
+  z-index: -1;
+  right: -3%;
+  bottom: 1%;
+  left: -3%;
+  height: 16%;
+  border-radius: 999px;
+  background: #f1b94c;
+  content: '';
+}
+.visual-copy p {
+  max-width: 520px;
+  margin-top: 26px;
+  color: rgb(23 25 18 / 70%);
+  font-size: 15px;
+  line-height: 1.8;
+}
+.visual-stage {
+  position: absolute;
+  z-index: 1;
+  right: -30px;
+  bottom: -34px;
+  width: 430px;
+  height: 430px;
+}
+.visual-stage .orbit {
+  position: absolute;
+  border: 1px solid rgb(10 22 128 / 23%);
+  border-radius: 50%;
+}
+.orbit-large {
+  inset: 0;
+}
+.orbit-small {
+  inset: 62px;
+  border-style: dashed !important;
+}
+.visual-stage img {
+  position: absolute;
+  z-index: 3;
+  right: 105px;
+  bottom: 70px;
+  width: 190px;
+  filter: drop-shadow(12px 14px 0 rgb(23 25 18 / 13%));
+  transform: rotate(-6deg);
+}
+.visual-chip,
+.buttie-speech {
+  position: absolute;
+  z-index: 4;
+  padding: 9px 13px;
+  border: 1px solid #0a1680;
+  border-radius: 999px;
+  background: #fff;
+  color: #0a1680;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 5px 6px 0 rgb(10 22 128 / 10%);
+}
+.chip-one {
+  top: 62px;
+  left: 8px;
+  transform: rotate(-7deg);
+}
+.chip-two {
+  right: 16px;
+  top: 145px;
+  transform: rotate(6deg);
+}
+.buttie-speech {
+  right: 232px;
+  bottom: 193px;
+  border-radius: 18px 18px 5px;
+}
+.login-visual :deep(.brand-logo__image) {
+  width: 70px;
+  height: 70px;
+}
+.mobile-brand :deep(.brand-logo__image) {
+  width: 64px;
+  height: 64px;
+}
+.login-visual :deep(.brand-logo__name) {
+  color: #171717;
+  font-size: 25px;
 }
 .login-main {
   position: relative;
   display: grid;
-  place-items: start center;
-  padding-top: 13.5vh;
-  background: var(--background);
+  place-items: center;
+  padding: 48px;
+  background: #fcfdff;
 }
 .login-card {
+  position: relative;
   width: min(100% - 48px, 506px);
+  padding: 44px;
+  border: 1px solid rgb(10 22 128 / 20%);
+  border-radius: 30px;
+  background: #fff;
+  box-shadow: 15px 17px 0 #dbe5ff;
 }
-.login-card > div:first-child small {
-  color: #e9a818;
+.login-buttie {
+  position: absolute;
+  top: -55px;
+  right: 24px;
+  width: 100px;
+  filter: drop-shadow(7px 8px 0 rgb(10 22 128 / 12%));
+  transform: rotate(7deg);
+}
+.welcome-badge {
+  display: inline-flex;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #fbedb0;
+  color: #0a1680;
   font-size: var(--font-caption);
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 .login-card h1 {
-  margin-top: 10px;
-  color: #171717;
-  font-size: var(--font-page-title);
-  line-height: 1.3;
+  margin-top: 16px;
+  color: #0a1680;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: -0.045em;
 }
 .login-card > div:first-child p {
   margin-top: 5px;
@@ -174,8 +317,8 @@ function clearError() {
 }
 .login-card form {
   display: grid;
-  gap: 17px;
-  margin-top: 39px;
+  gap: 18px;
+  margin-top: 34px;
 }
 .login-success {
   color: #1f9d68;
@@ -190,11 +333,11 @@ function clearError() {
 }
 .login-card label > input,
 .login-card label i {
-  height: 52px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: var(--shadow-figma);
+  height: 55px;
+  border: 1px solid rgb(10 22 128 / 14%);
+  border-radius: 14px;
+  background: #fffbea;
+  box-shadow: none;
 }
 .login-card label > input {
   width: 100%;
@@ -212,19 +355,38 @@ function clearError() {
   flex: 1;
   height: 100%;
   padding: 0 17px;
+  border: none !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
 }
 .login-card label i button {
   padding: 12px;
+  background: transparent;
   color: #777;
 }
+.login-card input:focus,
+.login-card label i:focus-within {
+  border-color: #93b2f8;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(147 178 248 / 22%);
+}
 .login-submit {
-  height: 50px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: #1c1c1c;
-  box-shadow: var(--shadow-figma);
-  font-size: var(--font-small);
+  height: 54px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #0a1680;
+  color: #fff;
+  box-shadow: 0 8px 0 rgb(10 22 128 / 12%);
+  font-size: 15px;
   font-weight: 800;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.login-submit:not(:disabled):hover {
+  box-shadow: 0 11px 0 rgb(10 22 128 / 12%);
+  transform: translateY(-3px);
 }
 .login-submit strong {
   font-weight: 800;
@@ -269,7 +431,7 @@ function clearError() {
     max-width: 100%;
     min-height: 100dvh;
     margin: 0 auto;
-    padding: 14px 16px;
+    padding: 18px 16px;
     overflow-x: hidden;
     background: #fff;
   }
@@ -283,8 +445,17 @@ function clearError() {
   }
   .login-card {
     width: 100%;
-    margin-top: 125px;
-    padding: 0 28px;
+    margin-top: 76px;
+    padding: 30px 22px;
+    border: 0;
+    border-radius: 26px;
+    background: #fff;
+    box-shadow: 8px 10px 0 #dbe5ff;
+  }
+  .login-buttie {
+    top: -62px;
+    right: 14px;
+    width: 94px;
   }
   .login-card h1 {
     margin: 0;
@@ -306,7 +477,7 @@ function clearError() {
     height: auto;
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: #fff;
+    background: #fffbea;
   }
   .login-submit {
     min-height: 48px;

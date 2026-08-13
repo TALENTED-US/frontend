@@ -794,7 +794,7 @@ async function disconnectAllAssets() {
         <h2>버티 키우러 돌아갈까요?</h2>
         <p>지금까지 쌓은 취준 기록이 사라져요</p>
       </div>
-      <button class="primary-action" type="button" @click="router.push('/')">
+      <button class="primary-action" type="button" @click="router.push({ name: 'dashboard' })">
         홈으로 돌아가기
       </button>
       <button

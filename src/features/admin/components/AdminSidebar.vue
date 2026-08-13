@@ -27,6 +27,7 @@ function isMenuActive(to) {
         v-for="menu in menus"
         :key="menu.to"
         :to="menu.to"
+        :aria-current="isMenuActive(menu.to) ? 'page' : undefined"
         :class="['admin-sidebar__link', { active: isMenuActive(menu.to) }]"
       >
         {{ menu.label }}
@@ -46,8 +47,8 @@ function isMenuActive(to) {
   width: var(--admin-sidebar-width);
   height: 100dvh;
   padding: 24px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, #fff8d8 0, #fff 46%);
+  border-right: 1px solid rgb(10 22 128 / 14%);
 }
 
 .admin-sidebar__brand {
@@ -62,6 +63,7 @@ function isMenuActive(to) {
   height: 24px;
   border-radius: 7px;
   background: var(--accent-strong);
+  box-shadow: 5px 5px 0 rgb(10 22 128 / 12%);
 }
 
 .admin-sidebar__brand strong {
@@ -79,7 +81,7 @@ function isMenuActive(to) {
 .admin-sidebar__link {
   display: flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px;
   border-radius: var(--radius-sm);
   color: var(--muted);
@@ -91,8 +93,8 @@ function isMenuActive(to) {
 }
 
 .admin-sidebar__link.active {
-  background: var(--accent);
-  color: var(--text);
+  background: var(--primary);
+  color: #fff;
   font-weight: 700;
 }
 </style>
