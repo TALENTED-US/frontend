@@ -28,36 +28,62 @@ import {
   mapSimulationItemResponse,
   toUpdateSimulationItemRequest,
 } from '@/mappers/simulation'
+import { getPoliciesApi } from '@/api/policy'
+import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
 
 const STORAGE_KEY = 'buttie-simulation-v4'
 const CONFIRMED_SNAPSHOT_KEY = 'buttie-simulation-confirmed-snapshot-v1'
 const CLIENT_CALCULATION_VERSION = 2
 const CATEGORY_META = {
-  주거: { icon: '🏠', color: '#ffe197' }, 월세: { icon: '🏠', color: '#ffe197' },
+  주거: { icon: '🏠', color: '#ffe197' },
+  월세: { icon: '🏠', color: '#ffe197' },
   식비: { icon: '🍚', color: '#ffd0d0' },
-  교통: { icon: '🚌', color: '#aab5c8' }, 교통비: { icon: '🚌', color: '#aab5c8' }, 쇼핑: { icon: '🛍️', color: '#88a9f6' },
-  통신비: { icon: '📱', color: '#d8b5ee' }, 구독: { icon: '📺', color: '#c8a8ef' }, 구독비: { icon: '📺', color: '#c8a8ef' }, 의료: { icon: '🏥', color: '#8dd5c1' },
-  교육: { icon: '📚', color: '#77b6df' }, 교육비: { icon: '📚', color: '#77b6df' }, 자격증: { icon: '📄', color: '#91c7a9' }, '자격증 비용': { icon: '📄', color: '#91c7a9' }, 보험: { icon: '🛡️', color: '#91c7a9' },
-  여가: { icon: '🎮', color: '#f5ae77' }, 기타: { icon: '🧾', color: '#b8bdc8' },
+  교통: { icon: '🚌', color: '#aab5c8' },
+  교통비: { icon: '🚌', color: '#aab5c8' },
+  쇼핑: { icon: '🛍️', color: '#88a9f6' },
+  통신비: { icon: '📱', color: '#d8b5ee' },
+  구독: { icon: '📺', color: '#c8a8ef' },
+  구독비: { icon: '📺', color: '#c8a8ef' },
+  의료: { icon: '🏥', color: '#8dd5c1' },
+  교육: { icon: '📚', color: '#77b6df' },
+  교육비: { icon: '📚', color: '#77b6df' },
+  자격증: { icon: '📄', color: '#91c7a9' },
+  '자격증 비용': { icon: '📄', color: '#91c7a9' },
+  보험: { icon: '🛡️', color: '#91c7a9' },
+  여가: { icon: '🎮', color: '#f5ae77' },
+  기타: { icon: '🧾', color: '#b8bdc8' },
 }
 const NON_REDUCIBLE_EXPENSES = new Set(['월세', '주거'])
 const REDUCTION_CATEGORIES = ['식비', '교통비', '통신비', '구독비', '교육비', '자격증 비용', '기타']
 const REDUCTION_CATEGORY_ALIASES = {
-  식비: '식비', 교통: '교통비', 교통비: '교통비', 통신: '통신비', 통신비: '통신비',
-  구독: '구독비', 구독비: '구독비', 교육: '교육비', 교육비: '교육비',
-  자격증: '자격증 비용', '자격증 비용': '자격증 비용',
+  식비: '식비',
+  교통: '교통비',
+  교통비: '교통비',
+  통신: '통신비',
+  통신비: '통신비',
+  구독: '구독비',
+  구독비: '구독비',
+  교육: '교육비',
+  교육비: '교육비',
+  자격증: '자격증 비용',
+  '자격증 비용': '자격증 비용',
 }
 const DAYS_PER_MONTH = 365.2425 / 12
 
 function dateRangeMonths(startValue, endValue) {
-  const startParts = String(startValue || '').split('-').map(Number)
-  const endParts = String(endValue || '').split('-').map(Number)
+  const startParts = String(startValue || '')
+    .split('-')
+    .map(Number)
+  const endParts = String(endValue || '')
+    .split('-')
+    .map(Number)
   if (
-    startParts.length !== 3
-    || endParts.length !== 3
-    || startParts.some((part) => !part)
-    || endParts.some((part) => !part)
-  ) return 0
+    startParts.length !== 3 ||
+    endParts.length !== 3 ||
+    startParts.some((part) => !part) ||
+    endParts.some((part) => !part)
+  )
+    return 0
 
   const start = Date.UTC(startParts[0], startParts[1] - 1, startParts[2])
   const end = Date.UTC(endParts[0], endParts[1] - 1, endParts[2])
@@ -65,7 +91,10 @@ function dateRangeMonths(startValue, endValue) {
 }
 
 function remainingMonthsUntil(value) {
-  const parts = String(value || '').replaceAll('.', '-').split('-').map(Number)
+  const parts = String(value || '')
+    .replaceAll('.', '-')
+    .split('-')
+    .map(Number)
   if (parts.length < 3 || parts.some((part) => !part)) return dashboard.targetMonths
   const today = new Date()
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -74,10 +103,18 @@ function remainingMonthsUntil(value) {
 }
 
 function getStatus(months, targetMonths) {
-  const rate = targetMonths > 0 ? Math.min(100, Math.max(0, Math.round((months / targetMonths) * 100))) : 100
+  const rate =
+    targetMonths > 0 ? Math.min(100, Math.max(0, Math.round((months / targetMonths) * 100))) : 100
   if (rate <= 30) return { key: 'danger', label: '위험', rate }
   if (rate < 80) return { key: 'caution', label: '주의', rate }
   return { key: 'safe', label: '안정', rate }
+}
+
+function getApiRiskStatus(riskLevel, fallbackStatus) {
+  if (riskLevel === 'DANGER') return { ...fallbackStatus, key: 'danger', label: '위험' }
+  if (riskLevel === 'CAUTION') return { ...fallbackStatus, key: 'caution', label: '주의' }
+  if (riskLevel) return { ...fallbackStatus, key: 'safe', label: '안정' }
+  return fallbackStatus
 }
 
 const defaultState = () => ({
@@ -96,21 +133,16 @@ const defaultState = () => ({
   draftStarted: false,
   ignoreRemoteDraft: false,
 })
-const DEFAULT_SCENARIO_MONTHS = dateRangeMonths(
-  defaultState().startDate,
-  defaultState().endDate,
-)
-
-const policyCatalog = [
-  { id: 4, name: '청년내일저축계좌', description: '근로 중인 청년의 자산 형성을 지원해요', amount: 100000, type: 'monthly', months: 12, detail: '월 10만원 × 12개월' },
-  { id: 7, name: '청년 구직활동지원금', description: '구직활동 중인 청년 대상 지원금이에요', amount: 300000, type: 'monthly', months: 6, detail: '월 30만원 × 6개월' },
-  { id: 2, name: '국민취업지원제도', description: '취업 준비 중인 청년에게 정기 지원돼요', amount: 500000, type: 'monthly', months: 6, detail: '월 50만원 × 6개월' },
-]
+const DEFAULT_SCENARIO_MONTHS = dateRangeMonths(defaultState().startDate, defaultState().endDate)
 
 export const useSimulationStore = defineStore('simulation', () => {
   const session = useSessionStore()
   let saved = null
-  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') } catch { saved = null }
+  try {
+    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+  } catch {
+    saved = null
+  }
   const state = reactive({ ...defaultState(), ...(saved || {}) })
   const remoteEnabled = import.meta.env.VITE_USE_MOCK_API !== 'true'
   const syncing = ref(false)
@@ -118,6 +150,9 @@ export const useSimulationStore = defineStore('simulation', () => {
   const remoteReport = ref(null)
   const recentConfirmed = ref(null)
   const remoteDraftExists = ref(null)
+  const policyCatalog = ref([])
+  const policyCatalogLoading = ref(false)
+  const policyCatalogError = ref('')
   const financialDataReady = computed(() => financeState.loaded && !financeState.loading)
   const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
   const previousMonthExpenseAnalysis = computed(() =>
@@ -125,7 +160,9 @@ export const useSimulationStore = defineStore('simulation', () => {
   )
 
   function currentUserKey() {
-    return String(session.currentUser.email || '').trim().toLowerCase()
+    return String(session.currentUser.email || '')
+      .trim()
+      .toLowerCase()
   }
 
   function clearConfirmedSnapshot() {
@@ -164,18 +201,22 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function buildExpenseCategories(existing = state.expenses) {
-    const breakdownRows = previousMonthExpenseAnalysis.value.categories.map(({ name, current }) => ({
-      id: name,
-      name,
-      icon: CATEGORY_META[name]?.icon || CATEGORY_META.기타.icon,
-      color: CATEGORY_META[name]?.color || CATEGORY_META.기타.color,
-      current,
-    }))
+    const breakdownRows = previousMonthExpenseAnalysis.value.categories.map(
+      ({ name, current }) => ({
+        id: name,
+        name,
+        icon: CATEGORY_META[name]?.icon || CATEGORY_META.기타.icon,
+        color: CATEGORY_META[name]?.color || CATEGORY_META.기타.color,
+        current,
+      }),
+    )
     const totals = Object.fromEntries(REDUCTION_CATEGORIES.map((name) => [name, 0]))
-    breakdownRows.filter((item) => !NON_REDUCIBLE_EXPENSES.has(item.name)).forEach((item) => {
-      const category = REDUCTION_CATEGORY_ALIASES[item.name] || '기타'
-      totals[category] += item.current
-    })
+    breakdownRows
+      .filter((item) => !NON_REDUCIBLE_EXPENSES.has(item.name))
+      .forEach((item) => {
+        const category = REDUCTION_CATEGORY_ALIASES[item.name] || '기타'
+        totals[category] += item.current
+      })
     const rows = REDUCTION_CATEGORIES.map((name) => {
       const previous = existing.find((item) => item.id === name || item.name === name)
       const current = totals[name]
@@ -207,8 +248,9 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function initializeExpensesFromAnalysis() {
-    const hasSavedExpensePlan = state.expenseApplied
-      || state.expenses.some((item) => item.selected || Number(item.saving) > 0)
+    const hasSavedExpensePlan =
+      state.expenseApplied ||
+      state.expenses.some((item) => item.selected || Number(item.saving) > 0)
 
     if (!hasSavedExpensePlan) syncExpenseCategories(false)
   }
@@ -217,30 +259,63 @@ export const useSimulationStore = defineStore('simulation', () => {
   const availableAssets = ref(dashboard.liquidAssets ?? dashboard.totalAssets)
   const monthlyIncome = computed(() => recentAnalysis.value.monthlyIncome)
   const monthlyExpense = computed(() => recentAnalysis.value.monthlyExpense)
-  const runwayCalculationReady = computed(() =>
-    financialDataReady.value && monthlyExpense.value > 0,
+  const runwayCalculationReady = computed(
+    () => financialDataReady.value && monthlyExpense.value > 0,
   )
-  const targetMonths = computed(() => remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate))
+  const targetMonths = computed(() =>
+    remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate),
+  )
   const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value))
-  const localCurrentMonths = computed(() => runwayCalculationReady.value
-    ? Math.round((availableAssets.value / currentMonthlyBurn.value) * 10) / 10
-    : null)
+  const localCurrentMonths = computed(() =>
+    runwayCalculationReady.value
+      ? Math.round((availableAssets.value / currentMonthlyBurn.value) * 10) / 10
+      : null,
+  )
   // 확정 시점의 기준 기간은 수정 흐름에서도 유지한다. 서버의 draft/report 값은
   // 확정 결과와 계산 기준이 다를 수 있으므로 수정 화면 진입 시 기준값을 덮지 않는다.
-  const currentMonths = computed(() => recentConfirmed.value
-    ? recentConfirmed.value.currentMonths
-    : localCurrentMonths.value)
+  const currentMonths = computed(() =>
+    recentConfirmed.value ? recentConfirmed.value.currentMonths : localCurrentMonths.value,
+  )
 
   const selectedExpenses = computed(() => state.expenses.filter((item) => item.selected))
-  const totalCurrentExpense = computed(() => expenseBreakdown.value.reduce((sum, item) => sum + item.current, 0))
-  const expenseSaving = computed(() => selectedExpenses.value.reduce((sum, item) => sum + item.saving, 0))
-  const recurringIncome = computed(() => state.incomes.filter((item) => item.type === 'monthly').reduce((sum, item) => sum + item.amount, 0))
-  const oneTimeIncome = computed(() => state.incomes.filter((item) => item.type === 'once').reduce((sum, item) => sum + item.amount, 0))
-  const recurringPolicy = computed(() => state.policies.filter((item) => item.type === 'monthly').reduce((sum, item) => sum + item.amount, 0))
-  const oneTimePolicy = computed(() => state.policies.filter((item) => item.type === 'once').reduce((sum, item) => sum + item.amount, 0))
-  const monthlyImprovement = computed(() => (state.expenseApplied ? expenseSaving.value : 0) + recurringIncome.value + recurringPolicy.value)
-  const scenarioAssets = computed(() => availableAssets.value + oneTimeIncome.value + oneTimePolicy.value)
-  const scenarioMonthlyBurn = computed(() => Math.max(1, currentMonthlyBurn.value - monthlyImprovement.value))
+  const totalCurrentExpense = computed(() =>
+    expenseBreakdown.value.reduce((sum, item) => sum + item.current, 0),
+  )
+  const expenseSaving = computed(() =>
+    selectedExpenses.value.reduce((sum, item) => sum + item.saving, 0),
+  )
+  const recurringIncome = computed(() =>
+    state.incomes
+      .filter((item) => item.type === 'monthly')
+      .reduce((sum, item) => sum + item.amount, 0),
+  )
+  const oneTimeIncome = computed(() =>
+    state.incomes
+      .filter((item) => item.type === 'once')
+      .reduce((sum, item) => sum + item.amount, 0),
+  )
+  const recurringPolicy = computed(() =>
+    state.policies
+      .filter((item) => item.type === 'monthly')
+      .reduce((sum, item) => sum + item.amount, 0),
+  )
+  const oneTimePolicy = computed(() =>
+    state.policies
+      .filter((item) => item.type === 'once')
+      .reduce((sum, item) => sum + item.amount, 0),
+  )
+  const monthlyImprovement = computed(
+    () =>
+      (state.expenseApplied ? expenseSaving.value : 0) +
+      recurringIncome.value +
+      recurringPolicy.value,
+  )
+  const scenarioAssets = computed(
+    () => availableAssets.value + oneTimeIncome.value + oneTimePolicy.value,
+  )
+  const scenarioMonthlyBurn = computed(() =>
+    Math.max(1, currentMonthlyBurn.value - monthlyImprovement.value),
+  )
   const scenarioStartDate = computed(() => state.startDate)
   const scenarioEndDate = computed(() => state.endDate)
   const scenarioPeriodMonths = computed(() =>
@@ -250,27 +325,42 @@ export const useSimulationStore = defineStore('simulation', () => {
   const localExpectedMonths = computed(() => {
     if (!runwayCalculationReady.value) return null
     const baseIncrease = Math.max(0, baseExpectedMonths.value - currentMonths.value)
-    const periodRatio = DEFAULT_SCENARIO_MONTHS > 0
-      ? scenarioPeriodMonths.value / DEFAULT_SCENARIO_MONTHS
-      : 0
+    const periodRatio =
+      DEFAULT_SCENARIO_MONTHS > 0 ? scenarioPeriodMonths.value / DEFAULT_SCENARIO_MONTHS : 0
     const adjusted = currentMonths.value + baseIncrease * periodRatio
     return Math.min(60, Math.round(adjusted * 10) / 10)
   })
   // 확정 결과를 보는 동안에만 확정 스냅샷을 사용한다. 수정(revert) 이후에는
   // 기존 확정값을 비교 기준으로 보존하되, 변경된 항목으로 예상 기간을 다시 계산한다.
-  const expectedMonths = computed(() => state.confirmed && recentConfirmed.value
-    ? recentConfirmed.value.expectedMonths
-    : localExpectedMonths.value)
-  const currentStatus = computed(() => getStatus(currentMonths.value, targetMonths.value))
+  const expectedMonths = computed(() =>
+    state.confirmed && recentConfirmed.value
+      ? recentConfirmed.value.expectedMonths
+      : localExpectedMonths.value,
+  )
+  const currentStatus = computed(() =>
+    getApiRiskStatus(
+      session.currentUser.riskLevel,
+      getStatus(currentMonths.value, targetMonths.value),
+    ),
+  )
   const expectedStatus = computed(() => getStatus(expectedMonths.value, targetMonths.value))
-  const expensePreviewMonthlyBurn = computed(() => Math.max(1, currentMonthlyBurn.value - expenseSaving.value))
-  const expensePreviewMonths = computed(() => Math.min(60, Math.round((availableAssets.value / expensePreviewMonthlyBurn.value) * 10) / 10))
-  const addedMonths = computed(() => Math.max(0, Math.round((expectedMonths.value - currentMonths.value) * 10) / 10))
-  const completedCategories = computed(() => [
-    state.expenseApplied && selectedExpenses.value.length > 0,
-    state.incomes.length > 0,
-    state.policies.length > 0,
-  ].filter(Boolean).length)
+  const expensePreviewMonthlyBurn = computed(() =>
+    Math.max(1, currentMonthlyBurn.value - expenseSaving.value),
+  )
+  const expensePreviewMonths = computed(() =>
+    Math.min(60, Math.round((availableAssets.value / expensePreviewMonthlyBurn.value) * 10) / 10),
+  )
+  const addedMonths = computed(() =>
+    Math.max(0, Math.round((expectedMonths.value - currentMonths.value) * 10) / 10),
+  )
+  const completedCategories = computed(
+    () =>
+      [
+        state.expenseApplied && selectedExpenses.value.length > 0,
+        state.incomes.length > 0,
+        state.policies.length > 0,
+      ].filter(Boolean).length,
+  )
   const hasDraft = computed(() => state.draftStarted || completedCategories.value > 0)
 
   function buildClientConfirmedSnapshot(identity = {}) {
@@ -334,9 +424,14 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
   function toggleExpense(id) {
     const item = state.expenses.find((entry) => entry.id === id)
-    if (item) { item.selected = !item.selected; item.remoteSynced = false }
+    if (item) {
+      item.selected = !item.selected
+      item.remoteSynced = false
+    }
   }
-  function applyExpenses() { state.expenseApplied = true }
+  function applyExpenses() {
+    state.expenseApplied = true
+  }
   function resetExpenses() {
     syncExpenseCategories(false)
     state.expenseApplied = false
@@ -351,14 +446,85 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.incomes[index] = { ...state.incomes[index], ...payload, remoteSynced: false }
     state.confirmed = false
   }
-  function removeIncome(id) { state.incomes = state.incomes.filter((item) => item.id !== id) }
-  function resetIncomes() { state.incomes = []; state.confirmed = false }
+  function removeIncome(id) {
+    state.incomes = state.incomes.filter((item) => item.id !== id)
+  }
+  function resetIncomes() {
+    state.incomes = []
+    state.confirmed = false
+  }
   function togglePolicy(policy) {
     const exists = state.policies.some((item) => item.id === policy.id)
-    state.policies = exists ? state.policies.filter((item) => item.id !== policy.id) : [...state.policies, { ...policy }]
+    state.policies = exists
+      ? state.policies.filter((item) => item.id !== policy.id)
+      : [...state.policies, { ...policy }]
   }
-  function removePolicy(id) { state.policies = state.policies.filter((item) => item.id !== id) }
-  function resetPolicies() { state.policies = []; state.confirmed = false }
+  function removePolicy(id) {
+    state.policies = state.policies.filter((item) => item.id !== id)
+  }
+  function resetPolicies() {
+    state.policies = []
+    state.confirmed = false
+  }
+
+  function reconcileSelectedPolicies(catalog) {
+    state.policies = state.policies.map((selected) => {
+      const current = catalog.find((item) => item.id === selected.id)
+      const byName = catalog.find((item) => item.name === selected.name)
+      const matched = current || byName
+      return matched
+        ? {
+            ...matched,
+            remoteId: selected.remoteId,
+            remoteSynced: Boolean(selected.remoteId && selected.remoteSynced),
+          }
+        : selected
+    })
+  }
+
+  async function fetchPolicyCatalogPages(params) {
+    const response = await getPoliciesApi({ ...params, page: 1 })
+    const firstPage = mapPolicyPage(response)
+    const remainingPages = firstPage.hasNext
+      ? await Promise.all(
+          Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+            getPoliciesApi({ ...params, page: index + 2 }),
+          ),
+        )
+      : []
+
+    return [...firstPage.content, ...remainingPages.flatMap((page) => mapPolicyPage(page).content)]
+  }
+
+  async function loadPolicyCatalog() {
+    policyCatalogLoading.value = true
+    policyCatalogError.value = ''
+    const employmentPrepStatus =
+      session.currentUser.jobType === 'again' ? 'UNEMPLOYED' : 'FIRST_JOB'
+    const params = {
+      size: 100,
+      policyStatus: 'AVAILABLE',
+      employmentPrepStatus,
+      ...(calculateAge(session.currentUser.birth) !== undefined
+        ? { age: calculateAge(session.currentUser.birth) }
+        : {}),
+      ...(normalizePolicyRegion(session.currentUser.region)
+        ? { policyRegion: normalizePolicyRegion(session.currentUser.region) }
+        : {}),
+    }
+
+    try {
+      const catalog = await fetchPolicyCatalogPages(params)
+      policyCatalog.value = catalog
+      reconcileSelectedPolicies(catalog)
+      return catalog
+    } catch (error) {
+      policyCatalogError.value = error.message || '정책 목록을 불러오지 못했습니다.'
+      return []
+    } finally {
+      policyCatalogLoading.value = false
+    }
+  }
 
   async function runItemMutation(request, onSuccess) {
     syncing.value = true
@@ -380,12 +546,22 @@ export const useSimulationStore = defineStore('simulation', () => {
     const item = state.expenses.find((entry) => entry.id === id)
     if (!item) return false
     const saving = Math.max(0, Math.min(item.current, Number(amount) || 0))
-    if (!remoteEnabled || !item.remoteId) { setExpenseSaving(id, saving); return true }
+    if (!remoteEnabled || !item.remoteId) {
+      setExpenseSaving(id, saving)
+      return true
+    }
 
     return runItemMutation(
-      () => updateSimulationItemApi(item.remoteId, toUpdateSimulationItemRequest({
-        amount: saving, type: 'monthly', startDate: state.startDate, endDate: state.endDate,
-      })),
+      () =>
+        updateSimulationItemApi(
+          item.remoteId,
+          toUpdateSimulationItemRequest({
+            amount: saving,
+            type: 'monthly',
+            startDate: state.startDate,
+            endDate: state.endDate,
+          }),
+        ),
       (updated) => {
         item.saving = Number(updated?.amount) || saving
         item.selected = item.saving > 0
@@ -398,41 +574,71 @@ export const useSimulationStore = defineStore('simulation', () => {
   async function deleteExpenseGoal(id) {
     const item = state.expenses.find((entry) => entry.id === id)
     if (!item) return false
-    if (!remoteEnabled || !item.remoteId) { setExpenseSaving(id, 0); return true }
+    if (!remoteEnabled || !item.remoteId) {
+      setExpenseSaving(id, 0)
+      return true
+    }
     return runItemMutation(
       () => deleteSimulationItemApi(item.remoteId),
-      () => Object.assign(item, { saving: 0, selected: false, remoteSynced: false, remoteId: undefined }),
+      () =>
+        Object.assign(item, {
+          saving: 0,
+          selected: false,
+          remoteSynced: false,
+          remoteId: undefined,
+        }),
     )
   }
 
   async function saveIncomePlan(id, payload) {
     const item = state.incomes.find((entry) => entry.id === id)
     if (!item) return false
-    if (!remoteEnabled || !item.remoteId) { updateIncome(id, payload); return true }
+    if (!remoteEnabled || !item.remoteId) {
+      updateIncome(id, payload)
+      return true
+    }
     return runItemMutation(
-      () => updateSimulationItemApi(item.remoteId, toUpdateSimulationItemRequest({
-        ...payload, endDate: payload.type === 'monthly' ? state.endDate : payload.startDate,
-      })),
-      (updated) => Object.assign(item, payload, {
-        amount: Number(updated?.amount) || payload.amount,
-        remoteId: updated?.itemId || item.remoteId,
-        remoteSynced: true,
-      }),
+      () =>
+        updateSimulationItemApi(
+          item.remoteId,
+          toUpdateSimulationItemRequest({
+            ...payload,
+            endDate: payload.type === 'monthly' ? state.endDate : payload.startDate,
+          }),
+        ),
+      (updated) =>
+        Object.assign(item, payload, {
+          amount: Number(updated?.amount) || payload.amount,
+          remoteId: updated?.itemId || item.remoteId,
+          remoteSynced: true,
+        }),
     )
   }
 
   async function deleteIncomePlan(id) {
     const item = state.incomes.find((entry) => entry.id === id)
     if (!item) return false
-    if (!remoteEnabled || !item.remoteId) { removeIncome(id); return true }
-    return runItemMutation(() => deleteSimulationItemApi(item.remoteId), () => removeIncome(id))
+    if (!remoteEnabled || !item.remoteId) {
+      removeIncome(id)
+      return true
+    }
+    return runItemMutation(
+      () => deleteSimulationItemApi(item.remoteId),
+      () => removeIncome(id),
+    )
   }
 
   async function deletePolicyPlan(id) {
     const item = state.policies.find((entry) => entry.id === id)
     if (!item) return false
-    if (!remoteEnabled || !item.remoteId) { removePolicy(id); return true }
-    return runItemMutation(() => deleteSimulationItemApi(item.remoteId), () => removePolicy(id))
+    if (!remoteEnabled || !item.remoteId) {
+      removePolicy(id)
+      return true
+    }
+    return runItemMutation(
+      () => deleteSimulationItemApi(item.remoteId),
+      () => removePolicy(id),
+    )
   }
   async function runScenarioMutation(request, onSuccess, { allowNotFound = false } = {}) {
     syncing.value = true
@@ -479,7 +685,7 @@ export const useSimulationStore = defineStore('simulation', () => {
         await confirmSimulationApi()
         const remoteConfirmed = mapConfirmedSimulationResponse(
           await getLatestConfirmedSimulationApi(),
-          policyCatalog,
+          policyCatalog.value,
         )
 
         if (!remoteConfirmed) {
@@ -524,17 +730,25 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function deleteConfirmedScenario() {
-    return runScenarioMutation(deleteConfirmedSimulationApi, () => {
-      resetScenario()
-      remoteDraftExists.value = false
-    }, { allowNotFound: true })
+    return runScenarioMutation(
+      deleteConfirmedSimulationApi,
+      () => {
+        resetScenario()
+        remoteDraftExists.value = false
+      },
+      { allowNotFound: true },
+    )
   }
 
   function deleteDraftScenario() {
-    return runScenarioMutation(deleteDraftSimulationApi, () => {
-      resetScenario()
-      remoteDraftExists.value = false
-    }, { allowNotFound: true })
+    return runScenarioMutation(
+      deleteDraftSimulationApi,
+      () => {
+        resetScenario()
+        remoteDraftExists.value = false
+      },
+      { allowNotFound: true },
+    )
   }
   function toggleQuestCompletion(id) {
     const completed = new Set(state.completedQuestIds || [])
@@ -614,14 +828,14 @@ export const useSimulationStore = defineStore('simulation', () => {
       const restored = restoreConfirmedSnapshot()
       const remoteConfirmed = mapConfirmedSimulationResponse(
         await getLatestConfirmedSimulationApi(),
-        policyCatalog,
+        policyCatalog.value,
       )
       if (!remoteConfirmed) return null
 
       const canReuseClientSnapshot =
-        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION
-        && restored.simulationId === remoteConfirmed.simulationId
-        && restored.confirmedAt === remoteConfirmed.confirmedAt
+        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
+        restored.simulationId === remoteConfirmed.simulationId &&
+        restored.confirmedAt === remoteConfirmed.confirmedAt
       let confirmed
 
       if (canReuseClientSnapshot) {
@@ -650,8 +864,10 @@ export const useSimulationStore = defineStore('simulation', () => {
       state.ignoreRemoteDraft = false
       return confirmed
     } catch (error) {
-      if (error.status === 404) { clearConfirmedSnapshot(); state.confirmed = false }
-      else syncError.value = error.message
+      if (error.status === 404) {
+        clearConfirmedSnapshot()
+        state.confirmed = false
+      } else syncError.value = error.message
       return null
     } finally {
       syncing.value = false
@@ -707,9 +923,18 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   const expenseCategoryMap = {
-    식비: 'FOOD', 교통: 'TRANSPORT', 교통비: 'TRANSPORT', 주거: 'HOUSING', 월세: 'HOUSING',
-    통신비: 'COMMUNICATION', 구독: 'SUBSCRIPTION', 구독비: 'SUBSCRIPTION', 교육: 'EDUCATION', 교육비: 'EDUCATION',
-    자격증: 'CERTIFICATE', '자격증 비용': 'CERTIFICATE',
+    식비: 'FOOD',
+    교통: 'TRANSPORT',
+    교통비: 'TRANSPORT',
+    주거: 'HOUSING',
+    월세: 'HOUSING',
+    통신비: 'COMMUNICATION',
+    구독: 'SUBSCRIPTION',
+    구독비: 'SUBSCRIPTION',
+    교육: 'EDUCATION',
+    교육비: 'EDUCATION',
+    자격증: 'CERTIFICATE',
+    '자격증 비용': 'CERTIFICATE',
   }
 
   async function syncCategory(category) {
@@ -717,23 +942,53 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncing.value = true
     syncError.value = ''
     try {
-      const pendingItems = category === 'expense'
-        ? selectedExpenses.value.filter((item) => !item.remoteSynced).map((item) => ({ item, payload: {
-            category: 'EXPENSE', itemName: `${item.name} 줄이기`,
-            expenseCategory: expenseCategoryMap[item.name] || 'ETC_EXPENSE', amount: item.saving,
-            applyStartDate: state.startDate, applyEndDate: state.endDate, recurrenceType: 'MONTHLY',
-          } }))
-        : category === 'income'
-          ? state.incomes.filter((item) => !item.remoteSynced).map((item) => ({ item, payload: {
-              category: 'INCOME', itemName: item.name, amount: item.amount, expenseCategory: null,
-              applyStartDate: item.startDate || state.startDate,
-              applyEndDate: item.type === 'once' ? null : state.endDate,
-              recurrenceType: item.type === 'once' ? 'ONCE' : 'MONTHLY', policyId: null,
-            } }))
-          : state.policies.filter((item) => !item.remoteSynced && Number.isInteger(Number(item.id))).map((item) => ({ item, payload: {
-              category: 'POLICY', policyId: Number(item.id), applyStartDate: state.startDate,
-              itemName: null, amount: null, expenseCategory: null, applyEndDate: null, recurrenceType: null,
-            } }))
+      const pendingItems =
+        category === 'expense'
+          ? selectedExpenses.value
+              .filter((item) => !item.remoteSynced)
+              .map((item) => ({
+                item,
+                payload: {
+                  category: 'EXPENSE',
+                  itemName: `${item.name} 줄이기`,
+                  expenseCategory: expenseCategoryMap[item.name] || 'ETC_EXPENSE',
+                  amount: item.saving,
+                  applyStartDate: state.startDate,
+                  applyEndDate: state.endDate,
+                  recurrenceType: 'MONTHLY',
+                },
+              }))
+          : category === 'income'
+            ? state.incomes
+                .filter((item) => !item.remoteSynced)
+                .map((item) => ({
+                  item,
+                  payload: {
+                    category: 'INCOME',
+                    itemName: item.name,
+                    amount: item.amount,
+                    expenseCategory: null,
+                    applyStartDate: item.startDate || state.startDate,
+                    applyEndDate: item.type === 'once' ? null : state.endDate,
+                    recurrenceType: item.type === 'once' ? 'ONCE' : 'MONTHLY',
+                    policyId: null,
+                  },
+                }))
+            : state.policies
+                .filter((item) => !item.remoteSynced && item.policyId)
+                .map((item) => ({
+                  item,
+                  payload: {
+                    category: 'POLICY',
+                    policyId: String(item.policyId),
+                    applyStartDate: state.startDate,
+                    itemName: null,
+                    amount: null,
+                    expenseCategory: null,
+                    applyEndDate: null,
+                    recurrenceType: null,
+                  },
+                }))
 
       for (const { item, payload } of pendingItems) {
         const result = await applySimulationItemApi(payload)
@@ -765,37 +1020,100 @@ export const useSimulationStore = defineStore('simulation', () => {
   async function hydrateCategory(category) {
     if (state.ignoreRemoteDraft) return []
     const items = await refreshCategory(category)
-    const mappedItems = items.map((item) => mapSimulationItemResponse(item, policyCatalog)).filter(Boolean)
+    const mappedItems = items
+      .map((item) => mapSimulationItemResponse(item, policyCatalog.value))
+      .filter(Boolean)
     if (category === 'expense') {
       state.expenses = state.expenses.map((item) => {
         const remoteItem = mappedItems.find((entry) => entry.name === item.name)
         return remoteItem
-          ? { ...item, saving: Math.min(item.current, remoteItem.saving), selected: remoteItem.saving > 0, remoteSynced: true, remoteId: remoteItem.remoteId }
+          ? {
+              ...item,
+              saving: Math.min(item.current, remoteItem.saving),
+              selected: remoteItem.saving > 0,
+              remoteSynced: true,
+              remoteId: remoteItem.remoteId,
+            }
           : item
       })
       state.expenseApplied = state.expenses.some((item) => item.selected)
-    } else if (category === 'income') state.incomes = mappedItems.filter((item) => item.kind === 'income')
-    else if (category === 'policy') state.policies = mappedItems.filter((item) => item.kind === 'policy')
+    } else if (category === 'income')
+      state.incomes = mappedItems.filter((item) => item.kind === 'income')
+    else if (category === 'policy')
+      state.policies = mappedItems.filter((item) => item.kind === 'policy')
     return items
   }
 
   return {
-    state, policyCatalog, totalAssets, availableAssets, monthlyIncome, monthlyExpense, targetMonths, currentMonths,
-    currentStatus, expectedStatus,
-    expenseMonths, expenseBreakdown, totalCurrentExpense, selectedExpenses, expenseSaving, recurringIncome,
-    oneTimeIncome, recurringPolicy, oneTimePolicy, monthlyImprovement, addedMonths,
-    expectedMonths, expensePreviewMonths, scenarioStartDate, scenarioEndDate,
-    completedCategories, hasDraft, syncing, syncError, remoteReport, recentConfirmed,
-    financialDataReady, runwayCalculationReady,
-    adjustExpense, setExpenseSaving, toggleExpense,
-    addIncome, updateIncome, removeIncome, togglePolicy, removePolicy, applyExpenses, resetExpenses,
-    saveExpenseGoal, deleteExpenseGoal, saveIncomePlan, deleteIncomePlan, deletePolicyPlan,
+    state,
+    policyCatalog,
+    policyCatalogLoading,
+    policyCatalogError,
+    totalAssets,
+    availableAssets,
+    monthlyIncome,
+    monthlyExpense,
+    targetMonths,
+    currentMonths,
+    currentStatus,
+    expectedStatus,
+    expenseMonths,
+    expenseBreakdown,
+    totalCurrentExpense,
+    selectedExpenses,
+    expenseSaving,
+    recurringIncome,
+    oneTimeIncome,
+    recurringPolicy,
+    oneTimePolicy,
+    monthlyImprovement,
+    addedMonths,
+    expectedMonths,
+    expensePreviewMonths,
+    scenarioStartDate,
+    scenarioEndDate,
+    completedCategories,
+    hasDraft,
+    syncing,
+    syncError,
+    remoteReport,
+    recentConfirmed,
+    financialDataReady,
+    runwayCalculationReady,
+    adjustExpense,
+    setExpenseSaving,
+    toggleExpense,
+    addIncome,
+    updateIncome,
+    removeIncome,
+    togglePolicy,
+    removePolicy,
+    applyExpenses,
+    resetExpenses,
+    saveExpenseGoal,
+    deleteExpenseGoal,
+    saveIncomePlan,
+    deleteIncomePlan,
+    deletePolicyPlan,
     initializeExpensesFromAnalysis,
-    resetIncomes, resetPolicies, confirmScenario, revertConfirmedScenario,
-    deleteConfirmedScenario, deleteDraftScenario, toggleQuestCompletion,
-    migrateRecurringQuestCompletions, resetScenario, prepareNewScenario,
-    hydrateDraft, hydrateConfirmed, beginSimulation, savePeriod,
+    resetIncomes,
+    resetPolicies,
+    confirmScenario,
+    revertConfirmedScenario,
+    deleteConfirmedScenario,
+    deleteDraftScenario,
+    toggleQuestCompletion,
+    migrateRecurringQuestCompletions,
+    resetScenario,
+    prepareNewScenario,
+    hydrateDraft,
+    hydrateConfirmed,
+    beginSimulation,
+    savePeriod,
     restoreConfirmedSnapshot,
-    syncCategory, refreshCategory, hydrateCategory,
+    syncCategory,
+    refreshCategory,
+    hydrateCategory,
+    loadPolicyCatalog,
   }
 })

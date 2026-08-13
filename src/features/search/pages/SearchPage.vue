@@ -1,34 +1,73 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import {
-  defaultPolicyFilters,
-  filterPolicies,
-  policyItems,
-  readFilters,
-  toFilterQuery,
-} from '@/features/search/policyData'
+import { readFilters, toPolicySearchRequest, toFilterQuery } from '@/features/search/policyData'
+import { searchPoliciesApi } from '@/api/policy'
+import { mapPolicyPage } from '@/mappers/policy'
+import { calculateAge, normalizePolicyRegion } from '@/mappers/policy'
+import { useSessionStore } from '@/stores/session'
 
 const route = useRoute()
 const router = useRouter()
+const session = useSessionStore()
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const activeFilters = ref(readFilters(route.query))
-const amount = computed(() => Number(route.query.amount || 0))
-
-const result = computed(() => {
-  const keyword = query.value.trim().toLowerCase()
-  return filterPolicies(policyItems, activeFilters.value, amount.value).filter(
-    (item) => !keyword || `${item.title} ${item.description}`.toLowerCase().includes(keyword),
-  )
+const amount = ref(Number(route.query.amount || 0))
+const result = ref([])
+const pageInfo = ref({
+  page: 1,
+  totalElements: 0,
+  totalPages: 0,
+  hasNext: false,
+  hasPrevious: false,
 })
+const loading = ref(false)
+const error = ref('')
+let requestId = 0
+
+async function loadPolicies(page = 1) {
+  const currentRequestId = ++requestId
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await searchPoliciesApi(
+      toPolicySearchRequest(activeFilters.value, amount.value, query.value, {
+        page,
+        size: 10,
+        age: calculateAge(session.currentUser.birth),
+        policyRegion: normalizePolicyRegion(session.currentUser.region),
+      }),
+    )
+    if (currentRequestId !== requestId) return
+    const mapped = mapPolicyPage(response)
+    result.value = mapped.content
+    pageInfo.value = mapped
+  } catch (requestError) {
+    if (currentRequestId !== requestId) return
+    result.value = []
+    pageInfo.value = {
+      page: 1,
+      totalElements: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrevious: false,
+    }
+    error.value = requestError.message || '정책 목록을 불러오지 못했습니다.'
+  } finally {
+    if (currentRequestId === requestId) loading.value = false
+  }
+}
 
 watch(
   () => route.query,
   (nextQuery) => {
     activeFilters.value = readFilters(nextQuery)
     query.value = typeof nextQuery.q === 'string' ? nextQuery.q : ''
+    amount.value = Number(nextQuery.amount || 0)
+    loadPolicies(Number(nextQuery.page || 1))
   },
+  { immediate: true },
 )
 
 function syncSearch() {
@@ -45,12 +84,12 @@ function syncSearch() {
 function resetSearch() {
   query.value = ''
   activeFilters.value = []
-  router.replace('/search')
+  router.replace({ path: '/search', query: { filters: '' } })
 }
 
 function showAllPolicies() {
   query.value = ''
-  activeFilters.value = [...defaultPolicyFilters]
+  activeFilters.value = []
   syncSearch()
 }
 
@@ -60,6 +99,16 @@ function openFilter() {
     query: {
       filters: toFilterQuery(activeFilters.value),
       ...(amount.value ? { amount: String(amount.value) } : {}),
+    },
+  })
+}
+
+function movePage(page) {
+  router.replace({
+    path: '/search',
+    query: {
+      ...route.query,
+      ...(page > 1 ? { page: String(page) } : { page: undefined }),
     },
   })
 }
@@ -90,17 +139,24 @@ function openFilter() {
 
     <div class="result-heading">
       <h2>정책 검색 결과</h2>
-      <span>정책 {{ result.length }}개</span>
+      <span>정책 {{ pageInfo.totalElements }}개</span>
     </div>
 
-    <div v-if="result.length" class="result-list">
-      <a
+    <div v-if="loading" class="policy-state card">정책을 불러오는 중이에요.</div>
+    <div v-else-if="error" class="policy-state policy-state--error card">
+      <p>{{ error }}</p>
+      <button type="button" @click="loadPolicies(pageInfo.page)">다시 시도</button>
+    </div>
+    <div v-else-if="result.length" class="result-list">
+      <component
         v-for="item in result"
         :key="item.id"
+        :is="item.url ? 'a' : 'article'"
         class="result-card"
-        :href="item.url"
-        target="_blank"
-        rel="noopener noreferrer"
+        :class="{ 'result-card--disabled': !item.url }"
+        :href="item.url || undefined"
+        :target="item.url ? '_blank' : undefined"
+        :rel="item.url ? 'noopener noreferrer' : undefined"
         :aria-label="`${item.title} 관련 페이지로 이동`"
       >
         <div>
@@ -112,7 +168,20 @@ function openFilter() {
           <small>{{ item.deadline }}</small>
         </div>
         <AppIcon name="chevron" :size="15" />
-      </a>
+      </component>
+      <nav v-if="pageInfo.totalPages > 1" class="policy-pagination" aria-label="정책 목록 페이지">
+        <button
+          type="button"
+          :disabled="!pageInfo.hasPrevious"
+          @click="movePage(pageInfo.page - 1)"
+        >
+          이전
+        </button>
+        <span>{{ pageInfo.page }} / {{ pageInfo.totalPages }}</span>
+        <button type="button" :disabled="!pageInfo.hasNext" @click="movePage(pageInfo.page + 1)">
+          다음
+        </button>
+      </nav>
     </div>
 
     <div v-else class="empty-search card">
@@ -121,9 +190,7 @@ function openFilter() {
       <p>입력값이나 필터 조건을 바꿔 다시 찾아보세요.</p>
       <div>
         <button type="button" @click="resetSearch">필터 초기화</button>
-        <button type="button" @click="showAllPolicies">
-          전체 항목 보기
-        </button>
+        <button type="button" @click="showAllPolicies">전체 항목 보기</button>
       </div>
     </div>
   </section>
@@ -280,6 +347,49 @@ function openFilter() {
 .result-card:hover {
   border-color: var(--primary-soft);
   transform: translateY(-1px);
+}
+.result-card--disabled {
+  cursor: default;
+}
+.result-card--disabled:hover {
+  border-color: #eceef3;
+  transform: none;
+}
+.policy-state {
+  display: grid;
+  min-height: 180px;
+  place-content: center;
+  gap: 12px;
+  color: #777;
+  text-align: center;
+}
+.policy-state button {
+  color: var(--primary);
+  font-weight: 700;
+}
+.policy-state--error {
+  color: #d94f55;
+}
+.policy-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin: 8px 0 20px;
+}
+.policy-pagination button {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: white;
+}
+.policy-pagination button:disabled {
+  color: #bbb;
+  cursor: not-allowed;
+}
+.policy-pagination span {
+  color: #666;
+  font-size: 13px;
 }
 .result-card > div {
   display: grid;

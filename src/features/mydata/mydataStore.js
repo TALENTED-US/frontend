@@ -8,8 +8,10 @@ import {
   registerMyDataAssetsApi,
   syncMyDataTransactionsApi,
 } from '@/api/mydata'
+import { loadTransactions } from '@/features/finance/financeStore'
 
 const SELECTION_KEY = 'buttie-mydata-selected-assets'
+let pageRefreshPromise = null
 
 function readSelection() {
   try {
@@ -126,6 +128,27 @@ export async function syncMyData() {
     mydataState.fixedExpenseCandidates = Array.isArray(candidates) ? candidates : []
     return syncResult
   }, '마이데이터 거래 내역을 동기화하지 못했습니다.')
+}
+
+export function refreshMyDataForPage() {
+  if (pageRefreshPromise) return pageRefreshPromise
+
+  pageRefreshPromise = (async () => {
+    const syncResult = await syncMyData()
+    await loadTransactions(true)
+    return syncResult
+  })()
+    .catch((error) => {
+      if (!mydataState.error) {
+        mydataState.error = error.message || '최신 마이데이터를 불러오지 못했습니다.'
+      }
+      throw error
+    })
+    .finally(() => {
+      pageRefreshPromise = null
+    })
+
+  return pageRefreshPromise
 }
 
 export async function disconnectMyDataAsset(assetType, assetId) {
