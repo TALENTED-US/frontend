@@ -52,7 +52,7 @@ const activeExpense = computed(
     simulation.state.expenses.find((item) => item.id === selectedExpenseId.value) ||
     simulation.state.expenses[0],
 )
-const visibleBreakdown = computed(() => simulation.expenseBreakdown.slice(0, 4))
+const visibleBreakdown = computed(() => simulation.expenseBreakdown)
 const policyCount = computed(() => simulation.state.policies.length)
 const isEditingConfirmedScenario = computed(() =>
   Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
@@ -234,18 +234,21 @@ function skip() {
         </div>
         <div class="expense-analysis-body">
           <div class="donut" :style="donutStyle" aria-label="지난달 카테고리별 소비 비중" />
-          <ul>
-            <li v-for="item in visibleBreakdown" :key="item.id">
-              <i :style="{ background: item.color }" /><span>{{ item.name }}</span
-              ><strong
-                >{{ money(item.current / 10000) }}만원<small
-                  >{{
-                    Math.round((item.current / Math.max(1, simulation.totalCurrentExpense)) * 100)
-                  }}%</small
-                ></strong
-              >
-            </li>
-          </ul>
+          <div class="expense-breakdown-list">
+            <h2>카테고리별 소비</h2>
+            <ul>
+              <li v-for="item in visibleBreakdown" :key="item.id">
+                <i :style="{ background: item.color }" /><span>{{ item.name }}</span
+                ><strong
+                  >{{ money(item.current / 10000) }}만원<small
+                    >{{
+                      Math.round((item.current / Math.max(1, simulation.totalCurrentExpense)) * 100)
+                    }}%</small
+                  ></strong
+                >
+              </li>
+            </ul>
+          </div>
         </div>
         <p v-if="financeState.loading">실제 소비 내역을 불러오는 중이에요…</p>
         <p v-else-if="financeState.error" class="form-error">{{ financeState.error }}</p>
@@ -621,8 +624,26 @@ function skip() {
   gap: 9px;
 }
 
+.expense-breakdown-list {
+  min-width: 0;
+}
+
+.expense-breakdown-list h2 {
+  margin-bottom: 10px;
+  color: #333d4b;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .expense-analysis-body li {
+  min-height: 30px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eef0f2;
   font-size: 12px;
+}
+
+.expense-analysis-body li:last-child {
+  border-bottom: 0;
 }
 
 .expense-analysis-body li > i,

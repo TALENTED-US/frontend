@@ -5,7 +5,7 @@ import BrandLogo from './BrandLogo.vue'
 const route = useRoute()
 
 const menus = [
-  { to: '/', label: '홈' },
+  { to: '/dashboard', label: '홈' },
   { to: '/finance', label: '내 재정' },
   { to: '/simulation', label: '시뮬레이션' },
   { to: '/search', label: '정책' },
@@ -13,7 +13,7 @@ const menus = [
 ]
 
 function isMenuActive(to) {
-  if (to === '/') return route.path === '/'
+  if (to === '/dashboard') return route.name === 'dashboard'
   return route.path === to || route.path.startsWith(`${to}/`)
 }
 </script>
