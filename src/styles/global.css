@@ -186,7 +186,7 @@ svg text {
   .simulation-edit-card em,
   .simulation-edit-card > b
 ) {
-  font-size: 14px !important;
+  font-size: 16px !important;
   line-height: 1.5;
 }
 
@@ -293,7 +293,7 @@ svg text {
     .comparison-legend,
     .net-cashflow-row small
   ) {
-    font-size: 13px !important;
+    font-size: 15px !important;
   }
 }
 
@@ -615,6 +615,19 @@ svg text {
   background: var(--primary);
 }
 
+#app .app-shell .sim-category-page > .sim-back {
+  font-size: 32px !important;
+  font-weight: 900 !important;
+}
+
+#app .app-shell .sim-category-page > .wizard-progress-tabs span {
+  font-size: 15px !important;
+}
+
+#app .app-shell .sim-category-page > .wizard-progress-tabs span.active {
+  font-size: 17px !important;
+}
+
 #app .app-shell .sim-page :where(
   .expense-analysis-card,
   .expense-target-card,
@@ -624,7 +637,6 @@ svg text {
   .policy-qualification,
   .policy-selected-card,
   .policy-catalog-scroll,
-  .period-section,
   .baseline-report,
   .period-change-card,
   .preview-timeline-section,
@@ -637,6 +649,12 @@ svg text {
   border-radius: 22px !important;
   background: #fff !important;
   box-shadow: var(--shadow-figma) !important;
+}
+
+#app .app-shell .sim-page .period-section {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .app-shell .sim-page :where(.expense-analysis-card, .period-change-card, .final-result) {
@@ -856,42 +874,6 @@ svg text {
   background: var(--accent);
   box-shadow: none;
   color: var(--primary);
-}
-
-#app .app-shell .search-page .filter-button {
-  display: flex;
-  width: auto;
-  height: 44px;
-  align-items: center;
-  gap: 9px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 13px;
-  background: #fff;
-  box-shadow: var(--shadow-figma);
-  color: var(--primary);
-}
-
-#app .app-shell .search-page .filter-button i {
-  display: grid;
-  gap: 3px;
-  font-style: normal;
-}
-
-#app .app-shell .search-page .filter-button strong {
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-#app .app-shell .search-page .filter-button span {
-  width: 17px;
-  background: var(--primary);
-}
-
-#app .app-shell .search-page .filter-button span::after {
-  width: 6px;
-  height: 6px;
-  border-color: var(--primary);
 }
 
 #app .app-shell .search-page .result-list {

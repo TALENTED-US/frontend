@@ -153,7 +153,7 @@ watch(
   <header :class="['app-header', { 'app-header--finance': isFinanceMain }]">
     <button
       v-if="hasMobileBack"
-      class="app-header__back mobile-only"
+      :class="['app-header__back', 'mobile-only', { 'app-header__back--category': isSimulationCategory }]"
       type="button"
       :aria-label="
         isNotifications
@@ -170,7 +170,7 @@ watch(
     >
       ‹
     </button>
-    <strong class="app-header__title mobile-only">{{ mobileTitle }}</strong>
+    <strong v-if="!isSimulationCategory" class="app-header__title mobile-only">{{ mobileTitle }}</strong>
     <div class="app-header__spacer" />
     <button
       v-if="!isFixedExpense && !isNotifications"
@@ -248,6 +248,10 @@ watch(
   color: #222;
   font-size: var(--font-page-title);
   line-height: 1;
+}
+.app-header__back--category {
+  font-size: 26px;
+  font-weight: 900;
 }
 .app-header__logout {
   display: inline-grid;
