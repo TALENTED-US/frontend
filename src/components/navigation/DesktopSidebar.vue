@@ -1,5 +1,6 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import { useSessionStore } from '@/stores/session'
 import BrandLogo from './BrandLogo.vue'
 
@@ -39,7 +40,12 @@ async function logout() {
         {{ menu.label }}
       </RouterLink>
     </nav>
-    <button class="sidebar__logout" type="button" @click="logout">로그아웃</button>
+    <div class="sidebar__footer">
+      <button class="sidebar__logout" type="button" @click="logout">
+        <AppIcon name="logout" :size="24" />
+        <span>로그아웃</span>
+      </button>
+    </div>
   </aside>
 </template>
 
@@ -84,16 +90,32 @@ async function logout() {
   font-weight: 800;
 }
 
-.sidebar__logout {
-  width: 100%;
-  min-height: 56px;
+.sidebar__footer {
   margin-top: auto;
-  border: 1px solid #e2e3e8;
-  border-radius: 14px;
-  background: #fff;
+  margin-bottom: -10px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e5ec;
+}
+
+.sidebar__logout {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
   box-shadow: none;
-  color: #666;
-  font-size: var(--font-body);
-  font-weight: 800;
+  color: #98a0ae;
+  font-size: 17px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.sidebar__logout:hover {
+  color: #727b89;
 }
 </style>
