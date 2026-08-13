@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
+import { getNotificationSettingsApi, updateNotificationSettingsApi } from '@/api/notifications'
 import { clearTransactions, loadTransactions } from '@/features/finance/financeStore'
 import {
   disconnectMyDataAsset,
@@ -65,6 +66,8 @@ const profileSaving = ref(false)
 const dataRefreshMessage = ref('')
 const dataLoading = ref(false)
 const disconnectingAssetId = ref('')
+const notificationSettingsLoading = ref(false)
+const notificationSettingsError = ref('')
 const withdrawError = ref('')
 const withdrawVerified = ref(false)
 const withdrawSubmitting = ref(false)
@@ -157,7 +160,11 @@ const accountGroups = computed(() =>
 
 watch(
   notificationSettings,
-  (value) => localStorage.setItem('buttie-notification-settings', JSON.stringify(value)),
+  (value) => {
+    if (session.isMockMode) {
+      localStorage.setItem('buttie-notification-settings', JSON.stringify(value))
+    }
+  },
   { deep: true },
 )
 watch(twoFactorEnabled, (value) => localStorage.setItem('buttie-two-factor', String(value)))
@@ -175,9 +182,56 @@ watch(
   () => route.name,
   (name) => {
     if (name === 'dataManagement' && !session.isMockMode) loadLinkedAssets()
+    if (name === 'notificationSettings' && !session.isMockMode) loadNotificationSettings()
   },
   { immediate: true },
 )
+
+function applyNotificationSettings(settings = {}) {
+  notificationSettings.policy = Boolean(settings.policyDeadlineEnabled)
+  notificationSettings.finance = Boolean(settings.financialChangeEnabled)
+  notificationSettings.plan = Boolean(settings.planDeviationEnabled)
+  notificationSettings.notice = Boolean(settings.serviceNoticeEnabled)
+  notificationSettings.all = notificationRows.every(([key]) => notificationSettings[key])
+}
+
+function notificationSettingsPayload() {
+  return {
+    policyDeadlineEnabled: notificationSettings.policy,
+    financialChangeEnabled: notificationSettings.finance,
+    planDeviationEnabled: notificationSettings.plan,
+    serviceNoticeEnabled: notificationSettings.notice,
+  }
+}
+
+async function loadNotificationSettings() {
+  notificationSettingsLoading.value = true
+  notificationSettingsError.value = ''
+  try {
+    applyNotificationSettings(await getNotificationSettingsApi())
+  } catch (error) {
+    notificationSettingsError.value = error.message || '알림 설정을 불러오지 못했습니다.'
+  } finally {
+    notificationSettingsLoading.value = false
+  }
+}
+
+async function saveNotificationSettings(previousSettings) {
+  if (session.isMockMode) return true
+
+  notificationSettingsLoading.value = true
+  notificationSettingsError.value = ''
+  try {
+    await updateNotificationSettingsApi(notificationSettingsPayload())
+    return true
+  } catch (error) {
+    Object.assign(notificationSettings, previousSettings)
+    notificationSettingsError.value = error.message || '알림 설정을 저장하지 못했습니다.'
+    return false
+  } finally {
+    notificationSettingsLoading.value = false
+  }
+}
 
 function mapLinkedAssets() {
   accounts.value = [
@@ -348,15 +402,29 @@ async function logout() {
 }
 
 async function setAllNotifications(value) {
-  Object.keys(notificationSettings).forEach((key) => {
-    notificationSettings[key] = value
-  })
-  if (value) await enableDeviceNotifications()
+  const previousSettings = {
+    all: !value,
+    policy: notificationSettings.policy,
+    finance: notificationSettings.finance,
+    plan: notificationSettings.plan,
+    notice: notificationSettings.notice,
+  }
+  notificationRows.forEach(([key]) => (notificationSettings[key] = value))
+  if ((await saveNotificationSettings(previousSettings)) && value) {
+    await enableDeviceNotifications()
+  }
 }
 
 async function syncAllNotifications(changedKey) {
+  const previousSettings = {
+    ...notificationSettings,
+    [changedKey]: !notificationSettings[changedKey],
+  }
+  previousSettings.all = notificationRows.every(([key]) => previousSettings[key])
   notificationSettings.all = notificationRows.every(([key]) => notificationSettings[key])
-  if (notificationSettings[changedKey]) await enableDeviceNotifications()
+  if ((await saveNotificationSettings(previousSettings)) && notificationSettings[changedKey]) {
+    await enableDeviceNotifications()
+  }
 }
 
 async function disconnectAccount(account) {
@@ -566,11 +634,18 @@ async function disconnectAllAssets() {
     </template>
 
     <template v-else-if="route.name === 'notificationSettings'">
+      <p v-if="notificationSettingsLoading" class="save-message" aria-live="polite">
+        알림 설정을 저장하고 있어요.
+      </p>
+      <p v-if="notificationSettingsError" class="save-message save-message--error" role="alert">
+        {{ notificationSettingsError }}
+      </p>
       <label class="toggle-card">
         <span><strong>전체 알림</strong><small>모든 알림을 한번에 켜고 끕니다</small></span>
         <input
           v-model="notificationSettings.all"
           type="checkbox"
+          :disabled="notificationSettingsLoading"
           @change="setAllNotifications(notificationSettings.all)"
         />
       </label>
@@ -584,6 +659,7 @@ async function disconnectAllAssets() {
           <input
             v-model="notificationSettings[row[0]]"
             type="checkbox"
+            :disabled="notificationSettingsLoading"
             @change="syncAllNotifications(row[0])"
           />
         </label>

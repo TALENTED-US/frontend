@@ -19,6 +19,7 @@ import { mockCredentials, myData, user } from '@/data/mockData'
 import { normalizeButtieProgression, useProgressionStore } from '@/stores/progression'
 import { clearCalendar } from '@/features/finance/calendarStore'
 import { clearTransactions } from '@/features/finance/financeStore'
+import { clearNotifications } from '@/features/notification/notificationStore'
 
 const AUTH_KEY = 'buttie-auth'
 const API_PROFILE_KEY = 'buttie-api-profile'
@@ -126,6 +127,7 @@ export const useSessionStore = defineStore('session', () => {
     setAccessToken('')
     clearCalendar()
     clearTransactions()
+    clearNotifications()
   }
 
   function handleUnauthorized() {
