@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { notifyLatestOncePerDay } from '@/features/notification/notificationService'
+import { useSessionStore } from '@/stores/session'
 import {
   loadNotifications,
   markNotificationRead,
@@ -14,6 +15,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const session = useSessionStore()
 const openPopover = ref('')
 const popoverAnchor = ref(null)
 const popoverItems = computed(() =>
@@ -120,6 +122,11 @@ async function openNotification(item) {
   router.push(item.url?.startsWith('/') ? item.url : '/notifications')
 }
 
+async function logout() {
+  await session.logout()
+  router.replace('/auth/login')
+}
+
 function closePopoverOnOutsideClick(event) {
   if (openPopover.value && !popoverAnchor.value?.contains(event.target)) {
     openPopover.value = ''
@@ -165,6 +172,15 @@ watch(
     </button>
     <strong class="app-header__title mobile-only">{{ mobileTitle }}</strong>
     <div class="app-header__spacer" />
+    <button
+      v-if="!isFixedExpense && !isNotifications"
+      class="app-header__logout mobile-only"
+      type="button"
+      aria-label="로그아웃"
+      @click="logout"
+    >
+      <AppIcon name="logout" :size="24" />
+    </button>
     <div v-if="!isFixedExpense && !isNotifications" ref="popoverAnchor" class="popover-anchor">
       <button
         :class="['header-chip', { active: openPopover === 'notification' }]"
@@ -232,6 +248,17 @@ watch(
   color: #222;
   font-size: var(--font-page-title);
   line-height: 1;
+}
+.app-header__logout {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+  color: #56606f;
 }
 .popover-anchor {
   position: relative;
@@ -383,6 +410,7 @@ watch(
   .app-header {
     min-height: 64px;
     padding: 10px 16px;
+    padding-right: 8px;
     border-bottom: 1px solid #e7e7e7;
   }
   .app-header--finance {
@@ -397,11 +425,21 @@ watch(
     font-weight: 900;
   }
   .header-chip {
-    min-height: 38px;
-    padding: 7px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 0;
     border: 0;
-    background: transparent !important;
+    border-radius: 14px;
+    background: #fff !important;
+    box-shadow: none;
     color: #172035;
+  }
+  .app-header__logout {
+    flex: none;
+    margin-right: -10px;
+    box-shadow: none;
   }
   .header-badge {
     top: 0;

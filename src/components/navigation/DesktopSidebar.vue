@@ -1,8 +1,12 @@
 <script setup>
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import { useSessionStore } from '@/stores/session'
 import BrandLogo from './BrandLogo.vue'
 
 const route = useRoute()
+const router = useRouter()
+const session = useSessionStore()
 
 const menus = [
   { to: '/dashboard', label: '홈' },
@@ -15,6 +19,11 @@ const menus = [
 function isMenuActive(to) {
   if (to === '/dashboard') return route.name === 'dashboard'
   return route.path === to || route.path.startsWith(`${to}/`)
+}
+
+async function logout() {
+  await session.logout()
+  router.replace('/auth/login')
 }
 </script>
 
@@ -31,6 +40,12 @@ function isMenuActive(to) {
         {{ menu.label }}
       </RouterLink>
     </nav>
+    <div class="sidebar__footer">
+      <button class="sidebar__logout" type="button" @click="logout">
+        <AppIcon name="logout" :size="24" />
+        <span>로그아웃</span>
+      </button>
+    </div>
   </aside>
 </template>
 
@@ -39,6 +54,8 @@ function isMenuActive(to) {
   position: fixed;
   z-index: 50;
   inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
   width: var(--sidebar-width);
   padding: 32px 24px;
   background: #fbfcff;
@@ -71,5 +88,34 @@ function isMenuActive(to) {
   box-shadow: var(--shadow-figma);
   color: var(--primary);
   font-weight: 800;
+}
+
+.sidebar__footer {
+  margin-top: auto;
+  margin-bottom: -10px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e5ec;
+}
+
+.sidebar__logout {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+  color: #98a0ae;
+  font-size: 17px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.sidebar__logout:hover {
+  color: #727b89;
 }
 </style>
