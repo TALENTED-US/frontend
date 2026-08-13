@@ -7,6 +7,7 @@ import { useSessionStore } from '@/stores/session'
 import { formatExp, useProgressionStore } from '@/stores/progression'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
+import { formatKoreanDateTime } from '@/utils/dateTime'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -52,20 +53,7 @@ function formatDate(value) {
 }
 
 function formatDateTime(value) {
-  if (!value) return '기록 없음'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-    .format(date)
-    .replace(/\.$/, '')
+  return formatKoreanDateTime(value)
 }
 
 const menuItems = [

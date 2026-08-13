@@ -18,6 +18,7 @@ import { useProgressionStore } from '@/stores/progression'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import profileImage from '@/assets/images/mypage/buttie-profile.png'
 import { enableDeviceNotifications } from '@/features/notification/notificationService'
+import { formatKoreanDateTime } from '@/utils/dateTime'
 
 const route = useRoute()
 const router = useRouter()
@@ -327,21 +328,7 @@ async function saveJobProfile() {
 }
 
 function formatDateTime(value) {
-  if (!value) return '기록 없음'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-    .format(date)
-    .replace(/\.$/, '')
+  return formatKoreanDateTime(value, { includeSeconds: true })
 }
 
 async function refreshMyData() {
