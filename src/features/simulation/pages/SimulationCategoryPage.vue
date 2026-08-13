@@ -73,6 +73,7 @@ onMounted(async () => {
     } catch {}
     simulation.initializeExpensesFromAnalysis()
   }
+  if (category.value === 'policy') await simulation.loadPolicyCatalog()
   await simulation.hydrateCategory(category.value)
 })
 
@@ -192,7 +193,9 @@ async function apply(categoryName) {
   router.push(`/simulation/${categoryName}/preview`)
 }
 
-function continueFromPolicy() {
+async function continueFromPolicy() {
+  const synced = await simulation.syncCategory('policy')
+  if (!synced) return
   router.push('/simulation/confirm')
 }
 
@@ -513,7 +516,17 @@ function skip() {
           <h2>내 조건에 맞는 정책 모두 보기</h2>
           <span>{{ simulation.policyCatalog.length }}개</span>
         </div>
-        <div class="policy-catalog-list">
+        <p v-if="simulation.policyCatalogLoading" class="policy-selected-empty">
+          맞춤 정책을 불러오는 중이에요.
+        </p>
+        <div v-else-if="simulation.policyCatalogError" class="api-notice">
+          {{ simulation.policyCatalogError }}
+          <button type="button" @click="simulation.loadPolicyCatalog()">다시 시도</button>
+        </div>
+        <p v-else-if="!simulation.policyCatalog.length" class="policy-selected-empty">
+          현재 조건에 맞는 정책이 없어요.
+        </p>
+        <div v-else class="policy-catalog-list">
           <article
             v-for="policy in simulation.policyCatalog"
             :key="policy.id"
@@ -523,7 +536,11 @@ function skip() {
               <h2>{{ policy.name }}</h2>
               <p>{{ policy.description }}</p>
             </div>
-            <button type="button" @click="simulation.togglePolicy(policy)">
+            <button
+              type="button"
+              :disabled="simulation.syncing"
+              @click="simulation.togglePolicy(policy)"
+            >
               {{
                 simulation.state.policies.some((item) => item.id === policy.id)
                   ? '✓ 추가됨'
@@ -856,7 +873,7 @@ function skip() {
   margin-top: 16px;
   padding: 16px 10px 16px 12px;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
   border-radius: 17px;
   background: #f7f6fc;
   scrollbar-color: #c6c9d2 transparent;
