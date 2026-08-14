@@ -1,15 +1,5 @@
 import { apiClient, normalizeApiError, unwrapApiResponse } from './client'
-
-const apiCategoryToUi = {
-  FOOD: '식비',
-  TRANSPORT: '교통',
-  HOUSING: '주거',
-  COMMUNICATION: '통신비',
-  SUBSCRIPTION: '구독',
-  EDUCATION: '교육',
-  CERTIFICATE: '자격증',
-  ETC_EXPENSE: '기타',
-}
+import { expenseCategoryLabel } from '@/constants/expenseCategories'
 
 function splitTransactionAt(value = '') {
   const [date = '', rawTime = ''] = String(value).split('T')
@@ -27,7 +17,7 @@ export function mapCalendarTransaction(row) {
     date,
     time,
     title: row?.transactionContent || (isIncome ? '수입' : '지출'),
-    category: isIncome ? '수입' : apiCategoryToUi[row?.category] || '기타',
+    category: isIncome ? '수입' : expenseCategoryLabel(row?.category),
     detail: row?.institutionName || (isIncome ? '입금' : '지출'),
     amount,
     memo: row?.transactionContent || '',
@@ -44,7 +34,7 @@ export function mapCalendarResponse(result = {}) {
     netCashFlow: Number(result?.netCashFlow) || 0,
     categoryExpenses: Array.isArray(result?.categoryExpenses)
       ? result.categoryExpenses.map((item) => ({
-          category: apiCategoryToUi[item?.category] || '기타',
+          category: expenseCategoryLabel(item?.category),
           amount: Number(item?.amount) || 0,
         }))
       : [],

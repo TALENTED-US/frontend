@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
 import stableImage from '@/assets/images/dashboard/buttie-stable.png'
 import '@/features/simulation/styles/simulation.css'
@@ -21,6 +23,8 @@ const getTodayDate = () => {
 const startDate = ref(step.value === 'categories' ? getTodayDate() : simulation.state.startDate)
 const endDate = ref(simulation.state.endDate)
 const selectedPeriod = ref(null)
+const starting = ref(false)
+const preparingResult = ref(step.value === 'confirm')
 const periodOptions = [1, 3, 6, 12]
 
 function addMonths(dateValue, months) {
@@ -44,6 +48,16 @@ function clearSelectedPeriod() {
   selectedPeriod.value = null
 }
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
+const expenseIconPath = (item) =>
+  expenseCategoryIconPath(item.expenseCategory || item.category || item.name)
+const hasRunwayResult = computed(
+  () => Number.isFinite(Number(simulation.currentMonths)) && Number.isFinite(Number(simulation.expectedMonths)),
+)
+const formatMonths = (value) => {
+  const months = Number(value)
+  if (!Number.isFinite(months)) return '-'
+  return Number.isInteger(months) ? String(months) : months.toFixed(1)
+}
 const nextDraftPath = computed(() => {
   if (!simulation.state.expenseApplied) return '/simulation/expense'
   if (!simulation.state.incomes.length) return '/simulation/income'
@@ -63,8 +77,14 @@ onMounted(async () => {
   if (data) {
     startDate.value = simulation.state.startDate
     endDate.value = simulation.state.endDate
+    if (step.value === 'confirm') {
+      await simulation.prepareConfirmationPreview()
+      preparingResult.value = false
+    }
     return
   }
+
+  if (step.value === 'confirm') preparingResult.value = false
 
   // 이어갈 미확정 시뮬레이션이 실제로 없다면 빈 이어하기 화면에 머물지 않는다.
   if (step.value === 'continue' && !simulation.syncError) {
@@ -74,23 +94,37 @@ onMounted(async () => {
 })
 
 async function startSimulation() {
-  if (!startDate.value || !endDate.value || endDate.value <= startDate.value) return
+  if (starting.value || !startDate.value || !endDate.value || endDate.value <= startDate.value) return
+  starting.value = true
 
-  // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
-  // 먼저 Draft로 되돌려 새 시뮬레이션 생성 요청(409)을 방지한다.
-  const confirmed = await simulation.hydrateConfirmed()
-  if (confirmed) {
-    const reverted = await simulation.revertConfirmedScenario()
-    if (!reverted) return
-  } else if (simulation.syncError) {
-    return
+  try {
+    // 로컬의 Draft 존재 여부는 다른 탭이나 이전 요청 이후 오래된 값일 수 있다.
+    // 생성 직전에 서버를 다시 확인해 동일 사용자의 미확정 시뮬레이션 중복 생성을 막는다.
+    const existingDraft = await simulation.hydrateDraft()
+    if (existingDraft) {
+      router.replace('/simulation/continue')
+      return
+    }
+    if (simulation.syncError) return
+
+    // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
+    // 먼저 Draft로 되돌려 새 시뮬레이션 생성 요청(409)을 방지한다.
+    const confirmed = await simulation.hydrateConfirmed()
+    if (confirmed) {
+      const reverted = await simulation.revertConfirmedScenario()
+      if (!reverted) return
+    } else if (simulation.syncError) {
+      return
+    }
+
+    simulation.prepareNewScenario()
+    simulation.state.startDate = startDate.value
+    simulation.state.endDate = endDate.value
+    const ok = await simulation.beginSimulation()
+    if (ok) router.push('/simulation/expense')
+  } finally {
+    starting.value = false
   }
-
-  simulation.prepareNewScenario()
-  simulation.state.startDate = startDate.value
-  simulation.state.endDate = endDate.value
-  const ok = await simulation.beginSimulation()
-  if (ok) router.push('/simulation/expense')
 }
 
 async function reset() {
@@ -156,34 +190,51 @@ async function confirm() {
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
-      <button class="sim-btn sim-btn--yellow wide simulation-primary-cta" :disabled="simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
+      <button class="sim-btn sim-btn--yellow wide simulation-primary-cta" :disabled="starting || simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
         <span v-if="simulation.syncing">불러오는 중…</span>
         <span v-else>시뮬레이션 시작하기</span>
       </button>
     </template>
 
     <template v-else>
-      <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push('/simulation/policy/preview')">‹</button>
       <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
       <p class="sim-subtitle">항목을 눌러 각 단계로 돌아가 수정할 수 있어요.</p>
 
       <section class="edit-summary expense">
-        <header><div><i>01</i><h2>지출 줄이기</h2></div><button @click="router.push('/simulation/expense')">수정</button></header>
-        <p v-for="item in simulation.selectedExpenses" :key="item.id"><span>{{ item.icon }} {{ item.name }}</span><strong>-{{ money(item.saving) }}원 / 월</strong></p>
+        <header><div><i><AppIcon name="arrow-down" :size="22" /></i><h2>지출 줄이기</h2></div><button @click="router.push('/simulation/expense')">수정</button></header>
+        <p v-for="item in simulation.selectedExpenses" :key="item.id">
+          <span class="confirm-item-name">
+            <i>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="expenseIconPath(item)" />
+              </svg>
+            </i>
+            {{ item.name }}
+          </span>
+          <strong>-{{ money(item.saving) }}원 / 월</strong>
+        </p>
         <p v-if="!simulation.selectedExpenses.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
       <section class="edit-summary income">
-        <header><div><i>02</i><h2>수입 늘리기</h2></div><button @click="router.push('/simulation/income')">수정</button></header>
-        <p v-for="item in simulation.state.incomes" :key="item.id"><span>💰 {{ item.name }}</span><strong>+{{ money(item.amount) }}원</strong></p>
+        <header><div><i><AppIcon name="briefcase" :size="22" /></i><h2>수입 늘리기</h2></div><button @click="router.push('/simulation/income')">수정</button></header>
+        <p v-for="item in simulation.state.incomes" :key="item.id"><span class="confirm-item-name"><i><AppIcon name="briefcase" :size="18" /></i>{{ item.name }}</span><strong>+{{ money(item.amount) }}원</strong></p>
         <p v-if="!simulation.state.incomes.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
       <section class="edit-summary policy">
-        <header><div><i>03</i><h2>정책 혜택</h2></div><button @click="router.push('/simulation/policy')">수정</button></header>
-        <p v-for="item in simulation.state.policies" :key="item.id"><span>🏛️ {{ item.name }}</span><strong>{{ item.detail }}</strong></p>
+        <header><div><i><AppIcon name="landmark" :size="22" /></i><h2>정책 혜택</h2></div><button @click="router.push('/simulation/policy')">수정</button></header>
+        <p v-for="item in simulation.state.policies" :key="item.id"><span class="confirm-item-name"><i><AppIcon name="landmark" :size="18" /></i>{{ item.name }}</span><strong>{{ item.detail }}</strong></p>
         <p v-if="!simulation.state.policies.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
 
-      <div class="final-result"><span>예상 버티는 기간</span><p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ simulation.expectedMonths }}개월</strong></p><em>+{{ simulation.addedMonths }}개월 연장</em></div>
+      <div class="final-result" :aria-busy="preparingResult">
+        <span>예상 버티는 기간</span>
+        <p v-if="preparingResult">계산 중...</p>
+        <template v-else>
+          <p><del>{{ formatMonths(simulation.currentMonths) }}개월</del><b>→</b><strong>{{ formatMonths(simulation.expectedMonths) }}개월</strong></p>
+          <em v-if="hasRunwayResult">+{{ formatMonths(simulation.addedMonths) }}개월 연장</em>
+          <em v-else>계산 결과를 불러오지 못했어요</em>
+        </template>
+      </div>
       <p class="api-notice neutral">확정하면 이 계획을 기준으로 퀘스트가 생성됩니다.</p>
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
       <div class="wizard-actions confirm-actions">
@@ -235,6 +286,38 @@ async function confirm() {
   background: #fff;
   color: #777;
 }
+
+.confirm-item-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirm-item-name > i {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: #f4f5f7;
+  color: #555;
+}
+
+.confirm-item-name > i svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edit-summary.expense .confirm-item-name > i { background: #ffe8e5; color: #d85b52; }
+.edit-summary.income .confirm-item-name > i { background: #e2f7ed; color: #288d67; }
+.edit-summary.policy .confirm-item-name > i { background: #eeeafb; color: #7561b1; }
 
 @media (max-width: 767px) {
   .sim-flow-continue {
@@ -524,7 +607,8 @@ async function confirm() {
   padding: 14px 30px 12px;
   border: 1px solid rgb(190 160 50 / 16%);
   border-radius: 24px;
-  background: linear-gradient(100deg,#fffdf6 0%,#fff6d8 55%,#ffedb4 100%) !important;
+  background: #fff !important;
+  background-image: none !important;
   box-shadow: none;
 }
 

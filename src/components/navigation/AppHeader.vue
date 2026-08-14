@@ -55,6 +55,7 @@ const isSimulationEdit = computed(() => route.name === 'simulationEdit')
 const isSimulationContinue = computed(() => route.name === 'simulationContinue')
 const isSimulationCategory = computed(() => route.name === 'simulationCategory')
 const isSimulationPreview = computed(() => route.name === 'simulationCategoryPreview')
+const isSimulationConfirm = computed(() => route.name === 'simulationConfirm')
 const isFixedExpense = computed(() =>
   ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name),
 )
@@ -67,6 +68,7 @@ const hasMobileBack = computed(
     isSimulationContinue.value ||
     isSimulationCategory.value ||
     isSimulationPreview.value ||
+    isSimulationConfirm.value ||
     isFixedExpense.value ||
     isNotifications.value,
 )
@@ -106,6 +108,7 @@ function goBack() {
   else if (isSimulationEdit.value) router.push('/simulation')
   else if (isSimulationContinue.value) router.push('/')
   else if (isSimulationPreview.value) router.push(`/simulation/${route.params.category}`)
+  else if (isSimulationConfirm.value) router.push('/simulation/policy/preview')
   else if (isSimulationCategory.value) {
     const previousPath = {
       expense: '/simulation/new',
@@ -162,7 +165,7 @@ watch(
             ? '내 재정으로 돌아가기'
             : isSimulationStart || isSimulationEdit || isSimulationContinue
               ? '시뮬레이션에서 나가기'
-              : isSimulationCategory || isSimulationPreview
+              : isSimulationCategory || isSimulationPreview || isSimulationConfirm
                 ? '이전 시뮬레이션 단계로 돌아가기'
                 : '마이페이지로 돌아가기'
       "

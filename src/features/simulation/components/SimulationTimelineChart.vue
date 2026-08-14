@@ -108,13 +108,15 @@ const assetLabels = computed(() => [1, .75, .5, .25].map((ratio) => formatWon(ch
 const burn = computed(() => Math.max(0, props.monthlyExpense))
 const monthLabels = computed(() => {
   if (hasMonthlyProjections.value) {
+    const labelInterval = Math.max(1, Math.ceil(projections.value.length / 6))
     return projections.value.map((item, index) => {
       const [year, month] = item.projectionMonth.split('-').map(Number)
       return {
         x: plotStartX + (index + 1) * projectionStep.value,
         label: index === 0 || month === 1 ? `${String(year).slice(2)}년 ${month}월` : `${month}월`,
+        visible: index === 0 || index === projections.value.length - 1 || index % labelInterval === 0,
       }
-    })
+    }).filter((item) => item.visible)
   }
   const today = new Date()
   return [0, 2, 4, 6, 8, 10].map((offset, index) => {

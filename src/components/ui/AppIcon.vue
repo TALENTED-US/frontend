@@ -87,6 +87,21 @@ defineProps({
     <template v-else-if="name === 'trash'">
       <path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7" />
     </template>
+    <template v-else-if="name === 'arrow-down'">
+      <path d="M12 4v16" />
+      <path d="m6 14 6 6 6-6" />
+    </template>
+    <template v-else-if="name === 'landmark'">
+      <path d="m3 9 9-5 9 5" />
+      <path d="M5 10h14M6 10v8M10 10v8M14 10v8M18 10v8M3 20h18" />
+    </template>
+    <template v-else-if="name === 'check'">
+      <path d="m5 12 4 4L19 6" />
+    </template>
+    <template v-else-if="name === 'check-circle'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12 2.5 2.5L16 9" />
+    </template>
     <template v-else-if="name === 'eye'">
       <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
       <circle cx="12" cy="12" r="2.5" />

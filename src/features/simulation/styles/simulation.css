@@ -612,6 +612,22 @@ button.simulation-primary-cta:active:not(:disabled) {
     border-radius: 15px !important;
     font-size: 17px !important;
   }
+
+  .sim-page.sim-flow-confirm > .wizard-actions.confirm-actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+    background: transparent !important;
+    background-image: none !important;
+  }
+
+  .sim-page.sim-flow-confirm > .wizard-actions.confirm-actions > button {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
 }
 
 /* Keep actual icon containers visually consistent without changing chart dots/bars. */
@@ -653,4 +669,9 @@ button.simulation-primary-cta:active:not(:disabled) {
   .sim-page .confirm-row {
     grid-template-columns: 42px minmax(0, 1fr) auto auto;
   }
+}
+
+/* 모든 시뮬레이션 적용 결과에서 전·후 막대를 더 명확히 분리한다. */
+.sim-page .application-result .bar-pair {
+  gap: 15px;
 }

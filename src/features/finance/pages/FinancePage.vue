@@ -34,6 +34,27 @@ const confirmedExpectedMonths = computed(() =>
     ? Math.max(0, Number(simulation.recentConfirmed.expectedMonths))
     : simulation.expectedMonths,
 )
+const spreadFinanceTimelineLabels = (items) => {
+  const sorted = [...items].sort((a, b) => a.position - b.position)
+  const hasCollision = sorted.some((item, index) => index > 0 && item.position - sorted[index - 1].position < 22)
+  if (!hasCollision) return items.map((item) => ({ ...item, lane: 0, placement: 'below', offset: 18 }))
+
+  const placementById = { now: 'below', 'current-limit': 'above', scenario: 'below', target: 'above' }
+  const lastPositionByPlacement = { above: [], below: [] }
+  const layout = new Map()
+
+  sorted.forEach((item) => {
+    const placement = placementById[item.id] || 'below'
+    const placementLanes = lastPositionByPlacement[placement]
+    let lane = placementLanes.findIndex((last) => item.position - last >= 22)
+    if (lane < 0) lane = placementLanes.length
+    placementLanes[lane] = item.position
+    const offset = placement === 'above' ? -108 - lane * 54 : 18 + lane * 58
+    layout.set(item.id, { lane, placement, offset })
+  })
+
+  return items.map((item) => ({ ...item, ...layout.get(item.id) }))
+}
 const financeTimelineItems = computed(() => {
   const current = Math.max(0, Number(confirmedCurrentMonths.value) || 0)
   const expected = hasConfirmedSimulationDurations.value
@@ -41,11 +62,11 @@ const financeTimelineItems = computed(() => {
     : null
   const target = Math.max(0, Math.ceil(Number(simulation.targetMonths) || 0))
   const scale = Math.max(current, expected || 0, target, 1)
-  const position = (value) => `${Math.min(96, Math.max(4, (value / scale) * 92 + 4))}%`
+  const position = (value) => Math.min(96, Math.max(4, (value / scale) * 92 + 4))
   const sameDuration = expected !== null && current === expected
 
-  return [
-    { id: 'now', label: '현재', value: '지금', position: '4%', tone: 'current' },
+  return spreadFinanceTimelineLabels([
+    { id: 'now', label: '현재', value: '지금', position: 4, tone: 'current' },
     {
       id: 'current-limit',
       label: sameDuration ? '현재 자금 · 계획 적용 후' : '현재 자금 기준',
@@ -72,7 +93,7 @@ const financeTimelineItems = computed(() => {
           tone: 'target',
         }]
       : []),
-  ]
+  ])
 })
 const useCalendarApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 const formatLocalIso = (date = new Date()) =>
@@ -647,8 +668,8 @@ onMounted(async () => {
           v-for="item in financeTimelineItems"
           :key="item.id"
           class="finance-timeline-marker"
-          :class="[`finance-timeline-marker--${item.tone}`, { 'is-staggered': item.staggered }]"
-          :style="{ left: item.position }"
+          :class="[`finance-timeline-marker--${item.tone}`, `label-placement-${item.placement}`, `label-lane-${item.lane}`]"
+          :style="{ left: `${item.position}%`, '--timeline-label-offset': `${item.offset}px` }"
           role="listitem"
         >
           <i />
@@ -1470,8 +1491,8 @@ button {
 }
 .finance-timeline-track {
   position: relative;
-  height: 150px;
-  margin: 34px 18px 0;
+  height: 245px;
+  margin: 174px 18px 0;
 }
 .finance-timeline-track__line {
   position: absolute;
@@ -1486,18 +1507,11 @@ button {
   position: absolute;
   top: 14px;
   display: grid;
-  width: max-content;
-  max-width: 130px;
+  width: 46px;
   justify-items: center;
   gap: 5px;
   transform: translateX(-50%);
   text-align: center;
-}
-.finance-timeline-marker--current {
-  transform: translateX(0);
-}
-.finance-timeline-marker:last-of-type {
-  transform: translateX(-100%);
 }
 .finance-timeline-marker i {
   width: 46px;
@@ -1508,23 +1522,36 @@ button {
   box-shadow: 0 3px 10px rgb(10 22 128 / 20%);
 }
 .finance-timeline-marker__copy {
+  position: absolute;
+  top: calc(54px + var(--timeline-label-offset, 0px));
+  left: 50%;
   display: grid;
+  width: max-content;
+  max-width: 150px;
   justify-items: center;
   gap: 5px;
-}
-.finance-timeline-marker.is-staggered .finance-timeline-marker__copy {
-  margin-top: 48px;
+  text-align: center;
+  transform: translateX(-50%);
 }
 .finance-timeline-marker__copy strong {
+  grid-row: 1;
   margin-top: 4px;
   color: #191f28;
   font-size: 16px;
 }
 .finance-timeline-marker__copy span {
-  max-width: 112px;
+  grid-row: 2;
+  max-width: 132px;
   color: #6b7684;
   font-size: 13px;
   line-height: 1.3;
+}
+.finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong {
+  grid-row: 2;
+  margin-top: 0;
+}
+.finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span {
+  grid-row: 1;
 }
 .finance-timeline-marker--limit i {
   background: #8b95a1;
@@ -2199,66 +2226,74 @@ button {
     line-height: 1.5;
   }
   .finance-timeline-track {
-    display: grid;
-    height: auto;
-    gap: 14px;
-    margin: 22px 0 8px;
-    padding-left: 2px;
+    position: relative;
+    display: block;
+    height: 145px;
+    margin: 90px 8px 0;
+    padding: 0;
   }
   .finance-timeline-track__line {
-    top: 18px;
-    right: auto;
-    bottom: 18px;
-    left: 22px;
-    width: 5px;
-    height: auto;
-    background: linear-gradient(180deg, var(--primary), #8facf5 68%, var(--accent-strong));
+    top: 26px;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 5px;
+    background: linear-gradient(90deg, var(--primary), #8facf5 68%, var(--accent-strong));
   }
   .finance-timeline-marker,
   .finance-timeline-marker:last-of-type {
-    position: relative;
-    top: auto;
-    left: auto !important;
+    position: absolute;
+    top: 13px;
     display: grid;
-    width: 100%;
+    width: 30px;
     max-width: none;
-    grid-template-columns: 46px minmax(0, 1fr) auto;
-    align-items: center;
-    justify-items: start;
-    gap: 12px;
-    transform: none;
-    text-align: left;
+    justify-items: center;
+    gap: 3px;
+    transform: translateX(-50%);
+    text-align: center;
   }
   .finance-timeline-marker i {
     z-index: 1;
-    grid-row: 1;
-    grid-column: 1;
-    width: 44px;
-    height: 44px;
+    width: 30px;
+    height: 30px;
+    border-width: 4px;
   }
   .finance-timeline-marker__copy,
+  .finance-timeline-marker--current .finance-timeline-marker__copy,
+  .finance-timeline-marker:last-of-type .finance-timeline-marker__copy,
   .finance-timeline-marker.is-staggered .finance-timeline-marker__copy {
+    position: absolute;
+    top: 50px;
+    left: 50%;
     display: grid;
-    width: 100%;
-    grid-row: 1;
-    grid-column: 2 / 4;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    justify-items: start;
-    gap: 12px;
+    width: max-content;
+    max-width: 92px;
+    justify-items: center;
+    gap: 3px;
     margin: 0;
+    transform: translateX(-50%);
   }
-  .finance-timeline-marker__copy strong {
-    grid-column: 2;
-    margin: 0;
-    font-size: 15px;
-  }
-  .finance-timeline-marker__copy span {
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy { top: -42px; }
+  .finance-timeline-marker.label-placement-below.label-lane-1 .finance-timeline-marker__copy { top: 88px; }
+  .finance-timeline-marker.label-placement-above.label-lane-1 .finance-timeline-marker__copy { top: -78px; }
+  .finance-timeline-marker__copy strong,
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong {
     grid-row: 1;
-    grid-column: 1;
-    max-width: none;
-    font-size: 14px;
+    grid-column: auto;
+    margin: 0;
+    font-size: 12px;
   }
+  .finance-timeline-marker__copy span,
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span {
+    grid-row: 2;
+    grid-column: auto;
+    max-width: 92px;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong { grid-row: 2; }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span { grid-row: 1; }
   .timeline-chart--desktop {
     display: none;
   }

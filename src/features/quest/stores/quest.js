@@ -2,6 +2,8 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { completeQuestApi, getQuestsApi, revertQuestApi } from '@/api/quest'
 import { useSessionStore } from '@/stores/session'
+import { normalizeExternalUrl } from '@/utils/externalUrl'
+import { EXPENSE_CATEGORY_BY_NAME } from '@/constants/expenseCategories'
 
 const CATEGORY_META = Object.freeze({
   EXPENSE: { kind: 'expense', icon: '🍚' },
@@ -11,29 +13,15 @@ const CATEGORY_META = Object.freeze({
 
 const EXPENSE_ICONS = Object.freeze({
   FOOD: '🍚',
-  TRANSPORT: '🚌',
-  HOUSING: '🏠',
-  COMMUNICATION: '📱',
-  SUBSCRIPTION: '📺',
-  EDUCATION: '📚',
-  CERTIFICATE: '📄',
-  ETC_EXPENSE: '🧾',
-})
-
-const EXPENSE_CATEGORY_BY_NAME = Object.freeze({
-  '식비': 'FOOD',
-  '교통': 'TRANSPORT',
-  '교통비': 'TRANSPORT',
-  '주거': 'HOUSING',
-  '월세': 'HOUSING',
-  '통신비': 'COMMUNICATION',
-  '구독': 'SUBSCRIPTION',
-  '구독비': 'SUBSCRIPTION',
-  '교육': 'EDUCATION',
-  '교육비': 'EDUCATION',
-  '자격증': 'CERTIFICATE',
-  '자격증 비용': 'CERTIFICATE',
-  '기타': 'ETC_EXPENSE',
+  ALCOHOL_ENTERTAINMENT: '🍻',
+  CAFE_SNACK: '☕',
+  JOB_PREPARATION: '📚',
+  SHOPPING: '🛍️',
+  HOBBY_LEISURE: '🎨',
+  HOUSING_COMMUNICATION: '🏠',
+  TRANSPORT_FUEL: '🚌',
+  HEALTH_FITNESS: '🏋️',
+  OTHER_FINANCE: '🧾',
 })
 
 function questMatchesPlan(item, plan) {
@@ -111,9 +99,17 @@ function mapQuestResponse(item) {
         ? EXPENSE_ICONS[item?.expenseCategory] || category.icon
         : category.icon,
     kind: category.kind,
+    expenseCategory: item?.expenseCategory || '',
     recurrence: item?.recurrenceType === 'MONTHLY' ? 'monthly' : 'once',
     completed: item?.questStatus === 'COMPLETED',
-    questUrl: item?.questUrl || '',
+    questUrl: normalizeExternalUrl(
+      item?.questUrl
+      || item?.policyUrl
+      || item?.applicationUrl
+      || item?.applyUrl
+      || item?.sourceUrl
+      || item?.url,
+    ),
   }
 }
 
@@ -159,7 +155,7 @@ export const useQuestStore = defineStore('quest', () => {
       pendingIds.value = []
       loaded.value = true
 
-      if (requestError.status === 404) {
+      if (requestError.status === 404 || requestError.code === 'QUEST_002') {
         error.value = ''
         return []
       }

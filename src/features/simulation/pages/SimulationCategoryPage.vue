@@ -5,6 +5,7 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
 import { financeState, loadTransactions } from '@/features/finance/financeStore'
 import '@/features/simulation/styles/simulation.css'
+import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,6 +52,16 @@ const activeExpense = computed(
     simulation.state.expenses.find((item) => item.id === selectedExpenseId.value) ||
     simulation.state.expenses[0],
 )
+watch(
+  () => simulation.state.expenses.map((item) => item.id).join('|'),
+  () => {
+    if (!simulation.state.expenses.some((item) => item.id === selectedExpenseId.value)) {
+      selectedExpenseId.value = simulation.state.expenses[0]?.id || ''
+      expenseAmount.value = ''
+    }
+  },
+  { immediate: true },
+)
 const expenseRangeProgress = computed(() => {
   const maximum = Number(activeExpense.value?.current) || 0
   return maximum ? Math.min(100, (Number(expenseAmount.value) / maximum) * 100) : 0
@@ -77,19 +88,7 @@ const moveBreakdownPage = (direction) => {
     Math.max(0, breakdownPage.value + direction),
   )
 }
-const expenseIconPath = (name = '') => {
-  if (/식비/.test(name)) return 'M4 3v7a3 3 0 0 0 3 3v8M7 3v7M10 3v7M16 3v18M16 3c3 2 4 5 4 8h-4'
-  if (/교통/.test(name))
-    return 'M6 17h12M7 17l-2 4M17 17l2 4M5 13h14M6 4h12l2 9H4l2-9Zm2 5h.01M16 9h.01'
-  if (/쇼핑/.test(name)) return 'M6 8h12l1 13H5L6 8Zm3 0a3 3 0 0 1 6 0'
-  if (/통신/.test(name))
-    return 'M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 16h4'
-  if (/구독/.test(name)) return 'M4 6h16v12H4V6Zm6 4 5 2-5 2v-4Z'
-  if (/교육|자격/.test(name)) return 'm3 6 9-4 9 4-9 4-9-4Zm3 2v6c3 3 9 3 12 0V8M21 6v7'
-  if (/의료/.test(name)) return 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6V3Z'
-  if (/주거|월세/.test(name)) return 'm3 11 9-8 9 8v10h-6v-6H9v6H3V11Z'
-  return 'M5 3h14v18H5V3Zm4 4h6M9 11h6M9 15h4'
-}
+const expenseIconPath = expenseCategoryIconPath
 const policyCount = computed(() => simulation.state.policies.length)
 const expandedPolicyIds = ref(new Set())
 function togglePolicyDetails(policyId) {
@@ -244,7 +243,7 @@ async function apply(categoryName) {
 async function continueFromPolicy() {
   const synced = await simulation.syncCategory('policy')
   if (!synced) return
-  router.push('/simulation/confirm')
+  router.push('/simulation/policy/preview')
 }
 
 function skip() {
@@ -363,7 +362,6 @@ function skip() {
       <section class="expense-target-card">
         <header class="expense-target-heading">
           <h2>카테고리별 절약 목표 설정</h2>
-          <p>카테고리를 눌러 절약 목표를 설정해보세요.</p>
         </header>
         <div class="expense-category-tabs">
           <button
@@ -729,7 +727,7 @@ function skip() {
         type="button"
         @click="continueFromPolicy"
       >
-        {{ policyCount ? '최종 결과 보기' : '정책 건너뛰고 최종 결과 보기' }}
+        시뮬레이션에 적용하기
       </button>
     </template>
 
@@ -1856,6 +1854,44 @@ function skip() {
     margin-top: -10px;
   }
 
+  .sim-category-page .policy-catalog-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 10px 8px;
+  }
+
+  .sim-category-page .policy-catalog-heading > h2 {
+    min-width: 0;
+    grid-row: 1;
+    grid-column: 1;
+    line-height: 1.35;
+  }
+
+  .sim-category-page .policy-catalog-heading > span {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
+    white-space: nowrap;
+  }
+
+  .sim-category-page .policy-catalog-heading > .policy-profile-badges {
+    width: 100%;
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    justify-self: stretch;
+    gap: 7px;
+    margin: 0;
+  }
+
+  .sim-category-page .policy-catalog-heading > .policy-profile-badges > span {
+    min-width: 0;
+    min-height: 30px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
   .sim-category-page .policy-selected-empty {
     font-size: var(--type-empty-size);
     font-weight: var(--type-empty-weight);
@@ -2138,8 +2174,9 @@ function skip() {
 }
 
 .sim-category-page .policy-selected-list article > i {
-  grid-row: 1 / 3;
+  grid-row: 1;
   grid-column: 1;
+  align-self: start;
 }
 
 .sim-category-page .policy-selected-list article > .policy-selected-copy {
@@ -2203,5 +2240,87 @@ function skip() {
 
 .sim-category-page .policy-selected-card footer strong {
   font-size: 16px;
+}
+
+@media (max-width: 767px) {
+  .sim-category-page .expense-target-card {
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 18px;
+  }
+
+  .sim-category-page .expense-target-heading,
+  .sim-category-page .expense-target-heading h2 {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .sim-category-page .expense-category-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+  }
+
+  .sim-category-page .expense-target-editor {
+    gap: 10px;
+    margin-top: 0;
+    padding: 14px;
+  }
+
+  .sim-category-page .expense-target-info {
+    padding-bottom: 8px;
+  }
+
+  .sim-category-page .expense-target-editor > .expense-amount-field {
+    margin-top: 0;
+  }
+
+  .sim-category-page .expense-target-editor > .expense-range-maximum {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .sim-category-page .expense-target-editor > .expense-amount-range {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .sim-category-page .expense-target-actions .expense-add-button {
+    margin-top: 0;
+  }
+
+  :global(#app .app-shell .sim-category-page .expense-category-tabs button) {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    justify-content: center;
+    gap: 0;
+    padding: 6px 2px;
+    font-size: 15px !important;
+    letter-spacing: -.4px;
+  }
+
+  .sim-category-page .expense-category-tabs button svg {
+    display: none;
+  }
+
+  .sim-category-page .expense-amount-options > div {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  :global(#app .app-shell .sim-category-page .expense-amount-options button) {
+    width: 100%;
+    min-width: 0;
+    min-height: 24px;
+    padding: 2px;
+    font-size: 13px !important;
+    font-weight: 600;
+    white-space: nowrap;
+  }
 }
 </style>

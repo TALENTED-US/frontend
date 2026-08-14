@@ -1,19 +1,9 @@
 import { apiClient, normalizeApiError, unwrapApiResponse } from './client'
-
-const apiCategoryToUi = {
-  FOOD: '식비',
-  TRANSPORT: '교통',
-  HOUSING: '주거',
-  COMMUNICATION: '통신비',
-  SUBSCRIPTION: '구독',
-  EDUCATION: '교육',
-  CERTIFICATE: '자격증',
-  ETC_EXPENSE: '기타',
-}
-
-const uiCategoryToApi = Object.fromEntries(
-  Object.entries(apiCategoryToUi).map(([apiCategory, uiCategory]) => [uiCategory, apiCategory]),
-)
+import {
+  DEFAULT_EXPENSE_CATEGORY,
+  expenseCategoryLabel,
+  expenseCategoryValue,
+} from '@/constants/expenseCategories'
 
 function splitTransactionAt(value = '') {
   const [date = '', rawTime = ''] = String(value).split('T')
@@ -31,7 +21,7 @@ export function mapTransactionResponse(row) {
     date,
     time,
     title: row?.transactionContent || row?.transactionMemo || (isIncome ? '수입' : '지출'),
-    category: isIncome ? '수입' : apiCategoryToUi[row?.expenseCategory] || '기타',
+    category: isIncome ? '수입' : expenseCategoryLabel(row?.expenseCategory),
     detail: isIncome ? '입금' : row?.transactionType === 'FIXED' ? '고정지출' : '지출',
     amount,
     memo: row?.transactionMemo || '',
@@ -45,7 +35,7 @@ export function mapTransactionForm(payload) {
   const isIncome = payload.amount > 0
   return {
     transactionType: isIncome ? 'INCOME' : 'EXPENSE',
-    expenseCategory: isIncome ? 'ETC_EXPENSE' : uiCategoryToApi[payload.category] || 'ETC_EXPENSE',
+    expenseCategory: isIncome ? DEFAULT_EXPENSE_CATEGORY : expenseCategoryValue(payload.category),
     transactionAmount: Math.abs(Math.trunc(Number(payload.amount) || 0)),
     transactionContent: payload.title || payload.memo || (isIncome ? '수입' : payload.category),
     transactionMemo: payload.memo || '',

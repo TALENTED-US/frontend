@@ -20,19 +20,28 @@ const meta = computed(() => ({
   income: { step: 2, label: '수입 늘리기', title: '수입 늘리기로', next: '/simulation/policy', delta: `월수입 ${money(simulation.recurringIncome)}원 증가` },
   policy: { step: 3, label: '정책 혜택', title: '정책 혜택으로', next: '/simulation/confirm', delta: `정책 ${simulation.state.policies.length}개 반영` },
 })[category.value])
-const report = computed(() => simulation.remoteReport || {})
 // 기간 비교는 확정 시점의 프론트 계산 기준을 사용한다. remoteReport의 기간 값은
 // 서버 계산 기준이 달라 확정 화면과 서로 다른 값(예: 15.0 → 68.3)을 만들 수 있다.
 const beforeMonths = computed(() => Number(simulation.currentMonths).toFixed(1))
 const afterMonths = computed(() => Number(simulation.expectedMonths).toFixed(1))
 const extension = computed(() => Math.max(0, Number(afterMonths.value) - Number(beforeMonths.value)).toFixed(1))
-const cashflow = computed(() => report.value.cashflow || {
-  beforeMonthlyIncome: simulation.monthlyIncome,
-  afterMonthlyIncome: simulation.monthlyIncome + simulation.recurringIncome + simulation.recurringPolicy,
-  beforeMonthlyExpense: simulation.monthlyExpense,
-  afterMonthlyExpense: Math.max(0, simulation.monthlyExpense - (simulation.state.expenseApplied ? simulation.expenseSaving : 0)),
-  beforeMonthlyNetCashFlow: simulation.monthlyIncome - simulation.monthlyExpense,
-  afterMonthlyNetCashFlow: simulation.monthlyIncome + simulation.recurringIncome + simulation.recurringPolicy - Math.max(0, simulation.monthlyExpense - simulation.expenseSaving),
+const cashflow = computed(() => {
+  const beforeMonthlyIncome = Number(simulation.monthlyIncome) || 0
+  const beforeMonthlyExpense = Number(simulation.monthlyExpense) || 0
+  const appliedIncome = category.value === 'expense' ? 0 : Number(simulation.recurringIncome) || 0
+  const appliedPolicy = category.value === 'policy' ? Number(simulation.recurringPolicy) || 0 : 0
+  const expenseSaving = simulation.state.expenseApplied ? Number(simulation.expenseSaving) || 0 : 0
+  const afterMonthlyIncome = beforeMonthlyIncome + appliedIncome + appliedPolicy
+  const afterMonthlyExpense = Math.max(0, beforeMonthlyExpense - expenseSaving)
+
+  return {
+    beforeMonthlyIncome,
+    afterMonthlyIncome,
+    beforeMonthlyExpense,
+    afterMonthlyExpense,
+    beforeMonthlyNetCashFlow: beforeMonthlyIncome - beforeMonthlyExpense,
+    afterMonthlyNetCashFlow: afterMonthlyIncome - afterMonthlyExpense,
+  }
 })
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
 const comparisonMaximum = computed(() => Math.max(
@@ -93,7 +102,7 @@ const arrowPath = (before, after) => {
     <section class="application-result">
       <div class="section-heading"><h2>시뮬레이션 적용 결과</h2></div>
       <div class="result-delta-badges">
-        <span v-if="incomeDelta" class="income">{{ deltaLabel('월수입', incomeDelta, '증가', '감소') }}</span><i v-else />
+        <span v-if="incomeDelta" class="income">{{ deltaLabel('월수입', incomeDelta, '증가', '감소') }}</span><span v-else-if="category === 'expense'" class="same">월평균 수입 동일</span><i v-else />
         <span v-if="expenseDelta" class="expense">{{ deltaLabel('월지출', expenseDelta, '감소', '증가') }}</span><i v-else-if="category === 'policy'" class="policy">{{ meta.delta }}</i><i v-else />
       </div>
       <div class="cashflow-comparison">
@@ -105,7 +114,7 @@ const arrowPath = (before, after) => {
     </section>
 
     <div v-if="category !== 'policy'" class="wizard-actions"><button class="sim-text-button" @click="router.push(`/simulation/${category}`)">이전으로</button><button class="sim-btn sim-btn--yellow simulation-primary-cta" @click="router.push(meta.next)">다음으로</button></div>
-    <div v-else class="wizard-actions vertical"><button class="sim-btn sim-btn--yellow simulation-primary-cta" @click="router.push('/simulation/confirm')">시뮬레이션 확인하기</button><button class="sim-text-button" @click="router.push('/simulation/confirm')">입력 내용 수정하기</button></div>
+    <div v-else class="wizard-actions"><button class="sim-text-button" @click="router.push('/simulation/policy')">이전으로</button><button class="sim-btn sim-btn--yellow simulation-primary-cta" @click="router.push('/simulation/confirm')">시뮬레이션에 적용하기</button></div>
   </section>
 </template>
 
@@ -136,6 +145,16 @@ const arrowPath = (before, after) => {
 .preview-page > .wizard-progress-tabs span.active {
   font-size: 13px;
   font-weight: 900;
+}
+
+:global(#app .app-shell .preview-page .comparison-legend span:last-child i) {
+  border: 1px solid var(--sim-butter-deep);
+  background: var(--sim-butter);
+}
+
+:global(#app .app-shell .preview-page .result-delta-badges .same) {
+  background: #f3f4f6;
+  color: #6f7682;
 }
 
 @media (max-width: 767px) {

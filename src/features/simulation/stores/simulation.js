@@ -31,43 +31,25 @@ import {
 } from '@/mappers/simulation'
 import { getPoliciesApi } from '@/api/policy'
 import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
+import {
+  expenseCategoryLabel,
+  expenseCategoryValue,
+} from '@/constants/expenseCategories'
 
 const STORAGE_KEY = 'buttie-simulation-v4'
 const CONFIRMED_SNAPSHOT_KEY = 'buttie-simulation-confirmed-snapshot-v1'
 const CLIENT_CALCULATION_VERSION = 2
 const CATEGORY_META = {
-  주거: { icon: '🏠', color: '#ffe197' },
-  월세: { icon: '🏠', color: '#ffe197' },
   식비: { icon: '🍚', color: '#ffd0d0' },
-  교통: { icon: '🚌', color: '#aab5c8' },
-  교통비: { icon: '🚌', color: '#aab5c8' },
+  '술·유흥': { icon: '🍻', color: '#e9b8a8' },
+  '카페·간식': { icon: '☕', color: '#e8c89a' },
+  '취업 준비': { icon: '📚', color: '#77b6df' },
   쇼핑: { icon: '🛍️', color: '#88a9f6' },
-  통신비: { icon: '📱', color: '#d8b5ee' },
-  구독: { icon: '📺', color: '#c8a8ef' },
-  구독비: { icon: '📺', color: '#c8a8ef' },
-  의료: { icon: '🏥', color: '#8dd5c1' },
-  교육: { icon: '📚', color: '#77b6df' },
-  교육비: { icon: '📚', color: '#77b6df' },
-  자격증: { icon: '📄', color: '#91c7a9' },
-  '자격증 비용': { icon: '📄', color: '#91c7a9' },
-  보험: { icon: '🛡️', color: '#91c7a9' },
-  여가: { icon: '🎮', color: '#f5ae77' },
-  기타: { icon: '🧾', color: '#b8bdc8' },
-}
-const NON_REDUCIBLE_EXPENSES = new Set(['월세', '주거'])
-const REDUCTION_CATEGORIES = ['식비', '교통비', '통신비', '구독비', '교육비', '자격증 비용', '기타']
-const REDUCTION_CATEGORY_ALIASES = {
-  식비: '식비',
-  교통: '교통비',
-  교통비: '교통비',
-  통신: '통신비',
-  통신비: '통신비',
-  구독: '구독비',
-  구독비: '구독비',
-  교육: '교육비',
-  교육비: '교육비',
-  자격증: '자격증 비용',
-  '자격증 비용': '자격증 비용',
+  '취미·여가': { icon: '🎮', color: '#c8a8ef' },
+  '주거·통신': { icon: '🏠', color: '#ffe197' },
+  '교통·주유': { icon: '🚌', color: '#aab5c8' },
+  '건강·운동': { icon: '🏥', color: '#8dd5c1' },
+  '기타 금융': { icon: '🧾', color: '#b8bdc8' },
 }
 const DAYS_PER_MONTH = 365.2425 / 12
 
@@ -123,7 +105,7 @@ const defaultState = () => ({
   endDate: '2027-01-01',
   expenses: [
     { id: 'food', name: '식비', icon: '🍚', current: 150000, saving: 0, selected: false },
-    { id: 'transport', name: '교통', icon: '🚌', current: 70000, saving: 0, selected: false },
+    { id: 'transport', name: '교통·주유', icon: '🚌', current: 70000, saving: 0, selected: false },
     { id: 'shopping', name: '쇼핑', icon: '🛍️', current: 80000, saving: 0, selected: false },
   ],
   expenseApplied: false,
@@ -201,30 +183,32 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function buildExpenseCategories(existing = state.expenses) {
-    const breakdownRows = previousMonthExpenseAnalysis.value.categories.map(
-      ({ name, current }) => ({
-        id: name,
-        name,
-        icon: CATEGORY_META[name]?.icon || CATEGORY_META.기타.icon,
-        color: CATEGORY_META[name]?.color || CATEGORY_META.기타.color,
+    const groupedBreakdown = new Map()
+    previousMonthExpenseAnalysis.value.categories.forEach(({ name, current }) => {
+      const normalizedName = expenseCategoryLabel(expenseCategoryValue(name))
+      const previous = groupedBreakdown.get(normalizedName)
+      if (previous) previous.current += current
+      else groupedBreakdown.set(normalizedName, {
+        id: normalizedName,
+        name: normalizedName,
+        icon: CATEGORY_META[normalizedName]?.icon || CATEGORY_META['기타 금융'].icon,
+        color: CATEGORY_META[normalizedName]?.color || CATEGORY_META['기타 금융'].color,
         current,
-      }),
-    )
-    const totals = Object.fromEntries(REDUCTION_CATEGORIES.map((name) => [name, 0]))
-    breakdownRows
-      .filter((item) => !NON_REDUCIBLE_EXPENSES.has(item.name))
-      .forEach((item) => {
-        const category = REDUCTION_CATEGORY_ALIASES[item.name] || '기타'
-        totals[category] += item.current
       })
-    const rows = REDUCTION_CATEGORIES.map((name) => {
-      const previous = existing.find((item) => item.id === name || item.name === name)
-      const current = totals[name]
+    })
+    const breakdownRows = groupedBreakdown.size
+      ? [...groupedBreakdown.values()]
+      : defaultState().expenses
+    const targetCategories = breakdownRows.filter((item) => item.name !== '주거·통신')
+    const rows = targetCategories.map(({ name, current }) => {
+      const previous = existing.find(
+        (item) => expenseCategoryLabel(expenseCategoryValue(item.name)) === name,
+      )
       return {
         id: name,
         name,
-        icon: CATEGORY_META[name]?.icon || CATEGORY_META.기타.icon,
-        color: CATEGORY_META[name]?.color || CATEGORY_META.기타.color,
+        icon: CATEGORY_META[name]?.icon || CATEGORY_META['기타 금융'].icon,
+        color: CATEGORY_META[name]?.color || CATEGORY_META['기타 금융'].color,
         current,
         saving: Math.min(current, previous?.saving ?? 0),
         selected: current > 0 && (previous?.selected ?? false),
@@ -233,7 +217,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
     return {
       rows,
-      breakdownRows: breakdownRows.length ? breakdownRows : defaultState().expenses,
+      breakdownRows,
       monthKeys: previousMonthExpenseAnalysis.value.monthKeys,
     }
   }
@@ -499,8 +483,10 @@ export const useSimulationStore = defineStore('simulation', () => {
   async function loadPolicyCatalog() {
     policyCatalogLoading.value = true
     policyCatalogError.value = ''
+    const isReemployment = session.currentUser.jobType === 'again'
     const employmentPrepStatus =
-      session.currentUser.jobType === 'again' ? 'UNEMPLOYED' : 'FIRST_JOB'
+      isReemployment ? '재취업' : '첫취업'
+    const policyRegion = normalizePolicyRegion(session.currentUser.region)
     const params = {
       size: 100,
       policyStatus: 'AVAILABLE',
@@ -508,13 +494,32 @@ export const useSimulationStore = defineStore('simulation', () => {
       ...(calculateAge(session.currentUser.birth) !== undefined
         ? { age: calculateAge(session.currentUser.birth) }
         : {}),
-      ...(normalizePolicyRegion(session.currentUser.region)
-        ? { policyRegion: normalizePolicyRegion(session.currentUser.region) }
-        : {}),
+      // 백엔드에서 '재취업 + 지역' 조합은 CATALOG_005를 반환한다.
+      ...(!isReemployment && policyRegion ? { policyRegion } : {}),
     }
 
     try {
-      const catalog = await fetchPolicyCatalogPages(params)
+      let catalog
+      try {
+        catalog = await fetchPolicyCatalogPages(params)
+      } catch (error) {
+        if (error.code !== 'CATALOG_005') throw error
+
+        const relaxedParams = { ...params }
+        if (relaxedParams.policyRegion) delete relaxedParams.policyRegion
+        else delete relaxedParams.employmentPrepStatus
+        catalog = await fetchPolicyCatalogPages(relaxedParams)
+      }
+
+      // 백엔드의 지역 필터는 해당 지역 전용 정책만 남기고 전국 정책을 제외한다.
+      // 정확 조건 결과가 비었을 때는 지역만 완화해 나이와 취업 상태에 맞는
+      // 정책까지 모두 사라지는 상황을 방지한다.
+      if (!catalog.length && params.policyRegion) {
+        const fallbackParams = { ...params }
+        delete fallbackParams.policyRegion
+        catalog = await fetchPolicyCatalogPages(fallbackParams)
+      }
+
       policyCatalog.value = catalog
       reconcileSelectedPolicies(catalog)
       return catalog
@@ -694,10 +699,10 @@ export const useSimulationStore = defineStore('simulation', () => {
 
         confirmed = {
           ...localSnapshot,
-          simulationId: remoteConfirmed.simulationId,
-          confirmedAt: remoteConfirmed.confirmedAt,
-          endAmount: remoteConfirmed.endAmount,
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
         }
+        applyConfirmedItems(confirmed)
       }
 
       state.completedQuestIds = []
@@ -819,6 +824,35 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
+  async function prepareConfirmationPreview() {
+    syncing.value = true
+    syncError.value = ''
+    try {
+      await loadTransactions()
+
+      if (remoteEnabled) {
+        try {
+          const serverReport = await getSimulationReportApi()
+          remoteReport.value = state.ignoreRemoteDraft ? null : serverReport
+        } catch {
+          // 버티는 기간은 거래내역과 현재 선택 항목으로 계산할 수 있으므로
+          // 리포트 재조회 실패만으로 확정 화면 전체를 막지 않는다.
+        }
+      }
+
+      if (!runwayCalculationReady.value) {
+        syncError.value = '월 지출 내역이 없어 예상 버티는 기간을 계산할 수 없습니다.'
+        return false
+      }
+      return true
+    } catch (error) {
+      syncError.value = error.message || '재정 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      return false
+    } finally {
+      syncing.value = false
+    }
+  }
+
   async function hydrateConfirmed() {
     if (!remoteEnabled) return null
     syncing.value = true
@@ -835,26 +869,29 @@ export const useSimulationStore = defineStore('simulation', () => {
       const canReuseClientSnapshot =
         restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
         restored.simulationId === remoteConfirmed.simulationId &&
-        restored.confirmedAt === remoteConfirmed.confirmedAt
+        restored.confirmedAt === remoteConfirmed.confirmedAt &&
+        Number(restored.currentMonths) < 999 &&
+        Number(restored.expectedMonths) < 999
       let confirmed
 
       if (canReuseClientSnapshot) {
         confirmed = {
-          ...remoteConfirmed,
           ...restored,
-          simulationId: remoteConfirmed.simulationId,
-          confirmedAt: remoteConfirmed.confirmedAt,
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
         }
         applyConfirmedItems(confirmed)
       } else {
         applyConfirmedItems(remoteConfirmed)
         recentConfirmed.value = null
-        confirmed = buildClientConfirmedSnapshot({
-          simulationId: remoteConfirmed.simulationId,
-          confirmedAt: remoteConfirmed.confirmedAt,
-          endAmount: remoteConfirmed.endAmount,
-        })
-        if (!confirmed) throw new Error('거래 내역을 불러온 뒤 시뮬레이션을 다시 확인해 주세요.')
+        const localConfirmed = buildClientConfirmedSnapshot()
+        if (!localConfirmed) throw new Error('거래 내역을 불러온 뒤 시뮬레이션을 다시 확인해 주세요.')
+        confirmed = {
+          ...localConfirmed,
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        }
+        applyConfirmedItems(confirmed)
       }
 
       recentConfirmed.value = confirmed
@@ -893,7 +930,18 @@ export const useSimulationStore = defineStore('simulation', () => {
       if (remoteDraftExists.value) {
         await updateSimulationPeriodApi(payload)
       } else {
-        const data = await createSimulationApi(payload)
+        let data
+        try {
+          data = await createSimulationApi(payload)
+        } catch (createError) {
+          if (createError.code !== 'SIMULATION_901') throw createError
+
+          // 조회 API는 Draft가 없다고 응답하지만 생성 API는 기존 Draft를 감지하는
+          // 서버 불일치 상태가 있을 수 있다. 새 시뮬레이션 시작 요청이므로 남은
+          // 미확정 Draft를 정리한 뒤 생성 요청을 한 번만 다시 시도한다.
+          await deleteDraftSimulationApi()
+          data = await createSimulationApi(payload)
+        }
         remoteDraftExists.value = true
         applyRemoteSimulation(data)
       }
@@ -922,21 +970,6 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  const expenseCategoryMap = {
-    식비: 'FOOD',
-    교통: 'TRANSPORT',
-    교통비: 'TRANSPORT',
-    주거: 'HOUSING',
-    월세: 'HOUSING',
-    통신비: 'COMMUNICATION',
-    구독: 'SUBSCRIPTION',
-    구독비: 'SUBSCRIPTION',
-    교육: 'EDUCATION',
-    교육비: 'EDUCATION',
-    자격증: 'CERTIFICATE',
-    '자격증 비용': 'CERTIFICATE',
-  }
-
   async function syncCategory(category) {
     if (!remoteEnabled) return true
     syncing.value = true
@@ -951,7 +984,7 @@ export const useSimulationStore = defineStore('simulation', () => {
                 payload: {
                   category: 'EXPENSE',
                   itemName: `${item.name} 줄이기`,
-                  expenseCategory: expenseCategoryMap[item.name] || 'ETC_EXPENSE',
+                  expenseCategory: expenseCategoryValue(item.name),
                   amount: item.saving,
                   applyStartDate: state.startDate,
                   applyEndDate: state.endDate,
@@ -1107,6 +1140,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     resetScenario,
     prepareNewScenario,
     hydrateDraft,
+    prepareConfirmationPreview,
     hydrateConfirmed,
     beginSimulation,
     savePeriod,

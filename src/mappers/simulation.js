@@ -1,13 +1,4 @@
-const EXPENSE_NAMES = {
-  FOOD: '식비',
-  TRANSPORT: '교통비',
-  HOUSING: '주거',
-  COMMUNICATION: '통신비',
-  SUBSCRIPTION: '구독비',
-  EDUCATION: '교육비',
-  CERTIFICATE: '자격증 비용',
-  ETC_EXPENSE: '기타',
-}
+import { expenseCategoryLabel } from '@/constants/expenseCategories'
 
 function numberOrZero(value) {
   const number = Number(value)
@@ -46,7 +37,7 @@ export function mapSimulationItemResponse(item, policyCatalog = []) {
   }
 
   if (item.itemCategory === 'EXPENSE') {
-    const name = EXPENSE_NAMES[item.expenseCategory] || '기타'
+    const name = expenseCategoryLabel(item.expenseCategory)
     return {
       ...common,
       kind: 'expense',
@@ -97,14 +88,20 @@ export function mapConfirmedSimulationResponse(response, policyCatalog = []) {
   const items = (response.appliedItems || [])
     .map((item) => mapSimulationItemResponse(item, policyCatalog))
     .filter(Boolean)
+  const currentMonths = Math.round(numberOrZero(response.currentPrepMonths) * 10) / 10
+  const expectedMonths = Math.round(numberOrZero(response.expectPrepMonths) * 10) / 10
+  // 백엔드는 자금 소진 시점을 계산할 수 없는 경우 999.99를 상한값으로 내려준다.
+  // 실제 개월 수가 아니므로 필드를 생략해 거래내역 기반 계산값을 사용한다.
+  const hasCurrentMonths = currentMonths > 0 && currentMonths < 999
+  const hasExpectedMonths = expectedMonths > 0 && expectedMonths < 999
 
   return {
     simulationId: response.simulationId,
     startDate: response.simulationStartDate || '',
     endDate: response.simulationDueDate || '',
     confirmedAt: response.confirmedAt || '',
-    currentMonths: numberOrZero(response.currentPrepMonths),
-    expectedMonths: numberOrZero(response.expectPrepMonths),
+    ...(hasCurrentMonths ? { currentMonths } : {}),
+    ...(hasExpectedMonths ? { expectedMonths } : {}),
     endAmount: numberOrZero(response.simulationEndAmount),
     expenses: items.filter((item) => item.kind === 'expense'),
     incomes: items.filter((item) => item.kind === 'income'),
