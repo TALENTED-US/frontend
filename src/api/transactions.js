@@ -6,6 +6,15 @@ function splitTransactionAt(value = '') {
   return { date, time: rawTime.slice(0, 5) }
 }
 
+function resolveExpenseCategory(row) {
+  const mappedCategory = expenseCategoryToLabel(row?.expenseCategory)
+  if (mappedCategory !== '기타') return mappedCategory
+
+  const transactionText = `${row?.transactionContent || ''} ${row?.transactionMemo || ''}`
+  if (/월세|임대료|관리비|공과금/.test(transactionText)) return '주거'
+  return mappedCategory
+}
+
 export function mapTransactionResponse(row) {
   const { date, time } = splitTransactionAt(row?.transactionAt)
   const isIncome = row?.transactionType === 'INCOME'
@@ -21,11 +30,7 @@ export function mapTransactionResponse(row) {
       row?.transactionContent ||
       row?.transactionMemo ||
       (isIncome ? '수입' : isTransfer ? '계좌이체' : '지출'),
-    category: isIncome
-      ? '수입'
-      : isTransfer
-        ? '계좌이체'
-        : expenseCategoryToLabel(row?.expenseCategory),
+    category: isIncome ? '수입' : isTransfer ? '계좌이체' : resolveExpenseCategory(row),
     detail: isIncome
       ? '입금'
       : isTransfer

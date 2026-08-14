@@ -1,10 +1,7 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
-import BrandLogo from '@/components/navigation/BrandLogo.vue'
-import AppIcon from '@/components/ui/AppIcon.vue'
 import { getMyDataAssetsApi } from '@/api/mydata'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
@@ -20,14 +17,6 @@ import { formatPrepMonths, isInfinitePrepMonths } from '@/utils/prepMonths'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
 import {
-  loadNotifications,
-  markNotificationRead,
-  notificationItems,
-  notificationState,
-  refreshUnreadNotificationCheck,
-  unreadNotificationCount,
-} from '@/features/notification/notificationStore'
-import {
   calculateQuestExp,
   formatExp,
   normalizeButtieProgression,
@@ -35,7 +24,6 @@ import {
 } from '@/stores/progression'
 
 const session = useSessionStore()
-const router = useRouter()
 const simulation = useSimulationStore()
 const progression = useProgressionStore()
 const quests = useQuestStore()
@@ -49,36 +37,6 @@ function finiteNumberOrNull(value) {
   const number = Number(value)
   return value !== null && value !== undefined && Number.isFinite(number) ? number : null
 }
-
-const mobileNotificationOpen = ref(false)
-const mobileNotificationArea = ref(null)
-const mobileNotificationItems = computed(() =>
-  notificationItems.value.filter((item) => !item.read).slice(0, 3),
-)
-
-async function toggleMobileNotifications() {
-  mobileNotificationOpen.value = !mobileNotificationOpen.value
-  if (!mobileNotificationOpen.value) return
-  await refreshUnreadNotificationCheck()
-  try {
-    await loadNotifications(true)
-  } catch {
-    // 팝오버 안에서 오류 상태를 안내합니다.
-  }
-}
-
-async function openMobileNotification(item) {
-  if (!(await markNotificationRead(item.id))) return
-  mobileNotificationOpen.value = false
-  router.push(item.url?.startsWith('/') ? item.url : '/notifications')
-}
-
-function closeMobileNotifications(event) {
-  if (mobileNotificationOpen.value && !mobileNotificationArea.value?.contains(event.target)) {
-    mobileNotificationOpen.value = false
-  }
-}
-
 async function loadButtieDashboard() {
   if (session.isMockMode) return
   dashboardApiLoading.value = true
@@ -122,7 +80,6 @@ async function loadFinancialAssets() {
 }
 
 onMounted(async () => {
-  document.addEventListener('pointerdown', closeMobileNotifications)
   await Promise.all([
     loadButtieDashboard(),
     loadFinancialAssets(),
@@ -131,7 +88,6 @@ onMounted(async () => {
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
 })
-onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMobileNotifications))
 const DAY_MS = 24 * 60 * 60 * 1000
 const AVERAGE_MONTH_DAYS = 365.2425 / 12
 const LEVEL_TITLES = Object.freeze({
@@ -313,7 +269,8 @@ const displayedSurvivalMonths = computed(() => formatPrepMonths(survivalMonths.v
 const hasConfirmedScenario = computed(
   () =>
     (!session.isMockMode && finiteNumberOrNull(buttieDashboard.value?.expectPrepMonths) !== null) ||
-    hasConfirmedSimulationDurations.value || simulation.state.confirmed,
+    hasConfirmedSimulationDurations.value ||
+    simulation.state.confirmed,
 )
 const displayedExpectedMonths = computed(() => {
   if (!session.isMockMode) {
@@ -553,7 +510,9 @@ const initialAssets = computed(() =>
 const financialRiskAmount = computed(
   () =>
     finiteNumberOrNull(currentUser.value.financialRiskAlertAmount) ??
-    (session.isMockMode && initialAssets.value !== null ? Math.round(initialAssets.value * 0.2) : null),
+    (session.isMockMode && initialAssets.value !== null
+      ? Math.round(initialAssets.value * 0.2)
+      : null),
 )
 const financialSafetyBuffer = computed(() =>
   Math.max(0, (Number(totalAssets.value) || 0) - (Number(financialRiskAmount.value) || 0)),
@@ -597,49 +556,6 @@ const targetMonthText = computed(() =>
 
 <template>
   <section class="page dashboard">
-    <div class="dashboard__mobile-brand mobile-only">
-      <BrandLogo />
-      <div ref="mobileNotificationArea" class="dashboard__mobile-notification">
-        <button
-          type="button"
-          aria-label="알림 확인"
-          :aria-expanded="mobileNotificationOpen"
-          aria-controls="mobile-notification-bubble"
-          @click.stop="toggleMobileNotifications"
-        >
-          <AppIcon name="bell" :size="22" />
-          <b v-if="unreadNotificationCount">{{ unreadNotificationCount }}</b>
-        </button>
-        <section
-          v-if="mobileNotificationOpen"
-          id="mobile-notification-bubble"
-          class="dashboard__notification-bubble"
-          aria-label="최근 알림"
-        >
-          <header>
-            <h2>새 알림 {{ unreadNotificationCount }}</h2>
-            <RouterLink to="/notifications" @click="mobileNotificationOpen = false"
-              >전체 보기</RouterLink
-            >
-          </header>
-          <button
-            v-for="item in mobileNotificationItems"
-            :key="item.id"
-            type="button"
-            class="dashboard__notification-item"
-            @click="openMobileNotification(item)"
-          >
-            <span>
-              <strong>{{ item.title }}</strong>
-              <small>{{ item.message }}</small>
-            </span>
-            <time>{{ item.time }}</time>
-          </button>
-          <p v-if="notificationState.error">알림을 불러오지 못했어요.</p>
-          <p v-else-if="!mobileNotificationItems.length">새 알림이 없어요.</p>
-        </section>
-      </div>
-    </div>
     <div class="dashboard__top">
       <header class="dashboard__heading">
         <h1>버티와 함께하는 취준 여정,<br />지금 확인해 보세요</h1>
@@ -1023,121 +939,6 @@ const targetMonthText = computed(() =>
 <style scoped>
 .dashboard {
   padding-bottom: 28px;
-}
-
-.dashboard__mobile-brand {
-  display: none;
-}
-
-.dashboard__mobile-notification {
-  position: relative;
-  margin-left: auto;
-}
-
-.dashboard__mobile-notification > button {
-  position: relative;
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border: 1px solid #e5e8ef;
-  border-radius: 14px;
-  background: #fff;
-  color: #202632;
-  box-shadow: 0 5px 16px rgb(28 35 55 / 8%);
-}
-
-.dashboard__mobile-notification > button b {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  display: grid;
-  min-width: 19px;
-  height: 19px;
-  place-items: center;
-  padding: 0 5px;
-  border: 2px solid #fff;
-  border-radius: 999px;
-  background: #e5484d;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.dashboard__notification-bubble {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 10px);
-  right: 0;
-  width: min(340px, calc(100vw - 32px));
-  overflow: hidden;
-  border: 1px solid #e5e8ef;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 18px 46px rgb(23 31 51 / 18%);
-}
-
-.dashboard__notification-bubble header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid #edf0f4;
-}
-
-.dashboard__notification-bubble h2 {
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.dashboard__notification-bubble header a {
-  color: var(--primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.dashboard__notification-item {
-  display: grid;
-  width: 100%;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 14px 16px;
-  border-bottom: 1px solid #f0f1f4;
-  background: #fff;
-  text-align: left;
-}
-
-.dashboard__notification-item span {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-}
-
-.dashboard__notification-item strong {
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dashboard__notification-item small,
-.dashboard__notification-item time,
-.dashboard__notification-bubble > p {
-  color: #7b8493;
-  font-size: 12px;
-}
-
-.dashboard__notification-item small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dashboard__notification-bubble > p {
-  margin: 0;
-  padding: 24px 16px;
-  text-align: center;
 }
 
 .dashboard__top {
@@ -2655,19 +2456,6 @@ const targetMonthText = computed(() =>
 }
 
 @media (max-width: 767px) {
-  .dashboard__mobile-brand {
-    display: flex;
-    min-height: 54px;
-    align-items: center;
-    margin-bottom: 12px;
-    padding: 6px 2px;
-  }
-
-  .dashboard__mobile-brand :deep(.brand-logo__image) {
-    width: 108px;
-    height: 38px;
-  }
-
   .dashboard__top {
     display: block;
     margin-bottom: 16px;

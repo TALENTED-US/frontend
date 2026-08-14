@@ -42,17 +42,23 @@ const mode = computed(() =>
       ? 'delete'
       : 'detail',
 )
+const isHousingFixedRow = (row) =>
+  ['월세', '주거'].includes(row?.category) ||
+  /월세|임대료|관리비|공과금/.test(`${row?.title || ''} ${row?.memo || ''}`)
+const isRecognizedFixedRow = (row) => Boolean(row?.fixed || isHousingFixedRow(row))
 const fixedSourceRows = computed(() =>
-  useFixedApi ? serverFixedRows.value : financeTransactions.value.filter((row) => row.fixed),
+  useFixedApi
+    ? serverFixedRows.value
+    : financeTransactions.value.filter((row) => isRecognizedFixedRow(row)),
 )
 const fixedRows = computed(() =>
   fixedSourceRows.value.filter(
-    (row) => row.fixed && row.amount < 0 && row.date.startsWith(fixedMonth.value),
+    (row) => isRecognizedFixedRow(row) && row.amount < 0 && row.date.startsWith(fixedMonth.value),
   ),
 )
 const registeredFixedRows = computed(() => {
   return fixedSourceRows.value
-    .filter((row) => row.fixed && row.amount < 0)
+    .filter((row) => isRecognizedFixedRow(row) && row.amount < 0)
     .sort((a, b) => b.date.localeCompare(a.date))
 })
 const candidates = computed(() => {
@@ -65,7 +71,10 @@ const candidates = computed(() => {
 
   const recurringByRule = new Map()
   financeTransactions.value
-    .filter((row) => row.amount < 0 && !row.fixed && fixedCandidateCategories.has(row.category))
+    .filter(
+      (row) =>
+        row.amount < 0 && !isRecognizedFixedRow(row) && fixedCandidateCategories.has(row.category),
+    )
     .forEach((row) => {
       const key = `${row.title}|${row.category}`
       const rows = recurringByRule.get(key) || []
@@ -117,7 +126,19 @@ const total = computed(() => {
 })
 const grouped = computed(() => {
   const map = {}
-  const categoryOrder = ['주거·통신', '교통·유류비', '취업 준비', '의료·건강', '기타 금융']
+  const categoryOrder = [
+    '주거·통신',
+    '주거',
+    '월세',
+    '교통·유류비',
+    '교통',
+    '취업 준비',
+    '구독',
+    '의료·건강',
+    '보험',
+    '기타 금융',
+    '기타',
+  ]
   visibleRows.value.forEach((row) => {
     ;(map[row.category] ||= []).push(row)
   })
@@ -126,6 +147,12 @@ const grouped = computed(() => {
 function categoryClass(category) {
   return (
     {
+      보험: 'category-insurance',
+      구독: 'category-subscription',
+      주거: 'category-rent',
+      월세: 'category-rent',
+      교통: 'category-transport',
+      기타: 'category-other',
       '주거·통신': 'category-rent',
       '교통·유류비': 'category-transport',
       '취업 준비': 'category-subscription',
@@ -317,12 +344,17 @@ onMounted(loadFixedExpenseData)
   </section>
 </template>
 <style scoped>
+:global(body:has(.fixed-page)) {
+  background-color: #f5f7f9;
+  background-image: none;
+}
+
 .fixed-page {
   width: 100%;
   max-width: 1040px;
   margin: 0 auto;
   padding-top: 18px;
-  color: #222;
+  color: var(--text);
 }
 .month {
   display: flex;
@@ -332,8 +364,9 @@ onMounted(loadFixedExpenseData)
   padding: 11px;
   border: 0;
   border-radius: 14px;
+  background: var(--surface);
   box-shadow: var(--shadow-figma);
-  color: #475569;
+  color: var(--muted);
 }
 .month button {
   width: 28px;
@@ -343,17 +376,18 @@ onMounted(loadFixedExpenseData)
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #475569;
+  color: var(--muted);
   font-family: 'Pretendard', sans-serif !important;
   font-size: 18px !important;
   font-weight: 700 !important;
   line-height: 1;
 }
 .month button:hover {
-  background: #f0f2f7;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .month b {
-  color: #222222;
+  color: var(--text);
 }
 .total {
   display: grid;
@@ -363,11 +397,12 @@ onMounted(loadFixedExpenseData)
   padding: 20px 22px;
   border: 0;
   border-radius: 18px;
+  background: var(--surface);
   box-shadow: var(--shadow-figma);
 }
 .total span,
 .total small {
-  color: #666;
+  color: var(--muted);
   font-size: 12px;
 }
 .total strong {
@@ -382,7 +417,7 @@ onMounted(loadFixedExpenseData)
   margin-bottom: 18px;
   padding: 16px 20px;
   border-radius: 16px;
-  background: #e8efff;
+  background: var(--primary-soft);
 }
 .suggest > * {
   margin: 0;
@@ -392,7 +427,7 @@ onMounted(loadFixedExpenseData)
   width: max-content;
   padding: 5px 12px;
   border-radius: 16px;
-  background: #93b2f8;
+  background: var(--primary);
   color: #fff;
   font-size: 13px;
 }
@@ -402,15 +437,16 @@ onMounted(loadFixedExpenseData)
 }
 .suggest p {
   grid-column: 1 / -1;
-  color: #666;
+  color: var(--muted);
   font-size: 13px;
 }
 .suggest button {
   grid-column: 1;
   justify-self: start;
-  border: 1px solid #d9dce3;
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: #fff;
+  background: var(--surface);
+  color: var(--muted);
   padding: 4px 16px;
   font-size: 14px;
   font-weight: 600 !important;
@@ -418,8 +454,9 @@ onMounted(loadFixedExpenseData)
 .suggest button:last-child {
   grid-column: 3;
   justify-self: end;
-  border-color: #93b2f8;
-  background: #93b2f8;
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
   font-weight: 600 !important;
 }
 .search {
@@ -432,7 +469,7 @@ onMounted(loadFixedExpenseData)
   left: 15px;
   width: 7px;
   height: 7px;
-  border: 1.5px solid #8b8f98;
+  border: 1.5px solid var(--subtle);
   border-radius: 50%;
   content: '';
   pointer-events: none;
@@ -445,7 +482,7 @@ onMounted(loadFixedExpenseData)
   left: 22px;
   width: 5px;
   height: 1.5px;
-  background: #8b8f98;
+  background: var(--subtle);
   content: '';
   pointer-events: none;
   transform: translateY(3px) rotate(45deg);
@@ -455,9 +492,9 @@ onMounted(loadFixedExpenseData)
   width: 100%;
   height: 58px;
   padding: 0 20px 0 36px;
-  border: 1px solid #d9dce3;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: #fff;
+  background: var(--surface);
   box-sizing: border-box;
   box-shadow: none;
   font: inherit;
@@ -473,21 +510,23 @@ onMounted(loadFixedExpenseData)
   padding: 0 12px;
   border: 0;
   border-radius: 999px;
-  background: #fcf2c8;
+  background: var(--accent);
+  color: var(--primary);
   box-shadow: var(--shadow-figma);
   font-size: 14px;
   font-weight: 700 !important;
 }
 .expense-list {
   padding: 18px 20px;
-  border: 1px solid #d9dce3;
+  border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 2px 4px #0002;
+  background: var(--surface);
+  box-shadow: var(--shadow-figma);
 }
 .empty-message {
   margin: 0;
   padding: 32px 12px;
-  color: #666;
+  color: var(--muted);
   text-align: center;
   font-size: 13px;
 }
@@ -505,7 +544,7 @@ onMounted(loadFixedExpenseData)
   font-size: 15px;
 }
 .expense-list h2 span {
-  color: #8e7cc3;
+  color: var(--primary);
 }
 .expense-list > button {
   width: 100%;
@@ -514,14 +553,15 @@ onMounted(loadFixedExpenseData)
   gap: 12px;
   margin-bottom: 8px;
   padding: 11px 14px;
-  border: 1px solid #d9dce3;
+  border: 1px solid var(--border);
   border-radius: 13px;
-  background: #fff;
+  background: var(--surface);
   text-align: left;
   box-shadow: 0 2px 4px #0002;
 }
 .expense-list > button.chosen {
-  background: #fff5c8;
+  border-color: rgb(10 22 128 / 14%);
+  background: var(--primary-soft);
 }
 .expense-list i {
   width: 38px;
@@ -530,8 +570,8 @@ onMounted(loadFixedExpenseData)
   place-items: center;
   flex: none;
   border-radius: 50%;
-  background: #f0f1fa;
-  color: #8e7cc3;
+  background: var(--primary-soft);
+  color: var(--primary);
   font-style: normal;
 }
 .expense-list button span {
@@ -542,7 +582,7 @@ onMounted(loadFixedExpenseData)
 }
 .expense-list small {
   margin-top: 2px;
-  color: #666;
+  color: var(--muted);
   font-size: 10px;
 }
 .expense-list button > b {
@@ -556,17 +596,17 @@ onMounted(loadFixedExpenseData)
   display: grid;
   place-items: center;
   flex: none;
-  border: 1px solid #cfd4df;
+  border: 1px solid var(--border);
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   color: #fff;
   line-height: 1;
   text-align: center;
   font-style: normal;
 }
 .expense-list .chosen em {
-  border-color: #ffb21c;
-  background: #ffb21c;
+  border-color: var(--primary);
+  background: var(--primary);
 }
 .actions,
 footer {
@@ -604,10 +644,12 @@ footer button {
 }
 .actions button:first-child,
 footer button {
-  background: #ffeda7;
+  background: var(--accent);
+  color: var(--primary);
 }
 .actions button:last-child {
-  background: #eee;
+  background: #f2f4f6;
+  color: var(--muted);
 }
 footer {
   display: block;
@@ -700,32 +742,32 @@ footer button:disabled {
     margin-top: 0;
   }
   .expense-list h2.category-subscription span {
-    color: #222;
+    color: var(--text);
   }
   .expense-list h2.category-rent span {
-    color: #f4cf63;
+    color: var(--accent-strong);
   }
   .expense-list h2.category-transport span {
-    color: #f49a9a;
+    color: var(--danger);
   }
   .expense-list h2.category-other span {
-    color: #94a3b8;
+    color: var(--subtle);
   }
   .expense-list > button.category-subscription i {
-    background: #eef0f7;
-    color: #343a46;
+    background: var(--primary-soft);
+    color: var(--primary);
   }
   .expense-list > button.category-rent i {
-    background: #fff4d5;
-    color: #e7ad21;
+    background: var(--accent);
+    color: var(--accent-strong);
   }
   .expense-list > button.category-transport i {
-    background: #fff0f0;
-    color: #ef5350;
+    background: var(--danger-soft);
+    color: var(--danger);
   }
   .expense-list > button.category-other i {
-    background: #eef1f5;
-    color: #8290a5;
+    background: #f2f4f6;
+    color: var(--subtle);
   }
   .actions button {
     padding: 15px 7px;
