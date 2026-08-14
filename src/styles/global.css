@@ -120,6 +120,102 @@ svg text {
   }
 }
 
+/* Unified back controls: keep navigation easy to see and tap on every screen. */
+#app :where(
+  .detail-back,
+  .sim-back,
+  .filter-back,
+  .password-verification-page__back,
+  .password-change-page__back
+) {
+  min-height: 52px;
+  align-items: center;
+  border: 0;
+  color: #20242c;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+#app :where(
+  .filter-back,
+  .password-verification-page__back,
+  .password-change-page__back,
+  .sim-back:not(:has(+ .wizard-progress-tabs))
+) {
+  display: inline-flex;
+  gap: 8px;
+  padding: 0 14px 0 4px;
+}
+
+#app .detail-back,
+#app .sim-category-page > .sim-back {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  min-height: 52px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 40px;
+  line-height: 1;
+}
+
+#app :where(
+  .detail-back,
+  .sim-back,
+  .filter-back,
+  .password-verification-page__back,
+  .password-change-page__back
+):hover {
+  background: transparent;
+  color: var(--primary);
+}
+
+@media (max-width: 767px) {
+  #app .app-header__back {
+    display: inline-grid;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    margin: 0 2px 0 -8px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #20242c;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  #app :where(.onboarding-page, .recovery-page, .signup-page) .mobile-back {
+    min-width: 48px;
+    min-height: 48px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px 0 4px;
+    color: #20242c;
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  #app :where(.onboarding-page, .recovery-page, .signup-page) .mobile-back > span {
+    font-size: 26px;
+    line-height: 1;
+  }
+
+  /* The shared mobile header already provides this navigation control. */
+  #app .filter-page > .filter-back {
+    display: none;
+  }
+}
+
 /* Product body scale. Larger component-specific text keeps its own hierarchy. */
 #app .app-shell main :where(
   p,

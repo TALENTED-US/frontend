@@ -245,9 +245,6 @@ function movePage(page) {
 </template>
 
 <style scoped>
-.search-page {
-  padding-top: 8px;
-}
 .search-heading {
   margin-bottom: 42px;
 }

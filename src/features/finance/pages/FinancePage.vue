@@ -1144,8 +1144,8 @@ onMounted(async () => {
   width: 100%;
   max-width: 1080px;
   margin: 0 auto;
-  padding: 42px 0 40px;
-  color: #191f28;
+  color: #222;
+  font-weight: 400;
 }
 
 button,

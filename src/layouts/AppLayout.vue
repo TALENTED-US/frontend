@@ -66,7 +66,7 @@ watch(
 .app-shell__content {
   width: min(100%, 1180px);
   margin: 0 auto;
-  padding: 20px clamp(32px, 5vw, 64px) 96px;
+  padding: 79px clamp(32px, 5vw, 64px) 96px;
 }
 
 @media (max-width: 767px) {

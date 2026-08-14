@@ -59,17 +59,8 @@ const isFixedExpense = computed(() =>
   ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name),
 )
 const isNotifications = computed(() => route.name === 'notifications')
-const hasMobileBack = computed(
-  () =>
-    isMyPageDetail.value ||
-    isSimulationStart.value ||
-    isSimulationEdit.value ||
-    isSimulationContinue.value ||
-    isSimulationCategory.value ||
-    isSimulationPreview.value ||
-    isFixedExpense.value ||
-    isNotifications.value,
-)
+const mobileRootRoutes = ['finance', 'simulation', 'search', 'mypage']
+const hasMobileBack = computed(() => !mobileRootRoutes.includes(route.name))
 const mobileTitle = computed(() => {
   if (isMyPageDetail.value) return '마이페이지'
   if (isSimulationPreview.value) return '미리보기'
@@ -113,7 +104,8 @@ function goBack() {
       policy: '/simulation/income/preview',
     }[route.params.category]
     router.push(previousPath || '/simulation')
-  } else goBackFromMyPageDetail()
+  } else if (isMyPageDetail.value) goBackFromMyPageDetail()
+  else router.back()
 }
 
 async function openNotification(item) {
