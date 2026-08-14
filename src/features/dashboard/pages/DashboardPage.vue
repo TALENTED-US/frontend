@@ -558,9 +558,11 @@ const financialRiskAmount = computed(
 const financialSafetyBuffer = computed(() =>
   Math.max(0, (Number(totalAssets.value) || 0) - (Number(financialRiskAmount.value) || 0)),
 )
-const hasReachedFinancialRiskAmount = computed(
-  () => (Number(dashboard.totalAssets) || 0) <= financialRiskAmount.value,
-)
+const hasReachedFinancialRiskAmount = computed(() => {
+  const assets = finiteNumberOrNull(totalAssets.value)
+  const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
+  return assets !== null && riskAmount !== null && assets <= riskAmount
+})
 const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
 const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
 const monthlyNetChangeLabel = computed(() => {

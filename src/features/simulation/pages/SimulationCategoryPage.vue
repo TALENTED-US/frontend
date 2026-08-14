@@ -62,10 +62,12 @@ const isEditingConfirmedScenario = computed(
 )
 
 function profilePolicyFilters() {
-  const employment = session.currentUser.jobType === 'again' ? '재취업' : '첫취업'
+  // 현재 정책 API는 REEMPLOYMENT를 받으면 CATALOG_005를 반환한다.
+  // 재취업 사용자를 미취업자로 간주하지 않고, 지원되는 첫취업만 자동 적용한다.
+  const employment = session.currentUser.jobType === 'first' ? ['첫취업'] : []
   const region = normalizePolicyRegion(session.currentUser.region)
   const supportedRegions = policyFilterGroups[2][1]
-  return [employment, ...(supportedRegions.includes(region) ? [region] : []), '신청 가능']
+  return [...employment, ...(supportedRegions.includes(region) ? [region] : []), '신청 가능']
 }
 
 const selectedPolicyFilters = ref(profilePolicyFilters())

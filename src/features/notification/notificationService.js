@@ -1,15 +1,3 @@
-const SETTINGS_KEY = 'buttie-notification-settings'
-const LAST_PUSH_KEY = 'buttie-last-device-notification'
-
-export function readNotificationSettings() {
-  const defaults = { all: true, policy: true, finance: true, plan: true, notice: true }
-  try {
-    return { ...defaults, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}) }
-  } catch {
-    return defaults
-  }
-}
-
 export async function requestDeviceNotificationPermission() {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported'
   if (Notification.permission === 'granted') return 'granted'
@@ -49,19 +37,4 @@ export async function enableDeviceNotifications() {
     })
   }
   return permission
-}
-
-export async function notifyLatestOncePerDay() {
-  const settings = readNotificationSettings()
-  if (!settings.all || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
-
-  const todayKey = new Date().toISOString().slice(0, 10)
-  if (localStorage.getItem(LAST_PUSH_KEY) === todayKey) return
-
-  if (await showDeviceNotification('목표 재설정 경고', {
-    body: '목표 취업일과 현재 재정 계획을 다시 확인해 주세요.',
-    tag: `buttie-daily-${todayKey}`,
-  })) {
-    localStorage.setItem(LAST_PUSH_KEY, todayKey)
-  }
 }

@@ -249,11 +249,33 @@ const visibleRows = computed(() =>
 watch(categoryOptions, (options) => {
   if (!options.includes(categoryFilter.value)) categoryFilter.value = 'all'
 })
+const hasSelectedCalendarSummary = computed(
+  () => useCalendarApi && calendarState.loaded && calendarState.key === month.value,
+)
 const income = computed(() =>
-  monthRows.value.filter(isIncomeTransaction).reduce((sum, row) => sum + Math.abs(row.amount), 0),
+  useCalendarApi
+    ? hasSelectedCalendarSummary.value
+      ? Math.abs(Number(calendarState.totalIncome) || 0)
+      : 0
+    : monthRows.value
+        .filter(isIncomeTransaction)
+        .reduce((sum, row) => sum + Math.abs(row.amount), 0),
 )
 const expense = computed(() =>
-  monthRows.value.filter(isExpenseTransaction).reduce((sum, row) => sum + Math.abs(row.amount), 0),
+  useCalendarApi
+    ? hasSelectedCalendarSummary.value
+      ? Math.abs(Number(calendarState.totalExpense) || 0)
+      : 0
+    : monthRows.value
+        .filter(isExpenseTransaction)
+        .reduce((sum, row) => sum + Math.abs(row.amount), 0),
+)
+const netCashFlow = computed(() =>
+  useCalendarApi
+    ? hasSelectedCalendarSummary.value
+      ? Number(calendarState.netCashFlow) || 0
+      : 0
+    : income.value - expense.value,
 )
 const dayRows = computed(() =>
   filteredMonthRows.value.filter((row) => row.date === selectedDate.value),
@@ -275,9 +297,17 @@ const fixedTotal = computed(() => {
 })
 const categoryTotals = computed(() => {
   const result = {}
-  monthRows.value.filter(isExpenseTransaction).forEach((r) => {
-    result[r.category] = (result[r.category] || 0) + Math.abs(r.amount)
-  })
+  if (useCalendarApi) {
+    if (hasSelectedCalendarSummary.value) {
+      calendarState.categoryExpenses.forEach((item) => {
+        result[item.category] = (result[item.category] || 0) + Math.abs(Number(item.amount) || 0)
+      })
+    }
+  } else {
+    monthRows.value.filter(isExpenseTransaction).forEach((row) => {
+      result[row.category] = (result[row.category] || 0) + Math.abs(row.amount)
+    })
+  }
   return Object.entries(result).sort((a, b) => b[1] - a[1])
 })
 const categoryColors = {
@@ -496,8 +526,8 @@ onMounted(async () => {
       </article>
       <article>
         <span>순현금흐름</span
-        ><strong class="purple" :style="amountTextStyle(signed(income - expense))">{{
-          signed(income - expense)
+        ><strong class="purple" :style="amountTextStyle(signed(netCashFlow))">{{
+          signed(netCashFlow)
         }}</strong>
         <small>수입 − 지출</small>
       </article>

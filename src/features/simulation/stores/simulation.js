@@ -601,14 +601,16 @@ export const useSimulationStore = defineStore('simulation', () => {
   async function loadPolicyCatalog(customParams) {
     policyCatalogLoading.value = true
     policyCatalogError.value = ''
+    // 정책 API는 명세와 달리 REEMPLOYMENT 조회 시 CATALOG_005를 반환한다.
+    // 재취업을 UNEMPLOYED로 임의 변환하지 않고, 서버가 지원하는 첫취업만 자동 조건으로 사용한다.
     const employmentPrepStatus =
-      session.currentUser.jobType === 'again' ? 'UNEMPLOYED' : 'FIRST_JOB'
+      session.currentUser.jobType === 'first' ? 'FIRST_JOB' : undefined
     const params = customParams
       ? { ...customParams, size: 100 }
       : {
           size: 100,
           policyStatus: 'AVAILABLE',
-          employmentPrepStatus,
+          ...(employmentPrepStatus ? { employmentPrepStatus } : {}),
           ...(calculateAge(session.currentUser.birth) !== undefined
             ? { age: calculateAge(session.currentUser.birth) }
             : {}),
