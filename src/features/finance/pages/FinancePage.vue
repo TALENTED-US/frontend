@@ -1,18 +1,27 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTransactionDetailApi } from '@/api/transactions'
+import { getFixedExpenseSummaryApi, getTransactionDetailApi } from '@/api/transactions'
+import { EXPENSE_CATEGORY_OPTIONS, expenseLabelToCategory } from '@/constants/expenseCategories'
 import { calendarState, calendarTransactions, loadCalendar } from '@/features/finance/calendarStore'
 import {
   addTransaction,
+  classifyTransaction,
   deleteTransaction,
   financeState,
   financeTransactions,
   loadTransactions,
+  updateExternalTransactionMemo,
   updateTransaction,
 } from '@/features/finance/financeStore'
+import {
+  isExpenseTransaction,
+  isIncomeTransaction,
+  transactionKind,
+} from '@/features/finance/transactionAnalysis'
 
 const router = useRouter()
+const fixedExpenseSummary = ref(null)
 const useCalendarApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 
 const formatLocalIso = (date = new Date()) =>
@@ -42,6 +51,7 @@ const filter = ref('all')
 const categoryFilter = ref('all')
 const panel = ref('')
 const editingId = ref(null)
+const editingTransaction = ref(null)
 const selectedTransaction = ref(null)
 const actionError = ref('')
 const isSaving = ref(false)
@@ -54,9 +64,16 @@ const form = reactive({
   time: '12:10',
   memo: '',
 })
-
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(Number(value) || 0))
 const signed = (value) => `${Number(value) >= 0 ? '+' : '-'}${money(value)}원`
+const transactionTypeLabel = (row) =>
+  transactionKind(row) === 'income'
+    ? '수입'
+    : transactionKind(row) === 'transfer'
+      ? '계좌이체'
+      : row.analysisExcluded
+        ? '지출 · 분석 제외'
+        : '지출'
 const compactCalendarAmount = (value) => {
   const amount = Math.abs(Number(value) || 0)
   if (amount < 10000) return money(amount)
@@ -118,12 +135,43 @@ async function loadSelectedCalendar(force = false) {
   return loadCalendar(year, selectedMonth, force)
 }
 
-async function reloadFinanceData() {
-  await Promise.allSettled([loadTransactions(true), loadSelectedCalendar(true)])
+async function loadFixedExpenseSummary() {
+  if (import.meta.env.VITE_USE_MOCK_API === 'true') return null
+  try {
+    fixedExpenseSummary.value = await getFixedExpenseSummaryApi()
+    return fixedExpenseSummary.value
+  } catch {
+    fixedExpenseSummary.value = null
+    return null
+  }
 }
 
+async function reloadFinanceData() {
+  await Promise.allSettled([
+    loadTransactions(true),
+    loadSelectedCalendar(true),
+    loadFixedExpenseSummary(),
+  ])
+}
+
+const enrichedCalendarTransactions = computed(() => {
+  const transactionById = new Map(
+    financeTransactions.value.map((row) => [String(row.apiId || row.id), row]),
+  )
+  return calendarTransactions.value.map((row) => {
+    const transaction = transactionById.get(String(row.apiId || row.id))
+    return transaction
+      ? {
+          ...row,
+          analysisExcluded: transaction.analysisExcluded,
+          classificationMethod: transaction.classificationMethod,
+          transactionSource: transaction.transactionSource,
+        }
+      : row
+  })
+})
 const monthRows = computed(() =>
-  (useCalendarApi ? calendarTransactions.value : financeTransactions.value)
+  (useCalendarApi ? enrichedCalendarTransactions.value : financeTransactions.value)
     .filter((row) => row.date?.startsWith(month.value))
     .sort((a, b) => `${b.date}${b.time || ''}`.localeCompare(`${a.date}${a.time || ''}`)),
 )
@@ -131,7 +179,8 @@ const monthRows = computed(() =>
 const filteredMonthRows = computed(() =>
   monthRows.value.filter(
     (row) =>
-      filter.value === 'all' || (filter.value === 'income' ? row.amount > 0 : row.amount < 0),
+      filter.value === 'all' ||
+      (filter.value === 'income' ? isIncomeTransaction(row) : isExpenseTransaction(row)),
   ),
 )
 
@@ -156,7 +205,6 @@ const visibleRows = computed(() =>
     (row) => categoryFilter.value === 'all' || row.category === categoryFilter.value,
   ),
 )
-
 const displayedRows = computed(() =>
   selectedDayActive.value
     ? monthRows.value.filter((row) => row.date === selectedDate.value)
@@ -172,10 +220,17 @@ const hiddenRowCount = computed(() =>
   Math.max(0, displayedRows.value.length - renderedRows.value.length),
 )
 
+const hasSelectedCalendarSummary = computed(
+  () => useCalendarApi && calendarState.loaded && calendarState.key === month.value,
+)
 const income = computed(() =>
   useCalendarApi
-    ? calendarState.totalIncome
-    : monthRows.value.filter((row) => row.amount > 0).reduce((sum, row) => sum + row.amount, 0),
+    ? hasSelectedCalendarSummary.value
+      ? Math.abs(Number(calendarState.totalIncome) || 0)
+      : 0
+    : monthRows.value
+        .filter(isIncomeTransaction)
+        .reduce((sum, row) => sum + Math.abs(row.amount), 0),
 )
 
 const normalizeAnalysisCategory = (category) => (category === '월세' ? '주거' : category || '기타')
@@ -198,22 +253,43 @@ const housingExpenseSupplement = computed(() =>
 
 const expense = computed(() =>
   useCalendarApi
-    ? calendarState.totalExpense + housingExpenseSupplement.value
+    ? hasSelectedCalendarSummary.value
+      ? Math.abs(Number(calendarState.totalExpense) || 0) + housingExpenseSupplement.value
+      : 0
     : monthRows.value
-        .filter((row) => row.amount < 0)
+        .filter(isExpenseTransaction)
         .reduce((sum, row) => sum + Math.abs(row.amount), 0),
 )
 
-const netCashFlow = computed(() => income.value - expense.value)
-const fixedTotal = computed(() =>
-  monthRows.value
-    .filter((row) => row.amount < 0 && (row.fixed || isHousingRow(row)))
-    .reduce((sum, row) => sum + Math.abs(row.amount), 0),
+const netCashFlow = computed(() =>
+  useCalendarApi
+    ? hasSelectedCalendarSummary.value
+      ? Number(calendarState.netCashFlow) || income.value - expense.value
+      : 0
+    : income.value - expense.value,
 )
 
+const fixedTotal = computed(() => {
+  const now = new Date()
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`
+  if (month.value === currentMonthKey) {
+    const currentTotal = Number(fixedExpenseSummary.value?.currentMonthTotalFixedExpenseAmount)
+    if (Number.isFinite(currentTotal)) return Math.abs(currentTotal)
+  }
+  if (month.value === lastMonthKey) {
+    const lastTotal = Number(fixedExpenseSummary.value?.lastMonthTotalFixedExpenseAmount)
+    if (Number.isFinite(lastTotal)) return Math.abs(lastTotal)
+  }
+  return monthRows.value
+    .filter((row) => isExpenseTransaction(row) && (row.fixed || isHousingRow(row)))
+    .reduce((sum, row) => sum + Math.abs(row.amount), 0)
+})
+
 const categoryTotals = computed(() => {
-  if (useCalendarApi && calendarState.categoryExpenses.length) {
-    const totals = {}
+  const totals = {}
+  if (useCalendarApi && hasSelectedCalendarSummary.value) {
     calendarState.categoryExpenses.forEach((item) => {
       const category = normalizeAnalysisCategory(item.category)
       totals[category] = (totals[category] || 0) + Math.abs(Number(item.amount) || 0)
@@ -221,16 +297,12 @@ const categoryTotals = computed(() => {
     if (housingExpenseSupplement.value) {
       totals.주거 = (totals.주거 || 0) + housingExpenseSupplement.value
     }
-    return Object.entries(totals).sort((a, b) => b[1] - a[1])
-  }
-
-  const totals = {}
-  monthRows.value
-    .filter((row) => row.amount < 0)
-    .forEach((row) => {
+  } else if (!useCalendarApi) {
+    monthRows.value.filter(isExpenseTransaction).forEach((row) => {
       const category = normalizeAnalysisCategory(row.category)
       totals[category] = (totals[category] || 0) + Math.abs(row.amount)
     })
+  }
   return Object.entries(totals).sort((a, b) => b[1] - a[1])
 })
 
@@ -348,10 +420,10 @@ const days = computed(() => {
     const iso = current ? `${month.value}-${String(date).padStart(2, '0')}` : ''
     const rows = current ? monthRows.value.filter((row) => row.date === iso) : []
     const incomeTotal = rows
-      .filter((row) => row.amount > 0)
-      .reduce((sum, row) => sum + row.amount, 0)
+      .filter(isIncomeTransaction)
+      .reduce((sum, row) => sum + Math.abs(row.amount), 0)
     const expenseTotal = rows
-      .filter((row) => row.amount < 0)
+      .filter(isExpenseTransaction)
       .reduce((sum, row) => sum + Math.abs(row.amount), 0)
     return { date, current, iso, incomeTotal, expenseTotal }
   })
@@ -426,6 +498,7 @@ function openAdd() {
   actionError.value = ''
   selectedTransaction.value = null
   editingId.value = null
+  editingTransaction.value = null
   Object.assign(form, {
     type: 'expense',
     amount: '',
@@ -448,7 +521,7 @@ async function openDetail(row) {
   actionError.value = ''
   panel.value = 'detail'
   const transactionId = String(row.apiId || row.id || '')
-  if (!/^\d+$/.test(transactionId)) return
+  if (!transactionId) return
   try {
     const detail = await getTransactionDetailApi(transactionId)
     const [date = row.date, rawTime = row.time] = String(detail?.transactionAt || '').split('T')
@@ -461,18 +534,24 @@ async function openDetail(row) {
       amount:
         detail?.transactionAmount == null
           ? row.amount
-          : Math.abs(Number(detail.transactionAmount)) * (row.amount > 0 ? 1 : -1),
+          : Math.abs(Number(detail.transactionAmount)) *
+            (detail.transactionType === 'INCOME' ? 1 : -1),
+      transactionType: detail?.transactionType || row.transactionType,
+      transactionSource: detail?.transactionSource || row.transactionSource,
+      classificationMethod: detail?.classificationMethod || row.classificationMethod,
+      analysisExcluded: Boolean(detail?.analysisExcluded ?? row.analysisExcluded),
     }
   } catch (error) {
-    if (error.status !== 400) actionError.value = error.message
+    actionError.value = error.message || '거래 상세 정보를 불러오지 못했습니다.'
   }
 }
 
 function openEdit(row) {
   actionError.value = ''
   editingId.value = row.apiId || row.id
+  editingTransaction.value = row
   Object.assign(form, {
-    type: row.amount > 0 ? 'income' : 'expense',
+    type: transactionKind(row) === 'income' ? 'income' : 'expense',
     amount: String(Math.abs(row.amount)),
     category: row.amount > 0 ? '수입' : row.category,
     date: row.date,
@@ -481,7 +560,6 @@ function openEdit(row) {
   })
   panel.value = 'form'
 }
-
 async function save() {
   if (!Number(form.amount) || !form.date) return
   const payload = {
@@ -496,8 +574,23 @@ async function save() {
   actionError.value = ''
   isSaving.value = true
   try {
-    if (editingId.value) await updateTransaction(editingId.value, payload)
-    else await addTransaction(payload)
+    if (editingId.value) {
+      const source = editingTransaction.value?.transactionSource
+      const type = editingTransaction.value?.transactionType
+      if (!source || source === 'MANUAL') {
+        await updateTransaction(editingId.value, payload)
+      } else if (type === 'TRANSFER') {
+        await classifyTransaction(editingId.value, {
+          transactionType: form.type === 'income' ? 'INCOME' : 'EXPENSE',
+          expenseCategory: expenseLabelToCategory(form.category),
+        })
+        if (form.memo !== (editingTransaction.value?.memo || '')) {
+          await updateExternalTransactionMemo(editingId.value, form.memo)
+        }
+      } else {
+        await updateExternalTransactionMemo(editingId.value, form.memo)
+      }
+    } else await addTransaction(payload)
     await loadSelectedCalendar(true).catch(() => {})
     panel.value = ''
   } catch (error) {
@@ -507,6 +600,18 @@ async function save() {
   }
 }
 
+const isExternalEdit = computed(() =>
+  Boolean(
+    editingId.value &&
+    editingTransaction.value?.transactionSource &&
+    editingTransaction.value.transactionSource !== 'MANUAL',
+  ),
+)
+const isTransferEdit = computed(
+  () => isExternalEdit.value && editingTransaction.value?.transactionType === 'TRANSFER',
+)
+const canEditTransactionFields = computed(() => !isExternalEdit.value || isTransferEdit.value)
+const canDeleteTransaction = computed(() => !isExternalEdit.value)
 async function remove() {
   if (!editingId.value || isSaving.value) return
   actionError.value = ''
@@ -537,7 +642,7 @@ watch(month, () => {
 })
 
 onMounted(async () => {
-  await Promise.allSettled([loadTransactions(), loadSelectedCalendar()])
+  await Promise.allSettled([loadTransactions(), loadSelectedCalendar(), loadFixedExpenseSummary()])
 })
 </script>
 
@@ -893,7 +998,6 @@ onMounted(async () => {
       <aside class="sheet" role="dialog" aria-modal="true">
         <button class="sheet__close" type="button" aria-label="닫기" @click="panel = ''">×</button>
         <p v-if="actionError" class="sheet-error">{{ actionError }}</p>
-
         <template v-if="panel === 'detail' && selectedTransaction">
           <p class="sheet__eyebrow">TRANSACTION</p>
           <h2>거래 상세</h2>
@@ -902,7 +1006,7 @@ onMounted(async () => {
               {{ categoryIcon(selectedTransaction.category, selectedTransaction.amount) }}
             </i>
             <span>
-              <small>{{ selectedTransaction.amount > 0 ? '수입' : '지출' }}</small>
+              <small>{{ transactionTypeLabel(selectedTransaction) }}</small>
               <strong>{{ selectedTransaction.title }}</strong>
             </span>
             <b :class="{ income: selectedTransaction.amount > 0 }">
@@ -944,6 +1048,7 @@ onMounted(async () => {
             <button
               type="button"
               :class="{ active: form.type === 'expense' }"
+              :disabled="!canEditTransactionFields"
               @click="setFormType('expense')"
             >
               지출
@@ -951,13 +1056,14 @@ onMounted(async () => {
             <button
               type="button"
               :class="{ active: form.type === 'income' }"
+              :disabled="!canEditTransactionFields"
               @click="setFormType('income')"
             >
               수입
             </button>
           </div>
           <button
-            v-if="editingId"
+            v-if="editingId && canDeleteTransaction"
             class="delete-button"
             type="button"
             :disabled="isSaving"
@@ -968,29 +1074,19 @@ onMounted(async () => {
           <label class="sheet-field">
             <span>금액</span>
             <div>
-              <input v-model="formattedAmount" type="text" inputmode="numeric" placeholder="0" /><b
-                >원</b
-              >
+              <input
+                v-model="formattedAmount"
+                type="text"
+                inputmode="numeric"
+                placeholder="0"
+                :disabled="isExternalEdit"
+              /><b>원</b>
             </div>
           </label>
           <label v-if="form.type === 'expense'" class="sheet-field">
             <span>카테고리</span>
-            <select v-model="form.category">
-              <option
-                v-for="name in [
-                  '식비',
-                  '주거',
-                  '교통',
-                  '구독',
-                  '보험',
-                  '교육',
-                  '쇼핑',
-                  '의료',
-                  '여가',
-                  '기타',
-                ]"
-                :key="name"
-              >
+            <select v-model="form.category" :disabled="isExternalEdit && !isTransferEdit">
+              <option v-for="name in EXPENSE_CATEGORY_OPTIONS" :key="name">
                 {{ name }}
               </option>
             </select>
@@ -998,19 +1094,39 @@ onMounted(async () => {
           <div class="form-grid">
             <label class="sheet-field">
               <span>거래일</span>
-              <input v-model="formattedDate" type="text" inputmode="numeric" />
+              <input
+                v-model="formattedDate"
+                type="text"
+                inputmode="numeric"
+                :disabled="isExternalEdit"
+              />
             </label>
             <label class="sheet-field">
               <span>시간</span>
-              <input v-model="form.time" type="time" />
+              <input v-model="form.time" type="time" :disabled="isExternalEdit" />
             </label>
           </div>
+          <p v-if="isExternalEdit" class="form-label">
+            {{
+              isTransferEdit
+                ? '계좌이체는 수입·지출 분류와 메모만 변경할 수 있어요.'
+                : '외부 거래는 메모만 변경할 수 있어요.'
+            }}
+          </p>
           <label class="sheet-field">
             <span>메모</span>
             <input v-model="form.memo" placeholder="거래 내용을 입력해 주세요" />
           </label>
           <button class="sheet__primary" type="button" :disabled="isSaving" @click="save">
-            {{ isSaving ? '저장 중...' : editingId ? '변경사항 저장' : '거래 저장' }}
+            {{
+              isSaving
+                ? '저장 중...'
+                : editingId
+                  ? '변경사항 저장'
+                  : form.type === 'income'
+                    ? '수입 저장'
+                    : '지출 저장'
+            }}
           </button>
         </template>
       </aside>

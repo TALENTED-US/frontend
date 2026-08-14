@@ -33,8 +33,7 @@ const deadlineFilters = {
 }
 const employmentFilters = {
   첫취업: 'FIRST_JOB',
-  // 서비스에서는 재취업 준비자를 현재 미취업 상태로 간주한다.
-  재취업: 'UNEMPLOYED',
+  재취업: 'REEMPLOYMENT',
   재직자: 'EMPLOYED',
   예비창업자: 'PROSPECTIVE_FOUNDER',
   미취업자: 'UNEMPLOYED',

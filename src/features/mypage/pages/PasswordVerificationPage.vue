@@ -1,26 +1,64 @@
 <script setup>
-import { onBeforeUnmount, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { findEmailApi } from '@/api/auth'
 import { useSessionStore } from '@/stores/session'
+import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
+import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
 
 const router = useRouter()
 const session = useSessionStore()
-const isVerifying = ref(false)
-let verificationTimer
+const {
+  isVerifying,
+  verificationError,
+  startIdentityVerification,
+  restoreIdentityVerificationRedirect,
+  resetIdentityVerification,
+} = useIdentityVerification(IDENTITY_VERIFICATION_PURPOSE.CHANGE_PASSWORD)
+const isCheckingAccount = ref(false)
+const accountVerificationError = ref('')
 
-onBeforeUnmount(() => {
-  window.clearTimeout(verificationTimer)
-})
-
-function completeVerification() {
-  if (isVerifying.value) return
-
-  isVerifying.value = true
-  verificationTimer = window.setTimeout(() => {
-    session.verifyPasswordChange()
-    router.push('/mypage/security/password')
-  }, 450)
+async function completeVerification() {
+  accountVerificationError.value = ''
+  const result = await startIdentityVerification({ accountId: session.currentUser.email })
+  await handleCompletedVerification(result?.verification)
 }
+
+async function handleCompletedVerification(verification) {
+  if (!verification?.identityVerificationToken) return
+
+  const identityVerificationToken = verification.identityVerificationToken
+  isCheckingAccount.value = true
+  accountVerificationError.value = ''
+
+  try {
+    const result = await findEmailApi(identityVerificationToken)
+    const verifiedEmail = String(result?.email || '')
+      .trim()
+      .toLowerCase()
+    const currentEmail = String(session.currentUser.email || '')
+      .trim()
+      .toLowerCase()
+
+    if (!verifiedEmail || !currentEmail || verifiedEmail !== currentEmail) {
+      throw new Error('현재 로그인한 계정의 본인인증 정보와 일치하지 않습니다.')
+    }
+
+    session.verifyPasswordChange(identityVerificationToken)
+    await router.push('/mypage/security/password')
+  } catch (error) {
+    session.clearPasswordChangeVerification()
+    resetIdentityVerification()
+    accountVerificationError.value =
+      error?.status === 404
+        ? '현재 로그인한 계정의 본인인증 정보와 일치하지 않습니다.'
+        : error?.message || '계정 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+  } finally {
+    isCheckingAccount.value = false
+  }
+}
+
+onMounted(async () => handleCompletedVerification(await restoreIdentityVerificationRedirect()))
 </script>
 
 <template>
@@ -40,11 +78,17 @@ function completeVerification() {
       <button
         class="simple-verification"
         type="button"
-        :disabled="isVerifying"
+        :disabled="isVerifying || isCheckingAccount"
         @click="completeVerification"
       >
-        <span>{{ isVerifying ? '인증 확인 중...' : '간편 본인인증' }}</span>
+        <span>{{ isVerifying || isCheckingAccount ? '인증 확인 중...' : '간편 본인인증' }}</span>
       </button>
+      <small v-if="verificationError" class="password-error" role="alert">{{
+        verificationError
+      }}</small>
+      <small v-else-if="accountVerificationError" class="password-error" role="alert">{{
+        accountVerificationError
+      }}</small>
       <small>인증 완료 후 다음 단계로 진행할 수 있어요.</small>
     </div>
   </section>
@@ -117,6 +161,10 @@ function completeVerification() {
   color: #6d6d73;
   text-align: center;
   font-size: var(--font-body);
+}
+
+.verification-content > .password-error {
+  color: #e34c4c;
 }
 
 @media (max-width: 767px) {

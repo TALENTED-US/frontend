@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import { notifyLatestOncePerDay } from '@/features/notification/notificationService'
 import {
   loadNotifications,
   markNotificationRead,
@@ -77,7 +76,6 @@ onMounted(async () => {
   } catch {
     // 사이드바 렌더링은 유지하고 팝오버에서 오류를 안내합니다.
   }
-  notifyLatestOncePerDay()
 })
 
 onBeforeUnmount(() => {

@@ -11,67 +11,16 @@ const CATEGORY_META = Object.freeze({
 
 const EXPENSE_ICONS = Object.freeze({
   FOOD: '🍚',
-  TRANSPORT: '🚌',
-  HOUSING: '🏠',
-  COMMUNICATION: '📱',
-  SUBSCRIPTION: '📺',
-  EDUCATION: '📚',
-  CERTIFICATE: '📄',
-  ETC_EXPENSE: '🧾',
+  ALCOHOL_ENTERTAINMENT: '🍺',
+  CAFE_SNACK: '☕',
+  JOB_PREPARATION: '📚',
+  SHOPPING: '🛍️',
+  HOBBY_LEISURE: '🎮',
+  HOUSING_COMMUNICATION: '🏠',
+  TRANSPORT_FUEL: '🚌',
+  HEALTH_FITNESS: '🏥',
+  OTHER_FINANCE: '🧾',
 })
-
-const EXPENSE_CATEGORY_BY_NAME = Object.freeze({
-  '식비': 'FOOD',
-  '교통': 'TRANSPORT',
-  '교통비': 'TRANSPORT',
-  '주거': 'HOUSING',
-  '월세': 'HOUSING',
-  '통신비': 'COMMUNICATION',
-  '구독': 'SUBSCRIPTION',
-  '구독비': 'SUBSCRIPTION',
-  '교육': 'EDUCATION',
-  '교육비': 'EDUCATION',
-  '자격증': 'CERTIFICATE',
-  '자격증 비용': 'CERTIFICATE',
-  '기타': 'ETC_EXPENSE',
-})
-
-function questMatchesPlan(item, plan) {
-  if (!plan) return true
-
-  const category = item?.simulationItemCategory
-  const amount = Number(item?.amount) || 0
-  const matchesRemoteItem = (planItem) =>
-    !planItem.remoteId
-    || !item?.simulationItemId
-    || String(planItem.remoteId) === String(item.simulationItemId)
-
-  if (category === 'EXPENSE') {
-    return (plan.expenses || []).some((expense) =>
-      matchesRemoteItem(expense)
-      && EXPENSE_CATEGORY_BY_NAME[expense.name] === item?.expenseCategory
-      && Number(expense.saving) === amount,
-    )
-  }
-
-  if (category === 'INCOME') {
-    return (plan.incomes || []).some((income) =>
-      matchesRemoteItem(income)
-      && income.name === item?.displayName
-      && Number(income.amount) === amount
-      && (income.type === 'once' ? 'ONCE' : 'MONTHLY') === item?.recurrenceType,
-    )
-  }
-
-  if (category === 'POLICY') {
-    return (plan.policies || []).some((policy) =>
-      matchesRemoteItem(policy)
-      && policy.name === (item?.policyName || item?.displayName),
-    )
-  }
-
-  return false
-}
 
 function dedupeQuests(quests) {
   const unique = new Map()
@@ -134,10 +83,7 @@ export const useQuestStore = defineStore('quest', () => {
     return pendingIds.value.includes(questId)
   }
 
-  async function fetchQuests(
-    simulationId = activeSimulationId.value,
-    plan = activePlan.value,
-  ) {
+  async function fetchQuests(simulationId = activeSimulationId.value, plan = activePlan.value) {
     if (!remoteEnabled) return []
     loading.value = true
     error.value = ''
@@ -147,10 +93,11 @@ export const useQuestStore = defineStore('quest', () => {
       activeSimulationId.value = nextSimulationId
       activePlan.value = plan || null
       items.value = Array.isArray(result)
-        ? dedupeQuests(result.filter((item) =>
-            (!nextSimulationId || String(item?.simulationId || '') === nextSimulationId)
-            && questMatchesPlan(item, activePlan.value),
-          ))
+        ? dedupeQuests(
+            result.filter(
+              (item) => !nextSimulationId || String(item?.simulationId || '') === nextSimulationId,
+            ),
+          )
         : []
       loaded.value = true
       return items.value

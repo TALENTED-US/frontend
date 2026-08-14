@@ -450,7 +450,6 @@ async function disconnectAccount(account) {
   const isLastAsset = accounts.value.length === 1
 
   if (session.isMockMode) {
-    if (isLastAsset) resetFixedTransactions()
     accounts.value = accounts.value.filter((item) => item !== account)
     dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
     if (!accounts.value.length) {
@@ -465,12 +464,6 @@ async function disconnectAccount(account) {
   disconnectingAssetId.value = `${account.assetType}:${account.id}`
   dataRefreshMessage.value = ''
   try {
-    if (isLastAsset && !(await resetFixedTransactions())) {
-      dataRefreshMessage.value =
-        '고정지출을 초기화하지 못해 마지막 자산의 연결 해제를 중단했습니다. 다시 시도해 주세요.'
-      return
-    }
-
     await disconnectMyDataAsset(account.assetType, account.id)
     accounts.value = accounts.value.filter((item) => item !== account)
     if (!accounts.value.length) {
@@ -517,14 +510,8 @@ async function disconnectAllAssets() {
 
   const assetsToDisconnect = [...accounts.value]
   dataLoading.value = true
-  dataRefreshMessage.value = '기존 고정지출과 금융 자산 연결을 정리하고 있어요.'
+  dataRefreshMessage.value = '금융 자산 연결을 해제하고 있어요.'
   try {
-    const fixedReset = await resetFixedTransactions()
-    if (!fixedReset) {
-      dataRefreshMessage.value = '고정지출을 초기화하지 못해 연결 해제를 중단했습니다. 다시 시도해 주세요.'
-      return
-    }
-
     const failedAssets = []
     for (const account of assetsToDisconnect) {
       try {

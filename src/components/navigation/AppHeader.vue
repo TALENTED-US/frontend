@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import { notifyLatestOncePerDay } from '@/features/notification/notificationService'
 import { useSessionStore } from '@/stores/session'
 import {
   loadNotifications,
@@ -139,7 +138,6 @@ onMounted(async () => {
   try {
     await loadNotifications()
   } catch {}
-  notifyLatestOncePerDay()
 })
 onBeforeUnmount(() => document.removeEventListener('pointerdown', closePopoverOnOutsideClick))
 watch(
