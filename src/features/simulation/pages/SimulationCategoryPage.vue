@@ -6,6 +6,7 @@ import { useSessionStore } from '@/stores/session'
 import { financeState, loadTransactions } from '@/features/finance/financeStore'
 import '@/features/simulation/styles/simulation.css'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -184,7 +185,7 @@ async function deleteIncome(id) {
 const incomeIcon = (item) => (item.type === 'monthly' ? '♨' : '▦')
 const incomeSchedule = (item) =>
   item.type === 'monthly'
-    ? `정기수입 · ${item.cycle || '매월'} ${Number(item.startDate?.slice(-2)) || 1}일`
+    ? `${item.cycle || '매월'} ${Number(item.startDate?.slice(-2)) || 1}일`
     : `일회성 수입 · ${profileDate(item.startDate)}`
 
 function selectExpense(item, loadSaved = false) {
@@ -208,7 +209,9 @@ async function addExpenseGoal() {
   const amount = Number(expenseAmount.value)
   if (!activeExpense.value || amount <= 0 || amount > activeExpense.value.current) return
   if (!(await simulation.saveExpenseGoal(activeExpense.value.id, amount))) return
-  const currentIndex = simulation.state.expenses.findIndex((item) => item.id === activeExpense.value.id)
+  const currentIndex = simulation.state.expenses.findIndex(
+    (item) => item.id === activeExpense.value.id,
+  )
   const nextExpense = simulation.state.expenses
     .slice(currentIndex + 1)
     .concat(simulation.state.expenses.slice(0, currentIndex + 1))
@@ -402,7 +405,7 @@ function skip() {
             type="range"
             min="0"
             :max="activeExpense.current"
-            step="10000"
+            step="1"
             :value="Number(expenseAmount) || 0"
             :style="expenseRangeStyle"
             :disabled="activeExpense.current <= 0"
@@ -432,7 +435,9 @@ function skip() {
               type="button"
               :disabled="simulation.syncing"
               @click="deleteExpenseGoal(activeExpense)"
-            >삭제</button>
+            >
+              삭제
+            </button>
             <button
               class="expense-add-button simulation-primary-cta"
               :disabled="
@@ -458,16 +463,30 @@ function skip() {
           아직 추가한 목표가 없어요.<br />위에서 카테고리를 골라 금액을 정해보세요.
         </div>
         <article v-for="item in simulation.selectedExpenses" :key="item.id">
-          <i
+          <i class="expense-goal-icon"
             ><svg viewBox="0 0 24 24" aria-hidden="true">
               <path :d="expenseIconPath(item.name)" /></svg></i
-          ><strong>{{ item.name }} 줄이기</strong>
+          ><strong class="expense-goal-name">{{ item.name }} 줄이기</strong>
           <div class="expense-goal-controls">
             <strong>-{{ goalAmount(item.saving) }}</strong
             ><span
-              ><button @click="editExpenseGoal(item)">수정</button
-              ><button @click="deleteExpenseGoal(item)">삭제</button></span
-            >
+              ><button
+                class="expense-goal-edit"
+                type="button"
+                aria-label="수정"
+                title="수정"
+                @click="editExpenseGoal(item)"
+              >
+                <AppIcon name="edit" :size="17" /></button
+              ><button
+                class="expense-goal-delete"
+                type="button"
+                aria-label="삭제"
+                title="삭제"
+                @click="deleteExpenseGoal(item)"
+              >
+                <AppIcon name="trash" :size="17" /></button
+            ></span>
           </div>
         </article>
         <footer>
@@ -564,9 +583,11 @@ function skip() {
           <div class="income-plan-controls">
             <strong>{{ goalAmount(item.amount) }}{{ item.type === 'once' ? ' (일시)' : '' }}</strong
             ><span
-              ><button type="button" @click="editIncome(item)">수정</button
-              ><button type="button" @click="deleteIncome(item.id)">삭제</button></span
-            >
+              ><button type="button" aria-label="수정" title="수정" @click="editIncome(item)">
+                <AppIcon name="edit" :size="17" /></button
+              ><button type="button" aria-label="삭제" title="삭제" @click="deleteIncome(item.id)">
+                <AppIcon name="trash" :size="17" /></button
+            ></span>
           </div>
         </article>
         <footer>
@@ -599,9 +620,8 @@ function skip() {
             <span><small>거주지역</small>{{ session.currentUser.region || '미입력' }}</span>
             <span><small>취업 준비 상태</small>{{ jobTypeLabel }}</span>
             <span
-              ><small>가구원 수</small>{{
-                session.currentUser.family ? `${session.currentUser.family}명` : '미입력'
-              }}</span
+              ><small>가구원 수</small
+              >{{ session.currentUser.family ? `${session.currentUser.family}명` : '미입력' }}</span
             >
           </div>
           <span>{{ simulation.policyCatalog.length }}개</span>
@@ -633,7 +653,11 @@ function skip() {
                 @click="togglePolicyDetails(policy.id)"
               >
                 <span>자세히 보기</span>
-                <svg :class="{ open: expandedPolicyIds.has(policy.id) }" viewBox="0 0 16 16" aria-hidden="true">
+                <svg
+                  :class="{ open: expandedPolicyIds.has(policy.id) }"
+                  viewBox="0 0 16 16"
+                  aria-hidden="true"
+                >
                   <path d="m4 6 4 4 4-4" />
                 </svg>
               </button>
@@ -656,11 +680,22 @@ function skip() {
               :id="`policy-details-${policy.id}`"
               class="policy-detail-panel"
             >
-              <p><span>지원 혜택</span><strong>{{ policy.benefit || policy.detail }}</strong></p>
-              <p><span>지원 기간</span><strong>{{ policy.months }}개월</strong></p>
-              <p><span>신청 기한</span><strong>{{ policy.deadline }}</strong></p>
-              <p><span>필요 서류</span><strong>{{ policy.requiredDocument || '상세 페이지에서 확인' }}</strong></p>
-              <a v-if="policy.url" :href="policy.url" target="_blank" rel="noopener noreferrer">정책 상세 페이지 열기</a>
+              <p>
+                <span>지원 혜택</span><strong>{{ policy.benefit || policy.detail }}</strong>
+              </p>
+              <p>
+                <span>지원 기간</span><strong>{{ policy.months }}개월</strong>
+              </p>
+              <p>
+                <span>신청 기한</span><strong>{{ policy.deadline }}</strong>
+              </p>
+              <p>
+                <span>필요 서류</span
+                ><strong>{{ policy.requiredDocument || '상세 페이지에서 확인' }}</strong>
+              </p>
+              <a v-if="policy.url" :href="policy.url" target="_blank" rel="noopener noreferrer"
+                >정책 상세 페이지 열기</a
+              >
             </div>
           </article>
         </div>
@@ -688,25 +723,47 @@ function skip() {
                 @click="togglePolicyDetails(item.id)"
               >
                 <span>자세히 보기</span>
-                <svg :class="{ open: expandedPolicyIds.has(item.id) }" viewBox="0 0 16 16" aria-hidden="true">
+                <svg
+                  :class="{ open: expandedPolicyIds.has(item.id) }"
+                  viewBox="0 0 16 16"
+                  aria-hidden="true"
+                >
                   <path d="m4 6 4 4 4-4" />
                 </svg>
               </button>
               <b>{{ item.detail }}</b>
             </div>
-            <button type="button" :disabled="simulation.syncing" @click="deletePolicy(item)">
-              삭제
+            <button
+              class="policy-delete-action"
+              type="button"
+              aria-label="삭제"
+              title="삭제"
+              :disabled="simulation.syncing"
+              @click="deletePolicy(item)"
+            >
+              <AppIcon name="trash" :size="17" />
             </button>
             <div
               v-if="expandedPolicyIds.has(item.id)"
               :id="`selected-policy-details-${item.id}`"
               class="policy-detail-panel"
             >
-              <p><span>지원 혜택</span><strong>{{ item.benefit || item.detail }}</strong></p>
-              <p><span>지원 기간</span><strong>{{ item.months }}개월</strong></p>
-              <p><span>신청 기한</span><strong>{{ item.deadline }}</strong></p>
-              <p><span>필요 서류</span><strong>{{ item.requiredDocument || '상세 페이지에서 확인' }}</strong></p>
-              <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">정책 상세 페이지 열기</a>
+              <p>
+                <span>지원 혜택</span><strong>{{ item.benefit || item.detail }}</strong>
+              </p>
+              <p>
+                <span>지원 기간</span><strong>{{ item.months }}개월</strong>
+              </p>
+              <p>
+                <span>신청 기한</span><strong>{{ item.deadline }}</strong>
+              </p>
+              <p>
+                <span>필요 서류</span
+                ><strong>{{ item.requiredDocument || '상세 페이지에서 확인' }}</strong>
+              </p>
+              <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer"
+                >정책 상세 페이지 열기</a
+              >
             </div>
           </article>
         </div>
@@ -1017,7 +1074,10 @@ function skip() {
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
-  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
 }
 
 .sim-category-page .expense-category-tabs button svg {
@@ -1260,7 +1320,7 @@ function skip() {
 }
 
 .sim-category-page .expense-amount-options button {
-  padding: 6px 10px;
+  padding: 6px 14px;
   border: 1px solid rgb(190 160 50 / 30%);
   border-radius: 999px;
   background: rgb(255 255 255 / 75%);
@@ -2299,7 +2359,7 @@ function skip() {
     gap: 0;
     padding: 6px 2px;
     font-size: 15px !important;
-    letter-spacing: -.4px;
+    letter-spacing: -0.4px;
   }
 
   .sim-category-page .expense-category-tabs button svg {
@@ -2322,5 +2382,231 @@ function skip() {
     font-weight: 600;
     white-space: nowrap;
   }
+}
+
+/* 추가된 절약 목표 행은 모든 화면에서 한 줄 높이와 동작 간격을 작게 유지한다. */
+.sim-category-page .added-expense-goals article {
+  min-height: 0;
+  gap: 8px;
+  padding: 9px 12px;
+}
+
+.sim-category-page .added-expense-goals article > i {
+  width: 26px;
+  height: 26px;
+}
+
+.sim-category-page .added-expense-goals .expense-goal-controls {
+  display: grid;
+  min-width: 0;
+  justify-items: end;
+  gap: 2px;
+}
+
+.sim-category-page .added-expense-goals .expense-goal-controls > span {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.sim-category-page .added-expense-goals .expense-goal-controls > span > button,
+.sim-category-page .added-expense-goals .expense-goal-controls > span > button:first-child,
+.sim-category-page .added-expense-goals .expense-goal-controls > span > button:last-child {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 1px;
+  line-height: 1.2;
+}
+
+.sim-category-page .added-expense-goals {
+  gap: 7px;
+}
+
+.sim-category-page .added-expense-goals article {
+  grid-template-columns: 20px minmax(0, 1fr) auto !important;
+  column-gap: 8px;
+  row-gap: 0;
+  margin-top: 0;
+  padding: 6px 10px;
+}
+
+.sim-category-page .added-expense-goals article > i {
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  justify-self: center;
+}
+
+.sim-category-page .added-expense-goals article > i svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sim-category-page .added-expense-goals article > strong {
+  min-width: 0;
+  align-self: center;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sim-category-page .added-expense-goals .expense-goal-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding-right: 1px;
+}
+
+.sim-category-page .added-expense-goals .expense-goal-controls > strong {
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.sim-category-page .added-expense-goals .expense-goal-controls > span {
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sim-category-page .expense-goal-controls > span > button,
+.sim-category-page .income-plan-controls > span > button {
+  display: grid;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-decoration: none;
+}
+
+.sim-category-page .expense-goal-controls > span > button:hover,
+.sim-category-page .income-plan-controls > span > button:hover {
+  background: #f5f2ea;
+}
+
+.sim-category-page .expense-goal-controls > span > button .app-icon,
+.sim-category-page .income-plan-controls > span > button .app-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.sim-category-page .expense-goal-controls > span > button:first-child,
+.sim-category-page .income-plan-controls > span > button:first-child {
+  color: #5f8df7 !important;
+}
+
+.sim-category-page .expense-goal-controls > span > button:last-child,
+.sim-category-page .income-plan-controls > span > button:last-child {
+  color: #ef5b5b !important;
+}
+
+.sim-category-page .policy-selected-list article > button.policy-delete-action {
+  display: grid;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #ef5b5b !important;
+}
+
+.sim-category-page .policy-selected-list article > button.policy-delete-action:hover {
+  background: #fff0f0;
+}
+
+.sim-category-page .policy-selected-list article > button.policy-delete-action .app-icon {
+  width: 17px;
+  height: 17px;
+}
+
+@media (max-width: 767px) {
+  .sim-category-page .added-expense-goals article {
+    grid-template-columns: 18px minmax(0, 1fr) auto !important;
+    column-gap: 6px;
+  }
+
+  .sim-category-page .added-expense-goals article > i {
+    width: 16px;
+    height: 16px;
+  }
+
+  .sim-category-page .added-expense-goals article > i svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  :global(#app .app-shell main .sim-category-page .added-expense-goals article > strong),
+  :global(
+    #app .app-shell main .sim-category-page .added-expense-goals .expense-goal-controls > strong
+  ),
+  :global(
+    #app
+      .app-shell
+      main
+      .sim-category-page
+      .added-expense-goals
+      .expense-goal-controls
+      > span
+      > button
+  ) {
+    font-size: 13px !important;
+  }
+}
+
+/* 기존 공통 !important 규칙보다 우선해 지출 목표 행의 실제 배치를 고정한다. */
+:global(#app .app-shell main .sim-category-page .added-expense-goals article) {
+  grid-template-columns: 24px minmax(0, 1fr) auto !important;
+  column-gap: 10px !important;
+  padding: 6px 14px !important;
+}
+
+:global(
+  #app .app-shell main .sim-category-page .added-expense-goals article > i.expense-goal-icon
+) {
+  display: grid !important;
+  width: 30px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  justify-self: center;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+:global(
+  #app .app-shell main .sim-category-page .added-expense-goals article > i.expense-goal-icon svg
+) {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+:global(
+  #app .app-shell main .sim-category-page .added-expense-goals article > strong.expense-goal-name
+) {
+  min-width: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(#app .app-shell main .sim-category-page .added-expense-goals button.expense-goal-edit) {
+  color: #5f8df7 !important;
+}
+
+:global(#app .app-shell main .sim-category-page .added-expense-goals button.expense-goal-delete) {
+  color: #ef5b5b !important;
 }
 </style>

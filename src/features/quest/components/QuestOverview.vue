@@ -4,7 +4,6 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import { useQuestStore } from '@/features/quest/stores/quest'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
-import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
@@ -39,7 +38,6 @@ const isRewarded = (item) => quests.remoteEnabled
   ? item.completed
   : progression.isQuestClaimed(completionId(item))
 const isPending = (item) => quests.remoteEnabled && quests.isPending(item.id)
-const iconName = (item) => ({ expense: 'arrow-down', income: 'briefcase', policy: 'landmark' }[item.kind] || 'check-circle')
 const signedWon = (value) => {
   const amount = Math.round(Number(value) || 0)
   return `${amount > 0 ? '+' : amount < 0 ? '-' : ''}${Math.abs(amount).toLocaleString('ko-KR')}원`
@@ -82,27 +80,24 @@ async function toggle(item) {
       <div class="quest-overview-progress__track" role="progressbar" :aria-valuenow="completionPercent" aria-valuemin="0" aria-valuemax="100"><span :style="{ width: `${completionPercent}%` }" /></div>
     </section>
     <section v-for="section in sections" :key="section.key" class="quest-overview-section">
-      <header><div><h3>{{ section.title }}</h3><p>{{ section.description }}</p></div><span v-if="section.key === 'recurring'">{{ monthKey }} 기준</span></header>
+      <header><h3>{{ section.title }}</h3></header>
       <div v-if="section.visibleRows.length" class="quest-overview-list">
         <div v-for="item in section.visibleRows" :key="item.id" class="quest-overview-row-wrap" :class="`is-${item.kind}`">
-          <a v-if="item.kind === 'policy' && item.questUrl" class="quest-overview-row__apply quest-overview-row__apply--mobile" :href="item.questUrl" target="_blank" rel="noopener noreferrer" @click.stop>신청하기</a>
           <article class="quest-overview-row" :class="[`is-${item.kind}`, { completed: isCompleted(item), pending: isPending(item) }]">
-          <span class="quest-overview-row__icon"><svg v-if="item.kind === 'expense'" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="expenseCategoryIconPath(item.expenseCategory || item.name)" /></svg><AppIcon v-else :name="iconName(item)" :size="24" /></span>
+          <button class="quest-overview-row__check" type="button" :aria-label="`${item.name} ${isCompleted(item) ? '완료 취소' : '완료 처리'}`" :aria-pressed="isCompleted(item)" :disabled="isPending(item)" @click="toggle(item)"><AppIcon v-if="isCompleted(item)" name="check" :size="18" /></button>
           <span class="quest-overview-row__copy">
             <span class="quest-overview-row__title">
               <strong>{{ item.name }}</strong>
-              <a v-if="item.kind === 'policy' && item.questUrl" class="quest-overview-row__apply quest-overview-row__apply--inline" :href="item.questUrl" target="_blank" rel="noopener noreferrer" @click.stop>신청하기</a>
             </span>
-            <small><template v-if="item.recurrence !== 'monthly'">{{ item.subtitle || '일회성' }} · </template><b>+{{ formatExp(questExp(item)) }} EXP</b><template v-if="isRewarded(item)"> · 지급 완료</template></small>
+            <small><b>+{{ formatExp(questExp(item)) }} EXP</b><a v-if="item.kind === 'policy' && item.questUrl" class="quest-overview-row__apply" :href="item.questUrl" target="_blank" rel="noopener noreferrer" @click.stop>신청하기<AppIcon name="chevron" :size="12" /></a><template v-if="isRewarded(item)"> · 지급 완료</template></small>
           </span>
           <strong class="quest-overview-row__amount">{{ signedWon(item.amount) }}</strong>
-          <button class="quest-overview-row__check" type="button" :aria-label="`${item.name} ${isCompleted(item) ? '완료 취소' : '완료 처리'}`" :aria-pressed="isCompleted(item)" :disabled="isPending(item)" @click="toggle(item)"><AppIcon v-if="isCompleted(item)" name="check" :size="18" /></button>
           </article>
         </div>
       </div>
       <div v-else class="quest-overview-empty"><strong>{{ tab === 'completed' ? '완료한 퀘스트가 없어요.' : '진행 중인 퀘스트가 없어요.' }}</strong></div>
     </section>
-    <footer class="quest-overview-footer"><p>퀘스트를 추가하려면 시뮬레이션을 수정하세요.</p><RouterLink to="/simulation/edit" :class="{ disabled: editLoading }">시뮬레이션 수정하기</RouterLink></footer>
+    <footer class="quest-overview-footer"><RouterLink to="/simulation/edit" :class="{ disabled: editLoading }">시뮬레이션 수정하기</RouterLink></footer>
   </article>
 </template>
 
@@ -115,4 +110,174 @@ async function toggle(item) {
 .quest-overview-row-wrap{position:relative;min-width:0}.quest-overview-row{position:relative;display:grid;min-height:72px;grid-template-columns:44px minmax(0,1fr) auto auto 34px;align-items:center;gap:12px;padding:10px 14px;border:1px solid #e1e1e1;border-radius:22px;background:#fff}.quest-overview-row.completed{opacity:.62}.quest-overview-row__icon{display:grid;width:40px;height:40px;place-items:center;border-radius:50%;background:#93b2f8}.is-expense .quest-overview-row__icon{background:#f0574f;color:#fff}.is-income .quest-overview-row__icon{background:#44d795}.quest-overview-row__copy{display:grid;min-width:0;gap:6px}.quest-overview-row__title{display:flex;min-width:0;align-items:center;gap:8px}.quest-overview-row__title>strong{overflow:hidden;min-width:0;font-size:15px;text-overflow:ellipsis;white-space:nowrap}.quest-overview-row__copy small{color:#7a746d;font-size:12px}.quest-overview-row__copy b{color:#8a5b00}.quest-overview-row__amount{grid-column:3;font-size:16px;white-space:nowrap}.quest-overview-row__apply{flex:none;padding:5px 9px;border-radius:99px;background:var(--navy);color:#fff;font-size:11px;font-weight:800;white-space:nowrap}.quest-overview-row__apply--mobile{display:none}.is-policy.quest-overview-row{grid-template-columns:44px minmax(0,1fr) auto 34px}.is-policy .quest-overview-row__amount{grid-column:3}.is-policy .quest-overview-row__check{grid-column:4}.quest-overview-row__check{display:grid!important;width:32px!important;min-width:32px!important;height:32px!important;min-height:32px!important;grid-column:5;place-items:center;padding:0!important;border:2px solid #d8d2c4;border-radius:10px;background:#fff;color:#fff}.completed .quest-overview-row__check{border-color:var(--navy);background:var(--navy)}
 .quest-overview-empty{display:grid;min-height:116px;place-items:center;border:1px solid #e1e1e1;border-radius:22px;background:#fff;color:#666}.quest-overview-footer{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:32px;padding-top:24px;border-top:1px solid #eee8dc}.quest-overview-footer p{color:#81776b;font-size:14px}.quest-overview-footer a{display:flex;min-height:42px;align-items:center;justify-content:center;padding:0 18px;border-radius:13px;background:#f5f7f9;color:#666;font-size:14px;font-weight:800;text-decoration:none}
 @media(max-width:767px){.quest-overview-card{padding:18px 12px 15px;border-radius:20px}.quest-overview-header{display:grid;gap:12px}.quest-overview-tabs{width:100%;min-width:0}.quest-overview-tabs button{min-height:38px;padding:0 10px;font-size:13px}.quest-overview-progress{padding:14px 13px}.quest-overview-progress__top{grid-template-columns:1fr auto;gap:8px 12px}.quest-overview-progress__top>b{grid-column:1/-1;font-size:18px}.quest-overview-section>header{gap:10px}.quest-overview-section>header>span{white-space:nowrap}.quest-overview-section h3{font-size:16px}.quest-overview-section p{display:none}.quest-overview-row{min-height:68px;grid-template-columns:40px minmax(0,1fr) 30px;gap:8px;padding:10px 9px;border-radius:16px}.quest-overview-row__icon{width:36px;height:36px}.quest-overview-row__title>strong{font-size:14px}.quest-overview-row__copy small{font-size:10px}.quest-overview-row__amount{grid-row:2;grid-column:2;font-size:14px}.quest-overview-row__check{width:30px!important;min-width:30px!important;height:30px!important;min-height:30px!important;grid-row:1/span 2;grid-column:3}.is-policy.quest-overview-row-wrap{padding-top:30px}.quest-overview-row__apply--inline{display:none}.quest-overview-row__apply--mobile{position:absolute;top:0;right:0;z-index:1;display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;font-size:10px}.is-policy.quest-overview-row{grid-template-columns:40px minmax(0,1fr) auto 30px}.is-policy .quest-overview-row__copy{grid-column:2}.is-policy .quest-overview-row__amount{grid-row:2;grid-column:3}.is-policy .quest-overview-row__check{grid-column:4}.quest-overview-footer{display:grid;gap:16px}.quest-overview-footer p{display:none}.quest-overview-footer a{width:100%}}
+
+/* 홈과 시뮬레이션 화면에서 정책 링크와 하단 동작의 배치를 동일하게 유지한다. */
+.is-policy.quest-overview-row-wrap {
+  padding-top: 30px;
+}
+
+.quest-overview-row__apply--inline {
+  display: none;
+}
+
+.quest-overview-row__apply--mobile {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quest-overview-footer {
+  justify-content: center;
+}
+
+.quest-overview-footer a {
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .quest-overview-row,
+  .is-policy.quest-overview-row {
+    grid-template-columns: 36px minmax(0, 1fr) auto 30px;
+    grid-template-rows: auto auto;
+    column-gap: 7px;
+    row-gap: 5px;
+  }
+
+  .quest-overview-row__icon,
+  .is-policy .quest-overview-row__icon {
+    grid-row: 1 / 3;
+    grid-column: 1;
+  }
+
+  .quest-overview-row__copy,
+  .is-policy .quest-overview-row__copy {
+    display: contents;
+  }
+
+  .quest-overview-row__title {
+    min-width: 0;
+    grid-row: 1;
+    grid-column: 2 / 4;
+  }
+
+  .quest-overview-row__title > strong {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .quest-overview-row__copy > small {
+    min-width: 0;
+    overflow: hidden;
+    grid-row: 2;
+    grid-column: 2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .quest-overview-row__amount,
+  .is-policy .quest-overview-row__amount {
+    grid-row: 2;
+    grid-column: 3;
+    justify-self: end;
+    font-size: 13px;
+  }
+
+  .quest-overview-row__check,
+  .is-policy .quest-overview-row__check {
+    grid-row: 1 / 3;
+    grid-column: 4;
+  }
+}
+
+/* 모든 화면에서 아이콘 대신 완료 체크를 왼쪽에 두고 정책 링크를 EXP 옆에 표시한다. */
+.quest-overview-row,
+.is-policy.quest-overview-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+}
+
+.is-policy.quest-overview-row-wrap {
+  padding-top: 0;
+}
+
+.quest-overview-row__check,
+.is-policy .quest-overview-row__check {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.quest-overview-row__copy,
+.is-policy .quest-overview-row__copy {
+  display: grid;
+  min-width: 0;
+  grid-row: 1;
+  grid-column: 2;
+  gap: 5px;
+}
+
+.quest-overview-row__title {
+  display: flex;
+  min-width: 0;
+  grid-row: auto;
+  grid-column: auto;
+}
+
+.quest-overview-row__title > strong {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-overview-row__copy > small {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  grid-row: auto;
+  grid-column: auto;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.quest-overview-row__copy > small > b,
+.quest-overview-row__copy > small > .quest-overview-row__apply {
+  flex: none;
+}
+
+.quest-overview-row__apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--navy);
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.quest-overview-row__amount,
+.is-policy .quest-overview-row__amount {
+  grid-row: 1;
+  grid-column: 3;
+  justify-self: end;
+}
+
+@media (max-width: 767px) {
+  .quest-overview-row,
+  .is-policy.quest-overview-row {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    column-gap: 7px;
+  }
+}
 </style>

@@ -143,7 +143,7 @@ async function createNewSimulation() {
           </div>
           <div class="simulation-edit-growth" aria-label="증가 기간">
             <b>+{{ simulation.addedMonths }}개월</b>
-            <i><AppIcon name="chevron" :size="18" /></i>
+            <i><AppIcon name="arrow-right" :size="18" /></i>
           </div>
           <div class="simulation-edit-runway expected">
             <span>예상 버티는 기간</span>
@@ -1133,6 +1133,110 @@ async function createNewSimulation() {
     border-radius: 12px;
     font-size: 14px !important;
     font-weight: 600;
+  }
+}
+
+@media (max-width: 767px) {
+  .simulation-edit-hero > .simulation-edit-period,
+  :global(#app .app-shell .simulation-edit-page .simulation-edit-hero > section.simulation-edit-period) {
+    width: 100%;
+    max-width: none;
+    align-self: stretch;
+    justify-self: stretch;
+    margin-right: auto;
+    margin-left: auto;
+    box-sizing: border-box;
+  }
+
+  .simulation-edit-card > strong,
+  .simulation-edit-card > strong.simulation-edit-card__benefit-line {
+    font-size: 12px;
+  }
+
+  .simulation-edit-forecast {
+    grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    row-gap: 12px;
+  }
+
+  .simulation-edit-forecast > .simulation-edit-runway {
+    grid-row: 1;
+  }
+
+  .simulation-edit-forecast > .simulation-edit-runway.current {
+    grid-column: 1;
+  }
+
+  .simulation-edit-forecast > .simulation-edit-runway.expected {
+    grid-column: 3;
+    justify-items: end;
+    text-align: right;
+  }
+
+  .simulation-edit-forecast > .simulation-edit-growth {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    transform: translateX(-50%);
+  }
+
+  .simulation-edit-growth b {
+    grid-row: 1;
+    grid-column: 1;
+    align-self: auto;
+    justify-self: center;
+  }
+
+  .simulation-edit-growth i {
+    display: grid;
+    width: 48px;
+    height: 18px;
+    grid-row: 2;
+    grid-column: 1;
+    place-items: center;
+  }
+
+  .simulation-edit-growth i .app-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .simulation-edit-forecast > .simulation-edit-actions {
+    width: 100%;
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-items: center;
+    padding: 0;
+  }
+
+  .simulation-edit-actions p,
+  :global(#app .app-shell main .simulation-edit-page .simulation-edit-actions p) {
+    width: 100%;
+    font-size: 12px !important;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: center;
+  }
+}
+
+.simulation-edit-card > button {
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1;
+}
+
+@media (max-width: 767px) {
+  .simulation-edit-card > button {
+    height: 16px;
+    min-height: 16px;
+    max-height: 16px;
+    line-height: 1;
   }
 }
 </style>
