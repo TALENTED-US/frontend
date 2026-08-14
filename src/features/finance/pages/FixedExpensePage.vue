@@ -51,17 +51,9 @@ const fixedRows = computed(() =>
   ),
 )
 const registeredFixedRows = computed(() => {
-  const latestByRule = new Map()
-  fixedSourceRows.value
+  return fixedSourceRows.value
     .filter((row) => row.fixed && row.amount < 0)
     .sort((a, b) => b.date.localeCompare(a.date))
-    .forEach((row) => {
-      const key = `${row.title}|${row.category}`
-      const saved = latestByRule.get(key)
-      if (saved) saved.fixedIds.push(row.id)
-      else latestByRule.set(key, { ...row, fixedIds: [row.id] })
-    })
-  return [...latestByRule.values()]
 })
 const candidates = computed(() => {
   if (useFixedApi) {
@@ -172,25 +164,22 @@ async function loadFixedExpenseData() {
   if (candidatesResult.status === 'fulfilled') {
     serverCandidates.value = (
       Array.isArray(candidatesResult.value) ? candidatesResult.value : []
-    ).map(
-      (row) => {
-        const paymentDay = Math.min(31, Math.max(1, Number(row.expectedPaymentDay) || 1))
-        return {
-          id: row.representativeTransactionId,
-          recurringIds: [row.representativeTransactionId],
-          date: `${currentMonth}-${String(paymentDay).padStart(2, '0')}`,
-          title: row.transactionContent || '고정지출 후보',
-          category: expenseCategoryToLabel(row.expenseCategory),
-          detail: '고정지출 후보',
-          amount: -Math.abs(Number(row.expectedAmount) || 0),
-          occurrenceCount: Number(row.occurrenceCount) || 0,
-          transactionSource: row.transactionSource || '',
-        }
-      },
-    )
+    ).map((row) => {
+      const paymentDay = Math.min(31, Math.max(1, Number(row.expectedPaymentDay) || 1))
+      return {
+        id: row.representativeTransactionId,
+        recurringIds: [row.representativeTransactionId],
+        date: `${currentMonth}-${String(paymentDay).padStart(2, '0')}`,
+        title: row.transactionContent || '고정지출 후보',
+        category: expenseCategoryToLabel(row.expenseCategory),
+        detail: '고정지출 후보',
+        amount: -Math.abs(Number(row.expectedAmount) || 0),
+        occurrenceCount: Number(row.occurrenceCount) || 0,
+        transactionSource: row.transactionSource || '',
+      }
+    })
   } else if (!fixedApiError.value) {
-    fixedApiError.value =
-      candidatesResult.reason?.message || '고정지출 후보를 불러오지 못했습니다.'
+    fixedApiError.value = candidatesResult.reason?.message || '고정지출 후보를 불러오지 못했습니다.'
   }
   if (summaryResult.status === 'fulfilled') serverFixedSummary.value = summaryResult.value
   fixedApiLoading.value = false
@@ -198,10 +187,7 @@ async function loadFixedExpenseData() {
 async function submit() {
   let saved
   if (mode.value === 'delete') {
-    const fixedIds = registeredFixedRows.value
-      .filter((row) => selected.value.includes(row.id))
-      .flatMap((row) => row.fixedIds)
-    saved = await setFixed(fixedIds, false)
+    saved = await setFixed([...selected.value], false)
   } else {
     const selectedRules = candidates.value.filter((row) => selected.value.includes(row.id))
     saved = await setFixed(
@@ -315,7 +301,10 @@ onMounted(loadFixedExpenseData)
       </button>
     </div>
     <footer v-else>
-      <button :disabled="!selected.length || financeState.loading || fixedApiLoading" @click="submit">
+      <button
+        :disabled="!selected.length || financeState.loading || fixedApiLoading"
+        @click="submit"
+      >
         <strong>{{
           financeState.loading || fixedApiLoading
             ? '처리 중…'

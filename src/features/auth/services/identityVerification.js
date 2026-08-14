@@ -7,6 +7,7 @@ export const IDENTITY_VERIFICATION_PURPOSE = Object.freeze({
   SIGNUP: 'SIGNUP',
   FIND_EMAIL: 'FIND_EMAIL',
   RESET_PASSWORD: 'RESET_PASSWORD',
+  CHANGE_PASSWORD: 'CHANGE_PASSWORD',
 })
 
 export class IdentityVerificationError extends Error {

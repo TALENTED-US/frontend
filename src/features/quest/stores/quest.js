@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { completeQuestApi, getQuestsApi, revertQuestApi } from '@/api/quest'
-import { expenseLabelToCategory } from '@/constants/expenseCategories'
 import { useSessionStore } from '@/stores/session'
 
 const CATEGORY_META = Object.freeze({
@@ -22,45 +21,6 @@ const EXPENSE_ICONS = Object.freeze({
   HEALTH_FITNESS: '🏥',
   OTHER_FINANCE: '🧾',
 })
-
-function questMatchesPlan(item, plan) {
-  if (!plan) return true
-
-  const category = item?.simulationItemCategory
-  const amount = Number(item?.amount) || 0
-  const matchesRemoteItem = (planItem) =>
-    !planItem.remoteId ||
-    !item?.simulationItemId ||
-    String(planItem.remoteId) === String(item.simulationItemId)
-
-  if (category === 'EXPENSE') {
-    return (plan.expenses || []).some(
-      (expense) =>
-        matchesRemoteItem(expense) &&
-        expenseLabelToCategory(expense.name) === item?.expenseCategory &&
-        Number(expense.saving) === amount,
-    )
-  }
-
-  if (category === 'INCOME') {
-    return (plan.incomes || []).some(
-      (income) =>
-        matchesRemoteItem(income) &&
-        income.name === item?.displayName &&
-        Number(income.amount) === amount &&
-        (income.type === 'once' ? 'ONCE' : 'MONTHLY') === item?.recurrenceType,
-    )
-  }
-
-  if (category === 'POLICY') {
-    return (plan.policies || []).some(
-      (policy) =>
-        matchesRemoteItem(policy) && policy.name === (item?.policyName || item?.displayName),
-    )
-  }
-
-  return false
-}
 
 function dedupeQuests(quests) {
   const unique = new Map()
@@ -135,9 +95,7 @@ export const useQuestStore = defineStore('quest', () => {
       items.value = Array.isArray(result)
         ? dedupeQuests(
             result.filter(
-              (item) =>
-                (!nextSimulationId || String(item?.simulationId || '') === nextSimulationId) &&
-                questMatchesPlan(item, activePlan.value),
+              (item) => !nextSimulationId || String(item?.simulationId || '') === nextSimulationId,
             ),
           )
         : []
