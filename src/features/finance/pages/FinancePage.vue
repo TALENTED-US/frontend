@@ -1205,7 +1205,6 @@ input {
   font-size: 17px;
   letter-spacing: -0.02em;
 }
-
 .flow-summary > button:nth-of-type(2) strong {
   color: var(--primary);
 }
@@ -2173,7 +2172,6 @@ input {
     height: 34px;
     font-size: 25px;
   }
-
   .month-control__label select {
     max-width: none;
     padding-inline: 0;

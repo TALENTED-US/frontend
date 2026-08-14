@@ -103,3 +103,9 @@ export function registerFixedTransactionApi(transactionId) {
     apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/fixed`),
   )
 }
+
+export function unregisterFixedTransactionApi(transactionId) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/fixed/delete`),
+  )
+}
