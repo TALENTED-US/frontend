@@ -1,6 +1,9 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { getFixedExpenseCandidatesApi } from '@/api/mydata'
+import { getFixedExpenseDetailsApi, getFixedExpenseSummaryApi } from '@/api/transactions'
+import { expenseCategoryToLabel } from '@/constants/expenseCategories'
 import { financeState, financeTransactions, setFixed } from '@/features/finance/financeStore'
 
 const route = useRoute()
@@ -8,6 +11,12 @@ const router = useRouter()
 const selected = ref([])
 const query = ref('')
 const dismissedSuggestion = ref(false)
+const fixedApiLoading = ref(false)
+const fixedApiError = ref('')
+const serverFixedRows = ref([])
+const serverCandidates = ref([])
+const serverFixedSummary = ref(null)
+const useFixedApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 const fixedCandidateCategories = new Set([
   '주거·통신',
   '교통·유류비',
@@ -33,23 +42,35 @@ const mode = computed(() =>
       ? 'delete'
       : 'detail',
 )
+const fixedSourceRows = computed(() =>
+  useFixedApi ? serverFixedRows.value : financeTransactions.value.filter((row) => row.fixed),
+)
 const fixedRows = computed(() =>
-  financeTransactions.value.filter(
+  fixedSourceRows.value.filter(
     (row) => row.fixed && row.amount < 0 && row.date.startsWith(fixedMonth.value),
   ),
 )
 const registeredFixedRows = computed(() => {
   const latestByRule = new Map()
-  financeTransactions.value
+  fixedSourceRows.value
     .filter((row) => row.fixed && row.amount < 0)
     .sort((a, b) => b.date.localeCompare(a.date))
     .forEach((row) => {
       const key = `${row.title}|${row.category}`
-      if (!latestByRule.has(key)) latestByRule.set(key, row)
+      const saved = latestByRule.get(key)
+      if (saved) saved.fixedIds.push(row.id)
+      else latestByRule.set(key, { ...row, fixedIds: [row.id] })
     })
   return [...latestByRule.values()]
 })
 const candidates = computed(() => {
+  if (useFixedApi) {
+    const keyword = query.value.trim()
+    return serverCandidates.value
+      .filter((row) => row.title.includes(keyword))
+      .sort((a, b) => b.occurrenceCount - a.occurrenceCount)
+  }
+
   const recurringByRule = new Map()
   financeTransactions.value
     .filter((row) => row.amount < 0 && !row.fixed && fixedCandidateCategories.has(row.category))
@@ -89,7 +110,19 @@ const allSelected = computed(
     visibleRows.value.length > 0 &&
     visibleRows.value.every((row) => selected.value.includes(row.id)),
 )
-const total = computed(() => fixedRows.value.reduce((sum, row) => sum + Math.abs(row.amount), 0))
+const total = computed(() => {
+  if (useFixedApi && fixedMonth.value === currentMonth) {
+    const currentTotal = Number(serverFixedSummary.value?.currentMonthTotalFixedExpenseAmount)
+    if (Number.isFinite(currentTotal)) return Math.abs(currentTotal)
+  }
+  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const previousMonthKey = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`
+  if (useFixedApi && fixedMonth.value === previousMonthKey) {
+    const previousTotal = Number(serverFixedSummary.value?.lastMonthTotalFixedExpenseAmount)
+    if (Number.isFinite(previousTotal)) return Math.abs(previousTotal)
+  }
+  return fixedRows.value.reduce((sum, row) => sum + Math.abs(row.amount), 0)
+})
 const grouped = computed(() => {
   const map = {}
   const categoryOrder = ['주거·통신', '교통·유류비', '취업 준비', '의료·건강', '기타 금융']
@@ -123,18 +156,52 @@ function changeFixedMonth(offset) {
   const candidate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
   if (candidate <= currentMonth) fixedMonth.value = candidate
 }
+async function loadFixedExpenseData() {
+  if (!useFixedApi) return
+  fixedApiLoading.value = true
+  fixedApiError.value = ''
+  const [detailsResult, candidatesResult, summaryResult] = await Promise.allSettled([
+    getFixedExpenseDetailsApi(),
+    getFixedExpenseCandidatesApi(),
+    getFixedExpenseSummaryApi(),
+  ])
+
+  if (detailsResult.status === 'fulfilled') serverFixedRows.value = detailsResult.value
+  else fixedApiError.value = detailsResult.reason?.message || '고정지출 내역을 불러오지 못했습니다.'
+
+  if (candidatesResult.status === 'fulfilled') {
+    serverCandidates.value = (
+      Array.isArray(candidatesResult.value) ? candidatesResult.value : []
+    ).map(
+      (row) => {
+        const paymentDay = Math.min(31, Math.max(1, Number(row.expectedPaymentDay) || 1))
+        return {
+          id: row.representativeTransactionId,
+          recurringIds: [row.representativeTransactionId],
+          date: `${currentMonth}-${String(paymentDay).padStart(2, '0')}`,
+          title: row.transactionContent || '고정지출 후보',
+          category: expenseCategoryToLabel(row.expenseCategory),
+          detail: '고정지출 후보',
+          amount: -Math.abs(Number(row.expectedAmount) || 0),
+          occurrenceCount: Number(row.occurrenceCount) || 0,
+          transactionSource: row.transactionSource || '',
+        }
+      },
+    )
+  } else if (!fixedApiError.value) {
+    fixedApiError.value =
+      candidatesResult.reason?.message || '고정지출 후보를 불러오지 못했습니다.'
+  }
+  if (summaryResult.status === 'fulfilled') serverFixedSummary.value = summaryResult.value
+  fixedApiLoading.value = false
+}
 async function submit() {
   let saved
   if (mode.value === 'delete') {
-    const selectedRules = new Set(
-      registeredFixedRows.value
-        .filter((row) => selected.value.includes(row.id))
-        .map((row) => `${row.title}|${row.category}`),
-    )
-    const recurringIds = financeTransactions.value
-      .filter((row) => selectedRules.has(`${row.title}|${row.category}`))
-      .map((row) => row.id)
-    saved = await setFixed(recurringIds, false)
+    const fixedIds = registeredFixedRows.value
+      .filter((row) => selected.value.includes(row.id))
+      .flatMap((row) => row.fixedIds)
+    saved = await setFixed(fixedIds, false)
   } else {
     const selectedRules = candidates.value.filter((row) => selected.value.includes(row.id))
     saved = await setFixed(
@@ -142,12 +209,24 @@ async function submit() {
       true,
     )
   }
-  if (saved) router.push({ name: 'fixedExpenses' })
+  if (saved) {
+    await loadFixedExpenseData()
+    selected.value = []
+    router.push({ name: 'fixedExpenses' })
+  }
 }
 async function registerSuggestion() {
   if (!suggestedRow.value) return
-  if (await setFixed(suggestedRow.value.recurringIds, true)) dismissedSuggestion.value = true
+  if (await setFixed(suggestedRow.value.recurringIds, true)) {
+    dismissedSuggestion.value = true
+    await loadFixedExpenseData()
+  }
 }
+watch(mode, () => {
+  selected.value = []
+  fixedApiError.value = ''
+})
+onMounted(loadFixedExpenseData)
 </script>
 <template>
   <section :class="['fixed-page', `fixed-page--${mode}`]">
@@ -194,8 +273,10 @@ async function registerSuggestion() {
       </button>
     </div>
     <section class="expense-list">
-      <p v-if="financeState.error" class="empty-message">{{ financeState.error }}</p>
-      <p v-if="!visibleRows.length" class="empty-message">
+      <p v-if="fixedApiError || financeState.error" class="empty-message">
+        {{ fixedApiError || financeState.error }}
+      </p>
+      <p v-if="!fixedApiLoading && !visibleRows.length" class="empty-message">
         {{ mode === 'delete' ? '삭제할 고정지출이 없어요.' : '표시할 거래가 없어요.' }}
       </p>
       <template v-for="[category, rows] in grouped" :key="category">
@@ -234,9 +315,9 @@ async function registerSuggestion() {
       </button>
     </div>
     <footer v-else>
-      <button :disabled="!selected.length || financeState.loading" @click="submit">
+      <button :disabled="!selected.length || financeState.loading || fixedApiLoading" @click="submit">
         <strong>{{
-          financeState.loading
+          financeState.loading || fixedApiLoading
             ? '처리 중…'
             : mode === 'add'
               ? '고정지출 추가하기'

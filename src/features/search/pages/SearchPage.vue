@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { readFilters, toPolicySearchRequest, toFilterQuery } from '@/features/search/policyData'
@@ -25,6 +25,33 @@ const pageInfo = ref({
 const loading = ref(false)
 const error = ref('')
 let requestId = 0
+const isMobilePagination = ref(false)
+const paginationMediaQuery =
+  typeof window === 'undefined' ? null : window.matchMedia('(max-width: 767px)')
+const pageGroupSize = computed(() => (isMobilePagination.value ? 5 : 10))
+const visiblePageNumbers = computed(() => {
+  const currentPage = Math.max(1, Number(pageInfo.value.page) || 1)
+  const totalPages = Math.max(0, Number(pageInfo.value.totalPages) || 0)
+  const groupStart =
+    Math.floor((currentPage - 1) / pageGroupSize.value) * pageGroupSize.value + 1
+  const groupEnd = Math.min(totalPages, groupStart + pageGroupSize.value - 1)
+  return Array.from({ length: Math.max(0, groupEnd - groupStart + 1) }, (_, index) =>
+    groupStart + index,
+  )
+})
+
+function updatePaginationLayout(event = paginationMediaQuery) {
+  isMobilePagination.value = Boolean(event?.matches)
+}
+
+onMounted(() => {
+  updatePaginationLayout()
+  paginationMediaQuery?.addEventListener('change', updatePaginationLayout)
+})
+
+onBeforeUnmount(() => {
+  paginationMediaQuery?.removeEventListener('change', updatePaginationLayout)
+})
 
 async function loadPolicies(page = 1) {
   const currentRequestId = ++requestId
@@ -172,15 +199,35 @@ function movePage(page) {
       </component>
       <nav v-if="pageInfo.totalPages > 1" class="policy-pagination" aria-label="정책 목록 페이지">
         <button
+          class="policy-pagination__arrow"
           type="button"
+          aria-label="이전 페이지"
           :disabled="!pageInfo.hasPrevious"
           @click="movePage(pageInfo.page - 1)"
         >
-          이전
+          ‹
         </button>
-        <span>{{ pageInfo.page }} / {{ pageInfo.totalPages }}</span>
-        <button type="button" :disabled="!pageInfo.hasNext" @click="movePage(pageInfo.page + 1)">
-          다음
+        <div class="policy-pagination__pages">
+          <button
+            v-for="pageNumber in visiblePageNumbers"
+            :key="pageNumber"
+            type="button"
+            :class="{ 'is-active': pageNumber === pageInfo.page }"
+            :aria-current="pageNumber === pageInfo.page ? 'page' : undefined"
+            :aria-label="`${pageNumber}페이지`"
+            @click="movePage(pageNumber)"
+          >
+            {{ pageNumber }}
+          </button>
+        </div>
+        <button
+          class="policy-pagination__arrow"
+          type="button"
+          aria-label="다음 페이지"
+          :disabled="!pageInfo.hasNext"
+          @click="movePage(pageInfo.page + 1)"
+        >
+          ›
         </button>
       </nav>
     </div>
@@ -375,22 +422,42 @@ function movePage(page) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 6px;
   margin: 8px 0 20px;
 }
 .policy-pagination button {
-  padding: 8px 18px;
+  display: grid;
+  width: 32px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 8px;
   background: white;
+  color: #5f6570;
+  font-size: 13px;
+  transition: 0.15s ease;
+}
+.policy-pagination__pages {
+  display: flex;
+  gap: 4px;
+}
+.policy-pagination button.is-active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+  font-weight: 700;
+}
+.policy-pagination button:not(:disabled):hover {
+  border-color: var(--primary);
+}
+.policy-pagination .policy-pagination__arrow {
+  font-size: 22px;
 }
 .policy-pagination button:disabled {
   color: #bbb;
   cursor: not-allowed;
-}
-.policy-pagination span {
-  color: #666;
-  font-size: 13px;
+  opacity: 0.55;
 }
 .result-card > div {
   display: grid;

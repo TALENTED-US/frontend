@@ -66,6 +66,32 @@ export function getTransactionsApi() {
   return requestResult(() => apiClient.get('transactions'))
 }
 
+export async function getFixedExpenseDetailsApi() {
+  const rows = await requestResult(() => apiClient.get('transactions/fixed'))
+  return Array.isArray(rows)
+    ? rows.map((row) => {
+        const { date, time } = splitTransactionAt(row?.transactionAt)
+        return {
+          id: row?.transactionId,
+          apiId: row?.transactionId,
+          date,
+          time,
+          title: row?.transactionContent || '고정지출',
+          category: expenseCategoryToLabel(row?.expenseCategory),
+          detail: '고정지출',
+          amount: -Math.abs(Number(row?.transactionAmount) || 0),
+          fixed: true,
+          transactionType: 'FIXED',
+          expenseCategory: row?.expenseCategory,
+        }
+      })
+    : []
+}
+
+export function getFixedExpenseSummaryApi() {
+  return requestResult(() => apiClient.get('transactions/fixed/sum'))
+}
+
 export function getTransactionDetailApi(transactionId) {
   return requestResult(() => apiClient.get(`transactions/${encodeURIComponent(transactionId)}`))
 }
