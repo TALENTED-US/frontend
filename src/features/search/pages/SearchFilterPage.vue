@@ -5,7 +5,15 @@ import { policyFilterGroups, readFilters, toFilterQuery } from '@/features/searc
 
 const route = useRoute()
 const router = useRouter()
-const selected = ref(readFilters(route.query))
+
+function withDefaultAvailability(filters) {
+  const statusFilters = policyFilterGroups[3][1]
+  if (filters.some((filter) => statusFilters.includes(filter))) return filters
+  if (Object.prototype.hasOwnProperty.call(route.query, 'filters')) return filters
+  return [...filters, '신청 가능']
+}
+
+const selected = ref(withDefaultAvailability(readFilters(route.query)))
 const amount = ref(Number(route.query.amount || 0))
 
 function toggle(group, item) {
@@ -19,7 +27,7 @@ function toggle(group, item) {
 }
 
 function reset() {
-  selected.value = []
+  selected.value = ['신청 가능']
   amount.value = 0
 }
 
@@ -42,8 +50,7 @@ function applyFilters() {
     <button class="filter-back" type="button" @click="router.back()">‹ 정책 상세 필터</button>
     <p>필요한 조건을 선택해 결과를 좁혀보세요.</p>
     <div class="filter-tip">
-      연령과 기본 거주 지역은 프로필 정보로 자동 반영돼요. 다른 지역을 선택하면 선택한 지역을 우선
-      적용해요.
+      연령은 프로필 정보로 자동 반영돼요. 지역은 필요한 경우 직접 선택해 주세요.
     </div>
 
     <div class="filter-groups">

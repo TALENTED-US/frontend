@@ -84,7 +84,11 @@ async function logout() {
 
 <template>
   <section class="page mypage">
-    <h1 class="mypage__title desktop-only">마이페이지</h1>
+    <header class="mypage-heading desktop-only">
+      <p class="app-page-heading__eyebrow">MY BUTTIE</p>
+      <h1 class="mypage__title">마이페이지</h1>
+      <p class="app-page-heading__description">내 정보와 취업 준비 설정을 한곳에서 관리해요.</p>
+    </header>
 
     <article class="profile-card">
       <div class="profile-card__identity">

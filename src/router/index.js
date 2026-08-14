@@ -137,6 +137,11 @@ const routes = [
         component: () => import('@/features/search/pages/SearchFilterPage.vue'),
       },
       {
+        path: '/search/:policyId',
+        name: 'policyDetail',
+        component: () => import('@/features/search/pages/PolicyDetailPage.vue'),
+      },
+      {
         path: '/notifications',
         name: 'notifications',
         component: () => import('@/features/notification/pages/NotificationPage.vue'),

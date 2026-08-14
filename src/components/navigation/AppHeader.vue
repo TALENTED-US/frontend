@@ -37,6 +37,7 @@ const titles = {
   timeline: '내 재정',
   search: '정책',
   searchFilter: '정책 상세 필터',
+  policyDetail: '정책 상세',
   notifications: '알림',
   mypage: '마이페이지',
   myInfo: '내 정보',
@@ -59,7 +60,7 @@ const isFixedExpense = computed(() =>
   ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name),
 )
 const isNotifications = computed(() => route.name === 'notifications')
-const mobileRootRoutes = ['finance', 'simulation', 'search', 'mypage']
+const mobileRootRoutes = ['dashboard', 'finance', 'simulation', 'search', 'mypage']
 const hasMobileBack = computed(() => !mobileRootRoutes.includes(route.name))
 const mobileTitle = computed(() => {
   if (isMyPageDetail.value) return '마이페이지'
@@ -73,7 +74,6 @@ const mobileTitle = computed(() => {
   }
   return title.value
 })
-const isFinanceMain = computed(() => route.name === 'finance')
 
 async function toggle(name) {
   openPopover.value = openPopover.value === name ? '' : name
@@ -141,7 +141,7 @@ watch(
 </script>
 
 <template>
-  <header :class="['app-header', { 'app-header--finance': isFinanceMain }]">
+  <header class="app-header app-header--finance">
     <button
       v-if="hasMobileBack"
       :class="[

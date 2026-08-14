@@ -120,6 +120,88 @@ svg text {
   }
 }
 
+/* Shared heading rhythm for the main signed-in pages. */
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance-heading > div,
+  .search-heading,
+  .sim-heading,
+  .mypage-heading,
+  .notification-page > .page-heading
+) {
+  min-width: 0;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .search-heading,
+  .sim-heading,
+  .mypage-heading,
+  .notification-page > .page-heading
+) {
+  margin-bottom: 28px;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance-heading > div,
+  .search-heading,
+  .sim-heading,
+  .mypage-heading,
+  .notification-page > .page-heading
+) :where(.app-page-heading__eyebrow, .finance-heading__eyebrow) {
+  margin: 0 0 8px !important;
+  color: var(--primary) !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  line-height: 1.2;
+  letter-spacing: .14em;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance-heading > div,
+  .search-heading,
+  .sim-heading,
+  .mypage-heading,
+  .notification-page > .page-heading
+) h1 {
+  margin: 0 !important;
+  color: var(--text) !important;
+  font-size: 34px !important;
+  font-weight: 800 !important;
+  line-height: 1.2;
+  letter-spacing: -.04em;
+}
+
+#app .app-shell :where(
+  .dashboard__heading,
+  .finance-heading > div,
+  .search-heading,
+  .sim-heading,
+  .mypage-heading,
+  .notification-page > .page-heading
+) .app-page-heading__description,
+#app .app-shell .finance-heading > div > p:last-child {
+  margin: 8px 0 0 !important;
+  color: var(--muted) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.5;
+}
+
+@media (max-width: 767px) {
+  #app .app-shell :where(
+    .dashboard__heading,
+    .search-heading,
+    .sim-heading,
+    .mypage-heading,
+    .notification-page > .page-heading
+  ) h1 {
+    font-size: 20px !important;
+  }
+}
+
 /* Unified back controls: keep navigation easy to see and tap on every screen. */
 #app :where(
   .detail-back,
@@ -1036,10 +1118,38 @@ svg text {
 #app .app-shell .dashboard .survival-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid #e7e9ee;
-  border-top: 5px solid var(--primary);
-  background: #fffdf5;
-  box-shadow: 0 12px 32px rgb(31 35 48 / 7%);
+  border: 1px solid rgb(10 22 128 / 13%);
+  background: var(--surface);
+  box-shadow: 0 14px 40px rgb(32 42 74 / 9%);
+}
+
+#app .app-shell .dashboard .survival-card__intro h3,
+#app .app-shell .dashboard .survival-card__progress-area b {
+  color: var(--text);
+}
+
+#app .app-shell .dashboard .survival-card__intro p,
+#app .app-shell .dashboard .survival-card__legend,
+#app .app-shell .dashboard .survival-card__message p {
+  color: var(--muted);
+}
+
+#app .app-shell .dashboard .survival-card__metric,
+#app .app-shell .dashboard .survival-card__character-panel {
+  border: 1px solid #f0f2f5;
+  background: #f7f8fa;
+}
+
+#app .app-shell .dashboard .survival-card__metric--target strong {
+  color: var(--text);
+}
+
+#app .app-shell .dashboard .survival-card__progress {
+  background: #f1f4fa;
+}
+
+#app .app-shell .dashboard .survival-card__progress span {
+  background: var(--primary);
 }
 
 #app .app-shell .dashboard .survival-card__character {
@@ -2520,5 +2630,210 @@ svg text {
 
   #app .app-shell :where(.finance, .fixed-page, .sim-page, .search-page, .mypage) {
     width: 100%;
+  }
+}
+
+/* Dashboard consistency layer: mirror the calm card system used by My Finance. */
+#app .app-shell .dashboard {
+  --dashboard-border: rgb(10 22 128 / 13%);
+  --dashboard-divider: #e8ebf0;
+  --dashboard-subtle: #f7f8fa;
+  --dashboard-track: #f1f4fa;
+  --dashboard-shadow: 0 14px 40px rgb(32 42 74 / 9%);
+}
+
+#app .app-shell .dashboard :where(
+  .level-overview,
+  .survival-card,
+  .dashboard-overview,
+  .quest-card,
+  .quest-empty
+) {
+  border: 1px solid var(--dashboard-border) !important;
+  background: var(--surface) !important;
+  box-shadow: var(--dashboard-shadow) !important;
+}
+
+#app .app-shell .dashboard .level-overview {
+  border-left: 1px solid var(--dashboard-border) !important;
+}
+
+#app .app-shell .dashboard :where(.survival-card, .dashboard-overview) {
+  border-radius: 28px;
+}
+
+#app .app-shell .dashboard .survival-card {
+  border-color: var(--dashboard-divider) !important;
+  border-top-width: 1px !important;
+  background: #fffdf5 !important;
+}
+
+#app .app-shell .dashboard :where(.quest-card, .quest-empty) {
+  border-radius: 24px;
+}
+
+#app .app-shell .dashboard :where(
+  .survival-card__metric,
+  .survival-card__character-panel,
+  .dashboard-report__summary article
+) {
+  border: 1px solid #f0f2f5 !important;
+  background: var(--dashboard-subtle) !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell .dashboard :where(
+  .survival-card__metric,
+  .survival-card__character-panel
+) {
+  background: var(--surface) !important;
+}
+
+#app .app-shell .dashboard .survival-card__intro {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--dashboard-divider);
+}
+
+#app .app-shell .dashboard .survival-card__intro h3 {
+  color: var(--text);
+}
+
+#app .app-shell .dashboard .survival-card__intro p,
+#app .app-shell .dashboard .survival-card__legend,
+#app .app-shell .dashboard .survival-card__message p {
+  color: var(--muted);
+}
+
+#app .app-shell .dashboard :where(
+  .level-overview__progress i,
+  .survival-card__progress,
+  .goal-card__progress,
+  .quest-completion__track
+) {
+  border: 0;
+  background: var(--dashboard-track);
+  box-shadow: none;
+}
+
+#app .app-shell .dashboard :where(
+  .level-overview__progress i span,
+  .survival-card__progress span,
+  .goal-card__progress i,
+  .quest-completion__track span
+) {
+  background: var(--primary);
+}
+
+#app .app-shell .dashboard .dashboard-overview {
+  border-color: var(--dashboard-border) !important;
+}
+
+#app .app-shell .dashboard .dashboard-overview > .goal-section,
+#app .app-shell .dashboard .dashboard-report__cashflow,
+#app .app-shell .dashboard .goal-card__item + .goal-card__item {
+  border-color: var(--dashboard-divider);
+}
+
+#app .app-shell .dashboard .dashboard-report__notice {
+  border: 0;
+  background: var(--accent);
+  color: var(--text);
+}
+
+#app .app-shell .dashboard .goal-card__item {
+  border: 0;
+  background: transparent;
+}
+
+#app .app-shell .dashboard .goal-card__value {
+  color: var(--text);
+}
+
+#app .app-shell .dashboard .quest-tabs {
+  border: 0;
+  background: #f3f5f8;
+}
+
+#app .app-shell .dashboard .quest-tabs button {
+  color: var(--muted);
+}
+
+#app .app-shell .dashboard .quest-tabs button.is-active {
+  border: 0;
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--primary);
+}
+
+#app .app-shell .dashboard :where(.confirmed-badge, .quest-period__heading > span) {
+  border: 0;
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--primary);
+}
+
+#app .app-shell .dashboard .quest-row {
+  border-color: var(--dashboard-divider);
+  border-left-width: 1px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+#app .app-shell .dashboard .quest-row.is-completed {
+  background: var(--dashboard-subtle);
+}
+
+#app .app-shell .dashboard .quest-row__icon {
+  border-color: var(--dashboard-divider);
+  background: var(--dashboard-subtle);
+}
+
+#app .app-shell .dashboard .quest-row.is-completed .quest-row__check {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+#app .app-shell .dashboard .quest-row-wrap--policy {
+  border-color: var(--dashboard-divider);
+  border-left-width: 1px;
+  background: var(--surface);
+}
+
+#app .app-shell .dashboard .quest-row-wrap--policy .quest-row {
+  border: 0;
+  border-radius: 0;
+}
+
+#app .app-shell .dashboard :where(.quest-empty a, .quest-card__footer a) {
+  border: 0;
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--primary);
+}
+
+@media (max-width: 767px) {
+  #app .app-shell .dashboard :where(
+    .level-overview,
+    .survival-card,
+    .dashboard-overview,
+    .quest-card,
+    .quest-empty
+  ) {
+    border-color: var(--dashboard-divider) !important;
+    box-shadow: none !important;
+  }
+
+  #app .app-shell .dashboard :where(.survival-card, .dashboard-overview) {
+    border-radius: 22px;
+  }
+
+  #app .app-shell .dashboard .survival-card__intro {
+    padding-bottom: 12px;
+  }
+
+  #app .app-shell .dashboard .quest-row__policy-link {
+    width: calc(100% - 24px);
+    min-height: 46px;
+    margin: 0 12px;
   }
 }

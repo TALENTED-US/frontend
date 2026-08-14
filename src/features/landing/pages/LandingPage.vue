@@ -1,5 +1,5 @@
 <script setup>
-import buttieLogo from '@/assets/images/dashboard/main-logo2.png'
+import buttieLogo from '@/assets/images/brand/buttie-logo-blue.png'
 import buttieStable from '@/assets/images/dashboard/buttie-stable.png'
 import LandingHeroEntrance from './LandingHeroEntrance.vue'
 import SkipLink from '@/components/ui/SkipLink.vue'
