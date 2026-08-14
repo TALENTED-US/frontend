@@ -23,7 +23,7 @@ defineProps({
   flex: none;
   border: calc(var(--avatar-size) * 0.08) solid #fff7ce;
   border-radius: 30%;
-  background: linear-gradient(135deg, #ffeaa0 4%, #e8bd56 58%, #c69737);
+  background: #e8bd56;
   box-shadow: inset 5px 5px 10px rgb(255 255 255 / 48%), 0 5px 12px rgb(117 80 17 / 16%);
 }
 

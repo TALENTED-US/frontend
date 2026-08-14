@@ -15,6 +15,10 @@ const session = useSessionStore()
 simulation.restoreConfirmedSnapshot()
 const category = computed(() => route.params.category)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
+const moneyInput = (value) => {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  return digits ? Number(digits).toLocaleString('ko-KR') : ''
+}
 const goalAmount = (value) =>
   Number(value) % 10000 === 0 ? `${money(Number(value) / 10000)}만원` : `${money(value)}원`
 const stepNumber = computed(() => ({ expense: 1, income: 2, policy: 3 })[category.value])
@@ -232,9 +236,16 @@ function selectExpense(item, loadSaved = false) {
 
 function updateExpenseAmount(event) {
   const maximum = Number(activeExpense.value?.current) || 0
-  const normalized = Math.max(0, Math.min(maximum, Math.trunc(Number(event.target.value) || 0)))
+  const rawAmount = Number(event.target.value.replace(/\D/g, '')) || 0
+  const normalized = Math.max(0, Math.min(maximum, Math.trunc(rawAmount)))
   expenseAmount.value = normalized ? String(normalized) : ''
-  event.target.value = expenseAmount.value
+  event.target.value = moneyInput(expenseAmount.value)
+}
+
+function updateIncomeAmount(event) {
+  const digits = event.target.value.replace(/\D/g, '')
+  form.amount = digits ? String(Number(digits)) : ''
+  event.target.value = moneyInput(form.amount)
 }
 
 async function addExpenseGoal() {
@@ -367,11 +378,9 @@ function skip() {
             </span>
             <div>
               <input
-                :value="expenseAmount"
-                type="number"
-                min="0"
-                :max="activeExpense.current"
-                step="1000"
+                :value="moneyInput(expenseAmount)"
+                type="text"
+                inputmode="numeric"
                 :disabled="activeExpense.current <= 0"
                 placeholder="금액을 입력하세요"
                 @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()"
@@ -453,12 +462,13 @@ function skip() {
           >예상 금액
           <div class="income-money-field">
             <input
-              v-model="form.amount"
-              type="number"
-              min="1"
+              :value="moneyInput(form.amount)"
+              type="text"
+              inputmode="numeric"
               placeholder="금액 입력"
               required
               @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()"
+              @input="updateIncomeAmount"
             /><b>원</b>
           </div></label
         >

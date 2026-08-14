@@ -6,6 +6,7 @@ import {
   getTransactionsApi,
   mapTransactionResponse,
   registerFixedTransactionApi,
+  unregisterFixedTransactionApi,
   updateTransactionApi,
 } from '@/api/transactions'
 
@@ -127,15 +128,17 @@ export async function deleteTransaction(id) {
 }
 
 export async function setFixed(ids, fixed) {
-  if (!USE_MOCK_API && fixed) {
+  if (!USE_MOCK_API) {
     financeState.loading = true
     financeState.error = ''
     try {
-      await Promise.all(ids.map((id) => registerFixedTransactionApi(id)))
+      const updateFixed = fixed ? registerFixedTransactionApi : unregisterFixedTransactionApi
+      await Promise.all(ids.map((id) => updateFixed(id)))
       await loadTransactions(true)
       return true
     } catch (error) {
-      financeState.error = error.message || '고정지출을 등록하지 못했습니다.'
+      financeState.error =
+        error.message || (fixed ? '고정지출을 등록하지 못했습니다.' : '고정지출을 해제하지 못했습니다.')
       return false
     } finally {
       financeState.loading = false
@@ -147,6 +150,31 @@ export async function setFixed(ids, fixed) {
   })
   if (USE_MOCK_API) persist()
   return true
+}
+
+export async function resetFixedTransactions() {
+  if (USE_MOCK_API) {
+    financeState.transactions.forEach((row) => {
+      row.fixed = false
+      if (row.transactionType === 'FIXED') row.transactionType = 'EXPENSE'
+      if (row.detail === '고정지출') row.detail = '지출'
+    })
+    persist()
+    return true
+  }
+
+  try {
+    const transactions = await loadTransactions(true)
+    const fixedIds = transactions.filter((row) => row.fixed).map((row) => row.id)
+    if (fixedIds.length) {
+      await Promise.all(fixedIds.map((id) => unregisterFixedTransactionApi(id)))
+    }
+    await loadTransactions(true)
+    return true
+  } catch (error) {
+    financeState.error = error.message || '기존 고정지출을 초기화하지 못했습니다.'
+    return false
+  }
 }
 
 export function clearTransactions() {

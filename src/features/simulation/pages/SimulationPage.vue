@@ -318,7 +318,7 @@ onMounted(async () => {
 .simulation-quest-progress strong { color: #51392e; font-size: 13px; }
 .simulation-quest-progress span { color: #777e89; font-size: 12px; font-weight: 700; }
 .simulation-quest-progress__track { height: 12px; overflow: hidden; border-radius: 999px; background: #eceef2; box-shadow: inset 0 1px 2px rgb(0 0 0 / 8%); }
-.simulation-quest-progress__track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#f6c34c,#f0a93d); transition: width .3s ease; }
+.simulation-quest-progress__track span { display: block; height: 100%; border-radius: inherit; background: #f1b94c; transition: width .3s ease; }
 .simulation-quest-period + .simulation-quest-period { margin-top: 24px; padding-top: 24px; border-top: 1px solid #dfe2e8; }
 .simulation-quest-period > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .simulation-quest-period > header h3 { font-size: 16px; font-weight: 900; }
@@ -360,7 +360,7 @@ onMounted(async () => {
 
 .confirmed-timeline-description { margin-top: 6px; color: #6b7684; font-size: 14px; }
 .confirmed-timeline-track { position: relative; height: 150px; margin: 34px 18px 0; }
-.confirmed-timeline-track__line { position: absolute; top: 34px; right: 0; left: 0; height: 7px; border-radius: 999px; background: linear-gradient(90deg,var(--primary),#8facf5 68%,var(--accent-strong)); }
+.confirmed-timeline-track__line { position: absolute; top: 34px; right: 0; left: 0; height: 7px; border-radius: 999px; background: var(--primary); }
 .confirmed-timeline-marker { position: absolute; top: 14px; display: grid; width: max-content; max-width: 130px; justify-items: center; gap: 5px; transform: translateX(-50%); text-align: center; }
 .confirmed-timeline-marker--current { transform: translateX(0); }
 .confirmed-timeline-marker:last-of-type { transform: translateX(-100%); }
@@ -391,7 +391,7 @@ onMounted(async () => {
 @media (max-width: 767px) {
   .confirmed-timeline-description { font-size: 13px; line-height: 1.5; }
   .confirmed-timeline-track { display: grid; height: auto; gap: 14px; margin: 22px 0 8px; padding-left: 2px; }
-  .confirmed-timeline-track__line { top: 18px; right: auto; bottom: 18px; left: 22px; width: 5px; height: auto; background: linear-gradient(180deg,var(--primary),#8facf5 68%,var(--accent-strong)); }
+  .confirmed-timeline-track__line { top: 18px; right: auto; bottom: 18px; left: 22px; width: 5px; height: auto; background: var(--primary); }
   .confirmed-timeline-marker,
   .confirmed-timeline-marker:last-of-type { position: relative; top: auto; left: auto !important; display: grid; width: 100%; max-width: none; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; justify-items: start; gap: 12px; transform: none; text-align: left; }
   .confirmed-timeline-marker i { z-index: 1; grid-row: 1; grid-column: 1; width: 44px; height: 44px; }

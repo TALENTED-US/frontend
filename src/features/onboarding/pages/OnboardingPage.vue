@@ -1,9 +1,11 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import FinancialInstitutionLogo from '@/components/ui/FinancialInstitutionLogo.vue'
 import buttieLoadingImage from '@/assets/images/onboarding/buttie-loading.png'
+import buttieCompletionImage from '@/assets/images/dashboard/levels/buttie-l1-stable.png'
 import { loadTransactions, setFixed } from '@/features/finance/financeStore'
 import {
   ensureMyDataConnection,
@@ -15,8 +17,10 @@ import {
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
+const route = useRoute()
 const session = useSessionStore()
-const step = ref(1)
+const isMyDataReconnect = computed(() => route.query.mode === 'mydata')
+const step = ref(isMyDataReconnect.value ? 2 : 1)
 const consentChecked = ref(true)
 const openedConsent = ref('')
 const bankSearch = ref('')
@@ -25,6 +29,7 @@ const employmentSubmitting = ref(false)
 const employmentError = ref('')
 const mydataError = ref('')
 const mydataSubmitting = ref(false)
+const catalogLoadingStage = ref(0)
 const fixedSubmitting = ref(false)
 
 const regions = [
@@ -63,7 +68,6 @@ const fixedExpenses = ref([])
 const banks = computed(() =>
   mydataState.institutions.map((institution) => ({
     name: institution.institutionName,
-    mark: institution.institutionName.slice(0, 2),
     accountCount: Number(institution.accountCount) || 0,
     cardCount: Number(institution.cardCount) || 0,
   })),
@@ -118,7 +122,7 @@ const allAccountsSelected = createGroupSelection('account')
 const allCardsSelected = createGroupSelection('card')
 
 const allFixedChecked = computed({
-  get: () => fixedExpenses.value.every((item) => item.checked),
+  get: () => fixedExpenses.value.length > 0 && fixedExpenses.value.every((item) => item.checked),
   set: (checked) => fixedExpenses.value.forEach((item) => (item.checked = checked)),
 })
 
@@ -130,6 +134,17 @@ const selectedFixedTotalLabel = computed(() => {
   const amountInTenThousands = selectedFixedTotal.value / 10000
   return `${Number.isInteger(amountInTenThousands) ? amountInTenThousands : amountInTenThousands.toFixed(1)}만원`
 })
+
+function formatMoneyInput(value) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  return digits ? Number(digits).toLocaleString('ko-KR') : ''
+}
+
+function updateMinimumLivingFund(event) {
+  const digits = event.target.value.replace(/\D/g, '')
+  form.value.minimumLivingFund = digits ? Number(digits) : ''
+  event.target.value = formatMoneyInput(digits)
+}
 
 watch(
   step,
@@ -153,21 +168,45 @@ function toggleBank(bank) {
     : [...selectedBanks.value, bank]
 }
 
+function financialGroupName(name = '') {
+  const compact = String(name)
+    .toLowerCase()
+    .replace(/주식회사|㈜|\(주\)|은행|카드사|카드|금융|저축/g, '')
+    .replace(/[^0-9a-z가-힣]/g, '')
+  const aliases = [
+    [/^(kb|국민)/, 'kb국민'],
+    [/^(nh|농협)/, 'nh농협'],
+    [/^(ibk|기업)/, 'ibk기업'],
+    [/^(신한)/, '신한'],
+    [/^(우리)/, '우리'],
+    [/^(하나|keb)/, '하나'],
+  ]
+  return aliases.find(([pattern]) => pattern.test(compact))?.[1] || compact
+}
+
+function belongsToSelectedInstitution(institutionName, selectedInstitutions) {
+  const group = financialGroupName(institutionName)
+  return [...selectedInstitutions].some((selected) => financialGroupName(selected) === group)
+}
+
 function hydrateAssets() {
   const selectedInstitutions = new Set(selectedBanks.value)
   accounts.value = mydataState.accounts
-    .filter((item) => selectedInstitutions.has(item.institutionName))
+    .filter((item) => belongsToSelectedInstitution(item.institutionName, selectedInstitutions))
     .map((item) => ({
       id: String(item.accountId),
+      institutionName: item.institutionName,
       name: `${item.institutionName} ${item.accountName}`.trim(),
       meta: `${item.accountNumberMasked} · ${item.accountType || '계좌'}`,
       amount: Number(item.balance) || 0,
       selected: true,
     }))
   cards.value = mydataState.cards
-    .filter((item) => selectedInstitutions.has(item.institutionName))
+    .filter((item) => belongsToSelectedInstitution(item.institutionName, selectedInstitutions))
     .map((item) => ({
       id: String(item.cardId),
+      institutionName: item.institutionName,
+      cardName: item.cardName,
       name: `${item.institutionName} ${item.cardName}`.trim(),
       meta: `${item.cardNumberMasked} · ${item.cardType || '카드'}`,
       selected: true,
@@ -191,7 +230,17 @@ function mapFixedExpenseCandidates() {
 async function connectAndLoadCatalog() {
   mydataSubmitting.value = true
   mydataError.value = ''
+  catalogLoadingStage.value = 0
   step.value = 4
+  const loadingSequence = (async () => {
+    await new Promise((resolve) => window.setTimeout(resolve, 260))
+    catalogLoadingStage.value = 1
+    await new Promise((resolve) => window.setTimeout(resolve, 420))
+    catalogLoadingStage.value = 2
+    await new Promise((resolve) => window.setTimeout(resolve, 420))
+    catalogLoadingStage.value = 3
+    await new Promise((resolve) => window.setTimeout(resolve, 280))
+  })()
   try {
     if (session.isMockMode) {
       mydataState.institutions = [{ institutionName: 'KB국민은행', accountCount: 2, cardCount: 1 }]
@@ -215,12 +264,22 @@ async function connectAndLoadCatalog() {
           isConsent: true,
         },
       ]
-      mydataState.cards = []
+      mydataState.cards = [
+        {
+          cardId: 'mock-card-1',
+          institutionName: 'KB국민카드',
+          cardName: '이소비 체크카드',
+          cardType: '체크카드',
+          cardNumberMasked: '5412-****-****-3020',
+          isConsent: true,
+        },
+      ]
     } else {
       await ensureMyDataConnection()
       await loadMyDataCatalog()
     }
     selectedBanks.value = mydataState.institutions.map((item) => item.institutionName)
+    await loadingSequence
     step.value = 5
   } catch (error) {
     mydataError.value = error.message || '마이데이터 금융기관을 불러오지 못했습니다.'
@@ -261,6 +320,10 @@ async function registerAndSyncAssets() {
 }
 
 function goBack() {
+  if (isMyDataReconnect.value && step.value === 2) {
+    router.push(String(route.query.returnTo || '/mypage/data'))
+    return
+  }
   if (step.value === 1) {
     router.push('/auth/login')
     return
@@ -324,7 +387,7 @@ async function next() {
         throw new Error('선택한 고정지출을 등록하지 못했습니다.')
       }
       session.login()
-      router.push('/dashboard')
+      router.push(String(route.query.returnTo || '/dashboard'))
     } catch (error) {
       mydataError.value = error.message || '고정지출을 저장하지 못했습니다.'
     } finally {
@@ -342,7 +405,8 @@ async function next() {
 
     <section class="onboarding-stage" :class="{ 'onboarding-stage--wide': step === 9 }">
       <button v-if="step !== 4 && step !== 7" class="mobile-back" type="button" @click="goBack">
-        {{ step === 1 ? '← 로그인으로' : '← 이전' }}
+        <span aria-hidden="true">←</span>
+        {{ step === 1 ? '로그인으로' : '이전' }}
       </button>
 
       <template v-if="step === 1">
@@ -408,13 +472,12 @@ async function next() {
               ><AppIcon name="wallet" :size="16" /> 재정 위험 알림 금액</span
             >
             <input
-              v-model.number="form.minimumLivingFund"
+              :value="formatMoneyInput(form.minimumLivingFund)"
               class="control"
-              type="number"
-              min="1"
-              step="10000"
+              type="text"
               inputmode="numeric"
               placeholder="재정 위험 알림 금액을 입력하세요"
+              @input="updateMinimumLivingFund"
             />
             <small>이 금액 이하로 떨어지면 위험 단계로 알려드릴게요</small>
           </label>
@@ -500,19 +563,64 @@ async function next() {
 
       <template v-else-if="step === 4">
         <div class="loading-screen loading-screen--analysis">
-          <img class="loading-buttie" :src="buttieLoadingImage" alt="" />
-          <h1>마이데이터 분석 중</h1>
-          <p>계좌와 거래내역을 불러오고 있어요</p>
-          <div class="loading-status">
-            <div>
-              <i class="status-dot done">✓</i><span>마이데이터 인증</span><strong>완료</strong>
-            </div>
-            <div>
-              <i class="status-dot working" /><span>금융기관 조회 중…</span><strong>연결 중</strong>
-            </div>
-            <div><i class="status-dot" /><span>계좌·카드 조회</span><strong>대기 중</strong></div>
+          <div class="loading-buttie-ring" aria-hidden="true">
+            <span></span>
+            <img class="loading-buttie" :src="buttieLoadingImage" alt="" />
           </div>
-          <div class="progress-track"><span /></div>
+          <h1>마이데이터 정보 불러오는 중</h1>
+          <p>연결한 금융기관의 계좌와 카드 정보를 확인하고 있어요</p>
+          <div class="loading-status">
+            <div
+              :class="{ completed: catalogLoadingStage >= 1, working: catalogLoadingStage === 0 }"
+            >
+              <i class="status-dot" :class="catalogLoadingStage >= 1 ? 'done' : 'working'">
+                {{ catalogLoadingStage >= 1 ? '✓' : '' }}
+              </i>
+              <span>마이데이터 인증</span>
+              <strong>{{ catalogLoadingStage >= 1 ? '완료' : '인증 중' }}</strong>
+            </div>
+            <div
+              :class="{ completed: catalogLoadingStage >= 2, working: catalogLoadingStage === 1 }"
+            >
+              <i
+                class="status-dot"
+                :class="
+                  catalogLoadingStage >= 2 ? 'done' : catalogLoadingStage === 1 ? 'working' : ''
+                "
+                >{{ catalogLoadingStage >= 2 ? '✓' : '' }}</i
+              >
+              <span>금융기관 조회</span>
+              <strong>{{
+                catalogLoadingStage >= 2
+                  ? '완료'
+                  : catalogLoadingStage === 1
+                    ? '조회 중'
+                    : '대기 중'
+              }}</strong>
+            </div>
+            <div
+              :class="{ completed: catalogLoadingStage >= 3, working: catalogLoadingStage === 2 }"
+            >
+              <i
+                class="status-dot"
+                :class="
+                  catalogLoadingStage >= 3 ? 'done' : catalogLoadingStage === 2 ? 'working' : ''
+                "
+                >{{ catalogLoadingStage >= 3 ? '✓' : '' }}</i
+              >
+              <span>계좌·카드 조회</span>
+              <strong>{{
+                catalogLoadingStage >= 3
+                  ? '완료'
+                  : catalogLoadingStage === 2
+                    ? '조회 중'
+                    : '대기 중'
+              }}</strong>
+            </div>
+          </div>
+          <div class="progress-track">
+            <span :style="{ width: `${Math.max(8, (catalogLoadingStage / 3) * 100)}%` }" />
+          </div>
           <small>완료되면 자동으로 다음 화면으로 이동해요</small>
           <p v-if="mydataError" class="employment-error" role="alert">{{ mydataError }}</p>
           <button
@@ -538,7 +646,7 @@ async function next() {
 
         <input v-model="bankSearch" class="bank-search" placeholder="금융기관 검색" />
 
-        <div class="selected-chips">
+        <div v-if="selectedBanks.length" class="selected-chips">
           <button
             v-for="bank in selectedBanks"
             :key="bank"
@@ -560,7 +668,7 @@ async function next() {
             type="button"
             @click="toggleBank(bank.name)"
           >
-            <span class="bank-mark">{{ bank.mark }}</span>
+            <FinancialInstitutionLogo :name="bank.name" :size="46" />
             <span class="bank-name">
               <strong>{{ bank.name }}</strong>
               <small
@@ -598,9 +706,11 @@ async function next() {
             :key="account.id"
             class="asset-card"
             :class="{ selected: account.selected }"
+            :aria-pressed="account.selected"
             type="button"
             @click="account.selected = !account.selected"
           >
+            <FinancialInstitutionLogo :name="account.institutionName" :size="44" />
             <span>
               <strong>{{ account.name }}</strong>
               <small>{{ account.meta }}</small>
@@ -620,9 +730,15 @@ async function next() {
             :key="card.id"
             class="asset-card"
             :class="{ selected: card.selected }"
+            :aria-pressed="card.selected"
             type="button"
             @click="card.selected = !card.selected"
           >
+            <FinancialInstitutionLogo
+              :name="`${card.institutionName} ${card.cardName}`"
+              kind="card"
+              :size="44"
+            />
             <span>
               <strong>{{ card.name }}</strong>
               <small>{{ card.meta }}</small>
@@ -631,7 +747,12 @@ async function next() {
           </button>
         </div>
 
-        <p class="selected-balance">총 선택 잔액: {{ selectedBalance.toLocaleString() }}원</p>
+        <div class="selected-balance">
+          <span>선택한 자산</span>
+          <strong>{{ selectedAssetCount }}개</strong>
+          <span>총 잔액</span>
+          <b>{{ selectedBalance.toLocaleString() }}원</b>
+        </div>
         <button class="primary-cta" type="button" :disabled="!selectedAssetCount" @click="next">
           <strong>선택 완료 ({{ selectedAssetCount }}개)</strong>
         </button>
@@ -639,7 +760,10 @@ async function next() {
 
       <template v-else-if="step === 7">
         <div class="loading-screen loading-screen--analysis">
-          <img class="loading-buttie" :src="buttieLoadingImage" alt="" />
+          <div class="loading-buttie-ring" aria-hidden="true">
+            <span></span>
+            <img class="loading-buttie" :src="buttieLoadingImage" alt="" />
+          </div>
           <h1>마이데이터 분석 중</h1>
           <p>계좌와 거래내역을 불러오고 있어요</p>
           <div class="loading-status">
@@ -670,7 +794,10 @@ async function next() {
 
       <template v-else-if="step === 8">
         <div class="completion-screen">
-          <div class="completion-check">✓</div>
+          <div class="completion-character">
+            <span aria-hidden="true" />
+            <img :src="buttieCompletionImage" alt="마이데이터 연결을 완료한 버티" />
+          </div>
           <div class="stage-heading stage-heading--center-mobile">
             <h1>연결 완료!</h1>
             <p>금융 데이터를 성공적으로 불러왔어요.</p>
@@ -707,15 +834,20 @@ async function next() {
           <strong>{{ selectedFixedTotalLabel }}</strong>
           <small>총 {{ selectedFixedExpenses.length }}건</small>
         </div>
-        <p class="fixed-guide">고정지출로 반영할 항목을 체크해 주세요.</p>
-        <label class="select-all-fixed">
-          전체 선택 <input v-model="allFixedChecked" type="checkbox" />
-        </label>
+        <div class="fixed-controls">
+          <p class="fixed-guide">고정지출로 반영할 항목을 체크해 주세요.</p>
+          <label class="select-all-fixed">
+            <input v-model="allFixedChecked" type="checkbox" :disabled="!fixedExpenses.length" />
+            <span>전체 선택</span>
+          </label>
+        </div>
 
         <div class="expense-list">
-          <p v-if="!fixedExpenses.length" class="bottom-helper">
-            반복 결제로 확인된 고정지출 후보가 없어요. 나중에 거래내역에서 직접 등록할 수 있어요.
-          </p>
+          <div v-if="!fixedExpenses.length" class="fixed-empty">
+            <span aria-hidden="true"><AppIcon name="wallet" :size="24" /></span>
+            <strong>반복 결제 내역이 없어요</strong>
+            <p>나중에 거래내역에서 고정지출을 직접 등록할 수 있어요.</p>
+          </div>
           <div v-for="item in fixedExpenses" :key="item.name" class="expense-block">
             <div v-if="item.category" class="expense-category">
               <span><i :style="{ background: item.color }" />{{ item.category }}</span>
@@ -772,8 +904,26 @@ async function next() {
 }
 
 .onboarding-stage--wide {
-  width: min(100% - 40px, 510px);
-  padding-top: 150px;
+  width: min(100% - 48px, 720px);
+  padding-top: 130px;
+}
+
+.onboarding-page--step-2 .onboarding-stage,
+.onboarding-page--step-3 .onboarding-stage,
+.onboarding-page--step-4 .onboarding-stage,
+.onboarding-page--step-5 .onboarding-stage,
+.onboarding-page--step-6 .onboarding-stage,
+.onboarding-page--step-7 .onboarding-stage,
+.onboarding-page--step-8 .onboarding-stage {
+  width: min(100% - 48px, 720px);
+  padding-top: 130px;
+}
+
+.onboarding-page--step-2 .stage-heading,
+.onboarding-page--step-3 .stage-heading,
+.onboarding-page--step-5 .stage-heading,
+.onboarding-page--step-6 .stage-heading {
+  text-align: left;
 }
 
 .mobile-hero-icon,
@@ -784,17 +934,23 @@ async function next() {
 }
 
 .mobile-back {
-  position: absolute;
-  top: 120px;
-  left: 0;
   display: inline-flex;
   align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: -52px 0 20px;
+  padding: 0 10px 0 0;
   border: 0;
   background: transparent;
   color: #666;
   font-size: var(--font-body);
   font-weight: 700;
   cursor: pointer;
+}
+
+.mobile-back > span {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .mobile-back:hover {
@@ -968,34 +1124,53 @@ select.control {
 }
 
 .collect-card {
-  padding: 23px 30px;
-  border-radius: 14px;
-  background: #edf2ff;
+  padding: 26px 28px;
+  border: 1px solid #e7eaf0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(31 42 68 / 7%);
 }
 
 .collect-card h2 {
-  display: none;
+  display: block;
+  margin: 0 0 16px;
+  color: #252b36;
+  font-size: var(--font-section-title);
+  font-weight: 800;
 }
 
 .collect-card ul {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
-  color: #666;
+  color: #252b36;
   font-size: var(--font-body);
 }
 
 .collect-card li::before {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff1b8;
+  color: var(--flow-blue);
   content: '✓';
-  margin-right: 5px;
 }
 
 .consent-list {
   display: grid;
   gap: 18px;
-  margin-top: 58px;
+  margin-top: 30px;
+  padding: 20px;
+  border: 1px solid #e7eaf0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(31 42 68 / 7%);
 }
 
 .accordion {
@@ -1004,14 +1179,14 @@ select.control {
   gap: 8px;
   min-height: 56px;
   padding: 0 20px;
-  border: 1px solid #dfe1e7;
-  border-radius: 13px;
-  background: white;
-  color: var(--flow-blue);
+  border: 0;
+  border-radius: 14px;
+  background: #f7f8fb;
+  color: #252b36;
   font-size: var(--font-body);
   font-weight: 800;
   text-align: left;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  box-shadow: none;
 }
 
 .accordion > span {
@@ -1039,7 +1214,8 @@ select.control {
   margin-top: 32px;
   padding: 0 18px;
   border-radius: 12px;
-  background: #edf2ff;
+  border: 1px solid #f1dc8a;
+  background: #fff9df;
   font-size: var(--font-body);
   font-weight: 800;
 }
@@ -1056,11 +1232,12 @@ input[type='checkbox'] {
 
 .loading-screen {
   display: flex;
-  min-height: 775px;
+  width: 100%;
+  min-height: calc(100dvh - 200px);
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: 54px;
+  justify-content: center;
+  padding: 30px 0 60px;
   text-align: center;
 }
 
@@ -1069,6 +1246,53 @@ input[type='checkbox'] {
   width: 171px;
   height: 171px;
   object-fit: cover;
+}
+
+.loading-buttie-ring {
+  position: relative;
+  display: grid;
+  width: 205px;
+  height: 205px;
+  place-items: center;
+}
+
+.loading-buttie-ring > span {
+  position: absolute;
+  inset: 0;
+  border: 6px solid #fff1bd;
+  border-top-color: #f4b43e;
+  border-right-color: #0a1680;
+  border-radius: 50%;
+  box-shadow: 0 8px 28px rgb(244 180 62 / 16%);
+  animation: loading-ring-spin 1.1s linear infinite;
+}
+
+.loading-buttie-ring::after {
+  position: absolute;
+  inset: 14px;
+  border: 1px solid #f7e8ad;
+  border-radius: 50%;
+  content: '';
+}
+
+.loading-buttie-ring .loading-buttie {
+  position: relative;
+  z-index: 1;
+  width: 155px;
+  height: 155px;
+  border-radius: 50%;
+}
+
+@keyframes loading-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-buttie-ring > span {
+    animation-duration: 2.4s;
+  }
 }
 
 .loading-screen h1 {
@@ -1089,18 +1313,14 @@ input[type='checkbox'] {
 
 .loading-status {
   display: grid;
-  width: min(400px, 100%);
+  width: 100%;
   gap: 13px;
   min-height: 150px;
   margin-top: 29px;
   padding: 20px 24px;
   border: 1px solid #e0e3ea;
-  border-radius: 15px;
+  border-radius: 20px;
   background: white;
-}
-
-.loading-screen--analysis .loading-status div:first-child strong {
-  color: #fcb01d;
 }
 
 .loading-status div {
@@ -1113,21 +1333,32 @@ input[type='checkbox'] {
   text-align: left;
 }
 
+.loading-status div.working span {
+  color: #222;
+  font-weight: 700;
+}
+
+.loading-status div.completed span {
+  color: #222;
+  font-weight: 700;
+}
+
+.loading-status div.completed strong {
+  color: #d99008;
+  font-weight: 700;
+}
+
 .loading-status strong {
   color: #999;
   font-size: 12px;
   font-weight: 400;
 }
 
-.loading-status div:nth-child(2) span {
-  font-weight: 700;
-}
-
-.loading-status div:nth-child(3) {
+.loading-status div:not(.working, .completed) {
   color: #b0b0b0;
 }
 
-.loading-status div:nth-child(3) strong {
+.loading-status div:not(.working, .completed) strong {
   color: #b0b0b0;
 }
 
@@ -1145,6 +1376,7 @@ input[type='checkbox'] {
 .status-dot.done {
   background: #ffb21a;
   color: white;
+  animation: status-check-pop 0.38s cubic-bezier(0.2, 1.7, 0.45, 1);
 }
 
 .status-dot.working {
@@ -1153,11 +1385,25 @@ input[type='checkbox'] {
   animation: spin 1.2s linear infinite;
 }
 
+@keyframes status-check-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.25);
+  }
+  65% {
+    transform: scale(1.28);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .progress-track {
-  width: min(400px, 100%);
-  height: 46px;
+  width: 100%;
+  height: 14px;
   margin-top: 24px;
-  padding: 8px;
+  padding: 3px;
   border-radius: 999px;
   background: #fff8d8;
 }
@@ -1168,12 +1414,22 @@ input[type='checkbox'] {
   height: 100%;
   border-radius: inherit;
   background: #ffb21a;
+  transition: width 0.38s ease;
 }
 
 .loading-screen > small {
   margin-top: 28px;
   color: #999;
   font-size: 13px;
+}
+
+.loading-screen > .primary-cta {
+  width: auto;
+  min-width: 180px;
+  min-height: 50px;
+  margin-top: 18px;
+  padding: 0 28px;
+  border-radius: 14px;
 }
 
 .split-heading {
@@ -1190,28 +1446,48 @@ input[type='checkbox'] {
 }
 
 .bank-search {
-  margin-top: 45px;
+  height: 52px;
+  margin-top: 28px;
+  border-color: #e7eaf0;
+  border-radius: 14px;
   background: white;
+  box-shadow: none;
 }
 
 .selected-chips {
-  display: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.selected-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #fff1b8;
+  color: #252b36;
+  font-size: var(--font-small);
+  font-weight: 800;
 }
 
 .bank-list {
   display: grid;
   gap: 10px;
-  margin-top: 20px;
-  border: 0;
-  background: transparent;
-  box-shadow: none !important;
-  filter: none;
+  margin-top: 16px;
+  padding: 20px;
+  border: 1px solid #e7eaf0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(31 42 68 / 7%);
 }
 
 #app .onboarding-page--step-5 .bank-list {
-  border: 0;
-  background: transparent;
-  box-shadow: none !important;
+  border: 1px solid #e7eaf0;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(31 42 68 / 7%) !important;
   filter: none;
 }
 
@@ -1219,20 +1495,20 @@ input[type='checkbox'] {
   display: grid;
   grid-template-columns: 46px 1fr auto;
   align-items: center;
-  min-height: 52px;
+  min-height: 82px;
   gap: 12px;
-  padding: 7px 18px;
-  border: 1px solid #dfe1e7;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 2px 5px rgb(0 0 0 / 14%);
+  padding: 12px 14px;
+  border: 1px solid #edf0f4;
+  border-radius: 16px;
+  background: #f8f9fb;
+  box-shadow: none;
   filter: none;
   text-align: left;
 }
 
 .bank-row.selected {
-  border-color: transparent;
-  background: #edf2ff;
+  border-color: #f2d269;
+  background: #fff9df;
 }
 
 .bank-mark {
@@ -1257,23 +1533,23 @@ input[type='checkbox'] {
 }
 
 .bank-name strong {
-  color: var(--flow-blue);
+  color: #252b36;
   font-size: var(--font-body);
 }
 
 .bank-name small {
-  width: max-content;
+  width: fit-content;
   margin-top: 2px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: #f0f1f3;
-  color: #777;
+  background: transparent;
+  color: #737b89;
   font-size: var(--font-caption);
 }
 
 .bank-row.selected .bank-name small {
-  background: #3f2c22;
-  color: white;
+  background: transparent;
+  color: #737b89;
 }
 
 .round-check {
@@ -1289,89 +1565,152 @@ input[type='checkbox'] {
 }
 
 .asset-section {
-  margin-top: 38px;
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid #e7eaf0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(31 42 68 / 7%);
 }
 
 #app .onboarding-page .asset-section {
-  box-shadow: none !important;
+  box-shadow: 0 10px 30px rgb(31 42 68 / 7%) !important;
   filter: none;
 }
 
 .asset-section + .asset-section {
-  margin-top: 22px;
+  margin-top: 16px;
 }
 
 .asset-section__header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 10px;
-  color: #777;
-  font-size: var(--font-small);
+  margin-bottom: 14px;
+  color: #252b36;
+  font-size: var(--font-body);
+  font-weight: 800;
 }
 
 .asset-section__header label {
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: #222;
-  font-weight: 800;
+  gap: 8px;
+  color: #5f6877;
+  font-size: var(--font-small);
+  font-weight: 700;
 }
 
 .asset-section__header input {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--flow-blue);
 }
 
 .asset-card {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(96px, auto) 26px;
   width: 100%;
-  min-height: 82px;
+  min-height: 88px;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 12px;
-  padding: 16px 22px;
-  border: 1px solid #dfe1e7;
-  border-radius: 13px;
-  background: white;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  border: 1px solid #edf0f4;
+  border-radius: 16px;
+  background: #f8f9fb;
   text-align: left;
-  box-shadow: var(--shadow-figma);
+  box-shadow: none;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    transform 0.16s ease;
+}
+
+.asset-card:last-child {
+  margin-bottom: 0;
+}
+
+.asset-card:hover {
+  transform: translateY(-1px);
+  border-color: #cfd5e1;
 }
 
 .asset-card.selected {
-  border-color: transparent;
-  background: #edf2ff;
+  border-color: #f2d269;
+  background: #fff9df;
 }
 
-.asset-card > span {
+.asset-card > span:not(.financial-logo) {
   display: grid;
+  grid-column: 2;
+  min-width: 0;
   gap: 4px;
+}
+
+.asset-card > b {
+  grid-column: 3;
 }
 
 .asset-card strong,
 .asset-card b {
-  color: var(--flow-blue);
+  color: #252b36;
   font-size: var(--font-body);
+}
+
+.asset-card strong {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-card b {
+  justify-self: end;
+  white-space: nowrap;
 }
 
 .asset-card small {
-  color: #777;
+  overflow: hidden;
+  color: #737b89;
   font-size: var(--font-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .asset-card .round-check {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
+  position: static;
+  grid-column: 4;
+  justify-self: end;
+  width: 24px;
+  height: 24px;
+  background: var(--flow-blue);
+  font-size: 13px;
 }
 
 .selected-balance {
-  margin: 28px 0 0;
-  color: var(--flow-blue);
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: #f7f8fb;
+  color: #737b89;
+  font-size: var(--font-small);
+}
+
+.selected-balance strong {
+  color: #252b36;
   font-size: var(--font-body);
   font-weight: 800;
-  text-align: right;
+}
+
+.selected-balance b {
+  color: var(--flow-blue);
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .completion-screen {
@@ -1381,18 +1720,32 @@ input[type='checkbox'] {
   justify-content: center;
 }
 
-.completion-check {
+.completion-character {
+  position: relative;
   display: grid;
-  width: 88px;
-  height: 88px;
+  width: 132px;
+  height: 112px;
   place-items: center;
   align-self: center;
   margin: 35px 0 45px;
+}
+
+.completion-character span {
+  position: absolute;
+  width: 112px;
+  height: 72px;
   border-radius: 50%;
-  background: #edf2ff;
-  color: var(--flow-action);
-  font-size: var(--font-display);
-  font-weight: 300;
+  background: #fff1b8;
+  filter: blur(18px);
+}
+
+.completion-character img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 118px;
+  max-height: 108px;
+  object-fit: contain;
 }
 
 .completion-summary {
@@ -1467,17 +1820,28 @@ input[type='checkbox'] {
 }
 
 .fixed-guide {
-  margin: 22px 0 0;
+  margin: 0;
   color: #666;
   font-size: var(--font-body);
+}
+
+.fixed-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px;
 }
 
 .select-all-fixed {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 5px;
-  margin-top: -20px;
+  flex: none;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #f3f5f8;
   font-size: var(--font-small);
   font-weight: 800;
 }
@@ -1487,14 +1851,57 @@ input[type='checkbox'] {
 }
 
 .select-all-fixed input {
+  order: -1;
   width: 18px;
   height: 18px;
+}
+
+.select-all-fixed:has(input:disabled) {
+  color: #9aa1ad;
+  cursor: not-allowed;
 }
 
 .expense-list {
   display: grid;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 14px;
+}
+
+.fixed-empty {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 28px;
+  border: 1px solid #e6e9ee;
+  border-radius: 16px;
+  background: #f8f9fb;
+  text-align: center;
+}
+
+.fixed-empty > span {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 15px;
+  background: var(--flow-yellow);
+  color: var(--flow-blue);
+}
+
+.fixed-empty strong {
+  color: #222;
+  font-size: var(--font-body);
+  font-weight: 800;
+}
+
+.fixed-empty p {
+  max-width: 360px;
+  margin: 0;
+  color: #737b89;
+  font-size: var(--font-small);
+  line-height: 1.55;
 }
 
 .expense-category {
@@ -1601,7 +2008,7 @@ input[type='checkbox'] {
   }
 
   .onboarding-page--step-2 .onboarding-stage {
-    padding-top: 185px;
+    padding-top: 130px;
   }
 
   .onboarding-page--step-2 .mobile-hero-icon {
@@ -1616,7 +2023,7 @@ input[type='checkbox'] {
   }
 
   .onboarding-page--step-2 .stage-heading {
-    text-align: center;
+    text-align: left;
   }
 
   .onboarding-page--step-2 .stage-heading h1 {
@@ -1633,10 +2040,10 @@ input[type='checkbox'] {
   }
 
   .onboarding-page--step-2 .collect-card {
-    margin-top: 18px;
-    padding: 24px 30px;
-    border: 1px solid #e4e6eb;
-    border-radius: 14px;
+    margin-top: 28px;
+    padding: 26px 28px;
+    border: 1px solid #e7eaf0;
+    border-radius: 20px;
     background: #fff;
   }
 
@@ -1671,7 +2078,7 @@ input[type='checkbox'] {
   }
 
   .onboarding-page--step-3 .stage-heading {
-    text-align: center;
+    text-align: left;
   }
 
   .onboarding-page--step-3 .stage-heading h1 {
@@ -1679,7 +2086,7 @@ input[type='checkbox'] {
   }
 
   .onboarding-page--step-3 .consent-list {
-    margin-top: 58px;
+    margin-top: 30px;
   }
 
   .onboarding-page--step-3 .accordion {
@@ -1693,7 +2100,8 @@ input[type='checkbox'] {
 
   .onboarding-page--step-5 .onboarding-stage,
   .onboarding-page--step-6 .onboarding-stage {
-    padding-top: 165px;
+    width: min(100% - 48px, 720px);
+    padding-top: 130px;
   }
 
   .onboarding-page--step-5 .stage-heading h1,
@@ -1706,7 +2114,7 @@ input[type='checkbox'] {
   }
 
   .onboarding-page--step-5 .bank-row .round-check {
-    background: #666;
+    background: var(--flow-blue);
   }
 
   .onboarding-page--step-5 .sticky-cta {
@@ -1727,7 +2135,7 @@ input[type='checkbox'] {
   }
 
   .onboarding-page--step-6 .asset-card .round-check {
-    background: #666;
+    background: var(--flow-blue);
   }
 
   .onboarding-page--step-6 .primary-cta {
@@ -1737,11 +2145,6 @@ input[type='checkbox'] {
 
   .onboarding-page--step-8 .stage-heading {
     order: -1;
-  }
-
-  .onboarding-page--step-8 .completion-check {
-    background: var(--flow-yellow);
-    color: #f7aa16;
   }
 
   .onboarding-page--step-8 .stage-heading h1,
@@ -1801,16 +2204,24 @@ input[type='checkbox'] {
   }
 
   .onboarding-stage,
-  .onboarding-stage--wide {
-    width: min(100%, 393px);
+  .onboarding-stage--wide,
+  .onboarding-page--step-2 .onboarding-stage,
+  .onboarding-page--step-3 .onboarding-stage,
+  .onboarding-page--step-4 .onboarding-stage,
+  .onboarding-page--step-5 .onboarding-stage,
+  .onboarding-page--step-6 .onboarding-stage,
+  .onboarding-page--step-7 .onboarding-stage,
+  .onboarding-page--step-8 .onboarding-stage,
+  .onboarding-page--step-9 .onboarding-stage {
+    width: min(100%, 430px);
     min-height: 100dvh;
-    padding: 22px 16px 40px;
+    padding: 20px 16px max(40px, env(safe-area-inset-bottom));
   }
 
   .mobile-back {
-    display: block;
+    display: inline-flex;
     position: static;
-    margin-bottom: 20px;
+    margin: 0 0 20px;
     color: #666;
     font-size: var(--font-body);
   }
@@ -1989,13 +2400,23 @@ input[type='checkbox'] {
 
   .loading-screen {
     min-height: calc(100dvh - 62px);
-    justify-content: flex-start;
-    padding-top: 122px;
+    justify-content: center;
+    padding: 40px 0 70px;
   }
 
   .loading-buttie {
     width: 171px;
     height: 171px;
+  }
+
+  .loading-buttie-ring {
+    width: 188px;
+    height: 188px;
+  }
+
+  .loading-buttie-ring .loading-buttie {
+    width: 142px;
+    height: 142px;
   }
 
   .loading-screen h1 {
@@ -2014,10 +2435,10 @@ input[type='checkbox'] {
 
   .progress-track {
     width: 100%;
-    height: 52px;
-    margin-top: 32px;
-    padding: 20px 16px;
-    border-radius: 14px;
+    height: 14px;
+    margin-top: 24px;
+    padding: 3px;
+    border-radius: 999px;
   }
 
   .progress-track span {
@@ -2029,9 +2450,16 @@ input[type='checkbox'] {
     font-size: 12px;
   }
 
+  .loading-screen > .primary-cta {
+    width: min(100%, 220px);
+    min-width: 0;
+    min-height: 52px;
+    margin-top: 18px;
+  }
+
   .bank-search {
     margin-top: 14px;
-    background: #fff9e5;
+    background: #fff;
     box-shadow: none;
   }
 
@@ -2093,7 +2521,9 @@ input[type='checkbox'] {
     min-height: 88px;
     padding: 14px 18px;
     border-radius: 16px;
-    box-shadow: 0 2px 5px rgb(0 0 0 / 14%);
+    border: 1px solid #edf0f4;
+    background: #f8f9fb;
+    box-shadow: none;
     filter: none;
   }
 
@@ -2125,26 +2555,41 @@ input[type='checkbox'] {
   }
 
   .asset-section {
-    margin-top: 38px;
+    margin-top: 24px;
+    padding: 14px;
+    border-radius: 18px;
   }
 
   .asset-section__header label {
     display: flex;
     align-items: center;
-    gap: 4px;
-    color: #222;
-    font-weight: 800;
+    gap: 7px;
+    color: #5f6877;
+    font-weight: 700;
   }
 
   .asset-section__header input {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
   }
 
   .asset-card {
-    min-height: 92px;
-    padding: 14px 18px;
+    grid-template-columns: 44px minmax(0, 1fr) 24px;
+    min-height: 96px;
+    gap: 10px;
+    padding: 13px 12px;
     border-radius: 16px;
+  }
+
+  .asset-card > span:not(.financial-logo) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .asset-card > b {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
   }
 
   .asset-card.selected {
@@ -2158,13 +2603,23 @@ input[type='checkbox'] {
   }
 
   .asset-card .round-check {
-    background: #666;
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+    background: var(--flow-blue);
   }
 
   .selected-balance {
-    margin-top: 45px;
-    color: #222;
-    text-align: center;
+    grid-template-columns: auto 1fr;
+    gap: 7px 12px;
+    margin-top: 14px;
+    padding: 16px;
+    text-align: left;
+  }
+
+  .selected-balance strong,
+  .selected-balance b {
+    justify-self: end;
   }
 
   .onboarding-page--step-6 .primary-cta {
@@ -2176,13 +2631,15 @@ input[type='checkbox'] {
     justify-content: center;
   }
 
-  .completion-check {
+  .completion-character {
     order: -2;
-    width: 82px;
-    height: 82px;
+    width: 120px;
+    height: 102px;
     margin: 0 auto 18px;
-    background: var(--flow-yellow);
-    color: #f7aa16;
+  }
+
+  .completion-character img {
+    width: 108px;
   }
 
   .completion-summary {
@@ -2194,15 +2651,33 @@ input[type='checkbox'] {
   }
 
   .fixed-heading {
+    margin-top: 0;
     padding-bottom: 14px;
   }
 
   .fixed-summary {
     margin-top: 18px;
+    padding: 18px;
+  }
+
+  .fixed-controls {
+    align-items: flex-start;
+    margin-top: 18px;
+  }
+
+  .fixed-guide {
+    max-width: 205px;
+    line-height: 1.5;
+  }
+
+  .select-all-fixed {
+    min-height: 40px;
+    padding: 0 11px;
   }
 
   .expense-list {
-    gap: 5px;
+    gap: 8px;
+    margin-top: 12px;
   }
 
   .expense-row {
@@ -2210,7 +2685,12 @@ input[type='checkbox'] {
   }
 
   .fixed-cta {
-    margin-top: 48px;
+    margin-top: 24px;
+  }
+
+  .onboarding-page--step-9 .bottom-helper {
+    padding: 0 12px;
+    line-height: 1.5;
   }
 }
 </style>

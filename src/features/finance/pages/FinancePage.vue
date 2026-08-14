@@ -1480,7 +1480,7 @@ button {
   left: 0;
   height: 7px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), #8facf5 68%, var(--accent-strong));
+  background: var(--primary);
 }
 .finance-timeline-marker {
   position: absolute;
@@ -2212,7 +2212,7 @@ button {
     left: 22px;
     width: 5px;
     height: auto;
-    background: linear-gradient(180deg, var(--primary), #8facf5 68%, var(--accent-strong));
+    background: var(--primary);
   }
   .finance-timeline-marker,
   .finance-timeline-marker:last-of-type {

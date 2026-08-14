@@ -304,6 +304,17 @@ export const useSessionStore = defineStore('session', () => {
     else persistApiProfile()
   }
 
+  function clearMyDataConnection() {
+    myDataConnected.value = false
+    myDataLastUpdated.value = ''
+    currentUser.value.mydataStatus = 'DISCONNECTED'
+    currentUser.value.lastSyncedAt = ''
+    myData.connected = false
+    myData.lastUpdated = ''
+    if (isMockMode) localStorage.removeItem('buttie-mydata')
+    else persistApiProfile()
+  }
+
   setAccessTokenReissueHandler(reissueAccessTokenApi)
   setUnauthorizedHandler(handleUnauthorized)
 
@@ -331,5 +342,6 @@ export const useSessionStore = defineStore('session', () => {
     changePassword,
     verifyCurrentPassword,
     refreshMyData,
+    clearMyDataConnection,
   }
 })
