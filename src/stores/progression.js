@@ -156,6 +156,14 @@ export const useProgressionStore = defineStore('progression', () => {
     if (changed) claimedQuestIds.value = [...new Set(migrated)]
   }
 
+  function resetProgression() {
+    level.value = DEFAULT_PROGRESSION.level
+    exp.value = DEFAULT_PROGRESSION.exp
+    claimedQuestIds.value = []
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(JAEJUN_EXP_RESET_KEY)
+  }
+
   watch(
     [level, exp, claimedQuestIds],
     () => {
@@ -182,5 +190,6 @@ export const useProgressionStore = defineStore('progression', () => {
     cancelQuestClaim,
     isQuestClaimed,
     migrateRecurringQuestClaims,
+    resetProgression,
   }
 })

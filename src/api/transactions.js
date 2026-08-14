@@ -112,6 +112,21 @@ export function updateTransactionApi(transactionId, payload) {
   )
 }
 
+export function updateTransactionMemoApi(transactionId, memo) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/memo`, { memo }),
+  )
+}
+
+export function classifyTransactionApi(transactionId, { transactionType, expenseCategory }) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/classification`, {
+      transactionType,
+      expenseCategory,
+    }),
+  )
+}
+
 export function deleteTransactionApi(transactionId) {
   return requestResult(() => apiClient.delete(`transactions/${encodeURIComponent(transactionId)}`))
 }

@@ -8,6 +8,8 @@ import {
   mapTransactionResponse,
   registerFixedTransactionApi,
   unregisterFixedTransactionApi,
+  updateTransactionMemoApi,
+  classifyTransactionApi,
   updateTransactionApi,
 } from '@/api/transactions'
 
@@ -238,6 +240,16 @@ export async function updateTransaction(id, payload) {
   }
 
   await updateTransactionApi(id, payload)
+  await loadTransactions(true)
+}
+
+export async function updateExternalTransactionMemo(id, memo) {
+  await updateTransactionMemoApi(id, memo)
+  await loadTransactions(true)
+}
+
+export async function classifyTransaction(id, payload) {
+  await classifyTransactionApi(id, payload)
   await loadTransactions(true)
 }
 

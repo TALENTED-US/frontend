@@ -2,14 +2,16 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getFixedExpenseSummaryApi, getTransactionDetailApi } from '@/api/transactions'
-import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenseCategories'
+import { EXPENSE_CATEGORY_OPTIONS, expenseLabelToCategory } from '@/constants/expenseCategories'
 import { calendarState, calendarTransactions, loadCalendar } from '@/features/finance/calendarStore'
 import {
   addTransaction,
+  classifyTransaction,
   deleteTransaction,
   financeState,
   financeTransactions,
   loadTransactions,
+  updateExternalTransactionMemo,
   updateTransaction,
 } from '@/features/finance/financeStore'
 import {
@@ -106,6 +108,7 @@ const month = ref(currentMonth)
 const selectedDate = ref(todayIso)
 const panel = ref('')
 const editingId = ref(null)
+const editingTransaction = ref(null)
 const selectedTransaction = ref(null)
 const actionError = ref('')
 const isSaving = ref(false)
@@ -293,7 +296,9 @@ const fixedTotal = computed(() => {
     const lastTotal = Number(fixedExpenseSummary.value?.lastMonthTotalFixedExpenseAmount)
     if (Number.isFinite(lastTotal)) return Math.abs(lastTotal)
   }
-  return monthRows.value.filter((row) => row.fixed).reduce((sum, row) => sum + Math.abs(row.amount), 0)
+  return monthRows.value
+    .filter((row) => row.fixed)
+    .reduce((sum, row) => sum + Math.abs(row.amount), 0)
 })
 const categoryTotals = computed(() => {
   const result = {}
@@ -372,6 +377,7 @@ function openAdd() {
   actionError.value = ''
   selectedTransaction.value = null
   editingId.value = null
+  editingTransaction.value = null
   Object.assign(form, {
     type: 'income',
     amount: '500000',
@@ -388,9 +394,7 @@ async function openDetail(row) {
   actionError.value = ''
   panel.value = 'detail'
   const transactionId = String(row.apiId || row.id || '')
-  // 현재 목록 API는 암호화 ID를 반환하지만 상세 API는 숫자 ID를 요구합니다.
-  // 숫자 ID가 없을 때는 불필요한 400 요청 대신 목록 응답으로 상세를 표시합니다.
-  if (!/^\d+$/.test(transactionId)) return
+  if (!transactionId) return
   try {
     const detail = await getTransactionDetailApi(transactionId)
     const [date = row.date, rawTime = row.time] = String(detail?.transactionAt || '').split('T')
@@ -411,13 +415,13 @@ async function openDetail(row) {
       analysisExcluded: Boolean(detail?.analysisExcluded ?? row.analysisExcluded),
     }
   } catch (error) {
-    // 현재 목록 API의 암호화 ID와 상세 API의 숫자 ID 규격이 달라 목록 응답을 상세에 사용합니다.
-    if (error.status !== 400) actionError.value = error.message
+    actionError.value = error.message || '거래 상세 정보를 불러오지 못했습니다.'
   }
 }
 function openEdit(row) {
   actionError.value = ''
   editingId.value = row.id
+  editingTransaction.value = row
   Object.assign(form, {
     type: transactionKind(row) === 'income' ? 'income' : 'expense',
     amount: String(Math.abs(row.amount)),
@@ -433,8 +437,8 @@ function editSelectedTransaction() {
   const transactionId = String(
     selectedTransaction.value.apiId || selectedTransaction.value.id || '',
   )
-  if (!/^\d+$/.test(transactionId)) {
-    actionError.value = '현재 서버에서 이 거래의 수정용 식별자를 제공하지 않아 수정할 수 없습니다.'
+  if (!transactionId) {
+    actionError.value = '거래 식별자를 확인할 수 없어 수정할 수 없습니다.'
     return
   }
   openEdit(selectedTransaction.value)
@@ -453,8 +457,23 @@ async function save() {
   actionError.value = ''
   isSaving.value = true
   try {
-    if (editingId.value) await updateTransaction(editingId.value, payload)
-    else await addTransaction(payload)
+    if (editingId.value) {
+      const source = editingTransaction.value?.transactionSource
+      const type = editingTransaction.value?.transactionType
+      if (!source || source === 'MANUAL') {
+        await updateTransaction(editingId.value, payload)
+      } else if (type === 'TRANSFER') {
+        await classifyTransaction(editingId.value, {
+          transactionType: form.type === 'income' ? 'INCOME' : 'EXPENSE',
+          expenseCategory: expenseLabelToCategory(form.category),
+        })
+        if (form.memo !== (editingTransaction.value?.memo || '')) {
+          await updateExternalTransactionMemo(editingId.value, form.memo)
+        }
+      } else {
+        await updateExternalTransactionMemo(editingId.value, form.memo)
+      }
+    } else await addTransaction(payload)
     await loadSelectedCalendar(true).catch(() => {})
     panel.value = ''
   } catch (error) {
@@ -462,6 +481,24 @@ async function save() {
   } finally {
     isSaving.value = false
   }
+}
+
+const isExternalEdit = computed(() =>
+  Boolean(
+    editingId.value &&
+    editingTransaction.value?.transactionSource &&
+    editingTransaction.value.transactionSource !== 'MANUAL',
+  ),
+)
+const isTransferEdit = computed(
+  () => isExternalEdit.value && editingTransaction.value?.transactionType === 'TRANSFER',
+)
+const canEditTransactionFields = computed(() => !isExternalEdit.value || isTransferEdit.value)
+const canDeleteTransaction = computed(() => !isExternalEdit.value)
+
+function setFormType(type) {
+  form.type = type
+  form.category = type === 'income' ? '수입' : '식비'
 }
 async function remove() {
   if (!editingId.value || isSaving.value) return
@@ -843,32 +880,55 @@ onMounted(async () => {
           <div class="type-toggle">
             <button
               :class="{ income: form.type === 'income' }"
-              @click="form.type = 'income'; form.category = '수입'"
+              :disabled="!canEditTransactionFields"
+              @click="setFormType('income')"
             >
               <strong>수입</strong></button
             ><button
               :class="{ expense: form.type === 'expense' }"
-              @click="form.type = 'expense'; form.category = '식비'"
+              :disabled="!canEditTransactionFields"
+              @click="setFormType('expense')"
             >
               <strong>지출</strong>
             </button>
           </div>
-          <button v-if="editingId" class="delete" :disabled="isSaving" @click="remove">삭제</button>
+          <button
+            v-if="editingId && canDeleteTransaction"
+            class="delete"
+            :disabled="isSaving"
+            @click="remove"
+          >
+            삭제
+          </button>
           <label
-            >금액<input v-model="formattedAmount" type="text" inputmode="numeric" /><span
-              >원</span
-            ></label
+            >금액<input
+              v-model="formattedAmount"
+              type="text"
+              inputmode="numeric"
+              :disabled="isExternalEdit"
+            /><span>원</span></label
           >
           <label v-if="form.type === 'expense'"
-            >카테고리<select v-model="form.category">
+            >카테고리<select v-model="form.category" :disabled="isExternalEdit && !isTransferEdit">
               <option v-for="name in EXPENSE_CATEGORY_OPTIONS" :key="name">
                 {{ name }}
               </option>
             </select></label
           >
           <label class="date-field"
-            >거래일<input v-model="formattedDate" type="text" inputmode="numeric"
+            >거래일<input
+              v-model="formattedDate"
+              type="text"
+              inputmode="numeric"
+              :disabled="isExternalEdit"
           /></label>
+          <p v-if="isExternalEdit" class="form-label">
+            {{
+              isTransferEdit
+                ? '계좌이체는 수입·지출 분류와 메모만 변경할 수 있어요.'
+                : '외부 거래는 메모만 변경할 수 있어요.'
+            }}
+          </p>
           <label>메모<input v-model="form.memo" placeholder="메모 (선택)" /></label>
           <button class="save" :disabled="isSaving" @click="save">
             <strong>{{

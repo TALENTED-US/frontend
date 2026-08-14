@@ -110,14 +110,11 @@ export async function findEmailApi(identityVerificationToken) {
   }
 }
 
-export async function resetPasswordApi(
-  { userEmail, password, passwordCheck },
-  identityVerificationToken,
-) {
+export async function resetPasswordApi({ password, passwordCheck }, identityVerificationToken) {
   try {
     const response = await apiClient.patch(
       'auth/password',
-      { userEmail, password, passwordCheck },
+      { password, passwordCheck },
       identityVerificationConfig(identityVerificationToken),
     )
     if (response.status === 204) return null
