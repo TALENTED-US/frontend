@@ -1,11 +1,13 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import '@/features/simulation/styles/simulation.css'
 
 const router = useRouter()
 const simulation = useSimulationStore()
+simulation.clearSyncError()
 const toDateInputValue = (value) => {
   const match = String(value || '').trim().match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
   return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` : ''
@@ -15,6 +17,7 @@ const endDate = ref(toDateInputValue(simulation.state.endDate))
 const periodError = ref('')
 const periodSaving = ref(false)
 const showNewSimulationModal = ref(false)
+let periodUpdateTimer = null
 
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
 const compactWon = (value) => {
@@ -26,8 +29,16 @@ const oneTimeIncomeCount = computed(() => simulation.state.incomes.filter((item)
 const selectedPolicyCount = computed(() => simulation.state.policies.length)
 const recurringBenefit = computed(() => simulation.recurringIncome + simulation.recurringPolicy)
 const oneTimeBenefit = computed(() => simulation.oneTimeIncome + simulation.oneTimePolicy)
+const currentMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.currentMonths))
+const expectedMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.expectedMonths))
+const addedMonthsLabel = computed(() =>
+  isInfinitePrepMonths(simulation.expectedMonths)
+    ? '∞ 연장'
+    : `+${simulation.addedMonths}개월`,
+)
 
 onMounted(async () => {
+  await simulation.hydrateRunwayBaseline()
   simulation.restoreConfirmedSnapshot()
 
   if (simulation.state.draftStarted && !simulation.state.confirmed) {
@@ -42,7 +53,8 @@ onMounted(async () => {
 
 async function updatePeriod() {
   if (periodSaving.value) return
-  if (!startDate.value || !endDate.value || endDate.value <= startDate.value) {
+  if (!startDate.value || !endDate.value) return
+  if (endDate.value <= startDate.value) {
     periodError.value = '종료일은 시작일보다 뒤여야 해요.'
     return
   }
@@ -73,6 +85,19 @@ async function updatePeriod() {
     periodSaving.value = false
   }
 }
+
+function schedulePeriodUpdate() {
+  periodError.value = ''
+  if (periodUpdateTimer) window.clearTimeout(periodUpdateTimer)
+  periodUpdateTimer = window.setTimeout(() => {
+    periodUpdateTimer = null
+    updatePeriod()
+  }, 300)
+}
+
+onBeforeUnmount(() => {
+  if (periodUpdateTimer) window.clearTimeout(periodUpdateTimer)
+})
 
 async function editCategory(category) {
   if (simulation.state.confirmed) {
@@ -105,9 +130,9 @@ async function createNewSimulation() {
       <h2>시뮬레이션 기간</h2>
       <p>시작일은 오늘, 종료일은 목표 취업일이 기본이에요.</p>
       <div class="simulation-edit-period__grid">
-        <label><span>시작일</span><input v-model="startDate" type="date" aria-label="시뮬레이션 시작일" :disabled="periodSaving" @change="updatePeriod" /></label>
+        <label><span>시작일</span><input v-model="startDate" type="date" aria-label="시뮬레이션 시작일" :disabled="periodSaving" @change="schedulePeriodUpdate" /></label>
         <i>~</i>
-        <label><span>종료일</span><input v-model="endDate" type="date" aria-label="시뮬레이션 종료일" :disabled="periodSaving" @change="updatePeriod" /></label>
+        <label><span>종료일</span><input v-model="endDate" type="date" aria-label="시뮬레이션 종료일" :disabled="periodSaving" @change="schedulePeriodUpdate" /></label>
       </div>
       <p v-if="periodSaving" class="api-notice">시뮬레이션 기간을 저장하고 있어요.</p>
       <p v-if="periodError" class="form-error">{{ periodError }}</p>
@@ -139,9 +164,9 @@ async function createNewSimulation() {
     </section>
 
     <section class="simulation-edit-forecast">
-      <div><span>현재 버티는 기간</span><strong>{{ simulation.currentMonths }}<small>개월</small></strong></div>
-      <div><span>예상 버티는 기간</span><strong>{{ simulation.expectedMonths }}<small>개월</small></strong></div>
-      <p class="simulation-edit-increase">증가 기간: +{{ simulation.addedMonths }}개월</p>
+      <div><span>현재 버티는 기간</span><strong>{{ currentMonthsLabel }}</strong></div>
+      <div><span>예상 버티는 기간</span><strong>{{ expectedMonthsLabel }}</strong></div>
+      <p class="simulation-edit-increase">증가 기간: {{ addedMonthsLabel }}</p>
       <p class="simulation-edit-benefit">
         반영 혜택: 월 {{ compactWon(recurringBenefit) }}<template v-if="oneTimeBenefit"> · 일시 {{ compactWon(oneTimeBenefit) }}</template>
       </p>

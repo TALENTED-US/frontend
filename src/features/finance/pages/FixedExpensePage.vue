@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { financeTransactions, setFixed } from '@/features/finance/financeStore'
+import { financeState, financeTransactions, setFixed } from '@/features/finance/financeStore'
 
 const route = useRoute()
 const router = useRouter()
@@ -9,14 +9,11 @@ const selected = ref([])
 const query = ref('')
 const dismissedSuggestion = ref(false)
 const fixedCandidateCategories = new Set([
-  '월세',
-  '주거',
-  '구독',
-  '보험',
-  '통신비',
-  '공과금',
-  '교통',
-  '교육',
+  '주거·통신',
+  '교통·유류비',
+  '취업 준비',
+  '의료·건강',
+  '기타 금융',
 ])
 const now = new Date()
 const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -95,7 +92,7 @@ const allSelected = computed(
 const total = computed(() => fixedRows.value.reduce((sum, row) => sum + Math.abs(row.amount), 0))
 const grouped = computed(() => {
   const map = {}
-  const categoryOrder = ['보험', '구독', '월세', '교통', '기타']
+  const categoryOrder = ['주거·통신', '교통·유류비', '취업 준비', '의료·건강', '기타 금융']
   visibleRows.value.forEach((row) => {
     ;(map[row.category] ||= []).push(row)
   })
@@ -104,11 +101,11 @@ const grouped = computed(() => {
 function categoryClass(category) {
   return (
     {
-      보험: 'category-insurance',
-      구독: 'category-subscription',
-      월세: 'category-rent',
-      교통: 'category-transport',
-      기타: 'category-other',
+      '주거·통신': 'category-rent',
+      '교통·유류비': 'category-transport',
+      '취업 준비': 'category-subscription',
+      '의료·건강': 'category-insurance',
+      '기타 금융': 'category-other',
     }[category] || 'category-other'
   )
 }
@@ -126,7 +123,8 @@ function changeFixedMonth(offset) {
   const candidate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
   if (candidate <= currentMonth) fixedMonth.value = candidate
 }
-function submit() {
+async function submit() {
+  let saved
   if (mode.value === 'delete') {
     const selectedRules = new Set(
       registeredFixedRows.value
@@ -136,20 +134,19 @@ function submit() {
     const recurringIds = financeTransactions.value
       .filter((row) => selectedRules.has(`${row.title}|${row.category}`))
       .map((row) => row.id)
-    setFixed(recurringIds, false)
+    saved = await setFixed(recurringIds, false)
   } else {
     const selectedRules = candidates.value.filter((row) => selected.value.includes(row.id))
-    setFixed(
+    saved = await setFixed(
       selectedRules.flatMap((row) => row.recurringIds),
       true,
     )
   }
-  router.push({ name: 'fixedExpenses' })
+  if (saved) router.push({ name: 'fixedExpenses' })
 }
-function registerSuggestion() {
+async function registerSuggestion() {
   if (!suggestedRow.value) return
-  setFixed(suggestedRow.value.recurringIds, true)
-  dismissedSuggestion.value = true
+  if (await setFixed(suggestedRow.value.recurringIds, true)) dismissedSuggestion.value = true
 }
 </script>
 <template>
@@ -197,6 +194,7 @@ function registerSuggestion() {
       </button>
     </div>
     <section class="expense-list">
+      <p v-if="financeState.error" class="empty-message">{{ financeState.error }}</p>
       <p v-if="!visibleRows.length" class="empty-message">
         {{ mode === 'delete' ? '삭제할 고정지출이 없어요.' : '표시할 거래가 없어요.' }}
       </p>
@@ -236,8 +234,14 @@ function registerSuggestion() {
       </button>
     </div>
     <footer v-else>
-      <button :disabled="!selected.length" @click="submit">
-        <strong>{{ mode === 'add' ? '고정지출 추가하기' : '고정지출 삭제하기' }}</strong>
+      <button :disabled="!selected.length || financeState.loading" @click="submit">
+        <strong>{{
+          financeState.loading
+            ? '처리 중…'
+            : mode === 'add'
+              ? '고정지출 추가하기'
+              : '고정지출 삭제하기'
+        }}</strong>
       </button>
     </footer>
   </section>
@@ -360,7 +364,7 @@ function registerSuggestion() {
   height: 7px;
   border: 1.5px solid #8b8f98;
   border-radius: 50%;
-  content: "";
+  content: '';
   pointer-events: none;
   transform: translateY(-65%);
 }
@@ -372,7 +376,7 @@ function registerSuggestion() {
   width: 5px;
   height: 1.5px;
   background: #8b8f98;
-  content: "";
+  content: '';
   pointer-events: none;
   transform: translateY(3px) rotate(45deg);
   transform-origin: left center;

@@ -2,11 +2,8 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTransactionDetailApi } from '@/api/transactions'
-import {
-  calendarState,
-  calendarTransactions,
-  loadCalendar,
-} from '@/features/finance/calendarStore'
+import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenseCategories'
+import { calendarState, calendarTransactions, loadCalendar } from '@/features/finance/calendarStore'
 import {
   addTransaction,
   deleteTransaction,
@@ -15,6 +12,12 @@ import {
   loadTransactions,
   updateTransaction,
 } from '@/features/finance/financeStore'
+import {
+  analyzableSignedAmount,
+  isExpenseTransaction,
+  isIncomeTransaction,
+  transactionKind,
+} from '@/features/finance/transactionAnalysis'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 
 const router = useRouter()
@@ -54,23 +57,27 @@ const financeTimelineItems = computed(() => {
       tone: sameDuration ? 'scenario' : 'limit',
     },
     ...(expected !== null && !sameDuration
-      ? [{
-          id: 'scenario',
-          label: '계획 적용 후',
-          value: `${expected}개월`,
-          position: position(expected),
-          tone: 'scenario',
-          staggered: true,
-        }]
+      ? [
+          {
+            id: 'scenario',
+            label: '계획 적용 후',
+            value: `${expected}개월`,
+            position: position(expected),
+            tone: 'scenario',
+            staggered: true,
+          },
+        ]
       : []),
     ...(target
-      ? [{
-          id: 'target',
-          label: '취업 목표',
-          value: `${target}개월`,
-          position: position(target),
-          tone: 'target',
-        }]
+      ? [
+          {
+            id: 'target',
+            label: '취업 목표',
+            value: `${target}개월`,
+            position: position(target),
+            tone: 'target',
+          },
+        ]
       : []),
   ]
 })
@@ -86,7 +93,10 @@ const currentMonth = todayIso.slice(0, 7)
 const minimumMonth = '1980-01'
 const currentYear = Number(currentMonth.slice(0, 4))
 const currentMonthNumber = Number(currentMonth.slice(5, 7))
-const yearOptions = Array.from({ length: currentYear - 1980 + 1 }, (_, index) => currentYear - index)
+const yearOptions = Array.from(
+  { length: currentYear - 1980 + 1 },
+  (_, index) => currentYear - index,
+)
 const monthOptions = Array.from({ length: 12 }, (_, index) => index + 1)
 const tab = ref('calendar')
 const filter = ref('all')
@@ -108,6 +118,14 @@ const form = reactive({
 })
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(value))
 const signed = (value) => `${value >= 0 ? '+' : '-'}${money(value)}원`
+const transactionTypeLabel = (row) =>
+  transactionKind(row) === 'income'
+    ? '수입'
+    : transactionKind(row) === 'transfer'
+      ? '계좌이체'
+      : row.analysisExcluded
+        ? '지출 · 분석 제외'
+        : '지출'
 const amountTextStyle = (text) => {
   const length = String(text).length
   const fontSize = length <= 8 ? 20 : length <= 10 ? 18 : length <= 12 ? 15 : length <= 14 ? 13 : 11
@@ -118,16 +136,12 @@ const compactCalendarAmount = (value) => {
   if (amount < 10000) return String(amount)
 
   const tenThousands = amount / 10000
-  const compact = Number.isInteger(tenThousands)
-    ? tenThousands
-    : Number(tenThousands.toFixed(1))
+  const compact = Number.isInteger(tenThousands) ? tenThousands : Number(tenThousands.toFixed(1))
   return `${compact}만`
 }
 const compactWon = (value) => {
   const tenThousands = Math.abs(Number(value) || 0) / 10000
-  const compact = Number.isInteger(tenThousands)
-    ? tenThousands
-    : Number(tenThousands.toFixed(1))
+  const compact = Number.isInteger(tenThousands) ? tenThousands : Number(tenThousands.toFixed(1))
   return `${compact}만원`
 }
 const formattedAmount = computed({
@@ -158,11 +172,8 @@ const canGoNext = computed(() => month.value < currentMonth)
 
 function setSelectedMonth(year, selectedMonth) {
   const candidate = `${year}-${String(selectedMonth).padStart(2, '0')}`
-  month.value = candidate < minimumMonth
-    ? minimumMonth
-    : candidate > currentMonth
-      ? currentMonth
-      : candidate
+  month.value =
+    candidate < minimumMonth ? minimumMonth : candidate > currentMonth ? currentMonth : candidate
   selectedDate.value = month.value === currentMonth ? todayIso : `${month.value}-01`
   panel.value = ''
 }
@@ -182,15 +193,32 @@ async function reloadFinanceData() {
   await Promise.allSettled([loadTransactions(true), loadSelectedCalendar(true)])
 }
 
+const enrichedCalendarTransactions = computed(() => {
+  const transactionById = new Map(
+    financeTransactions.value.map((row) => [String(row.apiId || row.id), row]),
+  )
+  return calendarTransactions.value.map((row) => {
+    const transaction = transactionById.get(String(row.apiId || row.id))
+    return transaction
+      ? {
+          ...row,
+          analysisExcluded: transaction.analysisExcluded,
+          classificationMethod: transaction.classificationMethod,
+          transactionSource: transaction.transactionSource,
+        }
+      : row
+  })
+})
 const monthRows = computed(() =>
-  (useCalendarApi ? calendarTransactions.value : financeTransactions.value)
+  (useCalendarApi ? enrichedCalendarTransactions.value : financeTransactions.value)
     .filter((row) => row.date?.startsWith(month.value))
     .sort((a, b) => `${b.date}${b.time || ''}`.localeCompare(`${a.date}${a.time || ''}`)),
 )
 const filteredMonthRows = computed(() =>
   monthRows.value.filter(
     (row) =>
-      filter.value === 'all' || (filter.value === 'income' ? row.amount > 0 : row.amount < 0),
+      filter.value === 'all' ||
+      (filter.value === 'income' ? isIncomeTransaction(row) : isExpenseTransaction(row)),
   ),
 )
 const categoryOptions = computed(() => [
@@ -206,14 +234,10 @@ watch(categoryOptions, (options) => {
   if (!options.includes(categoryFilter.value)) categoryFilter.value = 'all'
 })
 const income = computed(() =>
-  useCalendarApi
-    ? calendarState.totalIncome
-    : monthRows.value.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0),
+  monthRows.value.filter(isIncomeTransaction).reduce((sum, row) => sum + Math.abs(row.amount), 0),
 )
 const expense = computed(() =>
-  useCalendarApi
-    ? calendarState.totalExpense
-    : monthRows.value.filter((r) => r.amount < 0).reduce((s, r) => s + Math.abs(r.amount), 0),
+  monthRows.value.filter(isExpenseTransaction).reduce((sum, row) => sum + Math.abs(row.amount), 0),
 )
 const dayRows = computed(() =>
   filteredMonthRows.value.filter((row) => row.date === selectedDate.value),
@@ -222,34 +246,23 @@ const fixedTotal = computed(() =>
   monthRows.value.filter((r) => r.fixed).reduce((s, r) => s + Math.abs(r.amount), 0),
 )
 const categoryTotals = computed(() => {
-  if (useCalendarApi) {
-    return calendarState.categoryExpenses
-      .map((item) => [item.category, item.amount])
-      .sort((a, b) => b[1] - a[1])
-  }
-
   const result = {}
-  monthRows.value
-    .filter((r) => r.amount < 0)
-    .forEach((r) => {
-      result[r.category] = (result[r.category] || 0) + Math.abs(r.amount)
-    })
+  monthRows.value.filter(isExpenseTransaction).forEach((r) => {
+    result[r.category] = (result[r.category] || 0) + Math.abs(r.amount)
+  })
   return Object.entries(result).sort((a, b) => b[1] - a[1])
 })
 const categoryColors = {
-  월세: '#fae7a4',
-  주거: '#fae7a4',
   식비: '#86a8f1',
-  교통: '#f4a2a2',
-  공과금: '#9aa6b8',
-  통신비: '#f2b43d',
-  기타: '#475569',
-  구독: '#222222',
-  보험: '#8e7cc3',
-  교육: '#6fa8dc',
-  의료: '#4db6ac',
+  '술·유흥': '#ef8f8f',
+  '카페·간식': '#d7a86e',
+  '취업 준비': '#6fa8dc',
   쇼핑: '#d29b72',
-  여가: '#b07cc6',
+  '취미·여가': '#b07cc6',
+  '주거·통신': '#fae7a4',
+  '교통·유류비': '#f4a2a2',
+  '의료·건강': '#4db6ac',
+  '기타 금융': '#475569',
 }
 const categoryChartRows = computed(() =>
   categoryTotals.value.map(([name, total], index) => ({
@@ -282,8 +295,12 @@ const days = computed(() => {
     const current = raw >= 1
     const iso = current ? `${month.value}-${String(date).padStart(2, '0')}` : ''
     const rows = current ? filteredMonthRows.value.filter((r) => r.date === iso) : []
-    const incomeTotal = rows.filter((r) => r.amount > 0).reduce((sum, row) => sum + row.amount, 0)
-    const expenseTotal = rows.filter((r) => r.amount < 0).reduce((sum, row) => sum + Math.abs(row.amount), 0)
+    const incomeTotal = rows
+      .filter(isIncomeTransaction)
+      .reduce((sum, row) => sum + Math.abs(row.amount), 0)
+    const expenseTotal = rows
+      .filter(isExpenseTransaction)
+      .reduce((sum, row) => sum + Math.abs(row.amount), 0)
     return { date, current, iso, incomeTotal, expenseTotal }
   })
 })
@@ -328,7 +345,12 @@ async function openDetail(row) {
       amount:
         detail?.transactionAmount == null
           ? row.amount
-          : Math.abs(Number(detail.transactionAmount)) * (row.amount > 0 ? 1 : -1),
+          : Math.abs(Number(detail.transactionAmount)) *
+            (detail.transactionType === 'INCOME' ? 1 : -1),
+      transactionType: detail?.transactionType || row.transactionType,
+      transactionSource: detail?.transactionSource || row.transactionSource,
+      classificationMethod: detail?.classificationMethod || row.classificationMethod,
+      analysisExcluded: Boolean(detail?.analysisExcluded ?? row.analysisExcluded),
     }
   } catch (error) {
     // 현재 목록 API의 암호화 ID와 상세 API의 숫자 ID 규격이 달라 목록 응답을 상세에 사용합니다.
@@ -339,7 +361,7 @@ function openEdit(row) {
   actionError.value = ''
   editingId.value = row.id
   Object.assign(form, {
-    type: row.amount > 0 ? 'income' : 'expense',
+    type: transactionKind(row) === 'income' ? 'income' : 'expense',
     amount: String(Math.abs(row.amount)),
     category: row.category,
     date: row.date,
@@ -354,8 +376,7 @@ function editSelectedTransaction() {
     selectedTransaction.value.apiId || selectedTransaction.value.id || '',
   )
   if (!/^\d+$/.test(transactionId)) {
-    actionError.value =
-      '현재 서버에서 이 거래의 수정용 식별자를 제공하지 않아 수정할 수 없습니다.'
+    actionError.value = '현재 서버에서 이 거래의 수정용 식별자를 제공하지 않아 수정할 수 없습니다.'
     return
   }
   openEdit(selectedTransaction.value)
@@ -440,17 +461,24 @@ onMounted(async () => {
       </article>
       <article>
         <span>{{ periodLabel }} 지출</span
-        ><strong class="red" :style="amountTextStyle(`-${money(expense)}원`)">-{{ money(expense) }}원</strong>
+        ><strong class="red" :style="amountTextStyle(`-${money(expense)}원`)"
+          >-{{ money(expense) }}원</strong
+        >
         <small>예상 지출 포함</small>
       </article>
       <article>
         <span>순현금흐름</span
-        ><strong class="purple" :style="amountTextStyle(signed(income - expense))">{{ signed(income - expense) }}</strong>
+        ><strong class="purple" :style="amountTextStyle(signed(income - expense))">{{
+          signed(income - expense)
+        }}</strong>
         <small>수입 − 지출</small>
       </article>
     </div>
     <p
-      v-if="(calendarState.loading && !calendarState.loaded) || (financeState.loading && !financeState.loaded)"
+      v-if="
+        (calendarState.loading && !calendarState.loaded) ||
+        (financeState.loading && !financeState.loaded)
+      "
       class="finance-state"
     >
       재정 데이터를 불러오는 중이에요.
@@ -506,7 +534,14 @@ onMounted(async () => {
         </div>
       </div>
       <div class="month-nav">
-        <button type="button" aria-label="이전 달" :disabled="!canGoPrevious" @click="changeMonth(-1)">‹</button>
+        <button
+          type="button"
+          aria-label="이전 달"
+          :disabled="!canGoPrevious"
+          @click="changeMonth(-1)"
+        >
+          ‹
+        </button>
         <div class="month-selectors">
           <select v-model.number="selectedYear" aria-label="연도 선택">
             <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}년</option>
@@ -517,10 +552,14 @@ onMounted(async () => {
               :key="monthOption"
               :value="monthOption"
               :disabled="selectedYear === currentYear && monthOption > currentMonthNumber"
-            >{{ monthOption }}월</option>
+            >
+              {{ monthOption }}월
+            </option>
           </select>
         </div>
-        <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">›</button>
+        <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">
+          ›
+        </button>
       </div>
       <div class="week">
         <b v-for="name in ['일', '월', '화', '수', '목', '금', '토']" :key="name">{{ name }}</b>
@@ -534,8 +573,12 @@ onMounted(async () => {
         >
           <span>{{ day.date }}</span>
           <div class="calendar-amounts">
-            <small v-if="day.incomeTotal" class="plus">{{ compactCalendarAmount(day.incomeTotal) }}</small>
-            <small v-if="day.expenseTotal" class="minus">{{ compactCalendarAmount(day.expenseTotal) }}</small>
+            <small v-if="day.incomeTotal" class="plus">{{
+              compactCalendarAmount(day.incomeTotal)
+            }}</small>
+            <small v-if="day.expenseTotal" class="minus">{{
+              compactCalendarAmount(day.expenseTotal)
+            }}</small>
           </div>
         </button>
       </div>
@@ -572,7 +615,14 @@ onMounted(async () => {
           </select>
         </div>
         <div class="month-nav">
-          <button type="button" aria-label="이전 달" :disabled="!canGoPrevious" @click="changeMonth(-1)">‹</button>
+          <button
+            type="button"
+            aria-label="이전 달"
+            :disabled="!canGoPrevious"
+            @click="changeMonth(-1)"
+          >
+            ‹
+          </button>
           <div class="month-selectors">
             <select v-model.number="selectedYear" aria-label="거래 목록 연도 선택">
               <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}년</option>
@@ -583,10 +633,14 @@ onMounted(async () => {
                 :key="monthOption"
                 :value="monthOption"
                 :disabled="selectedYear === currentYear && monthOption > currentMonthNumber"
-              >{{ monthOption }}월</option>
+              >
+                {{ monthOption }}월
+              </option>
             </select>
           </div>
-          <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">›</button>
+          <button type="button" aria-label="다음 달" :disabled="!canGoNext" @click="changeMonth(1)">
+            ›
+          </button>
         </div>
       </div>
       <div class="transaction-scroll">
@@ -614,10 +668,7 @@ onMounted(async () => {
         <div class="expense-analysis-body">
           <div class="finance-category-donut" :style="{ background: donutGradient }"></div>
           <ul>
-            <li
-              v-for="item in categoryChartRows.slice(0, 4)"
-              :key="item.name"
-            >
+            <li v-for="item in categoryChartRows.slice(0, 4)" :key="item.name">
               <i :style="{ background: item.color }" />
               <span>{{ item.name }}</span>
               <strong>
@@ -640,7 +691,9 @@ onMounted(async () => {
 
     <section class="card timeline">
       <h2>월별 재정 타임라인</h2>
-      <p class="timeline-description">현재 자금이 유지되는 기간과 취업 목표 시점을 한눈에 확인하세요.</p>
+      <p class="timeline-description">
+        현재 자금이 유지되는 기간과 취업 목표 시점을 한눈에 확인하세요.
+      </p>
       <div class="finance-timeline-track" role="list" aria-label="월별 재정 주요 시점">
         <div class="finance-timeline-track__line" />
         <div
@@ -660,7 +713,9 @@ onMounted(async () => {
       </div>
       <p class="timeline-note">
         직전 3개월 월평균 기준
-        <template v-if="hasConfirmedSimulationDurations"> · 계획 적용 시 {{ confirmedExpectedMonths }}개월</template>
+        <template v-if="hasConfirmedSimulationDurations">
+          · 계획 적용 시 {{ confirmedExpectedMonths }}개월</template
+        >
         <template v-else> · 계획을 만들면 적용 후 기간도 함께 표시돼요</template>
       </p>
     </section>
@@ -673,7 +728,9 @@ onMounted(async () => {
           <h2>{{ dayLabel(selectedDate) }}</h2>
           <div class="day-total">
             <span>{{ selectedDate === todayIso ? '오늘 합계' : '하루 합계' }}</span
-            ><strong>{{ signed(dayRows.reduce((s, r) => s + r.amount, 0)) }}</strong>
+            ><strong>{{
+              signed(dayRows.reduce((sum, row) => sum + analyzableSignedAmount(row), 0))
+            }}</strong>
           </div>
           <h3>거래 내역</h3>
           <button v-for="row in dayRows" :key="row.id" class="transaction" @click="openDetail(row)">
@@ -689,7 +746,7 @@ onMounted(async () => {
           <div class="transaction-detail__summary">
             <i>{{ selectedTransaction.title.slice(0, 1) }}</i>
             <div>
-              <span>{{ selectedTransaction.amount > 0 ? '수입' : '지출' }}</span>
+              <span>{{ transactionTypeLabel(selectedTransaction) }}</span>
               <strong>{{ selectedTransaction.title }}</strong>
             </div>
             <b :class="{ plus: selectedTransaction.amount > 0 }">
@@ -740,14 +797,13 @@ onMounted(async () => {
           </div>
           <button v-if="editingId" class="delete" :disabled="isSaving" @click="remove">삭제</button>
           <label
-            >금액<input v-model="formattedAmount" type="text" inputmode="numeric" /><span>원</span></label
+            >금액<input v-model="formattedAmount" type="text" inputmode="numeric" /><span
+              >원</span
+            ></label
           >
           <label v-if="form.type === 'expense'"
             >카테고리<select v-model="form.category">
-              <option
-                v-for="name in ['식비', '주거', '교통', '구독', '보험', '교육', '기타']"
-                :key="name"
-              >
+              <option v-for="name in EXPENSE_CATEGORY_OPTIONS" :key="name">
                 {{ name }}
               </option>
             </select></label

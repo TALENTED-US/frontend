@@ -370,12 +370,7 @@ function skip() {
             ><span>저번 달 {{ money(activeExpense.current) }}원</span>
           </div>
           <label
-            ><span>
-              <template v-if="activeExpense.name === '자격증 비용'"
-                >자격증 비용<br />절약 목표</template
-              >
-              <template v-else>{{ activeExpense.name }} 절약 목표</template>
-            </span>
+            ><span>{{ activeExpense.name }} 절약 목표</span>
             <div>
               <input
                 :value="moneyInput(expenseAmount)"

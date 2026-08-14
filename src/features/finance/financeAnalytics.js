@@ -1,3 +1,5 @@
+import { isExpenseTransaction, isIncomeTransaction } from '@/features/finance/transactionAnalysis'
+
 export function getPreviousCompletedMonthKeys(referenceDate = new Date(), count = 3) {
   return Array.from({ length: count }, (_, index) => {
     const date = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - count + index, 1)
@@ -5,7 +7,11 @@ export function getPreviousCompletedMonthKeys(referenceDate = new Date(), count 
   })
 }
 
-export function analyzePreviousCompletedMonths(transactions, referenceDate = new Date(), count = 3) {
+export function analyzePreviousCompletedMonths(
+  transactions,
+  referenceDate = new Date(),
+  count = 3,
+) {
   const monthKeys = getPreviousCompletedMonthKeys(referenceDate, count)
   const rows = transactions.filter((item) => item.date && monthKeys.includes(item.date.slice(0, 7)))
   const categoryTotals = {}
@@ -13,8 +19,8 @@ export function analyzePreviousCompletedMonths(transactions, referenceDate = new
   let expense = 0
 
   rows.forEach((item) => {
-    if (item.amount > 0) income += item.amount
-    if (item.amount < 0) {
+    if (isIncomeTransaction(item)) income += Math.abs(item.amount)
+    if (isExpenseTransaction(item)) {
       const amount = Math.abs(item.amount)
       expense += amount
       const category = item.category || '기타'

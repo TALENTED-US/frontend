@@ -2,6 +2,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import {
   getNotificationsApi,
   getUnreadNotificationCheckApi,
+  markAllNotificationsReadApi,
   markNotificationReadApi,
 } from '@/api/notifications'
 import { notifications as initialNotifications } from '@/data/mockData'
@@ -131,13 +132,12 @@ export async function markAllNotificationsRead() {
   notificationState.loading = true
   notificationState.error = ''
   try {
-    const results = await Promise.all(unreadItems.map((item) => markNotificationRead(item.id)))
-    if (results.some((result) => !result)) throw new Error('일부 알림을 읽음 처리하지 못했습니다.')
+    await markAllNotificationsReadApi()
+    unreadItems.forEach((item) => (item.read = true))
     notificationState.hasUnread = false
     return true
   } catch (error) {
     notificationState.error = error.message || '알림을 모두 읽음 처리하지 못했습니다.'
-    await loadNotifications(true)
     return false
   } finally {
     notificationState.loading = false

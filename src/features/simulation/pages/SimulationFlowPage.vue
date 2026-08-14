@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
 import stableImage from '@/assets/images/dashboard/buttie-stable.png'
 import '@/features/simulation/styles/simulation.css'
@@ -24,13 +25,20 @@ const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number
 const manwon = (value) => `${money((Number(value) || 0) / 10000)}만원`
 const previewExpectedMonths = computed(() => {
   const currentMonths = Number(simulation.currentMonths) || 0
-  const currentBurn = Math.max(1, simulation.monthlyExpense - simulation.monthlyIncome)
-  const reducedBurn = Math.max(1, currentBurn - 100000)
-  const targetMonths = Math.max(currentMonths, Number(simulation.targetMonths) || currentMonths)
-  return Math.round(Math.min(targetMonths, currentMonths * (currentBurn / reducedBurn)) * 10) / 10
+  const expectedMonths = simulation.expectedMonths
+  return expectedMonths !== null && Number.isFinite(Number(expectedMonths))
+    ? Number(expectedMonths)
+    : currentMonths
 })
 const previewAddedMonths = computed(
   () => Math.max(0, Math.round((previewExpectedMonths.value - simulation.currentMonths) * 10) / 10),
+)
+const currentMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.currentMonths))
+const expectedMonthsLabel = computed(() => formatPrepMonthsWithUnit(previewExpectedMonths.value))
+const addedMonthsLabel = computed(() =>
+  isInfinitePrepMonths(previewExpectedMonths.value)
+    ? '∞ 연장'
+    : `+${previewAddedMonths.value}개월 연장`,
 )
 const nextDraftPath = computed(() => {
   if (!simulation.state.expenseApplied) return '/simulation/expense'
@@ -40,6 +48,8 @@ const nextDraftPath = computed(() => {
 })
 
 onMounted(async () => {
+  await simulation.hydrateRunwayBaseline()
+
   // 새 시뮬레이션 화면은 기존 미확정 시뮬레이션을 삭제한 뒤 진입한다.
   // 여기서 다시 조회하면 정상적인 "데이터 없음" 응답이 404 오류처럼 노출된다.
   if (step.value === 'categories') {
@@ -156,8 +166,8 @@ async function confirm() {
           <span class="report-preview__badge">지출 줄이기</span>
           <div class="report-preview__period">
             <span>예상 버티는 기간 변화</span>
-            <p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ previewExpectedMonths }}개월</strong></p>
-            <em>+{{ previewAddedMonths }}개월 연장</em>
+            <p><del>{{ currentMonthsLabel }}</del><b>→</b><strong>{{ expectedMonthsLabel }}</strong></p>
+            <em>{{ addedMonthsLabel }}</em>
           </div>
           <div class="report-preview__charts">
             <figure>
@@ -212,7 +222,7 @@ async function confirm() {
         <p v-if="!simulation.state.policies.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
 
-      <div class="final-result"><span>예상 버티는 기간</span><p><del>{{ simulation.currentMonths }}개월</del><b>→</b><strong>{{ simulation.expectedMonths }}개월</strong></p><em>+{{ simulation.addedMonths }}개월 연장</em></div>
+      <div class="final-result"><span>예상 버티는 기간</span><p><del>{{ currentMonthsLabel }}</del><b>→</b><strong>{{ expectedMonthsLabel }}</strong></p><em>{{ addedMonthsLabel }}</em></div>
       <p class="api-notice neutral">확정하면 이 계획을 기준으로 퀘스트가 생성됩니다.</p>
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
       <div class="wizard-actions confirm-actions">
