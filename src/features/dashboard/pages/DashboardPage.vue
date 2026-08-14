@@ -44,7 +44,6 @@ const dashboardApiError = ref('')
 const dashboardApiLoading = ref(false)
 const financialAssets = ref(null)
 const financialAssetsError = ref('')
-const LIQUID_ACCOUNT_TYPES = new Set(['CHECKING', 'SAVINGS', 'DEPOSIT'])
 
 function finiteNumberOrNull(value) {
   const number = Number(value)
@@ -115,7 +114,6 @@ async function loadFinancialAssets() {
     const accounts = Array.isArray(assets?.accounts) ? assets.accounts : []
     financialAssets.value = accounts
       .filter((account) => account.isConsent !== false)
-      .filter((account) => LIQUID_ACCOUNT_TYPES.has(account.accountType))
       .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
   } catch (error) {
     financialAssets.value = null

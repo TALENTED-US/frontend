@@ -3,7 +3,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
-import { loadTransactions } from '@/features/finance/financeStore'
 import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
 import {
   formatPrepMonths,
@@ -232,7 +231,7 @@ async function createNewSimulation() {
 
 onMounted(async () => {
   await Promise.all([
-    loadTransactions().catch(() => null),
+    simulation.hydrateFinancialSnapshot(),
     simulation.hydrateRunwayBaseline(),
   ])
   // Mock 모드에서는 로컬 스냅샷을 복원하고, 실 API 모드에서는 서버 확정 결과를 조회한다.

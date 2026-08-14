@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTransactionDetailApi } from '@/api/transactions'
+import { getFixedExpenseSummaryApi, getTransactionDetailApi } from '@/api/transactions'
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenseCategories'
 import { calendarState, calendarTransactions, loadCalendar } from '@/features/finance/calendarStore'
 import {
@@ -22,6 +22,7 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 
 const router = useRouter()
 const simulation = useSimulationStore()
+const fixedExpenseSummary = ref(null)
 const hasConfirmedSimulationDurations = computed(
   () =>
     Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
@@ -189,8 +190,23 @@ async function loadSelectedCalendar(force = false) {
   return loadCalendar(year, selectedMonth, force)
 }
 
+async function loadFixedExpenseSummary() {
+  if (import.meta.env.VITE_USE_MOCK_API === 'true') return null
+  try {
+    fixedExpenseSummary.value = await getFixedExpenseSummaryApi()
+    return fixedExpenseSummary.value
+  } catch {
+    fixedExpenseSummary.value = null
+    return null
+  }
+}
+
 async function reloadFinanceData() {
-  await Promise.allSettled([loadTransactions(true), loadSelectedCalendar(true)])
+  await Promise.allSettled([
+    loadTransactions(true),
+    loadSelectedCalendar(true),
+    loadFixedExpenseSummary(),
+  ])
 }
 
 const enrichedCalendarTransactions = computed(() => {
@@ -242,9 +258,21 @@ const expense = computed(() =>
 const dayRows = computed(() =>
   filteredMonthRows.value.filter((row) => row.date === selectedDate.value),
 )
-const fixedTotal = computed(() =>
-  monthRows.value.filter((r) => r.fixed).reduce((s, r) => s + Math.abs(r.amount), 0),
-)
+const fixedTotal = computed(() => {
+  const now = new Date()
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`
+  if (month.value === currentMonthKey) {
+    const currentTotal = Number(fixedExpenseSummary.value?.currentMonthTotalFixedExpenseAmount)
+    if (Number.isFinite(currentTotal)) return Math.abs(currentTotal)
+  }
+  if (month.value === lastMonthKey) {
+    const lastTotal = Number(fixedExpenseSummary.value?.lastMonthTotalFixedExpenseAmount)
+    if (Number.isFinite(lastTotal)) return Math.abs(lastTotal)
+  }
+  return monthRows.value.filter((row) => row.fixed).reduce((sum, row) => sum + Math.abs(row.amount), 0)
+})
 const categoryTotals = computed(() => {
   const result = {}
   monthRows.value.filter(isExpenseTransaction).forEach((r) => {
@@ -439,7 +467,7 @@ watch(month, () => {
 })
 
 onMounted(async () => {
-  await Promise.allSettled([loadTransactions(), loadSelectedCalendar()])
+  await Promise.allSettled([loadTransactions(), loadSelectedCalendar(), loadFixedExpenseSummary()])
   await simulation.hydrateConfirmed()
 })
 </script>

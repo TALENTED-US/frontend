@@ -30,6 +30,7 @@ import {
 } from '@/mappers/simulation'
 import { getPoliciesApi } from '@/api/policy'
 import { getButtieDashboardApi } from '@/api/dashboard'
+import { getMyDataAssetsApi } from '@/api/mydata'
 import {
   EXPENSE_CATEGORY_OPTIONS,
   expenseLabelToCategory,
@@ -147,6 +148,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   const remoteReport = ref(null)
   const remoteSimulation = ref(null)
   const runwayBaseline = ref(null)
+  const currentFinancialAssets = ref(null)
   const recentConfirmed = ref(null)
   const remoteDraftExists = ref(null)
   const policyCatalog = ref([])
@@ -158,6 +160,32 @@ export const useSimulationStore = defineStore('simulation', () => {
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
   )
   let runwayBaselineRequest = null
+  let financialSnapshotRequest = null
+
+  async function hydrateFinancialSnapshot(force = false) {
+    if (!remoteEnabled) return null
+    if (!force && financialSnapshotRequest) return financialSnapshotRequest
+
+    financialSnapshotRequest = Promise.allSettled([
+      getMyDataAssetsApi(),
+      loadTransactions(force),
+    ])
+      .then(([assetsResult]) => {
+        if (assetsResult.status === 'fulfilled') {
+          const accounts = Array.isArray(assetsResult.value?.accounts)
+            ? assetsResult.value.accounts
+            : []
+          currentFinancialAssets.value = accounts
+            .filter((account) => account.isConsent !== false)
+            .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
+        }
+        return currentFinancialAssets.value
+      })
+      .finally(() => {
+        financialSnapshotRequest = null
+      })
+    return financialSnapshotRequest
+  }
 
   async function hydrateRunwayBaseline(force = false) {
     if (!remoteEnabled) return null
@@ -296,7 +324,8 @@ export const useSimulationStore = defineStore('simulation', () => {
   const totalAssets = computed(() =>
     remoteEnabled
       ? (finiteNumberOrNull(firstRemoteProjection.value?.openingBalance) ??
-        reportOpeningBalance.value)
+        reportOpeningBalance.value ??
+        finiteNumberOrNull(currentFinancialAssets.value))
       : dashboard.totalAssets,
   )
   const availableAssets = computed(() =>
@@ -305,13 +334,15 @@ export const useSimulationStore = defineStore('simulation', () => {
   const monthlyIncome = computed(() =>
     remoteEnabled
       ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyIncome) ??
-        finiteNumberOrNull(firstRemoteProjection.value?.expectedIncome))
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedIncome) ??
+        (financialDataReady.value ? recentAnalysis.value.monthlyIncome : null))
       : recentAnalysis.value.monthlyIncome,
   )
   const monthlyExpense = computed(() =>
     remoteEnabled
       ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyExpense) ??
-        finiteNumberOrNull(firstRemoteProjection.value?.expectedExpense))
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedExpense) ??
+        (financialDataReady.value ? recentAnalysis.value.monthlyExpense : null))
       : recentAnalysis.value.monthlyExpense,
   )
   const runwayCalculationReady = computed(
@@ -1230,6 +1261,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     hydrateDraft,
     hydrateConfirmed,
     hydrateRunwayBaseline,
+    hydrateFinancialSnapshot,
     beginSimulation,
     savePeriod,
     restoreConfirmedSnapshot,
