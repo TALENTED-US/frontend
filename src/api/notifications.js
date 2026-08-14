@@ -30,3 +30,7 @@ export function markNotificationReadApi(notificationId) {
     url: `notifications/${encodeURIComponent(notificationId)}/read`,
   })
 }
+
+export function markAllNotificationsReadApi() {
+  return request({ method: 'patch', url: 'notifications/read-all' })
+}

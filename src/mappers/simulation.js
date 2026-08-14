@@ -1,17 +1,13 @@
-const EXPENSE_NAMES = {
-  FOOD: '식비',
-  TRANSPORT: '교통비',
-  HOUSING: '주거',
-  COMMUNICATION: '통신비',
-  SUBSCRIPTION: '구독비',
-  EDUCATION: '교육비',
-  CERTIFICATE: '자격증 비용',
-  ETC_EXPENSE: '기타',
-}
+import { expenseCategoryToLabel } from '@/constants/expenseCategories'
 
 function numberOrZero(value) {
   const number = Number(value)
   return Number.isFinite(number) ? number : 0
+}
+
+function numberOrNull(value) {
+  const number = Number(value)
+  return value !== null && value !== undefined && Number.isFinite(number) ? number : null
 }
 
 function recurrenceToType(value) {
@@ -26,9 +22,7 @@ export function toUpdateSimulationItemRequest(item) {
     amount: numberOrZero(item.amount),
     applyStartDate,
     recurrenceType,
-    ...(recurrenceType === 'MONTHLY' && item.endDate
-      ? { applyEndDate: item.endDate }
-      : {}),
+    ...(recurrenceType === 'MONTHLY' && item.endDate ? { applyEndDate: item.endDate } : {}),
     ...(item.name ? { itemName: item.name.trim() } : {}),
   }
 }
@@ -46,7 +40,7 @@ export function mapSimulationItemResponse(item, policyCatalog = []) {
   }
 
   if (item.itemCategory === 'EXPENSE') {
-    const name = EXPENSE_NAMES[item.expenseCategory] || '기타'
+    const name = expenseCategoryToLabel(item.expenseCategory)
     return {
       ...common,
       kind: 'expense',
@@ -103,8 +97,8 @@ export function mapConfirmedSimulationResponse(response, policyCatalog = []) {
     startDate: response.simulationStartDate || '',
     endDate: response.simulationDueDate || '',
     confirmedAt: response.confirmedAt || '',
-    currentMonths: numberOrZero(response.currentPrepMonths),
-    expectedMonths: numberOrZero(response.expectPrepMonths),
+    currentMonths: numberOrNull(response.currentPrepMonths),
+    expectedMonths: numberOrNull(response.expectPrepMonths),
     endAmount: numberOrZero(response.simulationEndAmount),
     expenses: items.filter((item) => item.kind === 'expense'),
     incomes: items.filter((item) => item.kind === 'income'),

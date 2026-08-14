@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { formatPrepMonthsWithUnit } from '@/utils/prepMonths'
 
 const props = defineProps({
   assets: { type: Number, default: 3000000 },
@@ -13,7 +14,10 @@ const props = defineProps({
   previewMode: { type: Boolean, default: false },
 })
 
-const scenarioMonths = computed(() => props.unknown ? '?' : Number(props.expectedMonths || props.currentMonths).toFixed(1))
+const scenarioMonths = computed(() =>
+  props.unknown ? '?' : formatPrepMonthsWithUnit(props.expectedMonths || props.currentMonths),
+)
+const currentMonthsLabel = computed(() => formatPrepMonthsWithUnit(props.currentMonths))
 const plotStartX = 58
 const plotEndX = 558
 const monthWidth = 50
@@ -160,11 +164,11 @@ const monthLabels = computed(() => {
 
         <g class="current-badge" transform="translate(126 145)">
           <rect width="126" height="34" rx="17" />
-          <text x="63" y="22">현재 {{ currentMonths }}개월</text>
+          <text x="63" y="22">현재 {{ currentMonthsLabel }}</text>
         </g>
         <g class="scenario-badge" :transform="`translate(${scenarioLabelX} 48)`">
           <rect width="150" height="34" rx="17" />
-          <text x="75" y="22">시나리오 {{ scenarioMonths }}개월</text>
+          <text x="75" y="22">시나리오 {{ scenarioMonths }}</text>
         </g>
         <text v-if="unknown" class="question" x="305" y="132">?</text>
         <text class="burn-label" x="58" y="15">

@@ -29,46 +29,36 @@ import {
   toUpdateSimulationItemRequest,
 } from '@/mappers/simulation'
 import { getPoliciesApi } from '@/api/policy'
+import { getButtieDashboardApi } from '@/api/dashboard'
+import {
+  EXPENSE_CATEGORY_OPTIONS,
+  expenseLabelToCategory,
+  normalizeExpenseCategoryLabel,
+} from '@/constants/expenseCategories'
 import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
 
 const STORAGE_KEY = 'buttie-simulation-v4'
 const CONFIRMED_SNAPSHOT_KEY = 'buttie-simulation-confirmed-snapshot-v1'
 const CLIENT_CALCULATION_VERSION = 2
 const CATEGORY_META = {
-  주거: { icon: '🏠', color: '#ffe197' },
-  월세: { icon: '🏠', color: '#ffe197' },
   식비: { icon: '🍚', color: '#ffd0d0' },
-  교통: { icon: '🚌', color: '#aab5c8' },
-  교통비: { icon: '🚌', color: '#aab5c8' },
+  '술·유흥': { icon: '🍺', color: '#f5ae77' },
+  '카페·간식': { icon: '☕', color: '#d7a86e' },
+  '취업 준비': { icon: '📚', color: '#77b6df' },
   쇼핑: { icon: '🛍️', color: '#88a9f6' },
-  통신비: { icon: '📱', color: '#d8b5ee' },
-  구독: { icon: '📺', color: '#c8a8ef' },
-  구독비: { icon: '📺', color: '#c8a8ef' },
-  의료: { icon: '🏥', color: '#8dd5c1' },
-  교육: { icon: '📚', color: '#77b6df' },
-  교육비: { icon: '📚', color: '#77b6df' },
-  자격증: { icon: '📄', color: '#91c7a9' },
-  '자격증 비용': { icon: '📄', color: '#91c7a9' },
-  보험: { icon: '🛡️', color: '#91c7a9' },
-  여가: { icon: '🎮', color: '#f5ae77' },
-  기타: { icon: '🧾', color: '#b8bdc8' },
+  '취미·여가': { icon: '🎮', color: '#c8a8ef' },
+  '주거·통신': { icon: '🏠', color: '#ffe197' },
+  '교통·유류비': { icon: '🚌', color: '#aab5c8' },
+  '의료·건강': { icon: '🏥', color: '#8dd5c1' },
+  '기타 금융': { icon: '🧾', color: '#b8bdc8' },
 }
-const NON_REDUCIBLE_EXPENSES = new Set(['월세', '주거'])
-const REDUCTION_CATEGORIES = ['식비', '교통비', '통신비', '구독비', '교육비', '자격증 비용', '기타']
-const REDUCTION_CATEGORY_ALIASES = {
-  식비: '식비',
-  교통: '교통비',
-  교통비: '교통비',
-  통신: '통신비',
-  통신비: '통신비',
-  구독: '구독비',
-  구독비: '구독비',
-  교육: '교육비',
-  교육비: '교육비',
-  자격증: '자격증 비용',
-  '자격증 비용': '자격증 비용',
-}
+const REDUCTION_CATEGORIES = [...EXPENSE_CATEGORY_OPTIONS]
 const DAYS_PER_MONTH = 365.2425 / 12
+
+function finiteNumberOrNull(value) {
+  const number = Number(value)
+  return value !== null && value !== undefined && Number.isFinite(number) ? number : null
+}
 
 function dateRangeMonths(startValue, endValue) {
   const startParts = String(startValue || '')
@@ -122,7 +112,14 @@ const defaultState = () => ({
   endDate: '2027-01-01',
   expenses: [
     { id: 'food', name: '식비', icon: '🍚', current: 150000, saving: 0, selected: false },
-    { id: 'transport', name: '교통', icon: '🚌', current: 70000, saving: 0, selected: false },
+    {
+      id: 'transport',
+      name: '교통·유류비',
+      icon: '🚌',
+      current: 70000,
+      saving: 0,
+      selected: false,
+    },
     { id: 'shopping', name: '쇼핑', icon: '🛍️', current: 80000, saving: 0, selected: false },
   ],
   expenseApplied: false,
@@ -148,6 +145,8 @@ export const useSimulationStore = defineStore('simulation', () => {
   const syncing = ref(false)
   const syncError = ref('')
   const remoteReport = ref(null)
+  const remoteSimulation = ref(null)
+  const runwayBaseline = ref(null)
   const recentConfirmed = ref(null)
   const remoteDraftExists = ref(null)
   const policyCatalog = ref([])
@@ -158,6 +157,24 @@ export const useSimulationStore = defineStore('simulation', () => {
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
   )
+  let runwayBaselineRequest = null
+
+  async function hydrateRunwayBaseline(force = false) {
+    if (!remoteEnabled) return null
+    if (!force && runwayBaseline.value) return runwayBaseline.value
+    if (runwayBaselineRequest) return runwayBaselineRequest
+
+    runwayBaselineRequest = getButtieDashboardApi()
+      .then((data) => {
+        runwayBaseline.value = data
+        return data
+      })
+      .catch(() => null)
+      .finally(() => {
+        runwayBaselineRequest = null
+      })
+    return runwayBaselineRequest
+  }
 
   function currentUserKey() {
     return String(session.currentUser.email || '')
@@ -171,12 +188,17 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function persistConfirmedSnapshot(snapshot) {
+    if (remoteEnabled) return
     const userKey = currentUserKey()
     if (!userKey) return
     sessionStorage.setItem(CONFIRMED_SNAPSHOT_KEY, JSON.stringify({ userKey, snapshot }))
   }
 
   function restoreConfirmedSnapshot() {
+    if (remoteEnabled) {
+      sessionStorage.removeItem(CONFIRMED_SNAPSHOT_KEY)
+      return null
+    }
     let savedSnapshot = null
     try {
       savedSnapshot = JSON.parse(sessionStorage.getItem(CONFIRMED_SNAPSHOT_KEY) || 'null')
@@ -205,26 +227,29 @@ export const useSimulationStore = defineStore('simulation', () => {
       ({ name, current }) => ({
         id: name,
         name,
-        icon: CATEGORY_META[name]?.icon || CATEGORY_META.기타.icon,
-        color: CATEGORY_META[name]?.color || CATEGORY_META.기타.color,
+        icon: CATEGORY_META[name]?.icon || CATEGORY_META['기타 금융'].icon,
+        color: CATEGORY_META[name]?.color || CATEGORY_META['기타 금융'].color,
         current,
       }),
     )
     const totals = Object.fromEntries(REDUCTION_CATEGORIES.map((name) => [name, 0]))
-    breakdownRows
-      .filter((item) => !NON_REDUCIBLE_EXPENSES.has(item.name))
-      .forEach((item) => {
-        const category = REDUCTION_CATEGORY_ALIASES[item.name] || '기타'
-        totals[category] += item.current
-      })
+    breakdownRows.forEach((item) => {
+      const category = normalizeExpenseCategoryLabel(item.name)
+      totals[category] += item.current
+    })
     const rows = REDUCTION_CATEGORIES.map((name) => {
-      const previous = existing.find((item) => item.id === name || item.name === name)
+      const previous = existing.find(
+        (item) =>
+          item.id === name ||
+          item.name === name ||
+          normalizeExpenseCategoryLabel(item.name) === name,
+      )
       const current = totals[name]
       return {
         id: name,
         name,
-        icon: CATEGORY_META[name]?.icon || CATEGORY_META.기타.icon,
-        color: CATEGORY_META[name]?.color || CATEGORY_META.기타.color,
+        icon: CATEGORY_META[name]?.icon || CATEGORY_META['기타 금융'].icon,
+        color: CATEGORY_META[name]?.color || CATEGORY_META['기타 금융'].color,
         current,
         saving: Math.min(current, previous?.saving ?? 0),
         selected: current > 0 && (previous?.selected ?? false),
@@ -255,26 +280,62 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!hasSavedExpensePlan) syncExpenseCategories(false)
   }
   watch(financeTransactions, () => syncExpenseCategories(true), { deep: true, immediate: true })
-  const totalAssets = ref(dashboard.totalAssets)
-  const availableAssets = ref(dashboard.liquidAssets ?? dashboard.totalAssets)
-  const monthlyIncome = computed(() => recentAnalysis.value.monthlyIncome)
-  const monthlyExpense = computed(() => recentAnalysis.value.monthlyExpense)
+  const firstRemoteProjection = computed(
+    () => remoteSimulation.value?.monthlyProjections?.[0] || null,
+  )
+  const reportOpeningBalance = computed(() => {
+    const firstBalance = remoteReport.value?.monthlyBalances?.[0]
+    const cashflow = remoteReport.value?.cashflow
+    const closingBalance = finiteNumberOrNull(firstBalance?.beforeClosingBalance)
+    const income = finiteNumberOrNull(cashflow?.beforeMonthlyIncome)
+    const expense = finiteNumberOrNull(cashflow?.beforeMonthlyExpense)
+    return closingBalance === null || income === null || expense === null
+      ? null
+      : closingBalance - income + expense
+  })
+  const totalAssets = computed(() =>
+    remoteEnabled
+      ? (finiteNumberOrNull(firstRemoteProjection.value?.openingBalance) ??
+        reportOpeningBalance.value)
+      : dashboard.totalAssets,
+  )
+  const availableAssets = computed(() =>
+    remoteEnabled ? totalAssets.value : (dashboard.liquidAssets ?? dashboard.totalAssets),
+  )
+  const monthlyIncome = computed(() =>
+    remoteEnabled
+      ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyIncome) ??
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedIncome))
+      : recentAnalysis.value.monthlyIncome,
+  )
+  const monthlyExpense = computed(() =>
+    remoteEnabled
+      ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyExpense) ??
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedExpense))
+      : recentAnalysis.value.monthlyExpense,
+  )
   const runwayCalculationReady = computed(
-    () => financialDataReady.value && monthlyExpense.value > 0,
+    () => !remoteEnabled && financialDataReady.value && monthlyExpense.value > 0,
   )
   const targetMonths = computed(() =>
     remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate),
   )
-  const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value))
+  const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value || 0))
   const localCurrentMonths = computed(() =>
     runwayCalculationReady.value
       ? Math.round((availableAssets.value / currentMonthlyBurn.value) * 10) / 10
       : null,
   )
-  // 확정 시점의 기준 기간은 수정 흐름에서도 유지한다. 서버의 draft/report 값은
-  // 확정 결과와 계산 기준이 다를 수 있으므로 수정 화면 진입 시 기준값을 덮지 않는다.
+  // 실 API 모드는 확정 결과, 보고서, 미확정 시뮬레이션 순으로 서버 계산값을 사용한다.
+  const remoteCurrentMonths = computed(
+    () =>
+      finiteNumberOrNull(state.confirmed ? recentConfirmed.value?.currentMonths : null) ??
+      finiteNumberOrNull(remoteReport.value?.currentPrepMonths) ??
+      finiteNumberOrNull(remoteSimulation.value?.currentPrepMonths) ??
+      finiteNumberOrNull(runwayBaseline.value?.currentPrepMonths),
+  )
   const currentMonths = computed(() =>
-    recentConfirmed.value ? recentConfirmed.value.currentMonths : localCurrentMonths.value,
+    remoteEnabled ? remoteCurrentMonths.value : localCurrentMonths.value,
   )
 
   const selectedExpenses = computed(() => state.expenses.filter((item) => item.selected))
@@ -330,12 +391,15 @@ export const useSimulationStore = defineStore('simulation', () => {
     const adjusted = currentMonths.value + baseIncrease * periodRatio
     return Math.min(60, Math.round(adjusted * 10) / 10)
   })
-  // 확정 결과를 보는 동안에만 확정 스냅샷을 사용한다. 수정(revert) 이후에는
-  // 기존 확정값을 비교 기준으로 보존하되, 변경된 항목으로 예상 기간을 다시 계산한다.
+  // 수정 중에는 보고서/미확정 시뮬레이션 값, 확정 후에는 확정 응답 값을 사용한다.
+  const remoteExpectedMonths = computed(
+    () =>
+      finiteNumberOrNull(state.confirmed ? recentConfirmed.value?.expectedMonths : null) ??
+      finiteNumberOrNull(remoteReport.value?.expectPrepMonths) ??
+      finiteNumberOrNull(remoteSimulation.value?.expectPrepMonths),
+  )
   const expectedMonths = computed(() =>
-    state.confirmed && recentConfirmed.value
-      ? recentConfirmed.value.expectedMonths
-      : localExpectedMonths.value,
+    remoteEnabled ? remoteExpectedMonths.value : localExpectedMonths.value,
   )
   const currentStatus = computed(() =>
     getApiRiskStatus(
@@ -348,11 +412,17 @@ export const useSimulationStore = defineStore('simulation', () => {
     Math.max(1, currentMonthlyBurn.value - expenseSaving.value),
   )
   const expensePreviewMonths = computed(() =>
-    Math.min(60, Math.round((availableAssets.value / expensePreviewMonthlyBurn.value) * 10) / 10),
+    remoteEnabled
+      ? expectedMonths.value
+      : Math.min(
+          60,
+          Math.round((availableAssets.value / expensePreviewMonthlyBurn.value) * 10) / 10,
+        ),
   )
-  const addedMonths = computed(() =>
-    Math.max(0, Math.round((expectedMonths.value - currentMonths.value) * 10) / 10),
-  )
+  const addedMonths = computed(() => {
+    if (currentMonths.value === null || expectedMonths.value === null) return 0
+    return Math.max(0, Math.round((expectedMonths.value - currentMonths.value) * 10) / 10)
+  })
   const completedCategories = computed(
     () =>
       [
@@ -364,6 +434,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   const hasDraft = computed(() => state.draftStarted || completedCategories.value > 0)
 
   function buildClientConfirmedSnapshot(identity = {}) {
+    if (remoteEnabled) return null
     if (!runwayCalculationReady.value) return null
 
     return {
@@ -534,6 +605,13 @@ export const useSimulationStore = defineStore('simulation', () => {
     try {
       const result = await request()
       onSuccess(result)
+      if (remoteEnabled) {
+        try {
+          await refreshRemoteReport()
+        } catch (error) {
+          syncError.value = error.message || '시뮬레이션 결과를 새로고침하지 못했습니다.'
+        }
+      }
       state.confirmed = false
       return true
     } catch (error) {
@@ -662,7 +740,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   async function confirmScenario() {
-    if (!financialDataReady.value) {
+    if (!remoteEnabled && !financialDataReady.value) {
       try {
         await loadTransactions()
       } catch (error) {
@@ -671,8 +749,14 @@ export const useSimulationStore = defineStore('simulation', () => {
       }
     }
 
-    const localSnapshot = buildClientConfirmedSnapshot()
-    if (!localSnapshot) {
+    if (remoteEnabled) {
+      for (const category of ['expense', 'income', 'policy']) {
+        if (!(await syncCategory(category))) return false
+      }
+    }
+
+    const localSnapshot = remoteEnabled ? null : buildClientConfirmedSnapshot()
+    if (!remoteEnabled && !localSnapshot) {
       syncError.value = '거래 내역을 불러온 뒤 다시 시도해 주세요.'
       return false
     }
@@ -685,21 +769,17 @@ export const useSimulationStore = defineStore('simulation', () => {
 
       if (remoteEnabled) {
         await confirmSimulationApi()
-        const remoteConfirmed = mapConfirmedSimulationResponse(
-          await getLatestConfirmedSimulationApi(),
-          policyCatalog.value,
-        )
+        const response = await getLatestConfirmedSimulationApi()
+        const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
 
         if (!remoteConfirmed) {
           throw new Error('확정된 시뮬레이션 결과를 불러오지 못했습니다.')
         }
 
-        confirmed = {
-          ...localSnapshot,
-          simulationId: remoteConfirmed.simulationId,
-          confirmedAt: remoteConfirmed.confirmedAt,
-          endAmount: remoteConfirmed.endAmount,
-        }
+        confirmed = remoteConfirmed
+        applyConfirmedItems(remoteConfirmed)
+        remoteSimulation.value = response
+        remoteReport.value = null
       }
 
       state.completedQuestIds = []
@@ -720,15 +800,18 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  function revertConfirmedScenario() {
-    return runScenarioMutation(revertConfirmedSimulationApi, () => {
+  async function revertConfirmedScenario() {
+    const reverted = await runScenarioMutation(revertConfirmedSimulationApi, () => {
       state.confirmed = false
       state.draftStarted = true
       state.ignoreRemoteDraft = false
       remoteDraftExists.value = true
-      // 확정 스냅샷은 수정 중인 시나리오의 비교 기준으로 계속 사용한다.
-      // 새 시뮬레이션 생성/삭제/로그아웃 경로에서만 제거한다.
+      clearConfirmedSnapshot()
     })
+    if (reverted && remoteEnabled) {
+      await hydrateDraft()
+    }
+    return reverted
   }
 
   function deleteConfirmedScenario() {
@@ -772,6 +855,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   function resetScenario() {
     Object.assign(state, defaultState())
     remoteReport.value = null
+    remoteSimulation.value = null
     clearConfirmedSnapshot()
     remoteDraftExists.value = null
     syncError.value = ''
@@ -793,14 +877,74 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.draftStarted = true
     state.ignoreRemoteDraft = true
     remoteReport.value = null
+    remoteSimulation.value = null
+    remoteDraftExists.value = null
     clearConfirmedSnapshot()
+    syncError.value = ''
+  }
+
+  function clearSyncError() {
     syncError.value = ''
   }
 
   function applyRemoteSimulation(data) {
     if (!data) return
+    remoteSimulation.value = data
     if (data.simulationStartDate) state.startDate = data.simulationStartDate
     if (data.simulationDueDate) state.endDate = data.simulationDueDate
+  }
+
+  function resetRemoteItemState() {
+    state.expenses = state.expenses.map((item) => ({
+      ...item,
+      remoteId: undefined,
+      remoteSynced: false,
+    }))
+    state.incomes = state.incomes.map((item) => ({
+      ...item,
+      remoteId: undefined,
+      remoteSynced: false,
+    }))
+    state.policies = state.policies.map((item) => ({
+      ...item,
+      remoteId: undefined,
+      remoteSynced: false,
+    }))
+  }
+
+  async function ensureRemoteDraft() {
+    if (!remoteEnabled) return true
+
+    try {
+      const draft = await getCurrentSimulationApi()
+      remoteDraftExists.value = true
+      state.ignoreRemoteDraft = false
+      applyRemoteSimulation(draft)
+      return true
+    } catch (error) {
+      if (error.status !== 404) throw error
+    }
+
+    remoteDraftExists.value = false
+    remoteSimulation.value = null
+    remoteReport.value = null
+    resetRemoteItemState()
+
+    const created = await createSimulationApi({
+      simulationStartDate: state.startDate,
+      simulationDueDate: state.endDate,
+    })
+    remoteDraftExists.value = true
+    state.ignoreRemoteDraft = false
+    applyRemoteSimulation(created)
+    return true
+  }
+
+  async function refreshRemoteReport() {
+    if (!remoteEnabled || state.ignoreRemoteDraft) return null
+    const report = await getSimulationReportApi()
+    remoteReport.value = report
+    return report
   }
 
   async function hydrateDraft() {
@@ -811,10 +955,15 @@ export const useSimulationStore = defineStore('simulation', () => {
       const data = await getCurrentSimulationApi()
       remoteDraftExists.value = true
       applyRemoteSimulation(data)
+      state.ignoreRemoteDraft = false
+      await refreshRemoteReport()
       return data
     } catch (error) {
-      if (error.status === 404) remoteDraftExists.value = false
-      else syncError.value = error.message
+      if (error.status === 404) {
+        remoteDraftExists.value = false
+        remoteSimulation.value = null
+        remoteReport.value = null
+      } else syncError.value = error.message
       return null
     } finally {
       syncing.value = false
@@ -826,48 +975,22 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncing.value = true
     syncError.value = ''
     try {
-      await loadTransactions()
-      const restored = restoreConfirmedSnapshot()
-      const remoteConfirmed = mapConfirmedSimulationResponse(
-        await getLatestConfirmedSimulationApi(),
-        policyCatalog.value,
-      )
+      const response = await getLatestConfirmedSimulationApi()
+      const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
       if (!remoteConfirmed) return null
-
-      const canReuseClientSnapshot =
-        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
-        restored.simulationId === remoteConfirmed.simulationId &&
-        restored.confirmedAt === remoteConfirmed.confirmedAt
-      let confirmed
-
-      if (canReuseClientSnapshot) {
-        confirmed = {
-          ...remoteConfirmed,
-          ...restored,
-          simulationId: remoteConfirmed.simulationId,
-          confirmedAt: remoteConfirmed.confirmedAt,
-        }
-        applyConfirmedItems(confirmed)
-      } else {
-        applyConfirmedItems(remoteConfirmed)
-        recentConfirmed.value = null
-        confirmed = buildClientConfirmedSnapshot({
-          simulationId: remoteConfirmed.simulationId,
-          confirmedAt: remoteConfirmed.confirmedAt,
-          endAmount: remoteConfirmed.endAmount,
-        })
-        if (!confirmed) throw new Error('거래 내역을 불러온 뒤 시뮬레이션을 다시 확인해 주세요.')
-      }
-
-      recentConfirmed.value = confirmed
-      persistConfirmedSnapshot(confirmed)
+      applyConfirmedItems(remoteConfirmed)
+      remoteSimulation.value = response
+      remoteReport.value = null
+      recentConfirmed.value = remoteConfirmed
       state.confirmed = true
       state.draftStarted = false
       state.ignoreRemoteDraft = false
-      return confirmed
+      return remoteConfirmed
     } catch (error) {
       if (error.status === 404) {
         clearConfirmedSnapshot()
+        remoteSimulation.value = null
+        remoteReport.value = null
         state.confirmed = false
       } else syncError.value = error.message
       return null
@@ -899,6 +1022,10 @@ export const useSimulationStore = defineStore('simulation', () => {
         remoteDraftExists.value = true
         applyRemoteSimulation(data)
       }
+      const draft = await getCurrentSimulationApi()
+      applyRemoteSimulation(draft)
+      state.ignoreRemoteDraft = false
+      await refreshRemoteReport()
       return true
     } catch (error) {
       syncError.value = error.message
@@ -909,6 +1036,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   async function savePeriod(startDate, endDate) {
+    syncError.value = ''
     state.startDate = startDate
     state.endDate = endDate
     if (!remoteEnabled) return true
@@ -917,6 +1045,9 @@ export const useSimulationStore = defineStore('simulation', () => {
         simulationStartDate: startDate,
         simulationDueDate: endDate,
       })
+      const draft = await getCurrentSimulationApi()
+      applyRemoteSimulation(draft)
+      await refreshRemoteReport()
       return true
     } catch (error) {
       syncError.value = error.message
@@ -924,26 +1055,12 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  const expenseCategoryMap = {
-    식비: 'FOOD',
-    교통: 'TRANSPORT',
-    교통비: 'TRANSPORT',
-    주거: 'HOUSING',
-    월세: 'HOUSING',
-    통신비: 'COMMUNICATION',
-    구독: 'SUBSCRIPTION',
-    구독비: 'SUBSCRIPTION',
-    교육: 'EDUCATION',
-    교육비: 'EDUCATION',
-    자격증: 'CERTIFICATE',
-    '자격증 비용': 'CERTIFICATE',
-  }
-
   async function syncCategory(category) {
     if (!remoteEnabled) return true
     syncing.value = true
     syncError.value = ''
     try {
+      await ensureRemoteDraft()
       const pendingItems =
         category === 'expense'
           ? selectedExpenses.value
@@ -953,7 +1070,7 @@ export const useSimulationStore = defineStore('simulation', () => {
                 payload: {
                   category: 'EXPENSE',
                   itemName: `${item.name} 줄이기`,
-                  expenseCategory: expenseCategoryMap[item.name] || 'ETC_EXPENSE',
+                  expenseCategory: expenseLabelToCategory(item.name),
                   amount: item.saving,
                   applyStartDate: state.startDate,
                   applyEndDate: state.endDate,
@@ -997,8 +1114,7 @@ export const useSimulationStore = defineStore('simulation', () => {
         item.remoteId = result?.itemId || item.remoteId
         item.remoteSynced = true
       }
-      const serverReport = await getSimulationReportApi()
-      remoteReport.value = state.ignoreRemoteDraft ? null : serverReport
+      await refreshRemoteReport()
       return true
     } catch (error) {
       syncError.value = error.message
@@ -1048,6 +1164,7 @@ export const useSimulationStore = defineStore('simulation', () => {
 
   return {
     state,
+    remoteEnabled,
     policyCatalog,
     policyCatalogLoading,
     policyCatalogError,
@@ -1078,7 +1195,9 @@ export const useSimulationStore = defineStore('simulation', () => {
     hasDraft,
     syncing,
     syncError,
+    clearSyncError,
     remoteReport,
+    runwayBaseline,
     recentConfirmed,
     financialDataReady,
     runwayCalculationReady,
@@ -1110,6 +1229,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     prepareNewScenario,
     hydrateDraft,
     hydrateConfirmed,
+    hydrateRunwayBaseline,
     beginSimulation,
     savePeriod,
     restoreConfirmedSnapshot,

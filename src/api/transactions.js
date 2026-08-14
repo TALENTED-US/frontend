@@ -1,19 +1,5 @@
 import { apiClient, normalizeApiError, unwrapApiResponse } from './client'
-
-const apiCategoryToUi = {
-  FOOD: '식비',
-  TRANSPORT: '교통',
-  HOUSING: '주거',
-  COMMUNICATION: '통신비',
-  SUBSCRIPTION: '구독',
-  EDUCATION: '교육',
-  CERTIFICATE: '자격증',
-  ETC_EXPENSE: '기타',
-}
-
-const uiCategoryToApi = Object.fromEntries(
-  Object.entries(apiCategoryToUi).map(([apiCategory, uiCategory]) => [uiCategory, apiCategory]),
-)
+import { expenseCategoryToLabel, expenseLabelToCategory } from '@/constants/expenseCategories'
 
 function splitTransactionAt(value = '') {
   const [date = '', rawTime = ''] = String(value).split('T')
@@ -23,6 +9,7 @@ function splitTransactionAt(value = '') {
 export function mapTransactionResponse(row) {
   const { date, time } = splitTransactionAt(row?.transactionAt)
   const isIncome = row?.transactionType === 'INCOME'
+  const isTransfer = row?.transactionType === 'TRANSFER'
   const amount = Math.abs(Number(row?.transactionAmount) || 0) * (isIncome ? 1 : -1)
 
   return {
@@ -30,14 +17,28 @@ export function mapTransactionResponse(row) {
     apiId: row?.transactionId,
     date,
     time,
-    title: row?.transactionContent || row?.transactionMemo || (isIncome ? '수입' : '지출'),
-    category: isIncome ? '수입' : apiCategoryToUi[row?.expenseCategory] || '기타',
-    detail: isIncome ? '입금' : row?.transactionType === 'FIXED' ? '고정지출' : '지출',
+    title:
+      row?.transactionContent ||
+      row?.transactionMemo ||
+      (isIncome ? '수입' : isTransfer ? '계좌이체' : '지출'),
+    category: isIncome
+      ? '수입'
+      : isTransfer
+        ? '계좌이체'
+        : expenseCategoryToLabel(row?.expenseCategory),
+    detail: isIncome
+      ? '입금'
+      : isTransfer
+        ? '계좌이체 · 분석 제외'
+        : `${row?.transactionType === 'FIXED' ? '고정지출' : '지출'}${row?.analysisExcluded ? ' · 분석 제외' : ''}`,
     amount,
     memo: row?.transactionMemo || '',
     fixed: row?.transactionType === 'FIXED',
     transactionType: row?.transactionType,
     expenseCategory: row?.expenseCategory,
+    analysisExcluded: Boolean(row?.analysisExcluded),
+    classificationMethod: row?.classificationMethod || '',
+    transactionSource: row?.transactionSource || '',
   }
 }
 
@@ -45,7 +46,7 @@ export function mapTransactionForm(payload) {
   const isIncome = payload.amount > 0
   return {
     transactionType: isIncome ? 'INCOME' : 'EXPENSE',
-    expenseCategory: isIncome ? 'ETC_EXPENSE' : uiCategoryToApi[payload.category] || 'ETC_EXPENSE',
+    expenseCategory: isIncome ? 'OTHER_FINANCE' : expenseLabelToCategory(payload.category),
     transactionAmount: Math.abs(Math.trunc(Number(payload.amount) || 0)),
     transactionContent: payload.title || payload.memo || (isIncome ? '수입' : payload.category),
     transactionMemo: payload.memo || '',

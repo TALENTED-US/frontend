@@ -5,6 +5,7 @@ import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { getMyDataAssetsApi } from '@/api/mydata'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
@@ -15,6 +16,7 @@ import {
   loadTransactions,
 } from '@/features/finance/financeStore'
 import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalytics'
+import { formatPrepMonths, isInfinitePrepMonths } from '@/utils/prepMonths'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
 import {
@@ -40,6 +42,15 @@ const quests = useQuestStore()
 const buttieDashboard = ref(null)
 const dashboardApiError = ref('')
 const dashboardApiLoading = ref(false)
+const financialAssets = ref(null)
+const financialAssetsError = ref('')
+const LIQUID_ACCOUNT_TYPES = new Set(['CHECKING', 'SAVINGS', 'DEPOSIT'])
+
+function finiteNumberOrNull(value) {
+  const number = Number(value)
+  return value !== null && value !== undefined && Number.isFinite(number) ? number : null
+}
+
 const mobileNotificationOpen = ref(false)
 const mobileNotificationArea = ref(null)
 const mobileNotificationItems = computed(() =>
@@ -92,14 +103,33 @@ async function loadButtieDashboard() {
   }
 }
 
+async function loadFinancialAssets() {
+  if (session.isMockMode) {
+    financialAssets.value = dashboard.totalAssets
+    return
+  }
+
+  financialAssetsError.value = ''
+  try {
+    const assets = await getMyDataAssetsApi()
+    const accounts = Array.isArray(assets?.accounts) ? assets.accounts : []
+    financialAssets.value = accounts
+      .filter((account) => account.isConsent !== false)
+      .filter((account) => LIQUID_ACCOUNT_TYPES.has(account.accountType))
+      .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
+  } catch (error) {
+    financialAssets.value = null
+    financialAssetsError.value = error.message || '계좌 잔액을 불러오지 못했습니다.'
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('pointerdown', closeMobileNotifications)
-  await loadButtieDashboard()
-  try {
-    await loadTransactions()
-  } catch {
-    // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
-  }
+  await Promise.all([
+    loadButtieDashboard(),
+    loadFinancialAssets(),
+    loadTransactions().catch(() => null),
+  ])
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
 })
@@ -187,6 +217,10 @@ function formatCompactWon(value) {
   return formatWon(amount)
 }
 
+function formatOptionalCompactWon(value) {
+  return finiteNumberOrNull(value) === null ? '-' : formatCompactWon(value)
+}
+
 function formatSignedCompactWon(value) {
   const amount = Math.round(Number(value) || 0)
   if (!amount) return formatCompactWon(0)
@@ -246,8 +280,10 @@ const preparationMonthsValue = computed(
   () => preparationDuration.value.months + preparationDuration.value.days / AVERAGE_MONTH_DAYS,
 )
 
-const availableAssets = computed(() =>
-  Math.max(0, Number(dashboard.liquidAssets ?? dashboard.totalAssets) || 0),
+const totalAssets = computed(() =>
+  session.isMockMode
+    ? Math.max(0, Number(dashboard.totalAssets) || 0)
+    : finiteNumberOrNull(financialAssets.value),
 )
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
@@ -265,25 +301,34 @@ const hasConfirmedSimulationDurations = computed(
 )
 
 const survivalMonths = computed(() => {
+  if (!session.isMockMode) {
+    return finiteNumberOrNull(buttieDashboard.value?.currentPrepMonths)
+  }
   if (hasConfirmedSimulationDurations.value) {
     return Math.max(0, Number(simulation.recentConfirmed.currentMonths))
   }
   if (!financeState.loaded) return null
-  return monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0
+  return monthlyExpense.value > 0 ? totalAssets.value / monthlyExpense.value : 0
 })
-const displayedSurvivalMonths = computed(() =>
-  survivalMonths.value === null ? '-' : survivalMonths.value.toFixed(1),
-)
+const survivalIsInfinite = computed(() => isInfinitePrepMonths(survivalMonths.value))
+const displayedSurvivalMonths = computed(() => formatPrepMonths(survivalMonths.value))
 const hasConfirmedScenario = computed(
-  () => hasConfirmedSimulationDurations.value || simulation.state.confirmed,
+  () =>
+    (!session.isMockMode && finiteNumberOrNull(buttieDashboard.value?.expectPrepMonths) !== null) ||
+    hasConfirmedSimulationDurations.value || simulation.state.confirmed,
 )
 const displayedExpectedMonths = computed(() => {
+  if (!session.isMockMode) {
+    const expected = finiteNumberOrNull(buttieDashboard.value?.expectPrepMonths)
+    return formatPrepMonths(expected)
+  }
   if (hasConfirmedSimulationDurations.value) {
-    return Math.max(0, Number(simulation.recentConfirmed.expectedMonths)).toFixed(1)
+    return formatPrepMonths(Math.max(0, Number(simulation.recentConfirmed.expectedMonths)))
   }
   if (!simulation.state.confirmed || simulation.expectedMonths === null) return '-'
-  return Number(simulation.expectedMonths).toFixed(1)
+  return formatPrepMonths(simulation.expectedMonths)
 })
+const expectedIsInfinite = computed(() => displayedExpectedMonths.value === '∞')
 const confirmedExpenseRows = computed(() =>
   simulation.state.expenseApplied
     ? simulation.selectedExpenses.map((item) => ({
@@ -503,13 +548,17 @@ watch(
 )
 
 const initialAssets = computed(() =>
-  Math.max(0, Number(dashboard.initialAssets ?? dashboard.totalAssets) || 0),
+  session.isMockMode
+    ? Math.max(0, Number(dashboard.initialAssets ?? dashboard.totalAssets) || 0)
+    : totalAssets.value,
 )
 const financialRiskAmount = computed(
-  () => Number(currentUser.value.financialRiskAlertAmount) || Math.round(initialAssets.value * 0.2),
+  () =>
+    finiteNumberOrNull(currentUser.value.financialRiskAlertAmount) ??
+    (session.isMockMode && initialAssets.value !== null ? Math.round(initialAssets.value * 0.2) : null),
 )
 const financialSafetyBuffer = computed(() =>
-  Math.max(0, (Number(dashboard.totalAssets) || 0) - financialRiskAmount.value),
+  Math.max(0, (Number(totalAssets.value) || 0) - (Number(financialRiskAmount.value) || 0)),
 )
 const hasReachedFinancialRiskAmount = computed(
   () => (Number(dashboard.totalAssets) || 0) <= financialRiskAmount.value,
@@ -658,6 +707,10 @@ const targetMonthText = computed(() =>
         {{ dashboardApiLoading ? '불러오는 중' : '다시 시도' }}
       </button>
     </div>
+    <div v-if="financialAssetsError" class="dashboard-api-notice" role="alert">
+      <span>{{ financialAssetsError }}</span>
+      <button type="button" @click="loadFinancialAssets">다시 시도</button>
+    </div>
 
     <section class="survival-section" aria-labelledby="survival-title">
       <h2 id="survival-title" class="mobile-only section-label">버티 현황</h2>
@@ -667,7 +720,10 @@ const targetMonthText = computed(() =>
             지금 자금으로<span class="mobile-only"><br /></span> {{ survivalCardTitle }}
           </h3>
           <h3 v-else>지금 자금으로 버틸 수 있는 기간을 계산 중이에요</h3>
-          <p v-if="survivalMonths !== null">
+          <p v-if="survivalIsInfinite">
+            현재 예상되는 월 수입이 월 지출보다 많아 자산이 소진되지 않는 상태예요.
+          </p>
+          <p v-else-if="survivalMonths !== null">
             목표 취업 시기까지 {{ displayedTargetMonths }}개월,<br />
             버틸 수 있는 기간은 {{ displayedSurvivalMonths }}개월이에요
           </p>
@@ -677,7 +733,10 @@ const targetMonthText = computed(() =>
         <div class="survival-card__metrics">
           <div class="survival-card__metric survival-card__metric--current">
             <span>버티는 기간</span>
-            <strong>{{ displayedSurvivalMonths }}<i v-if="survivalMonths !== null">개월</i></strong>
+            <strong
+              >{{ displayedSurvivalMonths
+              }}<i v-if="survivalMonths !== null && !survivalIsInfinite">개월</i></strong
+            >
           </div>
 
           <div class="survival-card__metric survival-card__metric--target">
@@ -687,7 +746,7 @@ const targetMonthText = computed(() =>
 
           <div class="survival-card__metric survival-card__metric--expected desktop-only">
             <span>예상 버티는 기간</span>
-            <strong>{{ displayedExpectedMonths }} <i>개월</i></strong>
+            <strong>{{ displayedExpectedMonths }} <i v-if="!expectedIsInfinite">개월</i></strong>
             <small v-if="!hasConfirmedScenario">시뮬레이션하면 확인 가능</small>
             <small v-else>확정 시나리오 기준</small>
           </div>
@@ -747,7 +806,7 @@ const targetMonthText = computed(() =>
           <div class="dashboard-report__summary">
             <article>
               <span>총자산</span>
-              <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
+              <strong>{{ formatOptionalCompactWon(totalAssets) }}</strong>
             </article>
             <article>
               <span>{{ monthlyNetChangeLabel }}</span>
@@ -769,6 +828,9 @@ const targetMonthText = computed(() =>
           <p class="dashboard-report__notice">
             <template v-if="survivalMonths === null">
               재정 데이터를 불러오면 버티는 기간을 확인할 수 있어요
+            </template>
+            <template v-else-if="survivalIsInfinite">
+              현재 예상되는 월 수입이 월 지출보다 많아 자산이 소진되지 않는 상태예요.
             </template>
             <template v-else>
               지금 자금으로 버틸 수 있는 기간은
@@ -814,7 +876,7 @@ const targetMonthText = computed(() =>
               >
             </div>
             <p class="goal-card__risk-caption">
-              현재 {{ formatCompactWon(dashboard.totalAssets) }}
+              현재 {{ formatOptionalCompactWon(totalAssets) }}
               <span aria-hidden="true">·</span>
               위험 기준 {{ formatCompactWon(financialRiskAmount) }}
             </p>
