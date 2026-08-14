@@ -1,34 +1,40 @@
 :root {
   --font-family-base: Pretendard, sans-serif;
-  --font-caption: 14px;
-  --font-small: 15px;
-  --font-body: 16px;
+  --font-caption: 13px;
+  --font-small: 13px;
+  --font-body: 14px;
   --font-ui: 16px;
-  --font-card-title: 18px;
-  --font-section-title: 22px;
-  --font-page-title: 32px;
-  --font-display: 40px;
+  --font-card-title: 16px;
+  --font-section-title: 18px;
+  --font-page-title: 28px;
+  --font-display: 28px;
   /* Semantic product typography. Desktop is the default; compact screens
      override only size-related values below. */
   --type-page-title-size: 28px;
   --type-page-title-weight: 800;
-  --type-section-title-size: 20px;
+  --type-hero-size: 28px;
+  --type-hero-weight: 800;
+  --type-section-title-size: 18px;
   --type-section-title-weight: 800;
-  --type-field-label-size: 16px;
+  --type-card-title-size: 16px;
+  --type-card-title-weight: 700;
+  --type-body-size: 14px;
+  --type-body-weight: 400;
+  --type-field-label-size: 14px;
   --type-field-label-weight: 700;
-  --type-item-size: 15px;
+  --type-item-size: 16px;
   --type-item-weight: 700;
-  --type-input-size: 14px;
-  --type-input-weight: 500;
+  --type-input-size: 16px;
+  --type-input-weight: 600;
   --type-meta-size: 13px;
-  --type-meta-weight: 700;
-  --type-supporting-size: 14px;
+  --type-meta-weight: 400;
+  --type-supporting-size: 13px;
   --type-supporting-weight: 400;
   --type-supporting-color: #666666;
   --type-total-size: 16px;
   --type-total-weight: 700;
-  --type-action-size: 14px;
-  --type-action-weight: 400;
+  --type-action-size: 16px;
+  --type-action-weight: 800;
   --type-empty-size: 14px;
   --type-empty-weight: 400;
   --type-primary-action-size: 17px;
@@ -70,13 +76,26 @@
 
 @media (max-width: 767px) {
   :root {
-    --type-page-title-size: 18px;
-    --type-section-title-size: 17px;
+    --font-caption: 12px;
+    --font-small: 12px;
+    --font-body: 13px;
+    --font-ui: 14px;
+    --font-card-title: 14px;
+    --font-section-title: 16px;
+    --font-page-title: 20px;
+    --font-display: 20px;
+    --type-page-title-size: 20px;
+    --type-hero-size: 20px;
+    --type-section-title-size: 16px;
+    --type-card-title-size: 14px;
+    --type-body-size: 13px;
+    --type-field-label-size: 13px;
     --type-item-size: 14px;
-    --type-input-size: 13px;
-    --type-supporting-size: 13px;
+    --type-input-size: 14px;
+    --type-meta-size: 12px;
+    --type-supporting-size: 12px;
     --type-total-size: 14px;
-    --type-action-size: 13px;
+    --type-action-size: 16px;
     --type-empty-size: 13px;
     --type-result-size: 26px;
   }

@@ -726,7 +726,7 @@ async function confirm() {
     min-height: 100dvh;
     grid-template-rows: minmax(360px, 1fr) auto minmax(120px, 0.55fr);
     padding: 0;
-    background: #fcfdff;
+    background: #fff;
   }
 
   .sim-flow-continue .resume-hero {

@@ -47,7 +47,7 @@ function isMenuActive(to) {
   width: var(--admin-sidebar-width);
   height: 100dvh;
   padding: 24px;
-  background: linear-gradient(180deg, #fff8d8 0, #fff 46%);
+  background: #fff;
   border-right: 1px solid rgb(10 22 128 / 14%);
 }
 

@@ -1,7 +1,10 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
+import BrandLogo from '@/components/navigation/BrandLogo.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
@@ -15,6 +18,14 @@ import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalyt
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
 import {
+  loadNotifications,
+  markNotificationRead,
+  notificationItems,
+  notificationState,
+  refreshUnreadNotificationCheck,
+  unreadNotificationCount,
+} from '@/features/notification/notificationStore'
+import {
   calculateQuestExp,
   formatExp,
   normalizeButtieProgression,
@@ -22,12 +33,41 @@ import {
 } from '@/stores/progression'
 
 const session = useSessionStore()
+const router = useRouter()
 const simulation = useSimulationStore()
 const progression = useProgressionStore()
 const quests = useQuestStore()
 const buttieDashboard = ref(null)
 const dashboardApiError = ref('')
 const dashboardApiLoading = ref(false)
+const mobileNotificationOpen = ref(false)
+const mobileNotificationArea = ref(null)
+const mobileNotificationItems = computed(() =>
+  notificationItems.value.filter((item) => !item.read).slice(0, 3),
+)
+
+async function toggleMobileNotifications() {
+  mobileNotificationOpen.value = !mobileNotificationOpen.value
+  if (!mobileNotificationOpen.value) return
+  await refreshUnreadNotificationCheck()
+  try {
+    await loadNotifications(true)
+  } catch {
+    // 팝오버 안에서 오류 상태를 안내합니다.
+  }
+}
+
+async function openMobileNotification(item) {
+  if (!(await markNotificationRead(item.id))) return
+  mobileNotificationOpen.value = false
+  router.push(item.url?.startsWith('/') ? item.url : '/notifications')
+}
+
+function closeMobileNotifications(event) {
+  if (mobileNotificationOpen.value && !mobileNotificationArea.value?.contains(event.target)) {
+    mobileNotificationOpen.value = false
+  }
+}
 
 async function loadButtieDashboard() {
   if (session.isMockMode) return
@@ -53,6 +93,7 @@ async function loadButtieDashboard() {
 }
 
 onMounted(async () => {
+  document.addEventListener('pointerdown', closeMobileNotifications)
   await loadButtieDashboard()
   try {
     await loadTransactions()
@@ -62,6 +103,7 @@ onMounted(async () => {
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
 })
+onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMobileNotifications))
 const DAY_MS = 24 * 60 * 60 * 1000
 const AVERAGE_MONTH_DAYS = 365.2425 / 12
 const LEVEL_TITLES = Object.freeze({
@@ -229,13 +271,11 @@ const survivalMonths = computed(() => {
   if (!financeState.loaded) return null
   return monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0
 })
-const displayedSurvivalMonths = computed(() => survivalMonths.value === null
-  ? '-'
-  : survivalMonths.value.toFixed(1))
+const displayedSurvivalMonths = computed(() =>
+  survivalMonths.value === null ? '-' : survivalMonths.value.toFixed(1),
+)
 const hasConfirmedScenario = computed(
-  () =>
-    hasConfirmedSimulationDurations.value ||
-    simulation.state.confirmed,
+  () => hasConfirmedSimulationDurations.value || simulation.state.confirmed,
 )
 const displayedExpectedMonths = computed(() => {
   if (hasConfirmedSimulationDurations.value) {
@@ -361,10 +401,6 @@ const visibleQuestSections = computed(() =>
     return { ...section, groups: buildQuestGroups(rows) }
   }),
 )
-const oneTimeBenefitText = computed(() => {
-  const total = simulation.oneTimeIncome + simulation.oneTimePolicy
-  return total > 0 ? `일시 수입·혜택 ${formatCompactWon(total)} 별도` : '정기 반영 금액 기준'
-})
 function isQuestCompleted(item) {
   if (quests.remoteEnabled) return item.completed
   return completedQuestIds.value.has(questCompletionId(item))
@@ -472,16 +508,19 @@ const initialAssets = computed(() =>
 const financialRiskAmount = computed(
   () => Number(currentUser.value.financialRiskAlertAmount) || Math.round(initialAssets.value * 0.2),
 )
+const financialSafetyBuffer = computed(() =>
+  Math.max(0, (Number(dashboard.totalAssets) || 0) - financialRiskAmount.value),
+)
+const hasReachedFinancialRiskAmount = computed(
+  () => (Number(dashboard.totalAssets) || 0) <= financialRiskAmount.value,
+)
 const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
-const monthlyDecrease = computed(() => Math.max(0, -netCashFlow.value))
-const reportBarMaximum = computed(() => Math.max(monthlyIncome.value, monthlyExpense.value, 1))
-const incomeBarWidth = computed(() => (monthlyIncome.value / reportBarMaximum.value) * 100)
-const expenseBarWidth = computed(() => (monthlyExpense.value / reportBarMaximum.value) * 100)
-const reportDepletionMonths = computed(() => {
-  if (monthlyDecrease.value <= 0) return null
-  return Math.max(0, Number(dashboard.totalAssets) || 0) / monthlyDecrease.value
+const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
+const monthlyNetChangeLabel = computed(() => {
+  if (netCashFlow.value > 0) return '매달 들어오는 금액'
+  if (netCashFlow.value < 0) return '매달 나가는 금액'
+  return '매달 순변동 금액'
 })
-const displayedReportDepletionMonths = computed(() => reportDepletionMonths.value?.toFixed(1))
 const remainingDurationText = computed(() => {
   if (remainingDays.value <= 0) return '목표일 도달'
   return `${remainingDuration.value.months}개월 ${remainingDuration.value.days}일`
@@ -501,14 +540,6 @@ const preparationProgress = computed(() => {
     Math.max(0, Math.round(((today.value.getTime() - start.getTime()) / total) * 100)),
   )
 })
-const financialRiskProgress = computed(() =>
-  initialAssets.value > 0
-    ? Math.min(
-        100,
-        Math.max(0, Math.round((financialRiskAmount.value / initialAssets.value) * 100)),
-      )
-    : 0,
-)
 const currentMonthText = computed(() => formatMonthLabel(today.value))
 const targetMonthText = computed(() =>
   targetEmploymentDate.value ? formatMonthLabel(targetEmploymentDate.value) : '-',
@@ -517,56 +548,110 @@ const targetMonthText = computed(() =>
 
 <template>
   <section class="page dashboard">
-    <section class="level-overview" aria-label="레벨 및 경험치">
-      <div>
-        <div class="level-overview__level">
-          <strong>Lv.{{ buttieLevel }}</strong>
-          <b>{{ levelTitle }}</b>
-        </div>
-        <div :class="['level-info', { 'level-info--open': levelInfoOpen }]">
+    <div class="dashboard__mobile-brand mobile-only">
+      <BrandLogo />
+      <div ref="mobileNotificationArea" class="dashboard__mobile-notification">
+        <button
+          type="button"
+          aria-label="알림 확인"
+          :aria-expanded="mobileNotificationOpen"
+          aria-controls="mobile-notification-bubble"
+          @click.stop="toggleMobileNotifications"
+        >
+          <AppIcon name="bell" :size="22" />
+          <b v-if="unreadNotificationCount">{{ unreadNotificationCount }}</b>
+        </button>
+        <section
+          v-if="mobileNotificationOpen"
+          id="mobile-notification-bubble"
+          class="dashboard__notification-bubble"
+          aria-label="최근 알림"
+        >
+          <header>
+            <h2>새 알림 {{ unreadNotificationCount }}</h2>
+            <RouterLink to="/notifications" @click="mobileNotificationOpen = false"
+              >전체 보기</RouterLink
+            >
+          </header>
           <button
+            v-for="item in mobileNotificationItems"
+            :key="item.id"
             type="button"
-            class="level-info__button"
-            aria-label="버티 레벨 설명 보기"
-            aria-controls="level-info-popover"
-            :aria-expanded="levelInfoOpen"
-            @click="levelInfoOpen = !levelInfoOpen"
-            @keydown.esc="levelInfoOpen = false"
+            class="dashboard__notification-item"
+            @click="openMobileNotification(item)"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 10.5v6M12 7.5h.01" />
-            </svg>
+            <span>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.message }}</small>
+            </span>
+            <time>{{ item.time }}</time>
           </button>
-          <div id="level-info-popover" class="level-info__popover" role="tooltip">
-            <strong class="level-info__title">버티 레벨 안내</strong>
-            <ul>
-              <li
-                v-for="item in LEVEL_DESCRIPTIONS"
-                :key="item.level"
-                :class="{ current: item.level === buttieLevel }"
-              >
-                <b>레벨 {{ item.level }}. {{ item.title }}</b>
-                <span>{{ item.description }}</span>
-              </li>
-            </ul>
+          <p v-if="notificationState.error">알림을 불러오지 못했어요.</p>
+          <p v-else-if="!mobileNotificationItems.length">새 알림이 없어요.</p>
+        </section>
+      </div>
+    </div>
+    <div class="dashboard__top">
+      <header class="dashboard__heading">
+        <h1>버티와 함께하는 취준 여정,<br />지금 확인해 보세요</h1>
+        <p>취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
+      </header>
+      <section class="level-overview" aria-label="레벨 및 경험치">
+        <div>
+          <div class="level-overview__level">
+            <strong>Lv.{{ buttieLevel }}</strong>
+            <b>{{ levelTitle }}</b>
           </div>
+          <div :class="['level-info', { 'level-info--open': levelInfoOpen }]">
+            <button
+              type="button"
+              class="level-info__button"
+              aria-label="버티 레벨 설명 보기"
+              aria-controls="level-info-popover"
+              :aria-expanded="levelInfoOpen"
+              @click="levelInfoOpen = !levelInfoOpen"
+              @keydown.esc="levelInfoOpen = false"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 10.5v6M12 7.5h.01" />
+              </svg>
+            </button>
+            <div id="level-info-popover" class="level-info__popover" role="tooltip">
+              <strong class="level-info__title">버티 레벨 안내</strong>
+              <ul>
+                <li
+                  v-for="item in LEVEL_DESCRIPTIONS"
+                  :key="item.level"
+                  :class="{ current: item.level === buttieLevel }"
+                >
+                  <b>레벨 {{ item.level }}. {{ item.title }}</b>
+                  <span>{{ item.description }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <span v-if="buttieLevel < 5">다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span>
+          <span v-else>최고 레벨 달성</span>
         </div>
-        <span v-if="buttieLevel < 5"> 다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP </span>
-        <span v-else>최고 레벨 달성</span>
-      </div>
-      <div class="level-overview__progress">
-        <b v-if="buttieLevel < 5">
-          {{ formatExp(buttieExp) }} / {{ formatExp(buttieRequiredExp) }} EXP
-        </b>
-        <b v-else>MAX LEVEL</b>
-        <i><span :style="{ width: `${buttieProgressPercent}%` }" /></i>
-      </div>
-    </section>
-    <header class="dashboard__heading">
-      <h1>버티와 함께하는 취준 여정, 지금 확인해 보세요</h1>
-      <p>취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
-    </header>
+        <div
+          class="level-overview__progress"
+          role="progressbar"
+          aria-label="현재 레벨 경험치"
+          :aria-valuenow="Math.round(buttieProgressPercent)"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <b v-if="buttieLevel < 5">
+            {{ formatExp(buttieExp) }} / {{ formatExp(buttieRequiredExp) }} EXP
+          </b>
+          <b v-else>MAX LEVEL</b>
+          <i aria-hidden="true">
+            <span :style="{ width: `${buttieProgressPercent}%` }" />
+          </i>
+        </div>
+      </section>
+    </div>
     <div v-if="dashboardApiError" class="dashboard-api-notice" role="alert">
       <span>{{ dashboardApiError }}</span>
       <button type="button" :disabled="dashboardApiLoading" @click="loadButtieDashboard">
@@ -665,35 +750,29 @@ const targetMonthText = computed(() =>
               <strong>{{ formatCompactWon(dashboard.totalAssets) }}</strong>
             </article>
             <article>
-              <span>매달 줄어드는 금액</span>
-              <strong>{{ formatCompactWon(monthlyDecrease) }}</strong>
+              <span>{{ monthlyNetChangeLabel }}</span>
+              <strong :class="{ 'is-positive': netCashFlow > 0 }">
+                {{ formatCompactWon(monthlyNetChange) }}
+              </strong>
             </article>
           </div>
-          <div class="dashboard-report__bars">
-            <div class="dashboard-report__bar-row dashboard-report__bar-row--income">
-              <div>
-                <span>월평균 수입</span><strong>{{ formatCompactWon(monthlyIncome) }}</strong>
-              </div>
-              <div class="dashboard-report__track">
-                <i :style="{ width: `${incomeBarWidth}%` }" />
-              </div>
+          <div class="dashboard-report__cashflow" aria-label="월평균 수입과 지출">
+            <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--income">
+              <span>월평균 수입</span>
+              <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
             </div>
-            <div class="dashboard-report__bar-row dashboard-report__bar-row--expense">
-              <div>
-                <span>월평균 지출</span><strong>{{ formatCompactWon(monthlyExpense) }}</strong>
-              </div>
-              <div class="dashboard-report__track">
-                <i :style="{ width: `${expenseBarWidth}%` }" />
-              </div>
+            <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--expense">
+              <span>월평균 지출</span>
+              <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
             </div>
           </div>
           <p class="dashboard-report__notice">
-            <template v-if="displayedReportDepletionMonths === undefined">
-              현재 속도라면 총자산이 줄어들지 않아요
+            <template v-if="survivalMonths === null">
+              재정 데이터를 불러오면 버티는 기간을 확인할 수 있어요
             </template>
             <template v-else>
-              지금 속도라면 총자산 {{ formatCompactWon(dashboard.totalAssets) }}은
-              <strong>약 {{ displayedReportDepletionMonths }}개월 뒤</strong> 소진돼요
+              지금 자금으로 버틸 수 있는 기간은
+              <strong>약 {{ displayedSurvivalMonths }}개월</strong>이에요
             </template>
           </p>
         </div>
@@ -722,21 +801,22 @@ const targetMonthText = computed(() =>
           </section>
           <section class="goal-card__item">
             <header>
-              <span>재정 위험 알림 금액</span>
+              <span>재정 위험까지 남은 금액</span>
               <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }"
                 >수정하기 ›</RouterLink
               >
             </header>
             <div class="goal-card__amount-row">
-              <strong class="goal-card__value">{{ formatCompactWon(financialRiskAmount) }}</strong>
-              <span>현재 잔액 {{ formatCompactWon(dashboard.totalAssets) }}</span>
+              <strong
+                class="goal-card__value"
+                :class="{ 'goal-card__value--warning': hasReachedFinancialRiskAmount }"
+                >{{ formatCompactWon(financialSafetyBuffer) }}</strong
+              >
             </div>
-            <div class="goal-card__progress">
-              <i :style="{ width: `${financialRiskProgress}%` }" />
-            </div>
-            <p>
-              잔액이 이 금액에 도달하면 알림을 보내드려요.<br />마이페이지에서 언제든 바꿀 수
-              있어요.
+            <p class="goal-card__risk-caption">
+              현재 {{ formatCompactWon(dashboard.totalAssets) }}
+              <span aria-hidden="true">·</span>
+              위험 기준 {{ formatCompactWon(financialRiskAmount) }}
             </p>
           </section>
         </article>
@@ -866,15 +946,6 @@ const targetMonthText = computed(() =>
               </p>
             </section>
           </div>
-
-          <footer class="quest-card__footer">
-            <div>
-              <span>월 순지출 개선액 (지출·수입 기준)</span>
-              <strong>{{ formatCompactWon(simulation.monthlyImprovement) }} / 월</strong>
-            </div>
-            <p>{{ oneTimeBenefitText }}</p>
-            <RouterLink to="/simulation/edit">시나리오 수정하기 <span>→</span></RouterLink>
-          </footer>
         </article>
 
         <article v-else class="quest-empty">
@@ -892,24 +963,145 @@ const targetMonthText = computed(() =>
   padding-bottom: 28px;
 }
 
-.level-overview {
+.dashboard__mobile-brand {
+  display: none;
+}
+
+.dashboard__mobile-notification {
+  position: relative;
+  margin-left: auto;
+}
+
+.dashboard__mobile-notification > button {
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid #e5e8ef;
+  border-radius: 14px;
+  background: #fff;
+  color: #202632;
+  box-shadow: 0 5px 16px rgb(28 35 55 / 8%);
+}
+
+.dashboard__mobile-notification > button b {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  padding: 0 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.dashboard__notification-bubble {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(340px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid #e5e8ef;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 46px rgb(23 31 51 / 18%);
+}
+
+.dashboard__notification-bubble header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.dashboard__notification-bubble h2 {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.dashboard__notification-bubble header a {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard__notification-item {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0f1f4;
+  background: #fff;
+  text-align: left;
+}
+
+.dashboard__notification-item span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.dashboard__notification-item strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard__notification-item small,
+.dashboard__notification-item time,
+.dashboard__notification-bubble > p {
+  color: #7b8493;
+  font-size: 12px;
+}
+
+.dashboard__notification-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard__notification-bubble > p {
+  margin: 0;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.dashboard__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  align-items: center;
   gap: 28px;
-  margin-bottom: 22px;
-  padding: 18px 24px;
+  margin-bottom: 26px;
+}
+
+.level-overview {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 18px;
   border: 1px solid #e2e3e8;
   border-radius: 18px;
   background: #fff;
-  box-shadow: 0 1px 5px rgb(0 0 0 / 12%);
+  box-shadow: var(--shadow-sm);
 }
 
 .level-overview > div:first-child {
   position: relative;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
 }
 
@@ -920,7 +1112,7 @@ const targetMonthText = computed(() =>
 }
 
 .level-overview__level strong {
-  font-size: 22px;
+  font-size: 18px;
 }
 .level-overview__level b {
   color: #51392e;
@@ -928,8 +1120,9 @@ const targetMonthText = computed(() =>
   font-weight: 900;
 }
 .level-overview > div:first-child span {
+  margin-left: auto;
   color: #6b7280;
-  font-size: var(--font-small);
+  font-size: var(--type-supporting-size);
 }
 
 .level-info {
@@ -1042,39 +1235,39 @@ const targetMonthText = computed(() =>
 }
 
 .level-overview__progress {
-  display: grid;
-  width: min(520px, 55%);
-  gap: 7px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .level-overview__progress b {
+  order: 2;
+  flex: none;
   color: #51392e;
-  font-size: var(--font-small);
+  font-size: var(--type-supporting-size);
   text-align: right;
 }
 
 .level-overview__progress i {
-  height: 10px;
+  display: block;
+  height: 8px;
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   border-radius: 999px;
-  background: #fff3c8;
+  background: #e8eaf0;
 }
 
 .level-overview__progress i span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: var(--primary);
   transition: width 0.25s ease;
 }
 
 .dashboard__heading {
-  margin-bottom: 26px;
+  margin: 0;
 }
 
 .dashboard__heading h1 {
@@ -1206,12 +1399,7 @@ const targetMonthText = computed(() =>
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: #f1b94c;
   transition: width 0.25s ease;
 }
 
@@ -1428,66 +1616,41 @@ const targetMonthText = computed(() =>
   overflow-wrap: anywhere;
 }
 
-.dashboard-report__bars {
+.dashboard-report__summary strong.is-positive {
+  color: #16845b;
+}
+
+.dashboard-report__cashflow {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid #eaecf0;
+  border-bottom: 1px solid #eaecf0;
 }
 
-.dashboard-report__bar-row > div:first-child {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 7px;
+.dashboard-report__cashflow-item {
+  display: grid;
+  gap: 6px;
+  padding: 16px 14px;
 }
 
-.dashboard-report__bar-row span {
-  position: relative;
-  padding-left: 17px;
-  color: #171717;
-  font-size: 15px;
-  font-weight: 800;
+.dashboard-report__cashflow-item + .dashboard-report__cashflow-item {
+  border-left: 1px solid #eaecf0;
 }
 
-.dashboard-report__bar-row span::before {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #f1b94c;
-  content: '';
-  transform: translateY(-50%);
+.dashboard-report__cashflow-item span {
+  color: #737b89;
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.dashboard-report__bar-row strong {
-  color: #f1b94c;
+.dashboard-report__cashflow-item strong {
+  color: #0a1680;
   font-size: 18px;
   font-weight: 800;
 }
 
-.dashboard-report__bar-row--expense span::before,
-.dashboard-report__bar-row--expense .dashboard-report__track i {
-  background: #f1b94c;
-}
-
-.dashboard-report__bar-row--expense strong {
-  color: #f1b94c;
-}
-
-.dashboard-report__track {
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #fff3c8;
-}
-
-.dashboard-report__track i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #f1b94c;
-  transition: width 0.25s ease;
+.dashboard-report__cashflow-item--expense strong {
+  color: #d94b43;
 }
 
 .dashboard-report__notice {
@@ -1729,6 +1892,10 @@ const targetMonthText = computed(() =>
   align-items: end;
 }
 
+.goal-card__value--warning {
+  color: #b42318;
+}
+
 .goal-card__progress {
   height: 10px;
   margin-top: 14px;
@@ -1741,12 +1908,7 @@ const targetMonthText = computed(() =>
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: #f1b94c;
 }
 
 .goal-card__item footer {
@@ -1756,6 +1918,15 @@ const targetMonthText = computed(() =>
 .goal-card__item p {
   margin-top: 12px;
   line-height: 1.55;
+}
+
+.goal-card__item .goal-card__risk-caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+  color: #737b89;
+  font-size: var(--type-supporting-size) !important;
 }
 
 .dashboard__bottom {
@@ -1829,17 +2000,20 @@ const targetMonthText = computed(() =>
 
 .quest-tabs {
   display: grid;
-  width: min(72%, 520px);
-  height: 44px;
+  width: min(100%, 440px);
+  height: 50px;
   grid-template-columns: 1fr 1fr;
-  margin-bottom: 20px;
+  margin: 0 auto 22px;
   padding: 3px;
+  overflow: hidden;
+  box-sizing: border-box;
   border: 1px solid #e1e4ea;
   border-radius: 999px;
   background: #f2f3f6;
 }
 
 .quest-tabs button {
+  min-width: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -1883,10 +2057,11 @@ const targetMonthText = computed(() =>
 }
 
 .quest-completion__track {
-  height: 10px;
+  height: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: #fff3c8;
+  border: 1px solid #dfe3e9;
+  background: #eef0f3;
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 8%);
 }
 
@@ -1895,12 +2070,7 @@ const targetMonthText = computed(() =>
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: var(--primary);
   transition: width 0.3s ease;
 }
 
@@ -1957,12 +2127,12 @@ const targetMonthText = computed(() =>
 
 .quest-groups {
   display: grid;
-  gap: 18px;
+  gap: 24px;
 }
 
 .quest-group {
   display: grid;
-  gap: 9px;
+  gap: 11px;
 }
 
 .quest-group__heading {
@@ -2011,15 +2181,16 @@ const targetMonthText = computed(() =>
 .quest-row {
   display: grid;
   width: 100%;
-  min-height: 62px;
-  grid-template-columns: 42px minmax(0, 1fr) auto 34px;
+  min-height: 76px;
+  grid-template-columns: 46px minmax(0, 1fr) auto 36px;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 14px 16px 14px 14px;
   border: 1px solid #e5e7ec;
+  border-left-width: 4px;
   border-radius: 16px;
   background: #fff;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   color: var(--text);
   font-family: inherit;
   text-align: left;
@@ -2027,17 +2198,21 @@ const targetMonthText = computed(() =>
 }
 
 .quest-row--expense {
-  background: #fff2f2;
+  border-left-color: #ef5a55;
+  background: #fff;
 }
 .quest-row--income {
-  background: #ecfbf5;
+  border-left-color: #35c992;
+  background: #fff;
 }
 .quest-row--policy {
-  background: #f6f3fc;
+  border-left-color: #8e79cd;
+  background: #fff;
 }
 
 .quest-row.is-completed {
-  opacity: 0.62;
+  background: #f7f8fa;
+  color: #777e89;
 }
 
 .quest-row:disabled {
@@ -2047,13 +2222,13 @@ const targetMonthText = computed(() =>
 
 .quest-row__icon {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   place-items: center;
   border: 1px solid #e1e4e9;
   border-radius: 50%;
-  background: white;
-  font-size: 17px;
+  background: #f7f8fa;
+  font-size: 19px;
 }
 
 .quest-row__copy {
@@ -2155,9 +2330,17 @@ const targetMonthText = computed(() =>
 .quest-card__footer a {
   grid-column: 1 / -1;
   justify-self: center;
-  margin-top: 4px;
+  display: inline-flex;
+  width: auto;
+  min-width: 190px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 0 22px;
   color: var(--text);
-  font-size: var(--font-small);
+  font-size: var(--type-primary-action-size);
   font-weight: 800;
 }
 
@@ -2398,9 +2581,39 @@ const targetMonthText = computed(() =>
   }
 }
 
+@media (max-width: 1024px) {
+  .dashboard__top {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .level-overview {
+    max-width: 520px;
+  }
+}
+
 @media (max-width: 767px) {
+  .dashboard__mobile-brand {
+    display: flex;
+    min-height: 54px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 6px 2px;
+  }
+
+  .dashboard__mobile-brand :deep(.brand-logo__image) {
+    width: 108px;
+    height: 38px;
+  }
+
+  .dashboard__top {
+    display: block;
+    margin-bottom: 16px;
+  }
+
   .level-overview {
     display: grid;
+    max-width: none;
     grid-template-columns: minmax(0, 1fr);
     justify-content: stretch;
     gap: 10px;
@@ -2471,7 +2684,7 @@ const targetMonthText = computed(() =>
 
   .survival-card__metric {
     position: static;
-    min-height: 85px;
+    min-height: 100px;
     align-content: center;
     gap: 9px;
     padding: 12px 14px;
@@ -2498,7 +2711,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__progress-area {
-    top: 237px;
+    top: 258px;
     bottom: auto;
     left: 17px;
     width: calc(100% - 34px);
@@ -2517,7 +2730,7 @@ const targetMonthText = computed(() =>
   .survival-card__character-panel {
     position: absolute;
     z-index: 2;
-    top: 319px;
+    top: 330px;
     right: 17px;
     bottom: 23px;
     left: 17px;
@@ -2621,25 +2834,12 @@ const targetMonthText = computed(() =>
     white-space: nowrap;
   }
 
-  .dashboard-report__bars {
-    gap: 8px;
+  .dashboard-report__cashflow-item {
+    padding: 14px 10px;
   }
 
-  .dashboard-report__bar-row > div:first-child {
-    margin-bottom: 4px;
-  }
-
-  .dashboard-report__bar-row span {
-    padding-left: 17px;
-    font-size: 13px;
-  }
-
-  .dashboard-report__bar-row strong {
-    font-size: 18px;
-  }
-
-  .dashboard-report__track {
-    height: 10px;
+  .dashboard-report__cashflow-item strong {
+    font-size: 16px;
   }
 
   .dashboard-report__notice {
@@ -2770,9 +2970,9 @@ const targetMonthText = computed(() =>
   }
 
   .quest-tabs {
-    width: 100%;
+    width: min(100%, 360px);
     height: 52px;
-    margin-bottom: 16px;
+    margin: 0 auto 18px;
   }
 
   .quest-completion {
@@ -2807,7 +3007,7 @@ const targetMonthText = computed(() =>
 
   .quest-row {
     min-height: 84px;
-    grid-template-columns: 48px minmax(0, 1fr) auto 34px;
+    grid-template-columns: 48px minmax(0, 1fr) 34px;
     gap: 10px;
     padding: 12px 13px;
     border-radius: 18px;
@@ -2821,6 +3021,17 @@ const targetMonthText = computed(() =>
   .quest-row__copy strong,
   .quest-row__amount {
     font-size: 16px;
+  }
+
+  .quest-row__amount {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: -4px;
+  }
+
+  .quest-row__check {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .quest-row__copy small {
@@ -2837,6 +3048,13 @@ const targetMonthText = computed(() =>
 
   .quest-card__footer strong {
     font-size: 20px;
+  }
+
+  .quest-card__footer a {
+    width: auto;
+    min-width: 188px;
+    max-width: 100%;
+    min-height: 50px;
   }
 
   .goal-setting-card {

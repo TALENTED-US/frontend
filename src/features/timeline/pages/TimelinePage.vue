@@ -345,7 +345,7 @@ onMounted(loadTimeline)
   left: 0;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), #8facf5 62%, var(--warning));
+  background: var(--primary);
 }
 
 .timeline-marker {

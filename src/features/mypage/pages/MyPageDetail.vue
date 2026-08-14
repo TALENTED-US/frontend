@@ -3,11 +3,17 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
+import FinancialInstitutionLogo from '@/components/ui/FinancialInstitutionLogo.vue'
 import { getNotificationSettingsApi, updateNotificationSettingsApi } from '@/api/notifications'
-import { clearTransactions, loadTransactions } from '@/features/finance/financeStore'
+import {
+  clearTransactions,
+  loadTransactions,
+  resetFixedTransactions,
+} from '@/features/finance/financeStore'
 import {
   disconnectMyDataAsset,
   loadMyDataCatalog,
+  resetMyDataConnectionState,
   selectedMyDataAccounts,
   selectedMyDataCards,
   syncMyData,
@@ -67,6 +73,7 @@ const profileSaving = ref(false)
 const dataRefreshMessage = ref('')
 const dataLoading = ref(false)
 const disconnectingAssetId = ref('')
+const disconnectConfirm = ref(null)
 const notificationSettingsLoading = ref(false)
 const notificationSettingsError = ref('')
 const withdrawError = ref('')
@@ -131,6 +138,17 @@ const form = reactive({
   financialRiskAlertAmount: Number(session.currentUser.financialRiskAlertAmount) || 600000,
   password: '',
 })
+
+function formatMoneyInput(value) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  return digits ? Number(digits).toLocaleString('ko-KR') : ''
+}
+
+function updateRiskAlertAmount(event) {
+  const digits = event.target.value.replace(/\D/g, '')
+  form.financialRiskAlertAmount = digits ? Number(digits) : ''
+  event.target.value = formatMoneyInput(digits)
+}
 
 const notificationRows = [
   ['policy', '정책 마감', '신청 가능한 정책 마감 안내'],
@@ -414,20 +432,55 @@ async function syncAllNotifications(changedKey) {
   }
 }
 
+function requestDisconnectAccount(account) {
+  disconnectConfirm.value = { type: 'single', account }
+}
+
+function requestDisconnectAll() {
+  if (!accounts.value.length) return
+  disconnectConfirm.value = { type: 'all', account: null }
+}
+
+function closeDisconnectConfirm() {
+  if (dataLoading.value || disconnectingAssetId.value) return
+  disconnectConfirm.value = null
+}
+
 async function disconnectAccount(account) {
+  const isLastAsset = accounts.value.length === 1
+
   if (session.isMockMode) {
+    if (isLastAsset) resetFixedTransactions()
     accounts.value = accounts.value.filter((item) => item !== account)
     dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
+    if (!accounts.value.length) {
+      clearTransactions()
+      resetMyDataConnectionState()
+      session.clearMyDataConnection()
+      router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/mypage/data' } })
+    }
     return
   }
 
-  if (!window.confirm(`${account.name} 연결을 해제할까요?`)) return
   disconnectingAssetId.value = `${account.assetType}:${account.id}`
   dataRefreshMessage.value = ''
   try {
+    if (isLastAsset && !(await resetFixedTransactions())) {
+      dataRefreshMessage.value =
+        '고정지출을 초기화하지 못해 마지막 자산의 연결 해제를 중단했습니다. 다시 시도해 주세요.'
+      return
+    }
+
     await disconnectMyDataAsset(account.assetType, account.id)
     accounts.value = accounts.value.filter((item) => item !== account)
-    dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
+    if (!accounts.value.length) {
+      clearTransactions()
+      resetMyDataConnectionState()
+      session.clearMyDataConnection()
+      router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/mypage/data' } })
+    } else {
+      dataRefreshMessage.value = `${account.name} 연결을 해제했습니다.`
+    }
   } catch (error) {
     dataRefreshMessage.value = error.message || '연결을 해제하지 못했습니다.'
   } finally {
@@ -445,11 +498,14 @@ function addMockAccount(type) {
 }
 
 function clearMockData() {
-  if (!window.confirm('연결된 마이데이터 목 정보를 모두 삭제할까요?')) return
   accounts.value = []
+  resetFixedTransactions()
   clearTransactions()
+  resetMyDataConnectionState()
+  session.clearMyDataConnection()
   localStorage.removeItem('buttie-mydata')
   dataRefreshMessage.value = '거래 내역과 연결된 마이데이터 목 정보를 모두 삭제했습니다.'
+  return true
 }
 
 async function disconnectAllAssets() {
@@ -458,29 +514,68 @@ async function disconnectAllAssets() {
     return
   }
   if (!accounts.value.length) return
-  if (!window.confirm('연결된 계좌와 카드를 모두 해제할까요?')) return
 
+  const assetsToDisconnect = [...accounts.value]
   dataLoading.value = true
-  dataRefreshMessage.value = ''
+  dataRefreshMessage.value = '기존 고정지출과 금융 자산 연결을 정리하고 있어요.'
   try {
-    for (const account of [...accounts.value]) {
-      await disconnectMyDataAsset(account.assetType, account.id)
+    const fixedReset = await resetFixedTransactions()
+    if (!fixedReset) {
+      dataRefreshMessage.value = '고정지출을 초기화하지 못해 연결 해제를 중단했습니다. 다시 시도해 주세요.'
+      return
     }
+
+    const failedAssets = []
+    for (const account of assetsToDisconnect) {
+      try {
+        await disconnectMyDataAsset(account.assetType, account.id)
+        accounts.value = accounts.value.filter(
+          (item) => !(item.assetType === account.assetType && item.id === account.id),
+        )
+      } catch (error) {
+        failedAssets.push({ account, error })
+      }
+    }
+
+    if (failedAssets.length) {
+      dataRefreshMessage.value = `${assetsToDisconnect.length - failedAssets.length}개는 해제했고, ${failedAssets.length}개는 해제하지 못했어요. 다시 시도해 주세요.`
+      return
+    }
+
     accounts.value = []
-    dataRefreshMessage.value = '연결된 금융 자산을 모두 해제했습니다.'
-  } catch (error) {
-    mapLinkedAssets()
-    dataRefreshMessage.value = error.message || '일부 금융 자산의 연결을 해제하지 못했습니다.'
+    clearTransactions()
+    dataRefreshMessage.value = '고정지출과 연결된 금융 자산을 모두 초기화했습니다.'
   } finally {
+    if (!accounts.value.length) {
+      resetMyDataConnectionState()
+      session.clearMyDataConnection()
+    }
     dataLoading.value = false
   }
+}
+
+async function confirmDisconnect() {
+  const pending = disconnectConfirm.value
+  if (!pending) return
+  if (pending.type === 'all') await disconnectAllAssets()
+  else await disconnectAccount(pending.account)
+  disconnectConfirm.value = null
+}
+
+function reconnectMyData() {
+  router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/mypage/data' } })
 }
 </script>
 
 <template>
   <section class="page detail-page">
-    <button class="detail-back desktop-only" type="button" @click="router.push('/mypage')">
-      ‹ 마이페이지
+    <button
+      class="detail-back desktop-only"
+      type="button"
+      aria-label="마이페이지로 돌아가기"
+      @click="router.push('/mypage')"
+    >
+      ‹
     </button>
     <h1 class="desktop-only">{{ info[0] }}</h1>
     <p class="desktop-only detail-description">{{ info[1] }}</p>
@@ -504,22 +599,34 @@ async function disconnectAllAssets() {
               alt="버티 프로필" /></span
           ><b>{{ profileLevel }}</b>
         </div>
-        <div class="nickname-control">
-          <input
-            v-if="nicknameEditing"
-            v-model="nicknameDraft"
-            maxlength="10"
-            aria-label="닉네임"
-            @keyup.enter="saveProfile"
-          />
-          <strong v-else>{{ session.displayName }}</strong>
-          <button
-            type="button"
-            :aria-label="nicknameEditing ? '닉네임 수정 취소' : '닉네임 수정'"
-            @click="nicknameEditing ? (nicknameEditing = false) : startNicknameEdit()"
+        <div class="nickname-field">
+          <div class="nickname-control">
+            <input
+              v-if="nicknameEditing"
+              v-model="nicknameDraft"
+              maxlength="10"
+              aria-label="닉네임"
+              :aria-invalid="profileMessageError"
+              :aria-describedby="profileMessageError ? 'nickname-error' : undefined"
+              @keyup.enter="saveProfile"
+            />
+            <strong v-else>{{ session.displayName }}</strong>
+            <button
+              type="button"
+              :aria-label="nicknameEditing ? '닉네임 수정 취소' : '닉네임 수정'"
+              @click="nicknameEditing ? (nicknameEditing = false) : startNicknameEdit()"
+            >
+              {{ nicknameEditing ? '취소' : '✎' }}
+            </button>
+          </div>
+          <p
+            v-if="nicknameEditing && profileMessageError"
+            id="nickname-error"
+            class="nickname-error"
+            role="alert"
           >
-            {{ nicknameEditing ? '취소' : '✎' }}
-          </button>
+            {{ profileMessage }}
+          </p>
         </div>
       </div>
 
@@ -543,7 +650,7 @@ async function disconnectAllAssets() {
       </article>
 
       <p
-        v-if="profileMessage"
+        v-if="profileMessage && !profileMessageError"
         :class="['save-message', { 'save-message--error': profileMessageError }]"
         aria-live="polite"
       >
@@ -595,11 +702,10 @@ async function disconnectAllAssets() {
           <span>재정 위험 알림 금액</span>
           <small>설정한 금액에 도달하면 알려드려요</small>
           <input
-            v-model.number="form.financialRiskAlertAmount"
-            type="number"
-            min="1"
-            step="10000"
+            :value="formatMoneyInput(form.financialRiskAlertAmount)"
+            type="text"
             inputmode="numeric"
+            @input="updateRiskAlertAmount"
           />
         </label>
         <p
@@ -690,20 +796,33 @@ async function disconnectAllAssets() {
         <header>
           <h2>마이데이터 연결</h2>
           <button type="button" :disabled="dataLoading" @click="refreshMyData">
-            {{ dataLoading ? '갱신 중...' : '⟳ 새로고침' }}
+            <template v-if="dataLoading">갱신 중...</template>
+            <template v-else
+              ><span class="refresh-icon" aria-hidden="true">⟳</span>새로고침</template
+            >
           </button>
         </header>
         <p v-if="dataLoading && !accounts.length" class="refresh-status">
           연결 자산을 불러오는 중...
         </p>
-        <template v-for="group in accountGroups" :key="group.type">
+        <div v-else-if="!accounts.length" class="accounts-empty">
+          <span aria-hidden="true"><AppIcon name="wallet" :size="28" /></span>
+          <strong>연결된 금융 자산이 없어요</strong>
+          <p>마이데이터를 다시 연결하면 계좌와 카드 내역을 확인할 수 있어요.</p>
+          <button type="button" @click="reconnectMyData">마이데이터 재연동</button>
+        </div>
+        <template v-for="group in accounts.length ? accountGroups : []" :key="group.type">
           <p class="account-count">{{ group.type }} · {{ group.rows.length }}</p>
           <div
             v-for="account in group.rows"
             :key="`${account.assetType || account.type}:${account.id || account.name}`"
             class="account-row"
           >
-            <i><AppIcon :name="account.type === '카드' ? 'wallet' : 'briefcase'" :size="17" /></i>
+            <FinancialInstitutionLogo
+              :name="account.name"
+              :kind="account.type === '카드' ? 'card' : 'bank'"
+              :size="40"
+            />
             <span>
               <strong>{{ account.name }}</strong>
               <small
@@ -715,7 +834,7 @@ async function disconnectAllAssets() {
             <button
               type="button"
               :disabled="disconnectingAssetId === `${account.assetType}:${account.id}`"
-              @click="disconnectAccount(account)"
+              @click="requestDisconnectAccount(account)"
             >
               {{
                 disconnectingAssetId === `${account.assetType}:${account.id}` ? '해제 중' : '해제'
@@ -735,15 +854,15 @@ async function disconnectAllAssets() {
           {{ dataRefreshMessage }}
         </p>
       </article>
-      <article class="delete-data desktop-only">
+      <article v-if="accounts.length" class="delete-data">
         <h2>⚠ 금융 자산 연결 해제</h2>
         <p>연결한 계좌와 카드의 마이데이터 동기화를 중단합니다.</p>
         <button
           type="button"
           :disabled="dataLoading || !accounts.length"
-          @click="disconnectAllAssets"
+          @click="requestDisconnectAll"
         >
-          전체 연결 해제
+          {{ dataLoading ? '연결 해제 중...' : '전체 연결 해제' }}
         </button>
       </article>
     </template>
@@ -794,14 +913,186 @@ async function disconnectAllAssets() {
         {{ withdrawSubmitting ? '탈퇴 처리 중...' : '그래도 탈퇴할게요' }}
       </button>
     </template>
+
+    <Teleport to="body">
+      <Transition name="confirm-fade">
+        <div
+          v-if="disconnectConfirm"
+          class="confirm-overlay"
+          role="presentation"
+          @click.self="closeDisconnectConfirm"
+        >
+          <section
+            class="confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="disconnect-dialog-title"
+            aria-describedby="disconnect-dialog-description"
+          >
+            <span class="confirm-dialog__icon" aria-hidden="true">!</span>
+            <p class="confirm-dialog__eyebrow">
+              {{ disconnectConfirm.type === 'all' ? '전체 연결 해제' : '금융 자산 연결 해제' }}
+            </p>
+            <h2 id="disconnect-dialog-title">
+              {{
+                disconnectConfirm.type === 'all'
+                  ? '연결된 자산을 모두 해제할까요?'
+                  : `${disconnectConfirm.account.name} 연결을 해제할까요?`
+              }}
+            </h2>
+            <p id="disconnect-dialog-description">
+              {{
+                disconnectConfirm.type === 'all'
+                  ? `계좌와 카드 ${accounts.length}개의 동기화가 중단돼요. 언제든 다시 연결할 수 있어요.`
+                  : '이 자산의 자동 동기화가 중단돼요. 다른 연결 자산은 그대로 유지됩니다.'
+              }}
+            </p>
+            <div class="confirm-dialog__actions">
+              <button type="button" class="confirm-cancel" @click="closeDisconnectConfirm">
+                취소
+              </button>
+              <button type="button" class="confirm-submit" @click="confirmDisconnect">
+                {{ disconnectConfirm.type === 'all' ? '전체 해제하기' : '연결 해제하기' }}
+              </button>
+            </div>
+          </section>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
 <style scoped>
-.detail-back {
-  color: #666;
-  font-size: var(--font-section-title);
+.confirm-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(20 24 34 / 48%);
+  backdrop-filter: blur(5px);
+}
+
+.confirm-dialog {
+  width: min(100%, 420px);
+  padding: 30px;
+  border: 1px solid #eceef2;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgb(19 26 45 / 22%);
+  text-align: center;
+}
+
+.confirm-dialog__icon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 18px;
+  place-items: center;
+  border-radius: 18px;
+  background: #fff0f1;
+  color: #e5484d;
+  font-size: 26px;
   font-weight: 800;
+}
+
+.confirm-dialog__eyebrow {
+  margin: 0 0 7px;
+  color: #e5484d;
+  font-size: var(--type-supporting-size);
+  font-weight: 800;
+}
+
+.confirm-dialog h2 {
+  margin: 0;
+  color: #1f2530;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+.confirm-dialog > p:last-of-type {
+  margin: 12px auto 0;
+  color: #737b89;
+  font-size: var(--type-body-size);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.confirm-dialog__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.confirm-dialog__actions button {
+  min-height: 50px;
+  padding: 0 18px;
+  border-radius: 14px;
+  font-size: var(--type-primary-action-size);
+  font-weight: var(--type-primary-action-weight);
+}
+
+.confirm-cancel {
+  background: #f3f5f7;
+  color: #3d4553;
+}
+
+.confirm-submit {
+  background: #e5484d;
+  color: #fff;
+}
+
+.confirm-fade-enter-active,
+.confirm-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.confirm-fade-enter-active .confirm-dialog,
+.confirm-fade-leave-active .confirm-dialog {
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.confirm-fade-enter-from,
+.confirm-fade-leave-to {
+  opacity: 0;
+}
+
+.confirm-fade-enter-from .confirm-dialog,
+.confirm-fade-leave-to .confirm-dialog {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+
+.detail-back {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 38px;
+  line-height: 1;
+  color: #666;
+  font-weight: 800;
+}
+
+.nickname-field {
+  display: grid;
+  gap: 7px;
+}
+
+.nickname-error {
+  margin: 0;
+  color: #e5484d;
+  font-size: var(--type-supporting-size);
+  font-weight: 500;
+  line-height: 1.4;
 }
 .detail-page > h1.desktop-only {
   margin-top: 26px;
@@ -1172,10 +1463,35 @@ async function disconnectAllAssets() {
 
 .accounts-card {
   margin-top: 20px;
-  padding: 22px 24px;
+  padding: 26px;
+}
+.accounts-card header {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eaecf0;
 }
 .accounts-card header button {
+  display: inline-flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   color: #666;
+  line-height: 26px;
+  white-space: nowrap;
+}
+.accounts-card header button .refresh-icon {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-2px);
 }
 .refresh-status {
   margin-top: 14px;
@@ -1184,26 +1500,93 @@ async function disconnectAllAssets() {
   font-weight: 700;
   text-align: right;
 }
+.accounts-empty {
+  display: grid;
+  min-height: 270px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 32px 20px;
+  border-radius: 16px;
+  background: #f8f9fb;
+  text-align: center;
+}
+.accounts-empty > span {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border-radius: 18px;
+  background: #fff1b8;
+  color: var(--primary);
+}
+.accounts-empty strong {
+  margin-top: 4px;
+  font-size: var(--type-card-title-size);
+  font-weight: var(--type-card-title-weight);
+}
+.accounts-empty p {
+  color: #737b89;
+  font-size: var(--type-body-size);
+  line-height: 1.55;
+}
+.accounts-empty button {
+  min-width: 188px;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 0 22px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: var(--type-primary-action-size);
+  font-weight: var(--type-primary-action-weight);
+}
 .account-count {
-  margin-top: 13px;
-  color: #888;
-  font-size: var(--font-caption);
+  margin: 22px 0 10px;
+  color: #5f6877;
+  font-size: var(--type-supporting-size);
+  font-weight: 700;
 }
 .account-row i {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #eef2ff;
   color: #0a1680;
 }
 .account-row {
-  grid-template-columns: 32px minmax(0, 1fr) auto;
+  min-height: 78px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 14px;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #f8f9fb;
+}
+.account-row span {
+  gap: 5px;
+}
+.account-row strong {
+  color: #252b36;
+  font-size: var(--type-card-title-size);
+  font-weight: var(--type-card-title-weight);
+}
+.account-row small {
+  color: #737b89;
+  font-size: var(--type-supporting-size);
+  line-height: 1.5;
 }
 .account-row > button {
+  min-width: 52px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: #fff;
   color: #ff5e61;
-  font-size: var(--font-small);
+  font-size: var(--type-supporting-size);
+  font-weight: 700;
 }
 .add-account {
   width: 100%;
@@ -1229,9 +1612,22 @@ async function disconnectAllAssets() {
   font-size: var(--font-caption);
 }
 .delete-data button {
+  display: inline-flex;
+  min-width: 154px;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
   margin-top: 18px;
-  font-size: var(--font-small);
+  padding: 0 20px;
+  border-radius: 12px;
+  background: #e5484d;
+  color: #fff;
+  font-size: var(--type-primary-action-size);
   font-weight: 800;
+}
+.delete-data button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .withdraw-warning {
@@ -1342,6 +1738,24 @@ async function disconnectAllAssets() {
 }
 
 @media (max-width: 767px) {
+  .confirm-overlay {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .confirm-dialog {
+    padding: 26px 20px 20px;
+    border-radius: 24px;
+  }
+
+  .confirm-dialog__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .confirm-submit {
+    grid-row: 1;
+  }
+
   .detail-page {
     padding-bottom: 18px;
   }
@@ -1472,13 +1886,20 @@ async function disconnectAllAssets() {
     border-radius: 17px;
   }
   .account-row {
-    min-height: 68px;
+    min-height: 74px;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px;
+  }
+  .account-row i {
+    width: 38px;
+    height: 38px;
   }
   .account-row strong {
-    font-size: var(--font-small);
+    font-size: var(--type-card-title-size);
   }
   .account-row small {
-    font-size: var(--font-caption);
+    font-size: var(--type-supporting-size);
   }
   .withdraw-warning {
     margin-top: 10px;
