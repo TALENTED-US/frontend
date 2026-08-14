@@ -26,6 +26,7 @@ export function mapPolicyResponse(policy) {
     type: isMonthly ? 'monthly' : 'once',
     detail: isMonthly ? `월 ${formatMoney(amount)} × ${months}개월` : formatMoney(amount),
     benefit: isMonthly ? `월 ${formatMoney(amount)}` : formatMoney(amount),
+    supportPeriod: isMonthly ? `${months}개월` : '1회 지원',
     deadline: policy.dueDate || '상시',
     dueDate: policy.dueDate || '',
     url: policy.policyUrl || '',

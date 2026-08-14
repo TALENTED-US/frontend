@@ -263,8 +263,9 @@ onMounted(async () => {
 <template>
   <section class="page sim-page">
     <header class="sim-heading desktop-only">
+      <p class="app-page-heading__eyebrow">FUTURE PLAN</p>
       <h1>시뮬레이션</h1>
-      <p>계획을 세우고 버티는 기간이 얼마나 늘어나는지 확인해보세요.</p>
+      <p class="app-page-heading__description">계획을 세우고 버티는 기간이 얼마나 늘어나는지 확인해보세요.</p>
     </header>
 
     <article class="sim-hero">

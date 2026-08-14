@@ -44,10 +44,10 @@ onMounted(() => loadNotifications(true).catch(() => {}))
 <template>
   <section class="page notification-page">
     <header class="page-heading desktop-only">
+      <p class="app-page-heading__eyebrow">NOTIFICATIONS</p>
       <h1 class="page-title">알림</h1>
+      <p class="app-page-heading__description">알림을 한 곳에서 확인하세요.</p>
     </header>
-
-    <p class="notification-description">알림을 한 곳에서 확인하세요.</p>
 
     <div class="notification-tools">
       <div class="notification-filter" role="group" aria-label="알림 표시 범위">

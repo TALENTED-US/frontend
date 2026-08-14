@@ -2,17 +2,31 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import { readFilters, toPolicySearchRequest, toFilterQuery } from '@/features/search/policyData'
-import { searchPoliciesApi } from '@/api/policy'
+import {
+  policyFilterGroups,
+  readFilters,
+  toPolicySearchRequest,
+  toFilterQuery,
+} from '@/features/search/policyData'
+import { getPoliciesApi, searchPoliciesApi } from '@/api/policy'
 import { mapPolicyPage } from '@/mappers/policy'
-import { calculateAge, normalizePolicyRegion } from '@/mappers/policy'
+import { calculateAge } from '@/mappers/policy'
 import { useSessionStore } from '@/stores/session'
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
-const activeFilters = ref(readFilters(route.query))
+
+function withDefaultAvailability(filters, queryState = route.query) {
+  if (queryState.all === '1') return filters
+  const statusFilters = policyFilterGroups[3][1]
+  if (filters.some((filter) => statusFilters.includes(filter))) return filters
+  if (Object.prototype.hasOwnProperty.call(queryState, 'filters')) return filters
+  return [...filters, '신청 가능']
+}
+
+const activeFilters = ref(withDefaultAvailability(readFilters(route.query)))
 const amount = ref(Number(route.query.amount || 0))
 const result = ref([])
 const pageInfo = ref({
@@ -24,6 +38,7 @@ const pageInfo = ref({
 })
 const loading = ref(false)
 const error = ref('')
+const showingAllPolicies = ref(route.query.all === '1')
 let requestId = 0
 const isMobilePagination = ref(false)
 const paginationMediaQuery =
@@ -58,14 +73,15 @@ async function loadPolicies(page = 1) {
   loading.value = true
   error.value = ''
   try {
-    const response = await searchPoliciesApi(
-      toPolicySearchRequest(activeFilters.value, amount.value, query.value, {
-        page,
-        size: 10,
-        age: calculateAge(session.currentUser.birth),
-        policyRegion: normalizePolicyRegion(session.currentUser.region),
-      }),
-    )
+    const response = showingAllPolicies.value
+      ? await getPoliciesApi({ page, size: 10 })
+      : await searchPoliciesApi(
+          toPolicySearchRequest(activeFilters.value, amount.value, query.value, {
+            page,
+            size: 10,
+            age: calculateAge(session.currentUser.birth),
+          }),
+        )
     if (currentRequestId !== requestId) return
     const mapped = mapPolicyPage(response)
     result.value = mapped.content
@@ -89,7 +105,8 @@ async function loadPolicies(page = 1) {
 watch(
   () => route.query,
   (nextQuery) => {
-    activeFilters.value = readFilters(nextQuery)
+    showingAllPolicies.value = nextQuery.all === '1'
+    activeFilters.value = withDefaultAvailability(readFilters(nextQuery), nextQuery)
     query.value = typeof nextQuery.q === 'string' ? nextQuery.q : ''
     amount.value = Number(nextQuery.amount || 0)
     loadPolicies(Number(nextQuery.page || 1))
@@ -98,6 +115,7 @@ watch(
 )
 
 function syncSearch() {
+  showingAllPolicies.value = false
   router.replace({
     path: '/search',
     query: {
@@ -109,15 +127,20 @@ function syncSearch() {
 }
 
 function resetSearch() {
+  showingAllPolicies.value = false
   query.value = ''
-  activeFilters.value = []
-  router.replace({ path: '/search', query: { filters: '' } })
+  activeFilters.value = ['신청 가능']
+  amount.value = 0
+  router.replace({ path: '/search' })
 }
 
-function showAllPolicies() {
+async function showAllPolicies() {
   query.value = ''
   activeFilters.value = []
-  syncSearch()
+  amount.value = 0
+  showingAllPolicies.value = true
+  await router.replace({ path: '/search', query: { all: '1' } })
+  await loadPolicies(1)
 }
 
 function openFilter() {
@@ -140,13 +163,23 @@ function movePage(page) {
     },
   })
 }
+
+function openPolicyDetail(item) {
+  try {
+    sessionStorage.setItem(`buttie-policy:${item.id}`, JSON.stringify(item))
+  } catch {
+    // 상세 화면에서 API 목록을 다시 조회할 수 있으므로 저장 실패는 무시합니다.
+  }
+  router.push({ name: 'policyDetail', params: { policyId: item.id } })
+}
 </script>
 
 <template>
   <section class="page search-page">
     <header class="search-heading">
+      <p class="app-page-heading__eyebrow">POLICY FINDER</p>
       <h1>나에게 맞는 정책 찾기</h1>
-      <p>입력 없이도 조건에 맞는 정책을 찾아드려요.</p>
+      <p class="app-page-heading__description">입력 없이도 조건에 맞는 정책을 찾아드려요.</p>
     </header>
 
     <form class="search-input" @submit.prevent="syncSearch">
@@ -176,27 +209,30 @@ function movePage(page) {
       <button type="button" @click="loadPolicies(pageInfo.page)">다시 시도</button>
     </div>
     <div v-else-if="result.length" class="result-list">
-      <component
+      <article
         v-for="item in result"
         :key="item.id"
-        :is="item.url ? 'a' : 'article'"
         class="result-card"
-        :class="{ 'result-card--disabled': !item.url }"
-        :href="item.url || undefined"
-        :target="item.url ? '_blank' : undefined"
-        :rel="item.url ? 'noopener noreferrer' : undefined"
-        :aria-label="`${item.title} 관련 페이지로 이동`"
       >
-        <div>
+        <div class="result-card__summary">
           <h3>{{ item.title }}</h3>
-          <p>{{ item.description }}</p>
+          <p>상세 지원 조건과 필요 서류를 확인해 보세요.</p>
         </div>
-        <div>
-          <strong>{{ item.benefit }}</strong>
-          <small>{{ item.deadline }}</small>
+        <div class="result-card__facts">
+          <span><small>지원 금액</small><strong>{{ item.benefit }}</strong></span>
+          <span><small>지원 기간</small><strong>{{ item.supportPeriod }}</strong></span>
+          <span><small>신청 마감</small><strong>{{ item.deadline }}</strong></span>
         </div>
-        <AppIcon name="chevron" :size="15" />
-      </component>
+        <button
+          class="result-card__detail"
+          type="button"
+          :aria-label="`${item.title} 상세 내용 보기`"
+          @click="openPolicyDetail(item)"
+        >
+          <span>상세 내용</span>
+          <AppIcon name="chevron" :size="15" />
+        </button>
+      </article>
       <nav v-if="pageInfo.totalPages > 1" class="policy-pagination" aria-label="정책 목록 페이지">
         <button
           class="policy-pagination__arrow"
@@ -245,9 +281,6 @@ function movePage(page) {
 </template>
 
 <style scoped>
-.search-page {
-  padding-top: 8px;
-}
 .search-heading {
   margin-bottom: 42px;
 }
@@ -378,11 +411,11 @@ function movePage(page) {
 }
 .result-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(110px, auto) 16px;
-  min-height: 108px;
+  grid-template-columns: minmax(240px, 1fr) minmax(420px, auto) auto;
+  min-height: 132px;
   align-items: center;
   gap: 22px;
-  padding: 6px 24px;
+  padding: 20px 24px;
   border: 1px solid #eceef3;
   border-radius: 15px;
   background: white;
@@ -395,13 +428,6 @@ function movePage(page) {
 .result-card:hover {
   border-color: var(--primary-soft);
   transform: translateY(-1px);
-}
-.result-card--disabled {
-  cursor: default;
-}
-.result-card--disabled:hover {
-  border-color: #eceef3;
-  transform: none;
 }
 .policy-state {
   display: grid;
@@ -459,7 +485,7 @@ function movePage(page) {
   cursor: not-allowed;
   opacity: 0.55;
 }
-.result-card > div {
+.result-card__summary {
   display: grid;
   gap: 10px;
 }
@@ -474,8 +500,35 @@ function movePage(page) {
   font-size: var(--type-supporting-size);
   font-weight: var(--type-supporting-weight);
 }
-.result-card > div:nth-child(2) {
-  justify-items: end;
+.result-card__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(105px, 1fr));
+  gap: 10px;
+}
+.result-card__facts > span {
+  display: grid;
+  min-height: 68px;
+  align-content: center;
+  gap: 5px;
+  padding: 10px 13px;
+  border-radius: 12px;
+  background: #f7f8fb;
+}
+.result-card__facts small {
+  color: #737b89;
+}
+.result-card__facts strong {
+  white-space: nowrap;
+}
+.result-card__detail {
+  display: inline-flex;
+  min-width: 88px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
 }
 .result-card strong {
   color: #222;
@@ -593,12 +646,26 @@ function movePage(page) {
     gap: 14px;
   }
   .result-card {
-    grid-template-columns: minmax(0, 1fr) minmax(92px, auto) 12px;
-    min-height: 120px;
+    grid-template-columns: 1fr;
+    min-height: 0;
     gap: 12px;
-    padding: 4px 18px;
+    padding: 18px;
     border-radius: 20px;
     box-shadow: var(--shadow-sm);
+  }
+  .result-card__facts {
+    grid-template-columns: 1fr;
+  }
+  .result-card__facts > span {
+    min-height: 54px;
+    grid-template-columns: 78px 1fr;
+    align-items: center;
+  }
+  .result-card__detail {
+    min-height: 42px;
+    justify-self: stretch;
+    border-radius: 10px;
+    background: var(--accent-soft);
   }
   .result-card h3 {
     color: #222;

@@ -37,6 +37,7 @@ const titles = {
   timeline: '내 재정',
   search: '정책',
   searchFilter: '정책 상세 필터',
+  policyDetail: '정책 상세',
   notifications: '알림',
   mypage: '마이페이지',
   myInfo: '내 정보',
@@ -59,17 +60,8 @@ const isFixedExpense = computed(() =>
   ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name),
 )
 const isNotifications = computed(() => route.name === 'notifications')
-const hasMobileBack = computed(
-  () =>
-    isMyPageDetail.value ||
-    isSimulationStart.value ||
-    isSimulationEdit.value ||
-    isSimulationContinue.value ||
-    isSimulationCategory.value ||
-    isSimulationPreview.value ||
-    isFixedExpense.value ||
-    isNotifications.value,
-)
+const mobileRootRoutes = ['dashboard', 'finance', 'simulation', 'search', 'mypage']
+const hasMobileBack = computed(() => !mobileRootRoutes.includes(route.name))
 const mobileTitle = computed(() => {
   if (isMyPageDetail.value) return '마이페이지'
   if (isSimulationPreview.value) return '미리보기'
@@ -82,7 +74,6 @@ const mobileTitle = computed(() => {
   }
   return title.value
 })
-const isFinanceMain = computed(() => route.name === 'finance')
 
 async function toggle(name) {
   openPopover.value = openPopover.value === name ? '' : name
@@ -113,7 +104,8 @@ function goBack() {
       policy: '/simulation/income/preview',
     }[route.params.category]
     router.push(previousPath || '/simulation')
-  } else goBackFromMyPageDetail()
+  } else if (isMyPageDetail.value) goBackFromMyPageDetail()
+  else router.back()
 }
 
 async function openNotification(item) {
@@ -149,7 +141,7 @@ watch(
 </script>
 
 <template>
-  <header :class="['app-header', { 'app-header--finance': isFinanceMain }]">
+  <header class="app-header app-header--finance">
     <button
       v-if="hasMobileBack"
       :class="[

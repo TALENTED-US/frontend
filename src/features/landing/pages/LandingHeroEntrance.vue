@@ -35,7 +35,15 @@ onMounted(async () => {
     const styles = window.getComputedStyle(target)
     const targetCenterX = targetRect.left + targetRect.width / 2
     const targetCenterY = targetRect.top + targetRect.height / 2
-    const scale = window.innerWidth < 600 ? 1.14 : 1.42
+    const isMobile = window.innerWidth < 600
+    const desiredScale = isMobile ? 1.14 : 1.42
+    // 모바일에서는 제목 블록이 이미 화면 너비에 가깝다. 착지할 때 글자가
+    // 한 번 더 커지는 효과까지 포함해 안전 여백 안에 머물도록 배율을 제한한다.
+    const safeHorizontalMargin = isMobile ? 16 : 32
+    const landingOvershoot = isMobile ? 1.08 : 1
+    const availableWidth = Math.max(0, window.innerWidth - safeHorizontalMargin * 2)
+    const safeScale = availableWidth / (targetRect.width * landingOvershoot)
+    const scale = Math.min(desiredScale, safeScale)
 
     Object.assign(node.style, {
       left: `${targetRect.left}px`,

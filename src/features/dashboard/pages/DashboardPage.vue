@@ -104,6 +104,14 @@ const LEVEL_DESCRIPTIONS = Object.freeze([
   { level: 4, title: '천사 버티', description: '자산을 든든히 지키는 버티' },
   { level: 5, title: '수호신 버티', description: '재정을 완성한 최고 단계 버티' },
 ])
+const POLICY_APPLICATION_URLS = Object.freeze({
+  국민취업지원제도: 'https://m.work24.go.kr/ua/z/z/1300/selectEmssRqutIntro.do',
+  '청년 월세 특별지원': 'https://housing.seoul.go.kr/site/main/content/sh01_060513',
+  '청년 월세 지원': 'https://housing.seoul.go.kr/site/main/content/sh01_060513',
+  청년도약계좌: 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+  'KB 청년도약계좌': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+  'youth-saving': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+})
 const levelInfoOpen = ref(false)
 const levelTitle = computed(() => LEVEL_TITLES[buttieLevel.value] || LEVEL_TITLES[1])
 const levelMessage = ref('')
@@ -323,6 +331,7 @@ const confirmedPolicyRows = computed(() =>
     amount: item.amount,
     kind: 'policy',
     recurrence: item.type === 'monthly' ? 'monthly' : 'once',
+    questUrl: item.questUrl || item.url || item.policyUrl || '',
   })),
 )
 const questTab = ref('active')
@@ -353,6 +362,29 @@ watch(
 function questCompletionId(item) {
   if (quests.remoteEnabled) return item.id
   return item.recurrence === 'monthly' ? `${item.id}@${questMonthKey.value}` : item.id
+}
+
+function policyApplicationUrl(item) {
+  if (item?.kind !== 'policy') return ''
+
+  const directUrl =
+    item.questUrl ||
+    item.applicationUrl ||
+    item.applyUrl ||
+    item.policyUrl ||
+    item.url ||
+    item.detailUrl ||
+    item.link
+  if (directUrl) return directUrl
+
+  const name = String(item.name || '')
+  const exactMatch = POLICY_APPLICATION_URLS[item.id] || POLICY_APPLICATION_URLS[name]
+  if (exactMatch) return exactMatch
+
+  const partialMatch = Object.entries(POLICY_APPLICATION_URLS).find(
+    ([policyName]) => policyName !== 'youth-saving' && name.includes(policyName),
+  )
+  return partialMatch?.[1] || ''
 }
 const completedQuestIds = computed(() => new Set(simulation.state.completedQuestIds || []))
 const completedQuestCount = computed(() => allQuestRows.value.filter(isQuestCompleted).length)
@@ -558,8 +590,9 @@ const targetMonthText = computed(() =>
   <section class="page dashboard">
     <div class="dashboard__top">
       <header class="dashboard__heading">
+        <p class="app-page-heading__eyebrow">FINANCIAL OVERVIEW</p>
         <h1>버티와 함께하는 취준 여정,<br />지금 확인해 보세요</h1>
-        <p>취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
+        <p class="app-page-heading__description">취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
       </header>
       <section class="level-overview" aria-label="레벨 및 경험치">
         <div>
@@ -884,35 +917,53 @@ const targetMonthText = computed(() =>
                     <strong v-else>{{ group.action }}</strong>
                   </div>
 
-                  <button
+                  <div
                     v-for="item in group.rows"
                     :key="item.id"
-                    type="button"
-                    class="quest-row"
-                    :class="[`quest-row--${item.kind}`, { 'is-completed': isQuestCompleted(item) }]"
-                    :aria-pressed="isQuestCompleted(item)"
-                    :aria-busy="isQuestPending(item)"
-                    :disabled="isQuestPending(item)"
-                    @click="toggleQuest(item)"
+                    class="quest-row-wrap"
+                    :class="{ 'quest-row-wrap--policy': item.kind === 'policy' }"
                   >
-                    <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
-                    <span class="quest-row__copy">
-                      <strong>{{ item.name }}</strong>
-                      <small v-if="item.subtitle" class="quest-row__subtitle">{{
-                        item.subtitle
-                      }}</small>
-                      <small class="quest-row__exp">
-                        +{{ formatExp(questExp(item)) }} EXP
-                        <template v-if="isQuestRewarded(item)"> · 지급 완료 </template>
-                      </small>
-                    </span>
-                    <strong class="quest-row__amount">
-                      {{ formatSignedCompactWon(item.amount) }}
-                    </strong>
-                    <span class="quest-row__check" aria-hidden="true">
-                      {{ isQuestCompleted(item) ? '✓' : '' }}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      class="quest-row"
+                      :class="[
+                        `quest-row--${item.kind}`,
+                        { 'is-completed': isQuestCompleted(item) },
+                      ]"
+                      :aria-pressed="isQuestCompleted(item)"
+                      :aria-busy="isQuestPending(item)"
+                      :disabled="isQuestPending(item)"
+                      @click="toggleQuest(item)"
+                    >
+                      <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
+                      <span class="quest-row__copy">
+                        <strong>{{ item.name }}</strong>
+                        <small v-if="item.subtitle" class="quest-row__subtitle">{{
+                          item.subtitle
+                        }}</small>
+                        <small class="quest-row__exp">
+                          +{{ formatExp(questExp(item)) }} EXP
+                          <template v-if="isQuestRewarded(item)"> · 지급 완료 </template>
+                        </small>
+                      </span>
+                      <strong class="quest-row__amount">
+                        {{ formatSignedCompactWon(item.amount) }}
+                      </strong>
+                      <span class="quest-row__check" aria-hidden="true">
+                        {{ isQuestCompleted(item) ? '✓' : '' }}
+                      </span>
+                    </button>
+                    <a
+                      v-if="policyApplicationUrl(item)"
+                      class="quest-row__policy-link"
+                      :href="policyApplicationUrl(item)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      :aria-label="`${item.name} 정책 신청 페이지로 이동`"
+                    >
+                      신청 바로가기 <span aria-hidden="true">↗</span>
+                    </a>
+                  </div>
                 </section>
               </div>
               <p v-else class="quest-period__empty">
@@ -2060,6 +2111,47 @@ const targetMonthText = computed(() =>
   cursor: pointer;
 }
 
+.quest-row-wrap {
+  display: contents;
+}
+
+.quest-row-wrap--policy {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid #e5e7ec;
+  border-left: 4px solid var(--accent-strong);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.quest-row-wrap--policy .quest-row {
+  border: 0;
+  border-radius: 0;
+}
+
+.quest-row__policy-link {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 16px 0 auto;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: var(--font-body);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.quest-row__policy-link:hover {
+  background: var(--accent-strong);
+}
+
 .quest-row--expense {
   border-left-color: #ef5a55;
   background: #fff;
@@ -2069,7 +2161,7 @@ const targetMonthText = computed(() =>
   background: #fff;
 }
 .quest-row--policy {
-  border-left-color: #8e79cd;
+  border-left-color: var(--accent-strong);
   background: #fff;
 }
 
