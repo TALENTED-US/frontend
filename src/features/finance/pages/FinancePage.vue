@@ -11,10 +11,8 @@ import {
   loadTransactions,
   updateTransaction,
 } from '@/features/finance/financeStore'
-import { useSimulationStore } from '@/features/simulation/stores/simulation'
 
 const router = useRouter()
-const simulation = useSimulationStore()
 const useCalendarApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 
 const formatLocalIso = (date = new Date()) =>
@@ -59,27 +57,6 @@ const form = reactive({
 
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(Number(value) || 0))
 const signed = (value) => `${Number(value) >= 0 ? '+' : '-'}${money(value)}원`
-const timelineMonths = (value) => {
-  const months = Math.max(0, Number(value) || 0)
-  return `${Number.isInteger(months) ? months : Number(months.toFixed(1))}개월`
-}
-
-const financeTimelineItems = computed(() => [
-  { id: 'now', label: '현재', value: '지금', tone: 'current' },
-  {
-    id: 'current-limit',
-    label: '현재 자금 기준',
-    value: timelineMonths(simulation.currentMonths),
-    tone: 'limit',
-  },
-  {
-    id: 'scenario',
-    label: '계획 적용 후',
-    value: timelineMonths(simulation.expectedMonths),
-    tone: 'scenario',
-  },
-])
-
 const compactCalendarAmount = (value) => {
   const amount = Math.abs(Number(value) || 0)
   if (amount < 10000) return money(amount)
@@ -257,14 +234,92 @@ const categoryTotals = computed(() => {
   return Object.entries(totals).sort((a, b) => b[1] - a[1])
 })
 
-const categoryColors = ['#0a1680', '#93b2f8', '#f1b94c', '#ff8f87', '#8d78cc', '#5eb9a8']
-const categoryChartRows = computed(() =>
-  categoryTotals.value.map(([name, total], index) => ({
-    name,
-    total,
-    color: categoryColors[index % categoryColors.length],
-  })),
+const categoryColors = ['#f1b94c', '#93b2f8', '#0a1680', '#ff8f87', '#8d78cc', '#5eb9a8']
+const categoryChartRows = computed(() => {
+  const categoryTotal = categoryTotals.value.reduce((sum, [, total]) => sum + total, 0)
+  let segmentStart = 0
+
+  return categoryTotals.value.map(([name, total], index) => {
+    const segmentEnd = segmentStart + (total / Math.max(1, categoryTotal)) * 100
+    const row = {
+      name,
+      total,
+      color: categoryColors[index % categoryColors.length],
+      percent: Math.round((total / Math.max(1, expense.value)) * 100),
+      segmentStart,
+      segmentEnd,
+    }
+    segmentStart = segmentEnd
+    return row
+  })
+})
+
+const selectedCategoryName = ref('')
+const selectedCategory = computed(
+  () => categoryChartRows.value.find((item) => item.name === selectedCategoryName.value) || null,
 )
+
+function selectCategory(name) {
+  selectedCategoryName.value = selectedCategoryName.value === name ? '' : name
+}
+
+function selectCategoryFromDonut(event) {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const offsetX = event.clientX - centerX
+  const offsetY = event.clientY - centerY
+  const distance = Math.hypot(offsetX, offsetY)
+
+  if (distance < Math.min(rect.width, rect.height) * 0.3) {
+    selectedCategoryName.value = ''
+    return
+  }
+
+  const anglePercent = (((Math.atan2(offsetY, offsetX) * 180) / Math.PI + 450) % 360) / 3.6
+  const total = categoryChartRows.value.reduce((sum, item) => sum + item.total, 0)
+  let segmentEnd = 0
+  const category = categoryChartRows.value.find((item) => {
+    segmentEnd += (item.total / Math.max(1, total)) * 100
+    return anglePercent <= segmentEnd
+  })
+
+  if (category) selectCategory(category.name)
+}
+
+function donutPoint(percent, radius) {
+  const angle = (percent / 100) * Math.PI * 2 - Math.PI / 2
+  return {
+    x: 50 + radius * Math.cos(angle),
+    y: 50 + radius * Math.sin(angle),
+  }
+}
+
+function donutSegmentPath(item) {
+  const start = donutPoint(item.segmentStart, 49)
+  const end = donutPoint(Math.min(item.segmentEnd, item.segmentStart + 99.999), 49)
+  const innerEnd = donutPoint(Math.min(item.segmentEnd, item.segmentStart + 99.999), 30)
+  const innerStart = donutPoint(item.segmentStart, 30)
+  const largeArc = item.segmentEnd - item.segmentStart > 50 ? 1 : 0
+  const point = ({ x, y }) => `${x.toFixed(3)} ${y.toFixed(3)}`
+
+  return [
+    `M ${point(start)}`,
+    `A 49 49 0 ${largeArc} 1 ${point(end)}`,
+    `L ${point(innerEnd)}`,
+    `A 30 30 0 ${largeArc} 0 ${point(innerStart)}`,
+    'Z',
+  ].join(' ')
+}
+
+watch(categoryChartRows, (rows) => {
+  if (
+    selectedCategoryName.value &&
+    !rows.some((item) => item.name === selectedCategoryName.value)
+  ) {
+    selectedCategoryName.value = ''
+  }
+})
 
 const donutGradient = computed(() => {
   const total = categoryChartRows.value.reduce((sum, item) => sum + item.total, 0)
@@ -768,18 +823,53 @@ onMounted(async () => {
             <strong>{{ money(expense) }}원</strong>
           </header>
           <div class="analysis-card__content">
-            <div class="donut" :style="{ background: donutGradient }">
-              <span>
-                <small>지출</small>
-                <strong>{{ compactWon(expense) }}</strong>
-              </span>
+            <div
+              class="donut"
+              :class="{ 'is-active': selectedCategory }"
+              :style="{
+                background: donutGradient,
+                '--selected-category-color': selectedCategory?.color || 'transparent',
+              }"
+              title="색상 조각을 눌러 카테고리 비율 보기"
+              @click="selectCategoryFromDonut"
+            >
+              <svg class="donut__segments" viewBox="0 0 100 100" aria-label="지출 카테고리 선택">
+                <path
+                  v-for="item in categoryChartRows"
+                  :key="item.name"
+                  class="donut__segment"
+                  :class="{ 'is-active': selectedCategoryName === item.name }"
+                  :d="donutSegmentPath(item)"
+                  :style="{ '--segment-color': item.color }"
+                  @click.stop="selectCategory(item.name)"
+                >
+                  <title>{{ item.name }} {{ item.percent }}%</title>
+                </path>
+              </svg>
+              <Transition name="donut-number">
+                <span :key="selectedCategory?.name || 'total'" aria-live="polite">
+                  <small>{{ selectedCategory?.name || '지출' }}</small>
+                  <strong>
+                    {{ selectedCategory ? `${selectedCategory.percent}%` : compactWon(expense) }}
+                  </strong>
+                </span>
+              </Transition>
             </div>
             <ul>
               <li v-for="item in categoryChartRows.slice(0, 5)" :key="item.name">
-                <i :style="{ background: item.color }" />
-                <span>{{ item.name }}</span>
-                <strong>{{ compactWon(item.total) }}</strong>
-                <small>{{ Math.round((item.total / Math.max(1, expense)) * 100) }}%</small>
+                <button
+                  type="button"
+                  class="analysis-category"
+                  :class="{ 'is-active': selectedCategoryName === item.name }"
+                  :aria-label="`${item.name} ${item.percent}%`"
+                  :aria-pressed="selectedCategoryName === item.name"
+                  @click="selectCategory(item.name)"
+                >
+                  <i :style="{ background: item.color }" />
+                  <span>{{ item.name }}</span>
+                  <strong>{{ compactWon(item.total) }}</strong>
+                  <small>{{ item.percent }}%</small>
+                </button>
               </li>
             </ul>
           </div>
@@ -795,27 +885,9 @@ onMounted(async () => {
       </div>
     </details>
 
-    <section class="finance-timeline" aria-labelledby="finance-timeline-title">
-      <h2 id="finance-timeline-title">월별 재정 타임라인</h2>
-      <p>현재 자금이 유지되는 기간과 취업 목표 시점을 한눈에 확인하세요.</p>
-      <div class="finance-timeline__list" role="list" aria-label="월별 재정 주요 시점">
-        <article
-          v-for="item in financeTimelineItems"
-          :key="item.id"
-          :class="`finance-timeline__item--${item.tone}`"
-          role="listitem"
-        >
-          <i aria-hidden="true" />
-          <span>{{ item.label }}</span>
-          <strong>{{ item.value }}</strong>
-        </article>
-      </div>
-      <small>
-        직전 3개월 월평균 기준 · 계획 적용 시 {{ timelineMonths(simulation.expectedMonths) }}
-      </small>
-    </section>
-
-    <button class="mobile-add" type="button" aria-label="거래 추가" @click="openAdd">＋</button>
+    <button class="mobile-add" type="button" aria-label="거래 추가" @click="openAdd">
+      <span class="mobile-add__icon" aria-hidden="true">+</span>
+    </button>
 
     <div v-if="panel" class="overlay" @click.self="panel = ''">
       <aside class="sheet" role="dialog" aria-modal="true">
@@ -1097,37 +1169,43 @@ input {
 .view-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid rgb(241 185 76 / 34%);
-  border-radius: 14px;
-  background: #fff9df;
+  gap: 2px !important;
+  padding: 3px !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: #f1f2f4 !important;
+  box-shadow: none !important;
 }
 
 .view-toggle button {
   display: inline-flex;
-  min-width: 76px;
-  height: 36px;
+  min-width: 62px !important;
+  height: 30px !important;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: #8b7a5b;
-  font-size: 13px;
-  font-weight: 800;
+  gap: 0;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: #a2a6ad !important;
+  box-shadow: none !important;
+  font-size: 12px;
+  font-weight: 700;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
 }
 
 .view-toggle button > span {
-  font-size: 16px;
+  display: none;
 }
 
 .view-toggle button.active {
-  background: #fff;
-  color: var(--primary);
-  box-shadow: 0 3px 10px rgb(95 76 26 / 12%);
+  background: #fff !important;
+  color: #222 !important;
+  box-shadow: 0 1px 5px rgb(27 31 43 / 12%) !important;
 }
 
 .filter-scroll {
@@ -1202,7 +1280,8 @@ input {
 
 .flow-summary > button strong {
   color: #191f28;
-  font-size: 17px;
+  font-size: var(--type-primary-action-size);
+  font-weight: var(--type-primary-action-weight);
   letter-spacing: -0.02em;
 }
 .flow-summary > button:nth-of-type(2) strong {
@@ -1731,21 +1810,81 @@ input {
 }
 
 .donut {
+  position: relative;
   display: grid;
   width: 126px;
   height: 126px;
   place-items: center;
   border-radius: 50%;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.donut__segments {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.donut__segment {
+  fill: transparent;
+  pointer-events: all;
+  stroke: transparent;
+  stroke-width: 0;
+  transition:
+    fill 180ms ease,
+    filter 180ms ease,
+    stroke-width 180ms ease;
+}
+
+.donut__segment:hover,
+.donut__segment.is-active {
+  fill: color-mix(in srgb, var(--segment-color) 24%, transparent);
+  filter: drop-shadow(0 2px 3px rgb(10 22 128 / 18%));
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.donut.is-active {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--selected-category-color) 18%, transparent);
+  transform: scale(1.035);
 }
 
 .donut > span {
+  position: relative;
+  z-index: 3;
   display: grid;
+  grid-area: 1 / 1;
   width: 78px;
   height: 78px;
   place-content: center;
   justify-items: center;
   border-radius: 50%;
   background: #fff;
+  pointer-events: none;
+}
+
+.donut-number-enter-active,
+.donut-number-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.donut-number-enter-from {
+  opacity: 0;
+  transform: translateY(7px) scale(0.9);
+}
+
+.donut-number-leave-to {
+  opacity: 0;
+  transform: translateY(-5px) scale(0.94);
 }
 
 .donut small {
@@ -1766,20 +1905,42 @@ input {
 }
 
 .analysis-card li {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto 34px;
-  align-items: center;
-  gap: 8px;
   font-size: 13px;
 }
 
-.analysis-card li > i {
+.analysis-category {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 8px minmax(0, 1fr) auto 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.analysis-category:hover,
+.analysis-category.is-active {
+  background: #fff;
+  box-shadow: 0 5px 14px rgb(33 42 74 / 8%);
+  transform: translateX(3px);
+}
+
+.analysis-category > i {
   width: 8px;
   height: 8px;
   border-radius: 2px;
 }
 
-.analysis-card li > small {
+.analysis-category > small {
   color: #8b95a1;
   font-size: 11px !important;
   text-align: right;
@@ -1809,95 +1970,6 @@ input {
 
 .fixed-card > button span {
   font-size: 20px;
-}
-
-.finance-timeline {
-  margin-top: 22px;
-  padding: 28px;
-  border: 1px solid rgb(10 22 128 / 12%);
-  border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 8px 28px rgb(32 42 74 / 6%);
-}
-
-.finance-timeline h2 {
-  margin: 0;
-  color: #191f28;
-  font-size: 21px;
-  letter-spacing: -0.03em;
-}
-
-.finance-timeline > p {
-  margin: 8px 0 0;
-  color: #6b7684;
-  font-size: 14px;
-  line-height: 1.65;
-}
-
-.finance-timeline__list {
-  position: relative;
-  display: grid;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.finance-timeline__list::before {
-  position: absolute;
-  top: 23px;
-  bottom: 23px;
-  left: 21px;
-  width: 4px;
-  border-radius: 999px;
-  background: #d9e0f5;
-  content: '';
-}
-
-.finance-timeline__item--current,
-.finance-timeline__item--limit,
-.finance-timeline__item--scenario {
-  position: relative;
-  display: grid;
-  min-height: 54px;
-  grid-template-columns: 46px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-}
-
-.finance-timeline__list article > i {
-  z-index: 1;
-  display: block;
-  width: 46px;
-  height: 46px;
-  border: 6px solid #fff;
-  border-radius: 50%;
-  background: var(--primary);
-  box-shadow: 0 3px 12px rgb(10 22 128 / 20%);
-}
-
-.finance-timeline__item--limit > i {
-  background: #98a3b2 !important;
-}
-
-.finance-timeline__item--scenario > i {
-  background: #7e9de9 !important;
-}
-
-.finance-timeline__list article > span {
-  color: #6b7684;
-  font-size: 14px;
-}
-
-.finance-timeline__list article > strong {
-  color: #191f28;
-  font-size: 16px;
-  white-space: nowrap;
-}
-
-.finance-timeline > small {
-  display: block;
-  margin-top: 14px;
-  color: #6b7684 !important;
-  font-size: 12px !important;
 }
 
 .mobile-add {
@@ -2144,7 +2216,7 @@ input {
 
 @media (max-width: 767px) {
   .finance {
-    padding: 2px 0 88px;
+    padding: 2px 0 20px;
   }
 
   .finance-heading {
@@ -2188,21 +2260,17 @@ input {
   }
 
   .view-toggle {
-    gap: 3px;
-    padding: 3px;
-    border-radius: 12px;
+    gap: 1px !important;
+    padding: 3px !important;
+    border-radius: 8px !important;
   }
 
   .view-toggle button {
-    min-width: 62px;
-    height: 34px;
-    gap: 4px;
-    padding: 0 8px;
-    font-size: 12px;
-  }
-
-  .view-toggle button > span {
-    font-size: 14px;
+    min-width: 50px !important;
+    height: 28px !important;
+    padding: 0 7px !important;
+    border-radius: 6px !important;
+    font-size: 11px;
   }
 
   .filter-scroll {
@@ -2243,7 +2311,7 @@ input {
   .flow-summary > button strong {
     grid-column: 1;
     overflow: visible;
-    font-size: 14px;
+    font-size: var(--type-primary-action-size);
     text-overflow: clip;
     white-space: nowrap;
   }
@@ -2401,27 +2469,14 @@ input {
     height: 66px;
   }
 
-  .analysis-card li {
+  .analysis-category {
     grid-template-columns: 7px minmax(0, 1fr) auto;
     gap: 6px;
+    padding: 6px 5px;
   }
 
-  .analysis-card li > small {
+  .analysis-category > small {
     display: none;
-  }
-
-  .finance-timeline {
-    margin: 16px -4px 0;
-    padding: 24px 20px;
-    border-radius: 18px;
-  }
-
-  .finance-timeline h2 {
-    font-size: 21px;
-  }
-
-  .finance-timeline__list {
-    margin-top: 22px;
   }
 
   .mobile-add {
@@ -2438,8 +2493,14 @@ input {
     background: var(--accent-strong);
     color: var(--primary);
     box-shadow: 0 10px 26px rgb(42 47 72 / 24%);
-    font-size: 26px;
-    font-weight: 700;
+  }
+
+  .mobile-add__icon {
+    display: block;
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1;
+    transform: translateY(-2px);
   }
 
   .overlay {

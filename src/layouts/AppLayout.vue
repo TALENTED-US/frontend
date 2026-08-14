@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import AppHeader from '@/components/navigation/AppHeader.vue'
 import BottomNavigation from '@/components/navigation/BottomNavigation.vue'
 import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
 import SkipLink from '@/components/ui/SkipLink.vue'
@@ -29,6 +30,7 @@ watch(
       class="app-shell__body"
       :class="{ 'app-shell__body--continue': isSimulationContinue }"
     >
+      <AppHeader :class="{ 'app-shell__header--continue': isSimulationContinue }" />
       <main
         id="main-content"
         ref="mainContent"
@@ -90,6 +92,10 @@ watch(
 }
 
 @media (min-width: 768px) {
+  .app-shell__header--continue {
+    display: none;
+  }
+
   .app-shell__content--continue {
     min-height: 100dvh;
     padding: 0;
