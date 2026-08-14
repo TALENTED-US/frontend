@@ -20,6 +20,15 @@ function splitTransactionAt(value = '') {
   return { date, time: rawTime.slice(0, 5) }
 }
 
+function resolveExpenseCategory(row) {
+  const mappedCategory = apiCategoryToUi[row?.expenseCategory] || '기타'
+  if (mappedCategory !== '기타') return mappedCategory
+
+  const transactionText = `${row?.transactionContent || ''} ${row?.transactionMemo || ''}`
+  if (/월세|임대료|관리비|공과금/.test(transactionText)) return '주거'
+  return mappedCategory
+}
+
 export function mapTransactionResponse(row) {
   const { date, time } = splitTransactionAt(row?.transactionAt)
   const isIncome = row?.transactionType === 'INCOME'
@@ -31,7 +40,7 @@ export function mapTransactionResponse(row) {
     date,
     time,
     title: row?.transactionContent || row?.transactionMemo || (isIncome ? '수입' : '지출'),
-    category: isIncome ? '수입' : apiCategoryToUi[row?.expenseCategory] || '기타',
+    category: isIncome ? '수입' : resolveExpenseCategory(row),
     detail: isIncome ? '입금' : row?.transactionType === 'FIXED' ? '고정지출' : '지출',
     amount,
     memo: row?.transactionMemo || '',
