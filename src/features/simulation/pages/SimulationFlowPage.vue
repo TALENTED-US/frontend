@@ -48,10 +48,21 @@ function clearSelectedPeriod() {
   selectedPeriod.value = null
 }
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
+const confirmAmount = (item, kind) => {
+  const amount = kind === 'expense' ? item.saving : item.amount
+  const sign = kind === 'expense' ? '-' : '+'
+  return item.type === 'once' ? `${sign}${money(amount)}원` : `${sign}${money(amount)}원/월`
+}
+const policySupportMonths = (item) => {
+  const months = Number(item.months)
+  return item.type !== 'once' && Number.isFinite(months) && months > 0 ? money(months) : ''
+}
 const expenseIconPath = (item) =>
   expenseCategoryIconPath(item.expenseCategory || item.category || item.name)
 const hasRunwayResult = computed(
-  () => Number.isFinite(Number(simulation.currentMonths)) && Number.isFinite(Number(simulation.expectedMonths)),
+  () =>
+    Number.isFinite(Number(simulation.currentMonths)) &&
+    Number.isFinite(Number(simulation.expectedMonths)),
 )
 const formatMonths = (value) => {
   const months = Number(value)
@@ -94,7 +105,8 @@ onMounted(async () => {
 })
 
 async function startSimulation() {
-  if (starting.value || !startDate.value || !endDate.value || endDate.value <= startDate.value) return
+  if (starting.value || !startDate.value || !endDate.value || endDate.value <= startDate.value)
+    return
   starting.value = true
 
   try {
@@ -151,7 +163,11 @@ async function confirm() {
         <h1>시뮬레이션을 하는 중이었어요.<br />이어서 만드시겠어요?</h1>
       </div>
       <div class="wizard-actions vertical resume-actions">
-        <button class="sim-btn sim-btn--yellow simulation-primary-cta" type="button" @click="router.push(nextDraftPath)">
+        <button
+          class="sim-btn sim-btn--yellow simulation-primary-cta"
+          type="button"
+          @click="router.push(nextDraftPath)"
+        >
           <span class="desktop-only">이어서 계속하기</span>
           <span class="mobile-only">이어서 만들기</span>
         </button>
@@ -163,34 +179,70 @@ async function confirm() {
     </template>
 
     <template v-else-if="step === 'categories'">
-      <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push('/simulation')">
+      <button
+        class="sim-back simulation-back-button desktop-only"
+        type="button"
+        aria-label="뒤로가기"
+        @click="router.push('/simulation')"
+      >
         ‹
       </button>
-      <h1 class="wizard-title">지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?</h1>
+      <h1 class="wizard-title">
+        지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
+      </h1>
       <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
 
       <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
-        <div><span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small class="danger">위험</small></div>
+        <div>
+          <span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small
+            class="danger"
+            >위험</small
+          >
+        </div>
         <b aria-hidden="true"><i />→</b>
-        <div><span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small class="safe">안정</small></div>
+        <div>
+          <span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small
+            class="safe"
+            >안정</small
+          >
+        </div>
       </div>
 
       <section class="period-section">
         <h2>시뮬레이션 기간</h2>
         <p>시작일은 오늘, 종료일은 목표 취업 시점이 기본이에요</p>
         <div class="period-presets" aria-label="시뮬레이션 기간 빠른 선택">
-          <button v-for="months in periodOptions" :key="months" type="button" :class="{ active: selectedPeriod === months }" @click="selectPeriod(months)">{{ months }}개월</button>
+          <button
+            v-for="months in periodOptions"
+            :key="months"
+            type="button"
+            :class="{ active: selectedPeriod === months }"
+            @click="selectPeriod(months)"
+          >
+            {{ months }}개월
+          </button>
         </div>
         <div class="period-grid">
-          <label><span>시작일</span><input v-model="startDate" type="date" @input="clearSelectedPeriod" /></label>
+          <label
+            ><span>시작일</span><input v-model="startDate" type="date" @input="clearSelectedPeriod"
+          /></label>
           <i class="period-separator">~</i>
-          <label><span>종료일</span><input v-model="endDate" type="date" @input="clearSelectedPeriod" /></label>
+          <label
+            ><span>종료일</span><input v-model="endDate" type="date" @input="clearSelectedPeriod"
+          /></label>
         </div>
-        <p v-if="endDate && startDate && endDate <= startDate" class="form-error">종료일은 시작일보다 뒤여야 해요.</p>
+        <p v-if="endDate && startDate && endDate <= startDate" class="form-error">
+          종료일은 시작일보다 뒤여야 해요.
+        </p>
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
-      <button class="sim-btn sim-btn--yellow wide simulation-primary-cta" :disabled="starting || simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
+      <button
+        class="sim-btn sim-btn--yellow wide simulation-primary-cta"
+        :disabled="starting || simulation.syncing || !startDate || !endDate || endDate <= startDate"
+        type="button"
+        @click="startSimulation"
+      >
         <span v-if="simulation.syncing">불러오는 중…</span>
         <span v-else>시뮬레이션 시작하기</span>
       </button>
@@ -198,10 +250,36 @@ async function confirm() {
 
     <template v-else>
       <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
-      <p class="sim-subtitle">항목을 눌러 각 단계로 돌아가 수정할 수 있어요.</p>
+
+      <div class="final-result" :aria-busy="preparingResult">
+        <span>예상 버티는 기간</span>
+        <p v-if="preparingResult">계산 중...</p>
+        <template v-else>
+          <p>
+            <del>{{ formatMonths(simulation.currentMonths) }}개월</del><b>→</b
+            ><strong>{{ formatMonths(simulation.expectedMonths) }}개월</strong>
+          </p>
+          <em v-if="hasRunwayResult">+{{ formatMonths(simulation.addedMonths) }}개월 연장</em>
+          <em v-else>계산 결과를 불러오지 못했어요</em>
+        </template>
+      </div>
 
       <section class="edit-summary expense">
-        <header><div><i><AppIcon name="arrow-down" :size="22" /></i><h2>지출 줄이기</h2></div><button @click="router.push('/simulation/expense')">수정</button></header>
+        <header>
+          <div>
+            <span class="confirm-section-dot" aria-hidden="true"></span>
+            <h2>지출 줄이기</h2>
+          </div>
+          <button
+            class="confirm-edit-action"
+            type="button"
+            aria-label="지출 줄이기 수정"
+            title="수정"
+            @click="router.push('/simulation/expense')"
+          >
+            <AppIcon name="edit" :size="18" />
+          </button>
+        </header>
         <p v-for="item in simulation.selectedExpenses" :key="item.id">
           <span class="confirm-item-name">
             <i>
@@ -211,34 +289,71 @@ async function confirm() {
             </i>
             {{ item.name }}
           </span>
-          <strong>-{{ money(item.saving) }}원 / 월</strong>
+          <strong class="confirm-item-amount">{{ confirmAmount(item, 'expense') }}</strong>
         </p>
         <p v-if="!simulation.selectedExpenses.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
       <section class="edit-summary income">
-        <header><div><i><AppIcon name="briefcase" :size="22" /></i><h2>수입 늘리기</h2></div><button @click="router.push('/simulation/income')">수정</button></header>
-        <p v-for="item in simulation.state.incomes" :key="item.id"><span class="confirm-item-name"><i><AppIcon name="briefcase" :size="18" /></i>{{ item.name }}</span><strong>+{{ money(item.amount) }}원</strong></p>
+        <header>
+          <div>
+            <span class="confirm-section-dot" aria-hidden="true"></span>
+            <h2>수입 늘리기</h2>
+          </div>
+          <button
+            class="confirm-edit-action"
+            type="button"
+            aria-label="수입 늘리기 수정"
+            title="수정"
+            @click="router.push('/simulation/income')"
+          >
+            <AppIcon name="edit" :size="18" />
+          </button>
+        </header>
+        <p v-for="item in simulation.state.incomes" :key="item.id">
+          <span class="confirm-item-name"
+            ><i><AppIcon name="briefcase" :size="18" /></i>{{ item.name }}</span
+          ><strong class="confirm-item-amount">{{ confirmAmount(item, 'income') }}</strong>
+        </p>
         <p v-if="!simulation.state.incomes.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
       <section class="edit-summary policy">
-        <header><div><i><AppIcon name="landmark" :size="22" /></i><h2>정책 혜택</h2></div><button @click="router.push('/simulation/policy')">수정</button></header>
-        <p v-for="item in simulation.state.policies" :key="item.id"><span class="confirm-item-name"><i><AppIcon name="landmark" :size="18" /></i>{{ item.name }}</span><strong>{{ item.detail }}</strong></p>
+        <header>
+          <div>
+            <span class="confirm-section-dot" aria-hidden="true"></span>
+            <h2>정책 혜택</h2>
+          </div>
+          <button
+            class="confirm-edit-action"
+            type="button"
+            aria-label="정책 혜택 수정"
+            title="수정"
+            @click="router.push('/simulation/policy')"
+          >
+            <AppIcon name="edit" :size="18" />
+          </button>
+        </header>
+        <p v-for="item in simulation.state.policies" :key="item.id">
+          <span class="confirm-item-name"
+            ><i><AppIcon name="landmark" :size="18" /></i>{{ item.name }}</span
+          ><strong class="confirm-item-amount confirm-policy-amount"
+            ><span>{{ confirmAmount(item, 'policy') }}</span
+            ><span v-if="policySupportMonths(item)" class="confirm-policy-duration"
+              >x {{ policySupportMonths(item) }}개월</span
+            ></strong
+          >
+        </p>
         <p v-if="!simulation.state.policies.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
 
-      <div class="final-result" :aria-busy="preparingResult">
-        <span>예상 버티는 기간</span>
-        <p v-if="preparingResult">계산 중...</p>
-        <template v-else>
-          <p><del>{{ formatMonths(simulation.currentMonths) }}개월</del><b>→</b><strong>{{ formatMonths(simulation.expectedMonths) }}개월</strong></p>
-          <em v-if="hasRunwayResult">+{{ formatMonths(simulation.addedMonths) }}개월 연장</em>
-          <em v-else>계산 결과를 불러오지 못했어요</em>
-        </template>
-      </div>
       <p class="api-notice neutral">확정하면 이 계획을 기준으로 퀘스트가 생성됩니다.</p>
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
       <div class="wizard-actions confirm-actions">
-        <button class="sim-btn sim-btn--yellow simulation-primary-cta" :disabled="simulation.syncing" type="button" @click="confirm">
+        <button
+          class="sim-btn sim-btn--yellow simulation-primary-cta"
+          :disabled="simulation.syncing"
+          type="button"
+          @click="confirm"
+        >
           {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기' }}
         </button>
       </div>
@@ -315,9 +430,34 @@ async function confirm() {
   stroke-linejoin: round;
 }
 
-.edit-summary.expense .confirm-item-name > i { background: #ffe8e5; color: #d85b52; }
-.edit-summary.income .confirm-item-name > i { background: #e2f7ed; color: #288d67; }
-.edit-summary.policy .confirm-item-name > i { background: #eeeafb; color: #7561b1; }
+.edit-summary.expense .confirm-item-name > i {
+  background: #ffe8e5;
+  color: #d85b52;
+}
+.edit-summary.income .confirm-item-name > i {
+  background: #e2f7ed;
+  color: #288d67;
+}
+.edit-summary.policy .confirm-item-name > i {
+  background: #eeeafb;
+  color: #7561b1;
+}
+
+.confirm-section-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: #e95858;
+}
+
+.edit-summary.income .confirm-section-dot {
+  background: #2fbb85;
+}
+
+.edit-summary.policy .confirm-section-dot {
+  background: #7e66c6;
+}
 
 @media (max-width: 767px) {
   .sim-flow-continue {
@@ -354,7 +494,7 @@ async function confirm() {
 
   .sim-flow-confirm .final-result > span {
     font-size: 13px;
-    font-weight: 400;
+    font-weight: 600;
   }
 
   .sim-flow-confirm .final-result del {
@@ -374,7 +514,6 @@ async function confirm() {
   .sim-flow-continue .resume-hero {
     min-height: min(58vh, 560px);
   }
-
 }
 
 .sim-flow-categories .period-grid label {
@@ -713,7 +852,7 @@ async function confirm() {
 
 .sim-flow-categories .period-grid {
   display: grid;
-  grid-template-columns: minmax(0,1fr) 20px minmax(0,1fr);
+  grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   margin-top: 11px;
@@ -806,7 +945,7 @@ async function confirm() {
   }
 
   .sim-flow-categories .period-grid {
-    grid-template-columns: minmax(0,1fr) 14px minmax(0,1fr) !important;
+    grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) !important;
     gap: 5px;
   }
 
@@ -850,6 +989,94 @@ async function confirm() {
     border-left: 5px solid #222;
     content: '';
     transform: rotate(45deg);
+  }
+}
+
+/* 확정 항목 이름과 금액의 반응형 타이포그래피를 동일한 굵기로 통일한다. */
+:global(#app .app-shell main .sim-flow-confirm .edit-summary > p > .confirm-item-name),
+:global(#app .app-shell main .sim-flow-confirm .edit-summary > p > strong) {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+@media (max-width: 767px) {
+  :global(#app .app-shell main .sim-flow-confirm .edit-summary > p > .confirm-item-name),
+  :global(#app .app-shell main .sim-flow-confirm .edit-summary > p > strong) {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+
+}
+
+:global(#app .app-shell main .sim-flow-confirm .confirm-policy-amount) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0 4px;
+  text-align: right;
+}
+
+:global(#app .app-shell main .sim-flow-confirm .confirm-policy-amount > span) {
+  white-space: nowrap;
+}
+
+:global(#app .app-shell main .sim-flow-confirm .edit-summary header button.confirm-edit-action) {
+  display: grid;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #5f8df7;
+  text-decoration: none;
+}
+
+:global(
+  #app .app-shell main .sim-flow-confirm .edit-summary header button.confirm-edit-action:hover
+) {
+  background: #f0f4ff;
+}
+
+:global(
+  #app .app-shell main .sim-flow-confirm .edit-summary header button.confirm-edit-action .app-icon
+) {
+  width: 18px;
+  height: 18px;
+}
+
+/* confirm 버튼이 430px 기본 wizard 폭에 갇히지 않도록 상위 컨테이너부터 확장한다. */
+@media (min-width: 768px) {
+  :global(#app .app-shell main .sim-wizard.sim-flow-confirm) {
+    width: min(100%, 1066px) !important;
+    max-width: 1066px !important;
+  }
+
+  :global(#app .app-shell main .sim-wizard.sim-flow-confirm > .wizard-actions.confirm-actions) {
+    display: grid !important;
+    width: 100% !important;
+    max-width: none !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-self: stretch !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  :global(
+    #app .app-shell main .sim-wizard.sim-flow-confirm > .wizard-actions.confirm-actions > button
+  ) {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
+}
+@media (min-width: 768px) {
+  :global(#app .app-shell main .sim-flow-confirm .final-result > span) {
+    font-weight: 600 !important;
   }
 }
 </style>

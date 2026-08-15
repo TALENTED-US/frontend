@@ -675,3 +675,74 @@ button.simulation-primary-cta:active:not(:disabled) {
 .sim-page .application-result .bar-pair {
   gap: 15px;
 }
+
+/* 모바일 preview의 증감 뱃지가 적용 결과 카드 너비를 넘지 않게 한다. */
+@media (max-width: 767px) {
+  .preview-page .application-result .result-delta-badges {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.expense,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.income,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.same,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges i.policy {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 26px;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 10px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    font-style: normal;
+    line-height: 1;
+    text-align: center;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-comparison article > small {
+    font-size: 13px !important;
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-mobile-break {
+    display: block;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-comparison article > strong {
+    font-size: 14px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row strong {
+    font-size: 14px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row small {
+    font-size: 13px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row > b {
+    min-width: 0;
+    font-size: clamp(11px, 3.6vw, 14px) !important;
+    white-space: nowrap;
+  }
+}
+
+.cashflow-mobile-break {
+  display: none;
+}
+
+/* 세 preview의 예상 버티는 기간 비교 라벨을 같은 크기로 통일한다. */
+#app .app-shell .sim-page.preview-page .period-change-card > div span small {
+  font-size: 14px !important;
+}
+
+#app .app-shell .sim-page.preview-page .period-change-card > header em {
+  font-size: 14px !important;
+}

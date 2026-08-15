@@ -98,6 +98,7 @@ function togglePolicyDetails(policyId) {
   else next.add(policyId)
   expandedPolicyIds.value = next
 }
+const policyApplicationPeriod = (policy) => policy.deadline || policy.dueDate || '상시'
 const isEditingConfirmedScenario = computed(
   () => Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
 )
@@ -644,17 +645,17 @@ function skip() {
           >
             <div>
               <h2>{{ policy.name }}</h2>
-              <p>{{ policy.description }}</p>
+              <p>신청 기간 {{ policyApplicationPeriod(policy) }}</p>
               <button
                 class="policy-detail-toggle"
                 type="button"
-                :aria-expanded="expandedPolicyIds.has(policy.id)"
+                :aria-expanded="expandedPolicyIds.has(`catalog:${policy.id}`)"
                 :aria-controls="`policy-details-${policy.id}`"
-                @click="togglePolicyDetails(policy.id)"
+                @click="togglePolicyDetails(`catalog:${policy.id}`)"
               >
                 <span>자세히 보기</span>
                 <svg
-                  :class="{ open: expandedPolicyIds.has(policy.id) }"
+                  :class="{ open: expandedPolicyIds.has(`catalog:${policy.id}`) }"
                   viewBox="0 0 16 16"
                   aria-hidden="true"
                 >
@@ -676,7 +677,7 @@ function skip() {
             </button>
             <strong>{{ policy.detail }}</strong>
             <div
-              v-if="expandedPolicyIds.has(policy.id)"
+              v-if="expandedPolicyIds.has(`catalog:${policy.id}`)"
               :id="`policy-details-${policy.id}`"
               class="policy-detail-panel"
             >
@@ -712,19 +713,19 @@ function skip() {
             <i>⚖</i>
             <div class="policy-selected-copy">
               <strong>{{ item.name }}</strong
-              ><small>{{ item.description }}</small>
+              ><small>신청 기간 {{ policyApplicationPeriod(item) }}</small>
             </div>
             <div class="policy-selected-meta">
               <button
                 class="policy-detail-toggle"
                 type="button"
-                :aria-expanded="expandedPolicyIds.has(item.id)"
+                :aria-expanded="expandedPolicyIds.has(`selected:${item.id}`)"
                 :aria-controls="`selected-policy-details-${item.id}`"
-                @click="togglePolicyDetails(item.id)"
+                @click="togglePolicyDetails(`selected:${item.id}`)"
               >
                 <span>자세히 보기</span>
                 <svg
-                  :class="{ open: expandedPolicyIds.has(item.id) }"
+                  :class="{ open: expandedPolicyIds.has(`selected:${item.id}`) }"
                   viewBox="0 0 16 16"
                   aria-hidden="true"
                 >
@@ -744,7 +745,7 @@ function skip() {
               <AppIcon name="trash" :size="17" />
             </button>
             <div
-              v-if="expandedPolicyIds.has(item.id)"
+              v-if="expandedPolicyIds.has(`selected:${item.id}`)"
               :id="`selected-policy-details-${item.id}`"
               class="policy-detail-panel"
             >
@@ -2568,7 +2569,7 @@ function skip() {
 
 /* 기존 공통 !important 규칙보다 우선해 지출 목표 행의 실제 배치를 고정한다. */
 :global(#app .app-shell main .sim-category-page .added-expense-goals article) {
-  grid-template-columns: 24px minmax(0, 1fr) auto !important;
+  grid-template-columns: 30px minmax(0, 1fr) auto !important;
   column-gap: 10px !important;
   padding: 6px 14px !important;
 }
@@ -2578,9 +2579,9 @@ function skip() {
 ) {
   display: grid !important;
   width: 30px !important;
-  min-width: 28px !important;
-  height: 28px !important;
-  min-height: 28px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
   justify-self: center;
   place-items: center;
   box-sizing: border-box;
@@ -2589,8 +2590,9 @@ function skip() {
 :global(
   #app .app-shell main .sim-category-page .added-expense-goals article > i.expense-goal-icon svg
 ) {
-  width: 14px !important;
-  height: 14px !important;
+  /* 실제 SVG 아이콘 */
+  width: 20px !important;
+  height: 20px !important;
 }
 
 :global(
