@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
   currentMonths: { type: Number, default: 0 },
@@ -8,60 +8,169 @@ const props = defineProps({
   description: { type: String, default: '확정한 계획이 현재 자금의 유지 기간을 얼마나 늘리는지 확인하세요.' },
 })
 
-const spreadTimelineLabels = (items) => {
-  const sorted = [...items].sort((a, b) => a.position - b.position)
-  const hasCollision = sorted.some((item, index) => index > 0 && item.position - sorted[index - 1].position < 22)
-  if (!hasCollision) return items.map((item) => ({ ...item, lane: 0, placement: 'below', offset: 18 }))
+const fmt = (m) => `${Math.round(m * 10) / 10}개월`
 
-  const placementById = { now: 'below', 'current-limit': 'above', scenario: 'below', target: 'above' }
-  const lastPositionByPlacement = { above: [], below: [] }
-  const layout = new Map()
-
-  sorted.forEach((item) => {
-    const placement = placementById[item.id] || 'below'
-    const placementLanes = lastPositionByPlacement[placement]
-    let lane = placementLanes.findIndex((last) => item.position - last >= 22)
-    if (lane < 0) lane = placementLanes.length
-    placementLanes[lane] = item.position
-    const offset = placement === 'above' ? -108 - lane * 54 : 18 + lane * 58
-    layout.set(item.id, { lane, placement, offset })
-  })
-
-  return items.map((item) => ({ ...item, ...layout.get(item.id) }))
-}
-
-const timelineItems = computed(() => {
+const points = computed(() => {
   const current = Math.max(0, Number(props.currentMonths) || 0)
   const expected = Math.max(current, Number(props.expectedMonths) || 0)
-  const target = Math.max(0, Math.ceil(Number(props.targetMonths) || 0))
-  const scale = Math.max(current, expected, target, 1)
-  const position = (value) => Math.min(96, Math.max(4, (value / scale) * 92 + 4))
+  const target = Math.max(0, Number(props.targetMonths) || 0)
   const sameDuration = current === expected
 
-  return spreadTimelineLabels([
-    { id: 'now', label: '현재', value: '지금', position: 4, tone: 'current' },
-    { id: 'current-limit', label: sameDuration ? '현재 자금 · 계획 적용 후' : '현재 자금 기준', value: `${current}개월`, position: position(current), tone: sameDuration ? 'scenario' : 'limit' },
-    ...(!sameDuration ? [{ id: 'scenario', label: '계획 적용 후', value: `${expected}개월`, position: position(expected), tone: 'scenario', staggered: true }] : []),
-    ...(target ? [{ id: 'target', label: '취업 목표', value: `${target}개월`, position: position(target), tone: 'target' }] : []),
-  ])
+  const list = [
+    { id: 'now', value: '현재', desc: '', months: 0, fill: '#A7B0C7', ring: '#FCFDFF' },
+    { id: 'current-limit', value: fmt(current), desc: sameDuration ? '계획 적용 후' : '현재 자금 기준', months: current, fill: '#93B2F8', ring: '#FCFDFF' },
+  ]
+  if (!sameDuration) {
+    list.push({ id: 'scenario', value: fmt(expected), desc: '계획 적용 후', months: expected, fill: '#0A1680', ring: '#FCFDFF' })
+  }
+  if (target) {
+    list.push({ id: 'target', value: fmt(target), desc: '취업 목표', months: target, fill: '#FCFDFF', ring: '#0A1680' })
+  }
+  return list
 })
+
+const trackRef = ref(null)
+const labelRefs = ref([])
+const setLabelRef = (el, i) => { labelRefs.value[i] = el }
+const layout = ref(null)
+
+const PAD = 12
+const GAP = 16
+const DOT_GAP = 28
+const TIER0 = 40
+const STEP = 46
+
+const computeLayout = () => {
+  const wrap = trackRef.value
+  if (!wrap) return
+  const W = wrap.clientWidth
+  if (!W) return
+  const pts = points.value
+  const max = Math.max(...pts.map((p) => p.months), 1)
+  const span = Math.max(W - PAD * 2, 1)
+
+  const centers = pts.map((p) => PAD + (p.months / max) * span)
+  for (let i = centers.length - 2; i >= 0; i--) {
+    centers[i] = Math.max(PAD, Math.min(centers[i], centers[i + 1] - DOT_GAP))
+  }
+
+  const widths = pts.map((_, i) => labelRefs.value[i]?.offsetWidth || 70)
+
+  const boxes = []
+  pts.forEach((p, i) => {
+    const w = widths[i]
+    const left = Math.min(Math.max(centers[i] - w / 2, 0), Math.max(W - w, 0))
+    let tier = 0
+    while (boxes.some((b) => b.tier === tier && left < b.left + b.w + GAP && left + w > b.left - GAP)) tier += 1
+    boxes.push({ tier, left, w, center: centers[i] })
+  })
+
+  const maxTier = Math.max(...boxes.map((b) => b.tier))
+  const out = boxes.map((b) => ({
+    left: Math.round(b.left),
+    top: TIER0 + b.tier * STEP,
+    center: Math.round(b.center),
+    connectorHeight: b.tier > 0 ? b.tier * STEP - 12 : 0,
+  }))
+
+  layout.value = {
+    centers,
+    out,
+    height: TIER0 + maxTier * STEP + 44,
+  }
+}
+
+let resizeObserver
+onMounted(() => {
+  nextTick(computeLayout)
+  resizeObserver = new ResizeObserver(() => computeLayout())
+  if (trackRef.value) resizeObserver.observe(trackRef.value)
+})
+onBeforeUnmount(() => resizeObserver?.disconnect())
+watch(points, () => nextTick(computeLayout))
+
+const areaHeight = computed(() => (layout.value ? layout.value.height : 86) + 'px')
+const dotLeft = (i) => (layout.value ? `${layout.value.centers[i]}px` : `${(points.value[i].months / Math.max(...points.value.map((p) => p.months), 1)) * 100}%`)
+const labelStyle = (i) => {
+  const out = layout.value?.out[i]
+  if (!out) return { top: `${TIER0}px`, left: `${(points.value[i].months / Math.max(...points.value.map((p) => p.months), 1)) * 100}%`, transform: 'translateX(-50%)' }
+  return { top: `${out.top}px`, left: `${out.left}px`, transform: 'none' }
+}
+const connectors = computed(() => (layout.value ? layout.value.out.filter((o) => o.connectorHeight > 0).map((o) => ({ left: `${o.center}px`, height: `${o.connectorHeight}px` })) : []))
 </script>
 
 <template>
   <article class="confirmed-financial-timeline sim-card sim-timeline">
     <h2>월별 재정 타임라인</h2>
     <p class="confirmed-timeline-description">{{ description }}</p>
-    <div class="confirmed-timeline-track" role="list" aria-label="시뮬레이션 재정 주요 시점">
+    <div ref="trackRef" class="confirmed-timeline-track" :style="{ height: areaHeight }" role="list" aria-label="시뮬레이션 재정 주요 시점">
       <div class="confirmed-timeline-track__line" />
-      <div v-for="item in timelineItems" :key="item.id" class="confirmed-timeline-marker" :class="[`confirmed-timeline-marker--${item.tone}`, `label-placement-${item.placement}`, `label-lane-${item.lane}`]" :style="{ left: `${item.position}%`, '--timeline-label-offset': `${item.offset}px` }" role="listitem">
-        <i />
-        <div class="confirmed-timeline-marker__copy"><strong>{{ item.value }}</strong><span>{{ item.label }}</span></div>
+
+      <div v-for="(c, i) in connectors" :key="`connector-${i}`" class="confirmed-timeline-connector" :style="{ left: c.left, height: c.height }" />
+
+      <div v-for="(p, i) in points" :key="p.id" class="confirmed-timeline-dot" :style="{ left: dotLeft(i), background: p.fill, borderColor: p.ring }" />
+
+      <div
+        v-for="(p, i) in points"
+        :key="`label-${p.id}`"
+        :ref="(el) => setLabelRef(el, i)"
+        class="confirmed-timeline-marker__copy"
+        :style="labelStyle(i)"
+      >
+        <strong>{{ p.value }}</strong>
+        <span>{{ p.desc }}</span>
       </div>
     </div>
   </article>
 </template>
 
 <style scoped>
-.confirmed-financial-timeline{width:100%}.confirmed-timeline-description{margin-top:6px;color:#6b7684;font-size:13px!important}.confirmed-timeline-track{position:relative;height:160px;margin:108px 56px 0}.confirmed-timeline-track__line{position:absolute;top:34px;right:0;left:0;height:7px;border-radius:999px;background:linear-gradient(90deg,var(--primary),#8facf5 68%,var(--accent-strong))}.confirmed-timeline-marker{position:absolute;top:14px;display:grid;width:46px;justify-items:center;gap:5px;transform:translateX(-50%);text-align:center}.confirmed-timeline-marker i{width:46px;height:46px;border:6px solid #fff;border-radius:50%;background:var(--primary);box-shadow:0 3px 10px rgb(10 22 128 / 20%)}.confirmed-timeline-marker__copy{position:absolute;top:calc(54px + var(--timeline-label-offset, 0px));left:50%;display:grid;width:max-content;max-width:150px;justify-items:center;gap:5px;text-align:center;transform:translateX(-50%)}.confirmed-timeline-marker__copy strong{grid-row:1;margin-top:4px;color:#191f28;font-size:16px}.confirmed-timeline-marker__copy span{grid-row:2;max-width:132px;color:#6b7684;font-size:13px;line-height:1.3}.confirmed-timeline-marker--scenario .confirmed-timeline-marker__copy strong{margin-top:0;font-size:18px;font-weight:800}.confirmed-timeline-marker--scenario .confirmed-timeline-marker__copy span{max-width:none;font-size:15px;font-weight:500;white-space:nowrap}.confirmed-timeline-marker.label-placement-above .confirmed-timeline-marker__copy strong{grid-row:2;margin-top:0}.confirmed-timeline-marker.label-placement-above .confirmed-timeline-marker__copy span{grid-row:1}.confirmed-timeline-marker--limit i{background:#8b95a1}.confirmed-timeline-marker--scenario i{background:#7e9de9}.confirmed-timeline-marker--target i{background:var(--accent-strong)}.confirmed-timeline-marker--current .confirmed-timeline-marker__copy,.confirmed-timeline-marker--scenario .confirmed-timeline-marker__copy,.confirmed-timeline-marker--limit .confirmed-timeline-marker__copy{left:50%;right:auto;transform:translateX(-23px);justify-items:start;text-align:left}.confirmed-timeline-marker--target .confirmed-timeline-marker__copy{left:auto;right:50%;transform:translateX(23px);justify-items:end;text-align:right}
-@media(max-width:767px){.confirmed-timeline-description{font-size:13px!important;line-height:1.5}.confirmed-timeline-track{position:relative;display:block;height:110px;margin:50px 28px 0;padding:0}.confirmed-timeline-track__line{top:26px;right:0;bottom:auto;left:0;width:auto;height:5px;background:linear-gradient(90deg,var(--primary),#8facf5 68%,var(--accent-strong))}.confirmed-timeline-marker,.confirmed-timeline-marker:last-of-type{position:absolute;top:13px;display:grid;width:30px;max-width:none;justify-items:center;gap:3px;transform:translateX(-50%);text-align:center}.confirmed-timeline-marker i{z-index:1;width:30px;height:30px;border-width:4px}.confirmed-timeline-marker__copy,.confirmed-timeline-marker--current .confirmed-timeline-marker__copy,.confirmed-timeline-marker:last-of-type .confirmed-timeline-marker__copy,.confirmed-timeline-marker--scenario .confirmed-timeline-marker__copy{position:absolute;top:50px;right:auto;left:50%;display:grid;width:max-content;max-width:92px;justify-items:center;gap:3px;margin:0;text-align:center;transform:translateX(-50%)}.confirmed-timeline-marker--current .confirmed-timeline-marker__copy,.confirmed-timeline-marker--scenario .confirmed-timeline-marker__copy,.confirmed-timeline-marker--limit .confirmed-timeline-marker__copy{right:auto;justify-items:start;text-align:left;transform:translateX(-15px)}.confirmed-timeline-marker.confirmed-timeline-marker--target .confirmed-timeline-marker__copy{left:auto;right:50%;justify-items:end;text-align:right;transform:translateX(15px)}.confirmed-timeline-marker.label-placement-above .confirmed-timeline-marker__copy{top:-42px}.confirmed-timeline-marker.label-placement-below.label-lane-1 .confirmed-timeline-marker__copy{top:88px}.confirmed-timeline-marker.label-placement-above.label-lane-1 .confirmed-timeline-marker__copy{top:-78px}.confirmed-timeline-marker__copy strong{grid-row:1;grid-column:auto;margin:0;font-size:14px}.confirmed-timeline-marker__copy span{grid-row:2;grid-column:auto;max-width:92px;font-size:13px;line-height:1.25}.confirmed-timeline-marker--scenario .confirmed-timeline-marker__copy strong{grid-row:1;font-size:16px}.confirmed-timeline-marker--scenario .confirmed-timeline-marker__copy span{grid-row:2;font-size:14px;white-space:nowrap}.confirmed-timeline-marker.label-placement-above .confirmed-timeline-marker__copy strong{grid-row:2}.confirmed-timeline-marker.label-placement-above .confirmed-timeline-marker__copy span{grid-row:1}}
+.confirmed-financial-timeline { width: 100%; }
+.confirmed-timeline-description { margin-top: 6px; color: #6b7684; font-size: 13px !important; }
+.confirmed-timeline-track { position: relative; margin: 40px 12px 0; }
+.confirmed-timeline-track__line {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #CFD7EA 0%, #93B2F8 55%, #0A1680 100%);
+}
+.confirmed-timeline-connector {
+  position: absolute;
+  top: 19px;
+  width: 1px;
+  background: #CFD7EA;
+  transform: translateX(-50%);
+}
+.confirmed-timeline-dot {
+  position: absolute;
+  top: 8.5px;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  margin-top: -10px;
+  border-radius: 50%;
+  border: 3px solid #FCFDFF;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(10, 22, 128, 0.16);
+}
+.confirmed-timeline-marker__copy {
+  position: absolute;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  width: max-content;
+  max-width: 150px;
+  white-space: nowrap;
+}
+.confirmed-timeline-marker__copy strong { color: #1A1D26; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.confirmed-timeline-marker__copy span { color: #767E92; font-size: 12px; }
+
+@media (max-width: 767px) {
+  .confirmed-timeline-track { margin: 32px 8px 0; }
+  .confirmed-timeline-marker__copy strong { font-size: 14px; }
+  .confirmed-timeline-marker__copy span { font-size: 11px; }
+}
 </style>
