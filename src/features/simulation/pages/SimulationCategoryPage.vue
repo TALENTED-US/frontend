@@ -675,7 +675,7 @@ function skip() {
                   : '+ 추가하기'
               }}
             </button>
-            <strong>{{ policy.detail }}</strong>
+            <strong>+{{ policy.detail }}</strong>
             <div
               v-if="expandedPolicyIds.has(`catalog:${policy.id}`)"
               :id="`policy-details-${policy.id}`"
@@ -1796,7 +1796,7 @@ function skip() {
 }
 
 .sim-category-page .policy-catalog-list .policy-add-button {
-  grid-row: 1;
+  grid-row: 2;
   grid-column: 2;
   justify-self: end;
 }
@@ -1902,7 +1902,7 @@ function skip() {
 }
 
 .policy-catalog-list article > strong {
-  grid-row: 2;
+  grid-row: 1;
   grid-column: 2;
   justify-self: end;
   margin-right: 0;
@@ -2175,10 +2175,6 @@ function skip() {
     padding: 22px;
   }
 
-  .policy-selected-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .policy-catalog-heading {
     top: -22px;
     margin: -22px -22px 16px;
@@ -2224,6 +2220,11 @@ function skip() {
   font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.sim-category-page .policy-catalog-list article > strong {
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .sim-category-page .policy-selected-list article {

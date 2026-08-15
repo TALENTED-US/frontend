@@ -32,6 +32,7 @@ import {
 import { getPoliciesApi } from '@/api/policy'
 import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
 import {
+  EXPENSE_CATEGORY_LABELS,
   expenseCategoryLabel,
   expenseCategoryValue,
 } from '@/constants/expenseCategories'
@@ -51,6 +52,9 @@ const CATEGORY_META = {
   '건강·운동': { icon: '🏥', color: '#8dd5c1' },
   '기타 금융': { icon: '🧾', color: '#b8bdc8' },
 }
+const EXPENSE_TARGET_CATEGORY_NAMES = Object.entries(EXPENSE_CATEGORY_LABELS)
+  .filter(([category]) => category !== 'HOUSING_COMMUNICATION')
+  .map(([, name]) => name)
 const DAYS_PER_MONTH = 365.2425 / 12
 
 function dateRangeMonths(startValue, endValue) {
@@ -199,8 +203,8 @@ export const useSimulationStore = defineStore('simulation', () => {
     const breakdownRows = groupedBreakdown.size
       ? [...groupedBreakdown.values()]
       : defaultState().expenses
-    const targetCategories = breakdownRows.filter((item) => item.name !== '주거·통신')
-    const rows = targetCategories.map(({ name, current }) => {
+    const rows = EXPENSE_TARGET_CATEGORY_NAMES.map((name) => {
+      const current = groupedBreakdown.get(name)?.current || 0
       const previous = existing.find(
         (item) => expenseCategoryLabel(expenseCategoryValue(item.name)) === name,
       )
