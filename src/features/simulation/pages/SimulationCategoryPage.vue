@@ -1818,6 +1818,7 @@ function skip() {
   font-size: 12px;
   font-weight: 400;
   line-height: 24px;
+  white-space: nowrap;
   visibility: visible !important;
   opacity: 1 !important;
 }
@@ -1840,6 +1841,7 @@ function skip() {
   height: 24px;
   align-items: center;
   line-height: 24px;
+  white-space: nowrap;
 }
 
 .policy-detail-toggle > svg {

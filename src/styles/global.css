@@ -271,6 +271,14 @@ svg text {
     font-size: max(13px, 1em) !important;
   }
 
+  #app .app-shell main .confirmed-timeline-description {
+    font-size: 14px !important;
+  }
+
+  #app .app-shell main .confirmed-timeline-description strong {
+    font-size: 15px !important;
+  }
+
   #app .app-shell .sim-page :where(
     .wizard-progress-tabs span,
     .expense-analysis-body li,
