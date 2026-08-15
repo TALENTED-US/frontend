@@ -8,7 +8,9 @@ import '@/features/simulation/styles/simulation.css'
 const router = useRouter()
 const simulation = useSimulationStore()
 const toDateInputValue = (value) => {
-  const match = String(value || '').trim().match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
+  const match = String(value || '')
+    .trim()
+    .match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
   return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` : ''
 }
 const startDate = ref(toDateInputValue(simulation.state.startDate))
@@ -108,7 +110,14 @@ async function createNewSimulation() {
 
 <template>
   <section class="page sim-page simulation-edit-page">
-    <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push('/simulation')">‹</button>
+    <button
+      class="sim-back simulation-back-button desktop-only"
+      type="button"
+      aria-label="뒤로가기"
+      @click="router.push('/simulation')"
+    >
+      ‹
+    </button>
 
     <article class="simulation-edit-shell">
       <header class="simulation-edit-hero">
@@ -120,16 +129,32 @@ async function createNewSimulation() {
         <section class="simulation-edit-period" aria-label="시뮬레이션 기간">
           <label>
             <span>시작일</span>
-            <input v-if="periodEditing" v-model="startDate" type="date" aria-label="시뮬레이션 시작일" :disabled="periodSaving" />
+            <input
+              v-if="periodEditing"
+              v-model="startDate"
+              type="date"
+              aria-label="시뮬레이션 시작일"
+              :disabled="periodSaving"
+            />
             <strong v-else>{{ startDate }}</strong>
           </label>
           <i>–</i>
           <label>
             <span>종료일 (목표 취업일)</span>
-            <input v-if="periodEditing" v-model="endDate" type="date" aria-label="시뮬레이션 종료일" :disabled="periodSaving" />
+            <input
+              v-if="periodEditing"
+              v-model="endDate"
+              type="date"
+              aria-label="시뮬레이션 종료일"
+              :disabled="periodSaving"
+            />
             <strong v-else>{{ endDate }}</strong>
           </label>
-          <button type="button" :disabled="periodSaving" @click="periodEditing ? updatePeriod() : (periodEditing = true)">
+          <button
+            type="button"
+            :disabled="periodSaving"
+            @click="periodEditing ? updatePeriod() : (periodEditing = true)"
+          >
             {{ periodSaving ? '저장 중' : periodEditing ? '저장' : '변경' }}
           </button>
         </section>
@@ -150,10 +175,25 @@ async function createNewSimulation() {
             <strong>{{ simulation.expectedMonths }}<small>개월</small></strong>
           </div>
           <div class="simulation-edit-actions">
-            <p>반영 혜택 월 {{ compactWon(recurringBenefit) }}<template v-if="oneTimeBenefit"> · 일시 {{ compactWon(oneTimeBenefit) }}</template></p>
+            <p>
+              반영 혜택 월 {{ compactWon(recurringBenefit)
+              }}<template v-if="oneTimeBenefit"> · 일시 {{ compactWon(oneTimeBenefit) }}</template>
+            </p>
             <div>
-              <button class="simulation-edit-all simulation-primary-cta" type="button" @click="editCategory('expense')">시뮬레이션 전체 수정하기</button>
-              <button class="simulation-create-new" type="button" @click="showNewSimulationModal = true">새로 만들기</button>
+              <button
+                class="simulation-edit-all simulation-primary-cta"
+                type="button"
+                @click="editCategory('expense')"
+              >
+                시뮬레이션 전체 수정하기
+              </button>
+              <button
+                class="simulation-create-new"
+                type="button"
+                @click="showNewSimulationModal = true"
+              >
+                새로 만들기
+              </button>
             </div>
           </div>
         </section>
@@ -164,7 +204,9 @@ async function createNewSimulation() {
             <article class="simulation-edit-card expense">
               <span class="simulation-edit-card__title"><i />지출 줄이기</span>
               <strong>월 {{ compactWon(simulation.expenseSaving) }} 절약</strong>
-              <button type="button" @click="editCategory('expense')">수정하기 <span>→</span></button>
+              <button type="button" @click="editCategory('expense')">
+                수정하기 <span>→</span>
+              </button>
             </article>
 
             <article class="simulation-edit-card income">
@@ -182,8 +224,20 @@ async function createNewSimulation() {
         </section>
 
         <div class="simulation-edit-mobile-actions">
-          <button class="simulation-edit-all simulation-primary-cta" type="button" @click="editCategory('expense')">시뮬레이션 전체 수정하기</button>
-          <button class="simulation-create-new" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
+          <button
+            class="simulation-edit-all simulation-primary-cta"
+            type="button"
+            @click="editCategory('expense')"
+          >
+            시뮬레이션 전체 수정하기
+          </button>
+          <button
+            class="simulation-create-new"
+            type="button"
+            @click="showNewSimulationModal = true"
+          >
+            새 시뮬레이션 만들기
+          </button>
         </div>
 
         <p v-if="periodSaving" class="api-notice">시뮬레이션 기간을 저장하고 있어요.</p>
@@ -202,11 +256,25 @@ async function createNewSimulation() {
       <section role="dialog" aria-modal="true" aria-labelledby="new-simulation-title">
         <span class="simulation-new-modal__icon" aria-hidden="true">!</span>
         <h2 id="new-simulation-title">새 시뮬레이션을 만들까요?</h2>
-        <p>새 시뮬레이션을 생성하면 현재 수정 중인 시뮬레이션이 삭제됩니다.<br />그래도 다시 생성하시겠습니까?</p>
+        <p>
+          새 시뮬레이션을 생성하면 현재 수정 중인 시뮬레이션이 삭제됩니다.<br />그래도 다시
+          생성하시겠습니까?
+        </p>
         <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
         <div>
-          <button type="button" :disabled="simulation.syncing" @click="showNewSimulationModal = false">취소</button>
-          <button class="simulation-primary-cta" type="button" :disabled="simulation.syncing" @click="createNewSimulation">
+          <button
+            type="button"
+            :disabled="simulation.syncing"
+            @click="showNewSimulationModal = false"
+          >
+            취소
+          </button>
+          <button
+            class="simulation-primary-cta"
+            type="button"
+            :disabled="simulation.syncing"
+            @click="createNewSimulation"
+          >
             {{ simulation.syncing ? '삭제하는 중…' : '새로 만들기' }}
           </button>
         </div>
@@ -238,16 +306,28 @@ async function createNewSimulation() {
   line-height: 1.45;
 }
 
-.simulation-edit-period, .simulation-edit-status { margin-top: 24px; }
-.simulation-edit-period { background: transparent; }
+.simulation-edit-period,
+.simulation-edit-status {
+  margin-top: 24px;
+}
+.simulation-edit-period {
+  background: transparent;
+}
 :global(#app .app-shell .sim-page section.simulation-edit-period) {
   border: 0 !important;
   border-radius: 0 !important;
   background: var(--background) !important;
   box-shadow: none !important;
 }
-.simulation-edit-period h2, .simulation-edit-status > h2 { font-size: 17px; }
-.simulation-edit-period > p { margin-top: 5px; color: #858c99; font-size: 11px; }
+.simulation-edit-period h2,
+.simulation-edit-status > h2 {
+  font-size: 17px;
+}
+.simulation-edit-period > p {
+  margin-top: 5px;
+  color: #858c99;
+  font-size: 11px;
+}
 
 .simulation-edit-period__grid {
   display: grid;
@@ -270,7 +350,11 @@ async function createNewSimulation() {
   box-shadow: 0 2px 5px rgb(20 40 30 / 9%);
 }
 
-.simulation-edit-period__grid label > span { color: #858c99; font-size: 10px; line-height: 1.2; }
+.simulation-edit-period__grid label > span {
+  color: #858c99;
+  font-size: 10px;
+  line-height: 1.2;
+}
 .simulation-edit-period__grid input {
   width: 100%;
   min-width: 0;
@@ -292,10 +376,18 @@ async function createNewSimulation() {
 }
 
 :global(#app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:hover),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:focus),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:active),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:disabled) {
+:global(
+  #app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:hover
+),
+:global(
+  #app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:focus
+),
+:global(
+  #app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:active
+),
+:global(
+  #app .app-shell .simulation-edit-page .simulation-edit-period__grid input[type='date']:disabled
+) {
   border: 0 !important;
   border-radius: 0 !important;
   background: #f3fcf8 !important;
@@ -308,11 +400,22 @@ async function createNewSimulation() {
 
 .simulation-edit-period__grid input::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  opacity: .72;
+  opacity: 0.72;
 }
-.simulation-edit-period__grid > i { color: #555; font-size: 12px; font-style: normal; text-align: center; }
-.simulation-edit-period .form-error { color: #d94f55; }
-.simulation-edit-cards { display: grid; gap: 12px; margin-top: 14px; }
+.simulation-edit-period__grid > i {
+  color: #555;
+  font-size: 12px;
+  font-style: normal;
+  text-align: center;
+}
+.simulation-edit-period .form-error {
+  color: #d94f55;
+}
+.simulation-edit-cards {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
 
 .simulation-edit-card {
   display: grid;
@@ -325,15 +428,48 @@ async function createNewSimulation() {
   text-align: left;
 }
 
-.simulation-edit-card__title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 800; }
-.simulation-edit-card__title i { width: 10px; height: 10px; border-radius: 50%; background: #ef5757; }
-.simulation-edit-card em { align-self: center; color: #ef5757; font-size: 11px; font-style: normal; font-weight: 800; }
-.simulation-edit-card > strong { justify-self: end; font-size: 16px; }
-.simulation-edit-card > b { grid-column: 2; justify-self: end; color: #777; font-size: 11px; }
-.simulation-edit-card.income .simulation-edit-card__title i { background: #3ed19a; }
-.simulation-edit-card.income em { color: #31bd88; }
-.simulation-edit-card.policy .simulation-edit-card__title i { background: #8d77cf; }
-.simulation-edit-card.policy em { color: #8d77cf; }
+.simulation-edit-card__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 800;
+}
+.simulation-edit-card__title i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef5757;
+}
+.simulation-edit-card em {
+  align-self: center;
+  color: #ef5757;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+.simulation-edit-card > strong {
+  justify-self: end;
+  font-size: 16px;
+}
+.simulation-edit-card > b {
+  grid-column: 2;
+  justify-self: end;
+  color: #777;
+  font-size: 11px;
+}
+.simulation-edit-card.income .simulation-edit-card__title i {
+  background: #3ed19a;
+}
+.simulation-edit-card.income em {
+  color: #31bd88;
+}
+.simulation-edit-card.policy .simulation-edit-card__title i {
+  background: #8d77cf;
+}
+.simulation-edit-card.policy em {
+  color: #8d77cf;
+}
 
 .simulation-edit-forecast {
   display: grid;
@@ -346,10 +482,25 @@ async function createNewSimulation() {
   background: #fff;
 }
 
-.simulation-edit-forecast > div { position: relative; display: grid; gap: 12px; padding: 19px 23px; background: transparent; }
-.simulation-edit-forecast span { color: #666d78; font-size: 12px; font-weight: 500; }
-.simulation-edit-forecast strong { font-size: 34px; }
-.simulation-edit-forecast strong small { margin-left: 2px; font-size: 13px; }
+.simulation-edit-forecast > div {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: 19px 23px;
+  background: transparent;
+}
+.simulation-edit-forecast span {
+  color: #666d78;
+  font-size: 12px;
+  font-weight: 500;
+}
+.simulation-edit-forecast strong {
+  font-size: 34px;
+}
+.simulation-edit-forecast strong small {
+  margin-left: 2px;
+  font-size: 13px;
+}
 .simulation-edit-increase,
 .simulation-edit-benefit {
   margin: 0;
@@ -360,14 +511,29 @@ async function createNewSimulation() {
   font-size: 13px;
   font-weight: 600;
 }
-.simulation-edit-benefit { text-align: left; }
-.simulation-edit-increase { grid-column: 1; }
-.simulation-edit-benefit { grid-column: 2; }
+.simulation-edit-benefit {
+  text-align: left;
+}
+.simulation-edit-increase {
+  grid-column: 1;
+}
+.simulation-edit-benefit {
+  grid-column: 2;
+}
 :global(#app .app-shell .simulation-edit-page .simulation-edit-forecast .simulation-edit-benefit) {
   font-size: 13px !important;
   font-weight: 600;
 }
-.simulation-edit-all { display: flex; width: 100%; min-height: 56px; align-items: center; justify-content: center; margin-top: 20px; font-size: 16px; text-align: center; }
+.simulation-edit-all {
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+  font-size: 16px;
+  text-align: center;
+}
 
 .simulation-create-new {
   display: flex;
@@ -412,15 +578,27 @@ async function createNewSimulation() {
   margin: 0 auto 16px;
   place-items: center;
   border-radius: 50%;
-  background: #fff3d2;
+  background: #fff8dc;
   color: #e7a21b;
   font-size: 24px;
   font-weight: 900;
 }
 
-.simulation-new-modal h2 { font-size: 19px; }
-.simulation-new-modal p { margin-top: 12px; color: #737a87; font-size: 12px; line-height: 1.65; }
-.simulation-new-modal section > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.simulation-new-modal h2 {
+  font-size: 19px;
+}
+.simulation-new-modal p {
+  margin-top: 12px;
+  color: #737a87;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.simulation-new-modal section > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 24px;
+}
 
 .simulation-new-modal section > div button {
   min-height: 48px;
@@ -431,7 +609,10 @@ async function createNewSimulation() {
   font-weight: 800;
 }
 
-.simulation-new-modal section > div button:last-child { background: #ffeca4; color: #222; }
+.simulation-new-modal section > div button:last-child {
+  background: #ffeca4;
+  color: #222;
+}
 
 @media (max-width: 767px) {
   .simulation-edit-intro h1 {
@@ -511,8 +692,12 @@ async function createNewSimulation() {
     font-weight: 600;
   }
 
-  .simulation-edit-increase { text-align: left; }
-  .simulation-edit-benefit { text-align: left; }
+  .simulation-edit-increase {
+    text-align: left;
+  }
+  .simulation-edit-benefit {
+    text-align: left;
+  }
 
   .simulation-edit-all,
   .simulation-create-new,
@@ -555,23 +740,70 @@ async function createNewSimulation() {
 }
 
 @media (min-width: 768px) {
-  .simulation-edit-page { width: min(100%, 1066px); padding: 28px 0 80px; }
-  .simulation-edit-intro h1 { font-size: 28px; }
-  .simulation-edit-period h2, .simulation-edit-status > h2 { font-size: 20px; }
-  .simulation-edit-period > p { font-size: 13px; }
-  .simulation-edit-period__grid { width: 100%; max-width: none; margin-right: auto; margin-left: auto; }
-  .simulation-edit-period__grid label { padding: 12px 16px; }
-  .simulation-edit-period__grid label > span { font-size: 12px; }
-  .simulation-edit-period__grid input { height: 26px; font-size: 17px; }
-  .simulation-edit-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .simulation-edit-card { min-height: 178px; grid-template-columns: 1fr; align-content: start; }
-  .simulation-edit-card em, .simulation-edit-card > strong, .simulation-edit-card > b { justify-self: start; grid-column: 1; }
-  .simulation-edit-forecast { width: 100%; margin-right: auto; margin-left: auto; }
-  .simulation-edit-forecast strong { font-size: 42px; }
+  .simulation-edit-page {
+    width: min(100%, 1066px);
+    padding: 28px 0 80px;
+  }
+  .simulation-edit-intro h1 {
+    font-size: 28px;
+  }
+  .simulation-edit-period h2,
+  .simulation-edit-status > h2 {
+    font-size: 20px;
+  }
+  .simulation-edit-period > p {
+    font-size: 13px;
+  }
+  .simulation-edit-period__grid {
+    width: 100%;
+    max-width: none;
+    margin-right: auto;
+    margin-left: auto;
+  }
+  .simulation-edit-period__grid label {
+    padding: 12px 16px;
+  }
+  .simulation-edit-period__grid label > span {
+    font-size: 12px;
+  }
+  .simulation-edit-period__grid input {
+    height: 26px;
+    font-size: 17px;
+  }
+  .simulation-edit-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .simulation-edit-card {
+    min-height: 178px;
+    grid-template-columns: 1fr;
+    align-content: start;
+  }
+  .simulation-edit-card em,
+  .simulation-edit-card > strong,
+  .simulation-edit-card > b {
+    justify-self: start;
+    grid-column: 1;
+  }
+  .simulation-edit-forecast {
+    width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+  }
+  .simulation-edit-forecast strong {
+    font-size: 42px;
+  }
   .simulation-edit-all,
-  .simulation-create-new { width: 100%; margin-right: auto; margin-left: auto; }
-  .simulation-new-modal h2 { font-size: 21px; }
-  .simulation-new-modal p { font-size: 14px; }
+  .simulation-create-new {
+    width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+  }
+  .simulation-new-modal h2 {
+    font-size: 21px;
+  }
+  .simulation-new-modal p {
+    font-size: 14px;
+  }
 }
 
 /* 7a 계획 확인·수정 화면 */
@@ -579,106 +811,475 @@ async function createNewSimulation() {
   width: min(100%, 1052px);
   margin: 0 auto;
   padding: 28px 0 80px;
-  color: #211b10;
+  color: var(--text);
 }
 
-.simulation-edit-page > .sim-back { margin: 0 0 18px; }
-.simulation-edit-shell { overflow: hidden; border: 1px solid #f0ede4; border-radius: 24px; background: #fff; box-shadow: 0 1px 2px rgb(90 72 30 / 5%), 0 12px 32px rgb(120 100 50 / 5%); }
-.simulation-edit-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 28px 32px; background: #fef6de; }
-.simulation-edit-hero > div { display: grid; gap: 8px; }
-.simulation-edit-hero > div > span { color: #a2905f; font-size: 12px; font-weight: 600; }
-.simulation-edit-hero h1 { color: #2a2113; font-size: 26px; font-weight: 800; letter-spacing: -.6px; line-height: 1.35; }
+.simulation-edit-page > .sim-back {
+  margin: 0 0 18px;
+}
+.simulation-edit-shell {
+  overflow: hidden;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(10 22 128 / 5%),
+    0 12px 32px rgb(10 22 128 / 5%);
+}
+.simulation-edit-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px 32px;
+  background: #fff8dc;
+}
+.simulation-edit-hero > div {
+  display: grid;
+  gap: 8px;
+}
+.simulation-edit-hero > div > span {
+  color: #a2905f;
+  font-size: 12px;
+  font-weight: 600;
+}
+.simulation-edit-hero h1 {
+  color: #2a2113;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.35;
+}
 
-.simulation-edit-period { display: flex; flex: none; align-items: center; gap: 10px; margin: 0; padding: 12px 16px; border: 0; border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgb(120 100 50 / 8%); }
-:global(#app .app-shell .sim-page section.simulation-edit-period) { border-radius: 14px !important; background: #fff !important; box-shadow: 0 1px 3px rgb(120 100 50 / 8%) !important; }
-.simulation-edit-period label { display: grid; min-width: 88px; gap: 2px; }
-.simulation-edit-period label:nth-of-type(2) { min-width: 128px; }
-.simulation-edit-period label > span { color: #a2905f; font-size: 10px; font-weight: 600; }
-.simulation-edit-period label > strong { color: #211b10; font-size: 13px; font-weight: 700; white-space: nowrap; }
-.simulation-edit-period > i { color: #7e7565; font-size: 13px; font-style: normal; font-weight: 700; }
-.simulation-edit-period input { width: 126px; height: 22px; min-height: 22px; padding: 0; border: 0; background: transparent; color: #211b10; font-size: 13px; font-weight: 700; }
-.simulation-edit-period button { min-height: 30px; margin-left: 6px; padding: 0 10px; border-radius: 8px; background: #fef3d4; color: #8a6410; font-size: 12px; font-weight: 700; }
+.simulation-edit-period {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(10 22 128 / 8%);
+}
+:global(#app .app-shell .sim-page section.simulation-edit-period) {
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgb(10 22 128 / 8%) !important;
+}
+.simulation-edit-period label {
+  display: grid;
+  width: 108px;
+  min-width: 108px;
+  gap: 2px;
+}
+.simulation-edit-period label:nth-of-type(2) {
+  width: 148px;
+  min-width: 148px;
+}
+.simulation-edit-period label > span {
+  color: #a2905f;
+  font-size: 10px;
+  font-weight: 600;
+}
+.simulation-edit-period label > strong,
+.simulation-edit-period input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 22px;
+  min-height: 22px;
+  margin: 0;
+  padding: 0 20px 0 0;
+  border: 0;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px !important;
+  font-weight: 700;
+  line-height: 22px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.simulation-edit-period input {
+  position: relative;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: 0;
+}
+.simulation-edit-period input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.72;
+  transform: translateY(-50%);
+}
+.simulation-edit-period input::-webkit-datetime-edit {
+  padding: 0;
+}
+.simulation-edit-period > i {
+  color: #7e7565;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 700;
+}
+.simulation-edit-period button {
+  min-height: 30px;
+  margin-left: 6px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #fff8dc;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
 
-.simulation-edit-body { display: flex; flex-direction: column; gap: 22px; padding: 22px 32px 28px; }
-.simulation-edit-forecast { display: grid; width: 100%; grid-template-columns: auto 76px auto minmax(310px,1fr); align-items: center; gap: 24px; margin: 0; padding: 20px 24px; overflow: visible; border-radius: 18px; background: #fef6de; }
-.simulation-edit-runway { display: grid; gap: 5px; padding: 0; background: transparent; }
-.simulation-edit-runway > span { color: #a2905f; font-size: 12px; font-weight: 600; }
-.simulation-edit-runway.expected > span { color: #8a6410; }
-.simulation-edit-runway > strong { color: #7e7565; font-size: 30px; font-weight: 700; letter-spacing: -1px; line-height: 1; white-space: nowrap; }
-.simulation-edit-runway.expected > strong { color: #1e1809; font-size: 44px; font-weight: 800; letter-spacing: -1.5px; }
-.simulation-edit-runway > strong small { margin-left: 2px; font-size: 15px; font-weight: inherit; }
-.simulation-edit-runway.expected > strong small { font-size: 20px; }
-.simulation-edit-growth { display: grid; justify-items: center; gap: 6px; }
-.simulation-edit-growth b { padding: 4px 10px; border-radius: 999px; background: #fff; color: #8a6410; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.simulation-edit-growth i { position: relative; width: 70px; border-top: 1.5px dashed rgb(60 48 20 / 20%); }
-.simulation-edit-growth i .app-icon { display: none; }
-.simulation-edit-growth i::after { position: absolute; top: -5px; right: -1px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 8px solid rgb(60 48 20 / 28%); content: ''; }
-.simulation-edit-actions { display: grid; justify-items: end; gap: 8px; }
-.simulation-edit-actions p { color: #8a8172; font-size: 12px; font-weight: 500; text-align: right; }
-.simulation-edit-actions > div { display: flex; gap: 8px; }
-.simulation-edit-all, .simulation-create-new { width: auto; min-height: 44px; margin: 0; padding: 0 18px; border-radius: 12px; box-shadow: none; font-size: 14px; font-weight: 700; }
-.simulation-edit-all { border: 1px solid rgb(196 152 44 / 35%); background: #f7d778; color: #4e3a0c; }
-.simulation-create-new { padding: 0 16px; border: 1px solid #e6e0d2; background: #fff; color: #6e6553; }
+.simulation-edit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 22px 32px 28px;
+}
+.simulation-edit-forecast {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto 76px auto minmax(310px, 1fr);
+  align-items: center;
+  gap: 24px;
+  margin: 0;
+  padding: 20px 24px;
+  overflow: visible;
+  border-radius: 18px;
+  background: #fff8dc;
+}
+.simulation-edit-runway {
+  display: grid;
+  gap: 5px;
+  padding: 0;
+  background: transparent;
+}
+.simulation-edit-runway > span {
+  color: #a2905f;
+  font-size: 12px;
+  font-weight: 600;
+}
+.simulation-edit-runway.expected > span {
+  color: var(--primary);
+}
+.simulation-edit-runway > strong {
+  color: #7e7565;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.simulation-edit-runway.expected > strong {
+  color: #1e1809;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+}
+.simulation-edit-runway > strong small {
+  margin-left: 2px;
+  font-size: 15px;
+  font-weight: inherit;
+}
+.simulation-edit-runway.expected > strong small {
+  font-size: 20px;
+}
+.simulation-edit-growth {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.simulation-edit-growth b {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.simulation-edit-growth i {
+  position: relative;
+  width: 70px;
+  border-top: 1.5px dashed rgb(60 48 20 / 20%);
+}
+.simulation-edit-growth i .app-icon {
+  display: none;
+}
+.simulation-edit-growth i::after {
+  position: absolute;
+  top: -5px;
+  right: -1px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid rgb(60 48 20 / 28%);
+  content: '';
+}
+.simulation-edit-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+.simulation-edit-actions p {
+  color: #8a8172;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+}
+.simulation-edit-actions > div {
+  display: flex;
+  gap: 8px;
+}
+.simulation-edit-all,
+.simulation-create-new {
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 18px;
+  border-radius: 12px;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+.simulation-edit-all {
+  border: 1px solid rgb(196 152 44 / 35%);
+  background: #f7d778;
+  color: #4e3a0c;
+}
+.simulation-create-new {
+  padding: 0 16px;
+  border: 1px solid rgb(10 22 128 / 16%);
+  background: #fff;
+  color: var(--muted);
+}
 
-.simulation-edit-status { margin: 0; }
-.simulation-edit-status > h2 { margin-bottom: 10px; color: #211b10; font-size: 14px; font-weight: 700; }
-.simulation-edit-cards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin: 0; }
-.simulation-edit-card { display: flex; min-height: 118px; flex-direction: column; align-content: initial; gap: 12px; padding: 16px; border: 1px solid #f0ede4; border-radius: 16px; background: #fff; color: #211b10; }
-.simulation-edit-card__title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
-.simulation-edit-card__title i { width: 8px; height: 8px; }
-.simulation-edit-card.expense .simulation-edit-card__title i { background: #e5877c; }
-.simulation-edit-card.income .simulation-edit-card__title i { background: #7fb894; }
-.simulation-edit-card.policy .simulation-edit-card__title i { background: #9b8cc4; }
-.simulation-edit-card > strong { justify-self: auto; color: #7e7565; font-size: 16px; font-weight: 700; line-height: 1; }
+.simulation-edit-status {
+  margin: 0;
+}
+.simulation-edit-status > h2 {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+.simulation-edit-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+.simulation-edit-card {
+  display: flex;
+  min-height: 118px;
+  flex-direction: column;
+  align-content: initial;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--text);
+}
+.simulation-edit-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.simulation-edit-card__title i {
+  width: 8px;
+  height: 8px;
+}
+.simulation-edit-card.expense .simulation-edit-card__title i {
+  background: #e5877c;
+}
+.simulation-edit-card.income .simulation-edit-card__title i {
+  background: #7fb894;
+}
+.simulation-edit-card.policy .simulation-edit-card__title i {
+  background: #9b8cc4;
+}
+.simulation-edit-card > strong {
+  justify-self: auto;
+  color: #7e7565;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
 .simulation-edit-card > strong.simulation-edit-card__benefit-line {
   max-width: 100%;
   font-size: clamp(10px, 3.2vw, 15px);
-  letter-spacing: -.25px;
+  letter-spacing: -0.25px;
   white-space: nowrap;
 }
-.simulation-edit-card > b { margin-top: -7px; color: #8a8172; font-size: 11px; font-weight: 600; }
-.simulation-edit-card > button { display: flex; width: 100%; min-height: 26px; align-items: center; justify-content: center; gap: 5px; margin-top: auto; padding-top: 0; padding-bottom: 0; border: 1px solid #ead6a6; border-radius: 8px; background: #fef6de; color: #8a6410; font-size: 12px; font-weight: 700; }
-.simulation-edit-card > button:hover { background: #fbe6ac; }
-.simulation-edit-body > .api-notice, .simulation-edit-body > .form-error { margin: -10px 0 0; font-size: 12px; }
+.simulation-edit-card > b {
+  margin-top: -7px;
+  color: #8a8172;
+  font-size: 11px;
+  font-weight: 600;
+}
+.simulation-edit-card > button {
+  display: flex;
+  width: 100%;
+  min-height: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 0;
+  padding-bottom: 0;
+  border: 1px solid rgb(241 185 76 / 40%);
+  border-radius: 8px;
+  background: #fff8dc;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.simulation-edit-card > button:hover {
+  background: #fbe6ac;
+}
+.simulation-edit-body > .api-notice,
+.simulation-edit-body > .form-error {
+  margin: -10px 0 0;
+  font-size: 12px;
+}
 
-:global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) { font-size: 26px !important; }
+:global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) {
+  font-size: 26px !important;
+}
 :global(#app .app-shell .simulation-edit-page .simulation-edit-period button),
 :global(#app .app-shell .simulation-edit-page .simulation-edit-card > button),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-actions button) { font-size: 12px !important; }
-:global(#app .app-shell .simulation-edit-page .simulation-edit-actions button) { font-size: 14px !important; }
+:global(#app .app-shell .simulation-edit-page .simulation-edit-actions button) {
+  font-size: 12px !important;
+}
+:global(#app .app-shell .simulation-edit-page .simulation-edit-actions button) {
+  font-size: 14px !important;
+}
 
 @media (max-width: 767px) {
-  .simulation-edit-page { width: 100%; padding: 10px 12px 28px; }
-  .simulation-edit-shell { border-radius: 20px; }
-  .simulation-edit-hero { display: grid; align-items: stretch; gap: 18px; padding: 22px 18px 18px; }
-  .simulation-edit-hero h1 { font-size: 22px; }
-  :global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) { font-size: 22px !important; }
-  .simulation-edit-period { display: grid; grid-template-columns: minmax(0,1fr) 12px minmax(0,1fr); gap: 6px; padding: 11px 12px; }
-  .simulation-edit-period label, .simulation-edit-period label:nth-of-type(2) { min-width: 0; }
-  .simulation-edit-period input { width: 100%; min-width: 0; font-size: 12px; }
-  .simulation-edit-period button { grid-column: 1 / -1; width: 100%; margin: 4px 0 0; }
-  .simulation-edit-body { gap: 20px; padding: 16px 14px 20px; }
-  .simulation-edit-forecast { grid-template-columns: minmax(0,1fr) 58px minmax(0,1.2fr); gap: 10px; padding: 17px 14px 14px; }
-  .simulation-edit-runway > strong { font-size: 25px; }
-  .simulation-edit-runway.expected > strong { font-size: 34px; }
-  .simulation-edit-runway > strong small { font-size: 13px; }
-  .simulation-edit-runway.expected > strong small { font-size: 16px; }
-  .simulation-edit-growth i { width: 52px; }
-  .simulation-edit-actions { grid-column: 1 / -1; justify-items: stretch; padding-top: 4px; }
-  .simulation-edit-actions p { text-align: left; }
-  .simulation-edit-actions > div { display: grid; grid-template-columns: 1fr auto; }
-  .simulation-edit-all, .simulation-create-new { min-height: 42px; padding: 0 12px; }
-  .simulation-edit-cards { grid-template-columns: 1fr; gap: 10px; }
-  .simulation-edit-card { min-height: 0; gap: 10px; padding: 14px; }
-  .simulation-edit-card > strong { font-size: 15px; }
+  .simulation-edit-page {
+    width: 100%;
+    padding: 10px 12px 28px;
+  }
+  .simulation-edit-shell {
+    border-radius: 20px;
+  }
+  .simulation-edit-hero {
+    display: grid;
+    align-items: stretch;
+    gap: 18px;
+    padding: 22px 18px 18px;
+  }
+  .simulation-edit-hero h1 {
+    font-size: 22px;
+  }
+  :global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) {
+    font-size: 22px !important;
+  }
+  .simulation-edit-period {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
+    gap: 6px;
+    padding: 11px 12px;
+  }
+  .simulation-edit-period label,
+  .simulation-edit-period label:nth-of-type(2) {
+    width: auto;
+    min-width: 0;
+  }
+  .simulation-edit-period input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding-right: 18px;
+    font-size: 12px !important;
+  }
+  .simulation-edit-period button {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin: 4px 0 0;
+  }
+  .simulation-edit-body {
+    gap: 20px;
+    padding: 16px 14px 20px;
+  }
+  .simulation-edit-forecast {
+    grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1.2fr);
+    gap: 10px;
+    padding: 17px 14px 14px;
+  }
+  .simulation-edit-runway > strong {
+    font-size: 25px;
+  }
+  .simulation-edit-runway.expected > strong {
+    font-size: 34px;
+  }
+  .simulation-edit-runway > strong small {
+    font-size: 13px;
+  }
+  .simulation-edit-runway.expected > strong small {
+    font-size: 16px;
+  }
+  .simulation-edit-growth i {
+    width: 52px;
+  }
+  .simulation-edit-actions {
+    grid-column: 1 / -1;
+    justify-items: stretch;
+    padding-top: 4px;
+  }
+  .simulation-edit-actions p {
+    text-align: left;
+  }
+  .simulation-edit-actions > div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+  .simulation-edit-all,
+  .simulation-create-new {
+    min-height: 42px;
+    padding: 0 12px;
+  }
+  .simulation-edit-cards {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .simulation-edit-card {
+    min-height: 0;
+    gap: 10px;
+    padding: 14px;
+  }
+  .simulation-edit-card > strong {
+    font-size: 15px;
+  }
 }
 
 @media (max-width: 390px) {
-  .simulation-edit-actions > div { grid-template-columns: 1fr; }
-  .simulation-create-new { width: 100%; }
+  .simulation-edit-actions > div {
+    grid-template-columns: 1fr;
+  }
+  .simulation-create-new {
+    width: 100%;
+  }
 }
 
-.simulation-edit-mobile-actions { display: none; }
+.simulation-edit-mobile-actions {
+  display: none;
+}
 
 @media (max-width: 767px) {
   :global(#app .app-shell__body:has(.simulation-edit-page)),
@@ -686,7 +1287,11 @@ async function createNewSimulation() {
     background: #fff;
   }
 
-  .simulation-edit-page { width: 100%; padding: 10px 0 28px; background: #fff; }
+  .simulation-edit-page {
+    width: 100%;
+    padding: 10px 0 28px;
+    background: #fff;
+  }
   .simulation-edit-shell {
     overflow: visible;
     border: 0;
@@ -700,7 +1305,9 @@ async function createNewSimulation() {
     border-radius: 0;
     background: #fff;
   }
-  .simulation-edit-hero > div { gap: 6px; }
+  .simulation-edit-hero > div {
+    gap: 6px;
+  }
 
   .simulation-edit-period {
     width: 100%;
@@ -712,7 +1319,7 @@ async function createNewSimulation() {
     margin: 2px auto 0;
     padding: 10px 12px;
     border: 1px solid #eee4c9;
-    box-shadow: 0 1px 3px rgb(120 100 50 / 6%);
+    box-shadow: 0 1px 3px rgb(10 22 128 / 6%);
   }
   .simulation-edit-period button {
     width: auto;
@@ -745,9 +1352,17 @@ async function createNewSimulation() {
     gap: 14px 8px;
     padding: 15px 16px 13px;
   }
-  .simulation-edit-forecast > .simulation-edit-runway { align-self: center; padding: 0; }
-  .simulation-edit-runway.expected { justify-items: end; text-align: right; }
-  .simulation-edit-forecast > .simulation-edit-growth { display: contents; }
+  .simulation-edit-forecast > .simulation-edit-runway {
+    align-self: center;
+    padding: 0;
+  }
+  .simulation-edit-runway.expected {
+    justify-items: end;
+    text-align: right;
+  }
+  .simulation-edit-forecast > .simulation-edit-growth {
+    display: contents;
+  }
   .simulation-edit-growth i {
     display: grid;
     width: 100%;
@@ -766,7 +1381,7 @@ async function createNewSimulation() {
     width: 18px;
     height: 18px;
     margin: 0 auto;
-    color: #8a6410;
+    color: var(--primary);
   }
   .simulation-edit-growth b {
     grid-row: 2;
@@ -784,10 +1399,17 @@ async function createNewSimulation() {
     padding: 10px 0 0;
     border-top: 0;
   }
-  .simulation-edit-actions p { font-size: 11px; text-align: right; }
-  .simulation-edit-actions > div { display: none; }
+  .simulation-edit-actions p {
+    font-size: 11px;
+    text-align: right;
+  }
+  .simulation-edit-actions > div {
+    display: none;
+  }
 
-  .simulation-edit-cards { gap: 10px; }
+  .simulation-edit-cards {
+    gap: 10px;
+  }
   .simulation-edit-card {
     display: grid;
     min-height: 62px;
@@ -796,9 +1418,21 @@ async function createNewSimulation() {
     gap: 3px 10px;
     padding: 12px;
   }
-  .simulation-edit-card__title { grid-row: 1; grid-column: 1; }
-  .simulation-edit-card > strong { grid-row: 2; grid-column: 1; align-self: start; font-size: 14px; }
-  .simulation-edit-card > b { grid-row: 3; grid-column: 1; margin: 0; }
+  .simulation-edit-card__title {
+    grid-row: 1;
+    grid-column: 1;
+  }
+  .simulation-edit-card > strong {
+    grid-row: 2;
+    grid-column: 1;
+    align-self: start;
+    font-size: 14px;
+  }
+  .simulation-edit-card > b {
+    grid-row: 3;
+    grid-column: 1;
+    margin: 0;
+  }
   .simulation-edit-card > button {
     width: auto;
     min-width: 82px;
@@ -828,7 +1462,9 @@ async function createNewSimulation() {
 }
 
 @media (max-width: 390px) {
-  .simulation-edit-period { grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1fr) auto; }
+  .simulation-edit-period {
+    grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1fr) auto;
+  }
 }
 
 :global(#app .app-shell .simulation-edit-page .simulation-edit-period label) {
@@ -849,15 +1485,64 @@ async function createNewSimulation() {
   filter: none !important;
   opacity: 1 !important;
   color-scheme: light;
-  -webkit-text-fill-color: #211b10;
+  -webkit-text-fill-color: var(--text);
+  font-size: 13px !important;
 }
 
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']::-webkit-datetime-edit),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']::-webkit-datetime-edit-fields-wrapper),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']::-webkit-datetime-edit-text),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']::-webkit-datetime-edit-year-field),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']::-webkit-datetime-edit-month-field),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']::-webkit-datetime-edit-day-field) {
+@media (max-width: 767px) {
+  :global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']),
+  :global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']:hover),
+  :global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']:focus),
+  :global(#app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']:active),
+  :global(
+    #app .app-shell .simulation-edit-page .simulation-edit-period input[type='date']:disabled
+  ) {
+    font-size: 12px !important;
+  }
+}
+
+:global(
+  #app
+    .app-shell
+    .simulation-edit-page
+    .simulation-edit-period
+    input[type='date']::-webkit-datetime-edit
+),
+:global(
+  #app
+    .app-shell
+    .simulation-edit-page
+    .simulation-edit-period
+    input[type='date']::-webkit-datetime-edit-fields-wrapper
+),
+:global(
+  #app
+    .app-shell
+    .simulation-edit-page
+    .simulation-edit-period
+    input[type='date']::-webkit-datetime-edit-text
+),
+:global(
+  #app
+    .app-shell
+    .simulation-edit-page
+    .simulation-edit-period
+    input[type='date']::-webkit-datetime-edit-year-field
+),
+:global(
+  #app
+    .app-shell
+    .simulation-edit-page
+    .simulation-edit-period
+    input[type='date']::-webkit-datetime-edit-month-field
+),
+:global(
+  #app
+    .app-shell
+    .simulation-edit-page
+    .simulation-edit-period
+    input[type='date']::-webkit-datetime-edit-day-field
+) {
   background: #fff !important;
   background-color: #fff !important;
 }
@@ -978,16 +1663,18 @@ async function createNewSimulation() {
 
   .simulation-edit-shell {
     overflow: hidden;
-    border: 1px solid #f0ede4;
+    border: 1px solid rgb(10 22 128 / 12%);
     border-radius: 22px;
     background: #fff;
-    box-shadow: 0 1px 2px rgb(90 72 30 / 5%), 0 10px 26px rgb(120 100 50 / 5%);
+    box-shadow:
+      0 1px 2px rgb(10 22 128 / 5%),
+      0 10px 26px rgb(10 22 128 / 5%);
   }
 
   .simulation-edit-hero {
     gap: 14px;
     padding: 20px 20px 18px;
-    background: #fef6de;
+    background: #fff8dc;
   }
 
   .simulation-edit-hero > div {
@@ -997,7 +1684,7 @@ async function createNewSimulation() {
   .simulation-edit-hero h1,
   :global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) {
     font-size: 21px !important;
-    letter-spacing: -.5px;
+    letter-spacing: -0.5px;
     line-height: 1.4;
   }
 
@@ -1138,7 +1825,9 @@ async function createNewSimulation() {
 
 @media (max-width: 767px) {
   .simulation-edit-hero > .simulation-edit-period,
-  :global(#app .app-shell .simulation-edit-page .simulation-edit-hero > section.simulation-edit-period) {
+  :global(
+    #app .app-shell .simulation-edit-page .simulation-edit-hero > section.simulation-edit-period
+  ) {
     width: 100%;
     max-width: none;
     align-self: stretch;
@@ -1237,6 +1926,38 @@ async function createNewSimulation() {
     min-height: 16px;
     max-height: 16px;
     line-height: 1;
+  }
+}
+
+/*
+ * Final word on the period date field: the box (label width/height, padding,
+ * icon gutter) and the text (font-size, line-height) must be byte-identical
+ * whether showing the plain <strong> value or the live <input type="date">,
+ * so toggling "변경/저장" changes nothing but the button label and the icon.
+ * This sits last on purpose to beat the scattered breakpoint rules above.
+ */
+.simulation-edit-period label > strong,
+.simulation-edit-period input {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  margin: 0 !important;
+  padding: 0 20px 0 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  font-size: 13px !important;
+  line-height: 22px !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 767px) {
+  .simulation-edit-period label > strong,
+  .simulation-edit-period input {
+    padding: 0 18px 0 0 !important;
+    font-size: 12px !important;
   }
 }
 </style>

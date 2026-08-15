@@ -731,7 +731,7 @@ async function confirm() {
 
 .sim-flow-categories > .sim-subtitle {
   margin-top: 5px;
-  color: #837b6e;
+  color: var(--muted);
   font-size: 15px;
   line-height: 1.6;
 }
@@ -759,7 +759,7 @@ async function confirm() {
 
 .sim-flow-categories .buttie-transition span {
   display: block;
-  color: #918876;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 700;
 }
@@ -821,7 +821,7 @@ async function confirm() {
 
 .sim-flow-categories > .period-section > p {
   margin-top: 4px;
-  color: #837b6e;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -868,7 +868,7 @@ async function confirm() {
 }
 
 .sim-flow-categories .period-grid label > span {
-  color: #918876;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -887,7 +887,7 @@ async function confirm() {
 
 .sim-flow-categories .period-separator {
   display: block;
-  color: #aaa292;
+  color: var(--muted);
   font-size: 15px;
   font-style: normal;
   text-align: center;

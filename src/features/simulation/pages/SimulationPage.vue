@@ -260,7 +260,7 @@ onMounted(async () => {
 .simulation-banner__copy,.simulation-banner__action { position: relative; z-index: 1; }
 .simulation-banner__copy { display: flex; min-width: 0; flex-direction: column; }
 .simulation-banner__copy > small { color: #b08a16; font-size: 15px; font-weight: 600; }
-.simulation-banner__copy h2 { margin-top: 18px; color: #2a2620; font-size: 38px; font-weight: 800; letter-spacing: -1.1px; line-height: 1.36; }
+.simulation-banner__copy h2 { margin-top: 18px; color: var(--text); font-size: 38px; font-weight: 800; letter-spacing: -1.1px; line-height: 1.36; }
 .simulation-banner__copy > p { margin-top: 20px; color: #7c7568; font-size: 17px; letter-spacing: -.3px; line-height: 1.65; }
 .simulation-banner__benefits { display: grid; gap: 14px; margin-top: auto; padding-top: 36px; }
 .simulation-banner__benefits li { display: flex; align-items: center; gap: 14px; color: #3e3930; font-size: 17px; font-weight: 600; }
@@ -386,7 +386,7 @@ onMounted(async () => {
 .quest-overview-row__copy { display: grid; min-width: 0; gap: 6px; }
 .quest-overview-row__copy > strong { overflow: hidden; font-size: 15px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
 .quest-overview-row__copy small { color: #7a746d; font-size: 12px; }
-.quest-overview-row__copy small b { color: #8a5b00; font-weight: 900; }
+.quest-overview-row__copy small b { color: var(--primary); font-weight: 900; }
 .quest-overview-row__amount { grid-column: 3; font-size: 16px; font-weight: 900; white-space: nowrap; }
 .is-expense .quest-overview-row__amount { color: var(--quest-peach); }
 .is-income .quest-overview-row__amount { color: #168b5c; }
@@ -606,15 +606,15 @@ onMounted(async () => {
     flex-direction: row-reverse;
     align-items: center;
     justify-content: space-between;
-    color: #8a5b00;
+    color: var(--primary);
     font-size: 20px;
   }
-  .quest-overview-progress__top > b small { margin: 0; color: #8a6410; font-size: 12px; }
+  .quest-overview-progress__top > b small { margin: 0; color: var(--primary); font-size: 12px; }
   .quest-overview-section { margin-top: 26px; }
   .quest-overview-section > header { align-items: center; margin-bottom: 14px; }
   .quest-overview-section > header h3 { font-size: 18px; }
   .quest-overview-section > header p { margin-top: 5px; font-size: 12px; }
-  .quest-overview-section > header > span { border: 0; background: #fff3cf; color: #8a6410; font-size: 11px; }
+  .quest-overview-section > header > span { border: 0; background: #fff3cf; color: var(--primary); font-size: 11px; }
   .quest-overview-row,
   .quest-overview-row.is-policy {
     min-height: 76px;
