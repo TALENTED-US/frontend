@@ -5,28 +5,19 @@ import { policyFilterGroups, readFilters, toFilterQuery } from '@/features/searc
 
 const route = useRoute()
 const router = useRouter()
-const selected = ref(readFilters(route.query))
-const amount = ref(Number(route.query.amount || 50))
-const multiSelectGroups = new Set(['정책 분야'])
+
+function withDefaultAvailability(filters) {
+  const statusFilters = policyFilterGroups[3][1]
+  if (filters.some((filter) => statusFilters.includes(filter))) return filters
+  if (Object.prototype.hasOwnProperty.call(route.query, 'filters')) return filters
+  return [...filters, '신청 가능']
+}
+
+const selected = ref(withDefaultAvailability(readFilters(route.query)))
+const amount = ref(Number(route.query.amount || 0))
 
 function toggle(group, item) {
-  const [groupName, groupItems] = group
-  const isMultiSelect = multiSelectGroups.has(groupName)
-
-  if (isMultiSelect) {
-    if (selected.value.includes(item)) {
-      selected.value = selected.value.filter((value) => value !== item)
-      return
-    }
-
-    if (item === '전체') {
-      selected.value = [...selected.value.filter((value) => !groupItems.includes(value)), item]
-      return
-    }
-
-    selected.value = [...selected.value.filter((value) => value !== '전체'), item]
-    return
-  }
+  const [, groupItems] = group
 
   if (selected.value.includes(item)) {
     selected.value = selected.value.filter((value) => value !== item)
@@ -36,7 +27,7 @@ function toggle(group, item) {
 }
 
 function reset() {
-  selected.value = []
+  selected.value = ['신청 가능']
   amount.value = 0
 }
 
@@ -45,8 +36,10 @@ function applyFilters() {
     path: '/search',
     query: {
       filters: toFilterQuery(selected.value),
+      ...(typeof route.query.q === 'string' && route.query.q.trim()
+        ? { q: route.query.q.trim() }
+        : {}),
       ...(amount.value ? { amount: String(amount.value) } : {}),
-      filtered: '1',
     },
   })
 }
@@ -56,14 +49,12 @@ function applyFilters() {
   <section class="page filter-page">
     <button class="filter-back" type="button" @click="router.back()">‹ 정책 상세 필터</button>
     <p>필요한 조건을 선택해 결과를 좁혀보세요.</p>
-    <div class="filter-tip">거주 지역·연령은 프로필 정보로 자동 반영돼요.</div>
+    <div class="filter-tip">
+      연령은 프로필 정보로 자동 반영돼요. 지역은 필요한 경우 직접 선택해 주세요.
+    </div>
 
     <div class="filter-groups">
-      <section
-        v-for="group in policyFilterGroups.slice(0, 5)"
-        :key="group[0]"
-        :class="`group-${policyFilterGroups.indexOf(group)}`"
-      >
+      <section v-for="group in policyFilterGroups" :key="group[0]">
         <h2>{{ group[0] }}</h2>
         <div>
           <button
@@ -90,25 +81,6 @@ function applyFilters() {
             aria-label="최소 지원 금액"
           />
           <strong>{{ amount ? `${amount}만원 이상` : '제한 없음' }}</strong>
-        </div>
-      </section>
-
-      <section
-        v-for="group in policyFilterGroups.slice(5)"
-        :key="group[0]"
-        :class="`group-${policyFilterGroups.indexOf(group)}`"
-      >
-        <h2>{{ group[0] }}</h2>
-        <div>
-          <button
-            v-for="item in group[1]"
-            :key="item"
-            type="button"
-            :class="{ active: selected.includes(item) }"
-            @click="toggle(group, item)"
-          >
-            {{ item }}
-          </button>
         </div>
       </section>
     </div>
@@ -156,41 +128,8 @@ function applyFilters() {
   gap: 11px;
   align-content: start;
 }
-.group-0 {
-  grid-column: 1;
-  grid-row: 1;
-}
-.group-1 {
-  grid-column: 1;
-  grid-row: 2;
-}
-.group-2 {
-  grid-column: 1;
-  grid-row: 3;
-}
-.group-3 {
-  grid-column: 1;
-  grid-row: 4;
-}
-.group-4 {
-  grid-column: 1;
-  grid-row: 5;
-}
 .amount-filter {
-  grid-column: 2;
-  grid-row: 1;
-}
-.group-5 {
-  grid-column: 2;
-  grid-row: 2;
-}
-.group-6 {
-  grid-column: 2;
-  grid-row: 3;
-}
-.group-7 {
-  grid-column: 2;
-  grid-row: 4;
+  grid-column: 1 / -1;
 }
 .filter-groups h2 {
   color: #222;
@@ -299,9 +238,6 @@ function applyFilters() {
     border-color: #f4bf40;
     background: var(--accent);
     color: #222;
-  }
-  .amount-filter {
-    grid-row: 6 !important;
   }
   .amount-filter input {
     min-width: 0;

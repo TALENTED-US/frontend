@@ -10,9 +10,19 @@ function splitTransactionAt(value = '') {
   return { date, time: rawTime.slice(0, 5) }
 }
 
+function resolveExpenseCategory(row) {
+  const mappedCategory = expenseCategoryLabel(row?.expenseCategory)
+  if (mappedCategory !== '기타') return mappedCategory
+
+  const transactionText = `${row?.transactionContent || ''} ${row?.transactionMemo || ''}`
+  if (/월세|임대료|관리비|공과금/.test(transactionText)) return '주거'
+  return mappedCategory
+}
+
 export function mapTransactionResponse(row) {
   const { date, time } = splitTransactionAt(row?.transactionAt)
   const isIncome = row?.transactionType === 'INCOME'
+  const isTransfer = row?.transactionType === 'TRANSFER'
   const amount = Math.abs(Number(row?.transactionAmount) || 0) * (isIncome ? 1 : -1)
 
   return {
@@ -20,14 +30,24 @@ export function mapTransactionResponse(row) {
     apiId: row?.transactionId,
     date,
     time,
-    title: row?.transactionContent || row?.transactionMemo || (isIncome ? '수입' : '지출'),
-    category: isIncome ? '수입' : expenseCategoryLabel(row?.expenseCategory),
-    detail: isIncome ? '입금' : row?.transactionType === 'FIXED' ? '고정지출' : '지출',
+    title:
+      row?.transactionContent ||
+      row?.transactionMemo ||
+      (isIncome ? '수입' : isTransfer ? '계좌이체' : '지출'),
+    category: isIncome ? '수입' : isTransfer ? '계좌이체' : resolveExpenseCategory(row),
+    detail: isIncome
+      ? '입금'
+      : isTransfer
+        ? '계좌이체 · 분석 제외'
+        : `${row?.transactionType === 'FIXED' ? '고정지출' : '지출'}${row?.analysisExcluded ? ' · 분석 제외' : ''}`,
     amount,
     memo: row?.transactionMemo || '',
     fixed: row?.transactionType === 'FIXED',
     transactionType: row?.transactionType,
     expenseCategory: row?.expenseCategory,
+    analysisExcluded: Boolean(row?.analysisExcluded),
+    classificationMethod: row?.classificationMethod || '',
+    transactionSource: row?.transactionSource || '',
   }
 }
 
@@ -55,6 +75,32 @@ export function getTransactionsApi() {
   return requestResult(() => apiClient.get('transactions'))
 }
 
+export async function getFixedExpenseDetailsApi() {
+  const rows = await requestResult(() => apiClient.get('transactions/fixed'))
+  return Array.isArray(rows)
+    ? rows.map((row) => {
+        const { date, time } = splitTransactionAt(row?.transactionAt)
+        return {
+          id: row?.transactionId,
+          apiId: row?.transactionId,
+          date,
+          time,
+          title: row?.transactionContent || '고정지출',
+          category: expenseCategoryLabel(row?.expenseCategory),
+          detail: '고정지출',
+          amount: -Math.abs(Number(row?.transactionAmount) || 0),
+          fixed: true,
+          transactionType: 'FIXED',
+          expenseCategory: row?.expenseCategory,
+        }
+      })
+    : []
+}
+
+export function getFixedExpenseSummaryApi() {
+  return requestResult(() => apiClient.get('transactions/fixed/sum'))
+}
+
 export function getTransactionDetailApi(transactionId) {
   return requestResult(() => apiClient.get(`transactions/${encodeURIComponent(transactionId)}`))
 }
@@ -75,6 +121,21 @@ export function updateTransactionApi(transactionId, payload) {
   )
 }
 
+export function updateTransactionMemoApi(transactionId, memo) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/memo`, { memo }),
+  )
+}
+
+export function classifyTransactionApi(transactionId, { transactionType, expenseCategory }) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/classification`, {
+      transactionType,
+      expenseCategory,
+    }),
+  )
+}
+
 export function deleteTransactionApi(transactionId) {
   return requestResult(() => apiClient.delete(`transactions/${encodeURIComponent(transactionId)}`))
 }
@@ -82,5 +143,11 @@ export function deleteTransactionApi(transactionId) {
 export function registerFixedTransactionApi(transactionId) {
   return requestResult(() =>
     apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/fixed`),
+  )
+}
+
+export function unregisterFixedTransactionApi(transactionId) {
+  return requestResult(() =>
+    apiClient.patch(`transactions/${encodeURIComponent(transactionId)}/fixed/delete`),
   )
 }

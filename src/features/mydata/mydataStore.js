@@ -151,27 +151,60 @@ export function refreshMyDataForPage() {
   return pageRefreshPromise
 }
 
+function removeSelectedMyDataAsset(assetType, assetId) {
+  const normalizedId = String(assetId)
+  if (!mydataState.selectionInitialized) {
+    mydataState.selectedAccountIds = mydataState.accounts
+      .filter((item) => item.isConsent !== false)
+      .map((item) => String(item.accountId))
+    mydataState.selectedCardIds = mydataState.cards
+      .filter((item) => item.isConsent !== false)
+      .map((item) => String(item.cardId))
+  }
+  if (assetType === 'ACCOUNT') {
+    mydataState.selectedAccountIds = mydataState.selectedAccountIds.filter(
+      (id) => id !== normalizedId,
+    )
+  } else {
+    mydataState.selectedCardIds = mydataState.selectedCardIds.filter(
+      (id) => id !== normalizedId,
+    )
+  }
+  mydataState.selectionInitialized = true
+  persistSelection()
+}
+
 export async function disconnectMyDataAsset(assetType, assetId) {
   return run(async () => {
-    const result = await disconnectMyDataAssetApi(assetType, assetId)
-    const normalizedId = String(assetId)
-    if (!mydataState.selectionInitialized) {
-      mydataState.selectedAccountIds = mydataState.accounts
-        .filter((item) => item.isConsent !== false)
-        .map((item) => String(item.accountId))
-      mydataState.selectedCardIds = mydataState.cards
-        .filter((item) => item.isConsent !== false)
-        .map((item) => String(item.cardId))
+    let result
+    try {
+      result = await disconnectMyDataAssetApi(assetType, assetId)
+    } catch (error) {
+      // 이미 해제된 자산의 재요청도 같은 최종 상태이므로 성공으로 처리합니다.
+      if (error.code !== 'MYDATA_011') throw error
+      result = {
+        assetType,
+        assetId: String(assetId),
+        disconnected: true,
+        alreadyDisconnected: true,
+      }
     }
-    if (assetType === 'ACCOUNT') {
-      mydataState.selectedAccountIds = mydataState.selectedAccountIds.filter(
-        (id) => id !== normalizedId,
-      )
-    } else {
-      mydataState.selectedCardIds = mydataState.selectedCardIds.filter((id) => id !== normalizedId)
-    }
-    mydataState.selectionInitialized = true
-    persistSelection()
+    removeSelectedMyDataAsset(assetType, assetId)
     return result
   }, '금융 자산 연결을 해제하지 못했습니다.')
+}
+
+export function resetMyDataConnectionState() {
+  mydataState.connection = null
+  mydataState.institutions = []
+  mydataState.accounts = []
+  mydataState.cards = []
+  mydataState.selectedAccountIds = []
+  mydataState.selectedCardIds = []
+  mydataState.selectionInitialized = false
+  mydataState.fixedExpenseCandidates = []
+  mydataState.lastSync = null
+  mydataState.loading = false
+  mydataState.error = ''
+  localStorage.removeItem(SELECTION_KEY)
 }

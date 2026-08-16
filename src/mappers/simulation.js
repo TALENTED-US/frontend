@@ -17,9 +17,7 @@ export function toUpdateSimulationItemRequest(item) {
     amount: numberOrZero(item.amount),
     applyStartDate,
     recurrenceType,
-    ...(recurrenceType === 'MONTHLY' && item.endDate
-      ? { applyEndDate: item.endDate }
-      : {}),
+    ...(recurrenceType === 'MONTHLY' && item.endDate ? { applyEndDate: item.endDate } : {}),
     ...(item.name ? { itemName: item.name.trim() } : {}),
   }
 }

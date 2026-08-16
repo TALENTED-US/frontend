@@ -1,9 +1,10 @@
-export const defaultPolicyFilters = ['첫취업', '취업', '신청 가능', '7일 이내']
+export const defaultPolicyFilters = []
 
 export const policyFilterGroups = [
-  ['취업 상태', ['첫취업', '재취업']],
+  ['취업 준비 상태', ['첫취업', '재취업', '재직자', '예비창업자', '미취업자']],
   ['정책 분야', ['취업', '주거', '복지', '교육', '교통', '청년지원']],
-  ['신청 가능 여부', ['신청 가능', '마감']],
+  ['정책 지역', ['전국', '서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종']],
+  ['신청 상태', ['신청 가능', '마감']],
   ['신청 마감', ['오늘 마감', '3일 이내', '7일 이내', '30일 이내', '상시']],
 ]
 
@@ -32,13 +33,25 @@ const deadlineFilters = {
 }
 const employmentFilters = {
   첫취업: 'FIRST_JOB',
-  재취업: 'UNEMPLOYED',
+  재취업: 'REEMPLOYMENT',
+  재직자: 'EMPLOYED',
+  예비창업자: 'PROSPECTIVE_FOUNDER',
+  미취업자: 'UNEMPLOYED',
+}
+const categoryFilters = {
+  취업: 'EMPLOYMENT',
+  주거: 'HOUSING',
+  복지: 'WELFARE',
+  교육: 'EDUCATION',
+  교통: 'TRANSPORT',
+  청년지원: 'YOUTH_SUPPORT',
 }
 
 export function toPolicySearchRequest(filters, amount = 0, keyword = '', options = {}) {
   const category = policyFilterGroups[1][1].find((item) => filters.includes(item))
   const employment = policyFilterGroups[0][1].find((item) => filters.includes(item))
-  const deadline = policyFilterGroups[3][1].find((item) => filters.includes(item))
+  const region = policyFilterGroups[2][1].find((item) => filters.includes(item))
+  const deadline = policyFilterGroups[4][1].find((item) => filters.includes(item))
   const available = filters.includes('신청 가능')
   const closed = filters.includes('마감')
 
@@ -46,7 +59,7 @@ export function toPolicySearchRequest(filters, amount = 0, keyword = '', options
     page: options.page || 1,
     size: options.size || 10,
     ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
-    ...(category ? { policyCategory: category } : {}),
+    ...(categoryFilters[category] ? { policyCategory: categoryFilters[category] } : {}),
     ...(employmentFilters[employment]
       ? { employmentPrepStatus: employmentFilters[employment] }
       : {}),
@@ -54,6 +67,6 @@ export function toPolicySearchRequest(filters, amount = 0, keyword = '', options
     ...(available || closed ? { policyStatus: closed ? 'CLOSED' : 'AVAILABLE' } : {}),
     ...(Number(amount) > 0 ? { policySupportAmount: Number(amount) * 10000 } : {}),
     ...(options.age !== undefined ? { age: options.age } : {}),
-    ...(options.policyRegion ? { policyRegion: options.policyRegion } : {}),
+    ...(region || options.policyRegion ? { policyRegion: region || options.policyRegion } : {}),
   }
 }

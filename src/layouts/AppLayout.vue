@@ -11,20 +11,33 @@ const body = ref(null)
 const mainContent = ref(null)
 const isSimulationContinue = computed(() => route.name === 'simulationContinue')
 
-watch(() => route.fullPath, async () => {
-  await nextTick()
-  body.value?.scrollTo({ top: 0, behavior: 'instant' })
-  mainContent.value?.focus({ preventScroll: true })
-})
+watch(
+  () => route.fullPath,
+  async () => {
+    await nextTick()
+    body.value?.scrollTo({ top: 0, behavior: 'instant' })
+    mainContent.value?.focus({ preventScroll: true })
+  },
+)
 </script>
 
 <template>
   <div class="app-shell">
     <SkipLink />
     <DesktopSidebar class="desktop-only" />
-    <div ref="body" class="app-shell__body">
+    <div
+      ref="body"
+      class="app-shell__body"
+      :class="{ 'app-shell__body--continue': isSimulationContinue }"
+    >
       <AppHeader :class="{ 'app-shell__header--continue': isSimulationContinue }" />
-      <main id="main-content" ref="mainContent" class="app-shell__content" :class="{ 'app-shell__content--continue': isSimulationContinue }" tabindex="-1">
+      <main
+        id="main-content"
+        ref="mainContent"
+        class="app-shell__content"
+        :class="{ 'app-shell__content--continue': isSimulationContinue }"
+        tabindex="-1"
+      >
         <RouterView />
       </main>
     </div>
@@ -45,10 +58,15 @@ watch(() => route.fullPath, async () => {
   margin-left: var(--sidebar-width);
 }
 
+.app-shell__body--continue,
+.app-shell__content--continue {
+  background: #fff;
+}
+
 .app-shell__content {
   width: min(100%, 1180px);
   margin: 0 auto;
-  padding: 20px clamp(32px, 5vw, 64px) 96px;
+  padding: 79px clamp(32px, 5vw, 64px) 96px;
 }
 
 @media (max-width: 767px) {

@@ -3,10 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import '@/features/simulation/styles/simulation.css'
 
 const router = useRouter()
 const simulation = useSimulationStore()
+simulation.clearSyncError()
 const toDateInputValue = (value) => {
   const match = String(value || '')
     .trim()
@@ -39,8 +41,16 @@ const incomeBenefitLine = computed(() =>
 const policyBenefitLine = computed(() =>
   benefitLine(simulation.recurringPolicy, simulation.oneTimePolicy, '일시 0원 지원'),
 )
+const currentMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.currentMonths))
+const expectedMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.expectedMonths))
+const addedMonthsLabel = computed(() =>
+  isInfinitePrepMonths(simulation.expectedMonths)
+    ? '∞ 연장'
+    : `+${simulation.addedMonths}개월`,
+)
 
 onMounted(async () => {
+  await simulation.hydrateRunwayBaseline()
   simulation.restoreConfirmedSnapshot()
 
   if (simulation.state.draftStarted && !simulation.state.confirmed) {
@@ -55,7 +65,8 @@ onMounted(async () => {
 
 async function updatePeriod() {
   if (periodSaving.value) return
-  if (!startDate.value || !endDate.value || endDate.value <= startDate.value) {
+  if (!startDate.value || !endDate.value) return
+  if (endDate.value <= startDate.value) {
     periodError.value = '종료일은 시작일보다 뒤여야 해요.'
     return
   }
@@ -164,15 +175,15 @@ async function createNewSimulation() {
         <section class="simulation-edit-forecast">
           <div class="simulation-edit-runway current">
             <span>현재 버티는 기간</span>
-            <strong>{{ simulation.currentMonths }}<small>개월</small></strong>
+            <strong>{{ currentMonthsLabel }}</strong>
           </div>
           <div class="simulation-edit-growth" aria-label="증가 기간">
-            <b>+{{ simulation.addedMonths }}개월</b>
+            <b>{{ addedMonthsLabel }}</b>
             <i><AppIcon name="arrow-right" :size="18" /></i>
           </div>
           <div class="simulation-edit-runway expected">
             <span>예상 버티는 기간</span>
-            <strong>{{ simulation.expectedMonths }}<small>개월</small></strong>
+            <strong>{{ expectedMonthsLabel }}</strong>
           </div>
           <div class="simulation-edit-actions">
             <p>

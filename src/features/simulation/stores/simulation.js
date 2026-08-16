@@ -3,7 +3,6 @@ import { defineStore } from 'pinia'
 import { dashboard } from '@/data/mockData'
 import {
   financeState,
-  financialReport,
   financeTransactions,
   loadTransactions,
 } from '@/features/finance/financeStore'
@@ -30,6 +29,8 @@ import {
   toUpdateSimulationItemRequest,
 } from '@/mappers/simulation'
 import { getPoliciesApi } from '@/api/policy'
+import { getButtieDashboardApi } from '@/api/dashboard'
+import { getMyDataAssetsApi } from '@/api/mydata'
 import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
 import {
   EXPENSE_CATEGORY_LABELS,
@@ -48,14 +49,19 @@ const CATEGORY_META = {
   쇼핑: { icon: '🛍️', color: '#88a9f6' },
   '취미·여가': { icon: '🎮', color: '#c8a8ef' },
   '주거·통신': { icon: '🏠', color: '#ffe197' },
-  '교통·주유': { icon: '🚌', color: '#aab5c8' },
-  '건강·운동': { icon: '🏥', color: '#8dd5c1' },
+  '교통·유류비': { icon: '🚌', color: '#aab5c8' },
+  '의료·건강': { icon: '🏥', color: '#8dd5c1' },
   '기타 금융': { icon: '🧾', color: '#b8bdc8' },
 }
 const EXPENSE_TARGET_CATEGORY_NAMES = Object.entries(EXPENSE_CATEGORY_LABELS)
   .filter(([category]) => category !== 'HOUSING_COMMUNICATION')
   .map(([, name]) => name)
 const DAYS_PER_MONTH = 365.2425 / 12
+
+function finiteNumberOrNull(value) {
+  const number = Number(value)
+  return value !== null && value !== undefined && Number.isFinite(number) ? number : null
+}
 
 function dateRangeMonths(startValue, endValue) {
   const startParts = String(startValue || '')
@@ -109,7 +115,7 @@ const defaultState = () => ({
   endDate: '2027-01-01',
   expenses: [
     { id: 'food', name: '식비', icon: '🍚', current: 150000, saving: 0, selected: false },
-    { id: 'transport', name: '교통·주유', icon: '🚌', current: 70000, saving: 0, selected: false },
+    { id: 'transport', name: '교통·유류비', icon: '🚌', current: 70000, saving: 0, selected: false },
     { id: 'shopping', name: '쇼핑', icon: '🛍️', current: 80000, saving: 0, selected: false },
   ],
   expenseApplied: false,
@@ -135,6 +141,9 @@ export const useSimulationStore = defineStore('simulation', () => {
   const syncing = ref(false)
   const syncError = ref('')
   const remoteReport = ref(null)
+  const remoteSimulation = ref(null)
+  const runwayBaseline = ref(null)
+  const currentFinancialAssets = ref(null)
   const recentConfirmed = ref(null)
   const remoteDraftExists = ref(null)
   const policyCatalog = ref([])
@@ -144,6 +153,50 @@ export const useSimulationStore = defineStore('simulation', () => {
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
   )
+  let runwayBaselineRequest = null
+  let financialSnapshotRequest = null
+
+  async function hydrateFinancialSnapshot(force = false) {
+    if (!remoteEnabled) return null
+    if (!force && financialSnapshotRequest) return financialSnapshotRequest
+
+    financialSnapshotRequest = Promise.allSettled([
+      getMyDataAssetsApi(),
+      loadTransactions(force),
+    ])
+      .then(([assetsResult]) => {
+        if (assetsResult.status === 'fulfilled') {
+          const accounts = Array.isArray(assetsResult.value?.accounts)
+            ? assetsResult.value.accounts
+            : []
+          currentFinancialAssets.value = accounts
+            .filter((account) => account.isConsent !== false)
+            .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
+        }
+        return currentFinancialAssets.value
+      })
+      .finally(() => {
+        financialSnapshotRequest = null
+      })
+    return financialSnapshotRequest
+  }
+
+  async function hydrateRunwayBaseline(force = false) {
+    if (!remoteEnabled) return null
+    if (!force && runwayBaseline.value) return runwayBaseline.value
+    if (runwayBaselineRequest) return runwayBaselineRequest
+
+    runwayBaselineRequest = getButtieDashboardApi()
+      .then((data) => {
+        runwayBaseline.value = data
+        return data
+      })
+      .catch(() => null)
+      .finally(() => {
+        runwayBaselineRequest = null
+      })
+    return runwayBaselineRequest
+  }
 
   function currentUserKey() {
     return String(session.currentUser.email || '')
@@ -157,12 +210,17 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function persistConfirmedSnapshot(snapshot) {
+    if (remoteEnabled) return
     const userKey = currentUserKey()
     if (!userKey) return
     sessionStorage.setItem(CONFIRMED_SNAPSHOT_KEY, JSON.stringify({ userKey, snapshot }))
   }
 
   function restoreConfirmedSnapshot() {
+    if (remoteEnabled) {
+      sessionStorage.removeItem(CONFIRMED_SNAPSHOT_KEY)
+      return null
+    }
     let savedSnapshot = null
     try {
       savedSnapshot = JSON.parse(sessionStorage.getItem(CONFIRMED_SNAPSHOT_KEY) || 'null')
@@ -243,26 +301,65 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!hasSavedExpensePlan) syncExpenseCategories(false)
   }
   watch(financeTransactions, () => syncExpenseCategories(true), { deep: true, immediate: true })
-  const totalAssets = computed(() => financialReport.value.totalAssets)
-  const availableAssets = ref(dashboard.liquidAssets ?? dashboard.totalAssets)
-  const monthlyIncome = computed(() => financialReport.value.monthlyIncome)
-  const monthlyExpense = computed(() => financialReport.value.monthlyExpense)
-  const runwayCalculationReady = computed(() =>
-    financialDataReady.value && monthlyExpense.value > 0,
+  const firstRemoteProjection = computed(
+    () => remoteSimulation.value?.monthlyProjections?.[0] || null,
+  )
+  const reportOpeningBalance = computed(() => {
+    const firstBalance = remoteReport.value?.monthlyBalances?.[0]
+    const cashflow = remoteReport.value?.cashflow
+    const closingBalance = finiteNumberOrNull(firstBalance?.beforeClosingBalance)
+    const income = finiteNumberOrNull(cashflow?.beforeMonthlyIncome)
+    const expense = finiteNumberOrNull(cashflow?.beforeMonthlyExpense)
+    return closingBalance === null || income === null || expense === null
+      ? null
+      : closingBalance - income + expense
+  })
+  const totalAssets = computed(() =>
+    remoteEnabled
+      ? (finiteNumberOrNull(firstRemoteProjection.value?.openingBalance) ??
+        reportOpeningBalance.value ??
+        finiteNumberOrNull(currentFinancialAssets.value))
+      : dashboard.totalAssets,
+  )
+  const availableAssets = computed(() =>
+    remoteEnabled ? totalAssets.value : (dashboard.liquidAssets ?? dashboard.totalAssets),
+  )
+  const monthlyIncome = computed(() =>
+    remoteEnabled
+      ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyIncome) ??
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedIncome) ??
+        (financialDataReady.value ? recentAnalysis.value.monthlyIncome : null))
+      : recentAnalysis.value.monthlyIncome,
+  )
+  const monthlyExpense = computed(() =>
+    remoteEnabled
+      ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyExpense) ??
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedExpense) ??
+        (financialDataReady.value ? recentAnalysis.value.monthlyExpense : null))
+      : recentAnalysis.value.monthlyExpense,
+  )
+  const runwayCalculationReady = computed(
+    () => !remoteEnabled && financialDataReady.value && monthlyExpense.value > 0,
   )
   const targetMonths = computed(() =>
     remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate),
   )
-  const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value))
+  const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value || 0))
   const localCurrentMonths = computed(() =>
     runwayCalculationReady.value
       ? Math.round((availableAssets.value / currentMonthlyBurn.value) * 10) / 10
       : null,
   )
-  // 확정 시점의 기준 기간은 수정 흐름에서도 유지한다. 서버의 draft/report 값은
-  // 확정 결과와 계산 기준이 다를 수 있으므로 수정 화면 진입 시 기준값을 덮지 않는다.
+  // 실 API 모드는 확정 결과, 보고서, 미확정 시뮬레이션 순으로 서버 계산값을 사용한다.
+  const remoteCurrentMonths = computed(
+    () =>
+      finiteNumberOrNull(state.confirmed ? recentConfirmed.value?.currentMonths : null) ??
+      finiteNumberOrNull(remoteReport.value?.currentPrepMonths) ??
+      finiteNumberOrNull(remoteSimulation.value?.currentPrepMonths) ??
+      finiteNumberOrNull(runwayBaseline.value?.currentPrepMonths),
+  )
   const currentMonths = computed(() =>
-    recentConfirmed.value ? recentConfirmed.value.currentMonths : localCurrentMonths.value,
+    remoteEnabled ? remoteCurrentMonths.value : localCurrentMonths.value,
   )
 
   const selectedExpenses = computed(() => state.expenses.filter((item) => item.selected))
@@ -318,12 +415,15 @@ export const useSimulationStore = defineStore('simulation', () => {
     const adjusted = currentMonths.value + baseIncrease * periodRatio
     return Math.min(60, Math.round(adjusted * 10) / 10)
   })
-  // 확정 결과를 보는 동안에만 확정 스냅샷을 사용한다. 수정(revert) 이후에는
-  // 기존 확정값을 비교 기준으로 보존하되, 변경된 항목으로 예상 기간을 다시 계산한다.
+  // 수정 중에는 보고서/미확정 시뮬레이션 값, 확정 후에는 확정 응답 값을 사용한다.
+  const remoteExpectedMonths = computed(
+    () =>
+      finiteNumberOrNull(state.confirmed ? recentConfirmed.value?.expectedMonths : null) ??
+      finiteNumberOrNull(remoteReport.value?.expectPrepMonths) ??
+      finiteNumberOrNull(remoteSimulation.value?.expectPrepMonths),
+  )
   const expectedMonths = computed(() =>
-    state.confirmed && recentConfirmed.value
-      ? recentConfirmed.value.expectedMonths
-      : localExpectedMonths.value,
+    remoteEnabled ? remoteExpectedMonths.value : localExpectedMonths.value,
   )
   const currentStatus = computed(() =>
     getApiRiskStatus(
@@ -336,11 +436,17 @@ export const useSimulationStore = defineStore('simulation', () => {
     Math.max(1, currentMonthlyBurn.value - expenseSaving.value),
   )
   const expensePreviewMonths = computed(() =>
-    Math.min(60, Math.round((availableAssets.value / expensePreviewMonthlyBurn.value) * 10) / 10),
+    remoteEnabled
+      ? expectedMonths.value
+      : Math.min(
+          60,
+          Math.round((availableAssets.value / expensePreviewMonthlyBurn.value) * 10) / 10,
+        ),
   )
-  const addedMonths = computed(() =>
-    Math.max(0, Math.round((expectedMonths.value - currentMonths.value) * 10) / 10),
-  )
+  const addedMonths = computed(() => {
+    if (currentMonths.value === null || expectedMonths.value === null) return 0
+    return Math.max(0, Math.round((expectedMonths.value - currentMonths.value) * 10) / 10)
+  })
   const completedCategories = computed(
     () =>
       [
@@ -352,6 +458,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   const hasDraft = computed(() => state.draftStarted || completedCategories.value > 0)
 
   function buildClientConfirmedSnapshot(identity = {}) {
+    if (remoteEnabled) return null
     if (!runwayCalculationReady.value) return null
 
     return {
@@ -484,23 +591,26 @@ export const useSimulationStore = defineStore('simulation', () => {
     return [...firstPage.content, ...remainingPages.flatMap((page) => mapPolicyPage(page).content)]
   }
 
-  async function loadPolicyCatalog() {
+  async function loadPolicyCatalog(customParams) {
     policyCatalogLoading.value = true
     policyCatalogError.value = ''
-    const isReemployment = session.currentUser.jobType === 'again'
+    // 정책 API는 명세와 달리 REEMPLOYMENT 조회 시 CATALOG_005를 반환한다.
+    // 재취업을 UNEMPLOYED로 임의 변환하지 않고, 서버가 지원하는 첫취업만 자동 조건으로 사용한다.
     const employmentPrepStatus =
-      isReemployment ? '재취업' : '첫취업'
-    const policyRegion = normalizePolicyRegion(session.currentUser.region)
-    const params = {
-      size: 100,
-      policyStatus: 'AVAILABLE',
-      employmentPrepStatus,
-      ...(calculateAge(session.currentUser.birth) !== undefined
-        ? { age: calculateAge(session.currentUser.birth) }
-        : {}),
-      // 백엔드에서 '재취업 + 지역' 조합은 CATALOG_005를 반환한다.
-      ...(!isReemployment && policyRegion ? { policyRegion } : {}),
-    }
+      session.currentUser.jobType === 'first' ? 'FIRST_JOB' : undefined
+    const params = customParams
+      ? { ...customParams, size: 100 }
+      : {
+          size: 100,
+          policyStatus: 'AVAILABLE',
+          ...(employmentPrepStatus ? { employmentPrepStatus } : {}),
+          ...(calculateAge(session.currentUser.birth) !== undefined
+            ? { age: calculateAge(session.currentUser.birth) }
+            : {}),
+          ...(normalizePolicyRegion(session.currentUser.region)
+            ? { policyRegion: normalizePolicyRegion(session.currentUser.region) }
+            : {}),
+        }
 
     try {
       let catalog
@@ -541,6 +651,13 @@ export const useSimulationStore = defineStore('simulation', () => {
     try {
       const result = await request()
       onSuccess(result)
+      if (remoteEnabled) {
+        try {
+          await refreshRemoteReport()
+        } catch (error) {
+          syncError.value = error.message || '시뮬레이션 결과를 새로고침하지 못했습니다.'
+        }
+      }
       state.confirmed = false
       return true
     } catch (error) {
@@ -669,7 +786,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   async function confirmScenario() {
-    if (!financialDataReady.value) {
+    if (!remoteEnabled && !financialDataReady.value) {
       try {
         await loadTransactions()
       } catch (error) {
@@ -678,8 +795,14 @@ export const useSimulationStore = defineStore('simulation', () => {
       }
     }
 
-    const localSnapshot = buildClientConfirmedSnapshot()
-    if (!localSnapshot) {
+    if (remoteEnabled) {
+      for (const category of ['expense', 'income', 'policy']) {
+        if (!(await syncCategory(category))) return false
+      }
+    }
+
+    const localSnapshot = remoteEnabled ? null : buildClientConfirmedSnapshot()
+    if (!remoteEnabled && !localSnapshot) {
       syncError.value = '거래 내역을 불러온 뒤 다시 시도해 주세요.'
       return false
     }
@@ -692,10 +815,8 @@ export const useSimulationStore = defineStore('simulation', () => {
 
       if (remoteEnabled) {
         await confirmSimulationApi()
-        const remoteConfirmed = mapConfirmedSimulationResponse(
-          await getLatestConfirmedSimulationApi(),
-          policyCatalog.value,
-        )
+        const response = await getLatestConfirmedSimulationApi()
+        const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
 
         if (!remoteConfirmed) {
           throw new Error('확정된 시뮬레이션 결과를 불러오지 못했습니다.')
@@ -707,6 +828,8 @@ export const useSimulationStore = defineStore('simulation', () => {
           clientCalculationVersion: CLIENT_CALCULATION_VERSION,
         }
         applyConfirmedItems(confirmed)
+        remoteSimulation.value = response
+        remoteReport.value = null
       }
 
       state.completedQuestIds = []
@@ -727,15 +850,18 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  function revertConfirmedScenario() {
-    return runScenarioMutation(revertConfirmedSimulationApi, () => {
+  async function revertConfirmedScenario() {
+    const reverted = await runScenarioMutation(revertConfirmedSimulationApi, () => {
       state.confirmed = false
       state.draftStarted = true
       state.ignoreRemoteDraft = false
       remoteDraftExists.value = true
-      // 확정 스냅샷은 수정 중인 시나리오의 비교 기준으로 계속 사용한다.
-      // 새 시뮬레이션 생성/삭제/로그아웃 경로에서만 제거한다.
+      clearConfirmedSnapshot()
     })
+    if (reverted && remoteEnabled) {
+      await hydrateDraft()
+    }
+    return reverted
   }
 
   function deleteConfirmedScenario() {
@@ -779,6 +905,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   function resetScenario() {
     Object.assign(state, defaultState())
     remoteReport.value = null
+    remoteSimulation.value = null
     clearConfirmedSnapshot()
     remoteDraftExists.value = null
     syncError.value = ''
@@ -800,14 +927,74 @@ export const useSimulationStore = defineStore('simulation', () => {
     state.draftStarted = true
     state.ignoreRemoteDraft = true
     remoteReport.value = null
+    remoteSimulation.value = null
+    remoteDraftExists.value = null
     clearConfirmedSnapshot()
+    syncError.value = ''
+  }
+
+  function clearSyncError() {
     syncError.value = ''
   }
 
   function applyRemoteSimulation(data) {
     if (!data) return
+    remoteSimulation.value = data
     if (data.simulationStartDate) state.startDate = data.simulationStartDate
     if (data.simulationDueDate) state.endDate = data.simulationDueDate
+  }
+
+  function resetRemoteItemState() {
+    state.expenses = state.expenses.map((item) => ({
+      ...item,
+      remoteId: undefined,
+      remoteSynced: false,
+    }))
+    state.incomes = state.incomes.map((item) => ({
+      ...item,
+      remoteId: undefined,
+      remoteSynced: false,
+    }))
+    state.policies = state.policies.map((item) => ({
+      ...item,
+      remoteId: undefined,
+      remoteSynced: false,
+    }))
+  }
+
+  async function ensureRemoteDraft() {
+    if (!remoteEnabled) return true
+
+    try {
+      const draft = await getCurrentSimulationApi()
+      remoteDraftExists.value = true
+      state.ignoreRemoteDraft = false
+      applyRemoteSimulation(draft)
+      return true
+    } catch (error) {
+      if (error.status !== 404) throw error
+    }
+
+    remoteDraftExists.value = false
+    remoteSimulation.value = null
+    remoteReport.value = null
+    resetRemoteItemState()
+
+    const created = await createSimulationApi({
+      simulationStartDate: state.startDate,
+      simulationDueDate: state.endDate,
+    })
+    remoteDraftExists.value = true
+    state.ignoreRemoteDraft = false
+    applyRemoteSimulation(created)
+    return true
+  }
+
+  async function refreshRemoteReport() {
+    if (!remoteEnabled || state.ignoreRemoteDraft) return null
+    const report = await getSimulationReportApi()
+    remoteReport.value = report
+    return report
   }
 
   async function hydrateDraft() {
@@ -818,10 +1005,15 @@ export const useSimulationStore = defineStore('simulation', () => {
       const data = await getCurrentSimulationApi()
       remoteDraftExists.value = true
       applyRemoteSimulation(data)
+      state.ignoreRemoteDraft = false
+      await refreshRemoteReport()
       return data
     } catch (error) {
-      if (error.status === 404) remoteDraftExists.value = false
-      else syncError.value = error.message
+      if (error.status === 404) {
+        remoteDraftExists.value = false
+        remoteSimulation.value = null
+        remoteReport.value = null
+      } else syncError.value = error.message
       return null
     } finally {
       syncing.value = false
@@ -862,14 +1054,10 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncing.value = true
     syncError.value = ''
     try {
-      await loadTransactions()
-      const restored = restoreConfirmedSnapshot()
-      const remoteConfirmed = mapConfirmedSimulationResponse(
-        await getLatestConfirmedSimulationApi(),
-        policyCatalog.value,
-      )
-      if (!remoteConfirmed) return null
+      const response = await getLatestConfirmedSimulationApi()
+      const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
 
+      const restored = restoreConfirmedSnapshot()
       const canReuseClientSnapshot =
         restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
         restored.simulationId === remoteConfirmed.simulationId &&
@@ -898,15 +1086,19 @@ export const useSimulationStore = defineStore('simulation', () => {
         applyConfirmedItems(confirmed)
       }
 
+      remoteSimulation.value = response
+      remoteReport.value = null
       recentConfirmed.value = confirmed
       persistConfirmedSnapshot(confirmed)
       state.confirmed = true
       state.draftStarted = false
       state.ignoreRemoteDraft = false
-      return confirmed
+      return remoteConfirmed
     } catch (error) {
       if (error.status === 404) {
         clearConfirmedSnapshot()
+        remoteSimulation.value = null
+        remoteReport.value = null
         state.confirmed = false
       } else syncError.value = error.message
       return null
@@ -949,6 +1141,10 @@ export const useSimulationStore = defineStore('simulation', () => {
         remoteDraftExists.value = true
         applyRemoteSimulation(data)
       }
+      const draft = await getCurrentSimulationApi()
+      applyRemoteSimulation(draft)
+      state.ignoreRemoteDraft = false
+      await refreshRemoteReport()
       return true
     } catch (error) {
       syncError.value = error.message
@@ -959,6 +1155,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   async function savePeriod(startDate, endDate) {
+    syncError.value = ''
     state.startDate = startDate
     state.endDate = endDate
     if (!remoteEnabled) return true
@@ -967,6 +1164,9 @@ export const useSimulationStore = defineStore('simulation', () => {
         simulationStartDate: startDate,
         simulationDueDate: endDate,
       })
+      const draft = await getCurrentSimulationApi()
+      applyRemoteSimulation(draft)
+      await refreshRemoteReport()
       return true
     } catch (error) {
       syncError.value = error.message
@@ -979,6 +1179,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     syncing.value = true
     syncError.value = ''
     try {
+      await ensureRemoteDraft()
       const pendingItems =
         category === 'expense'
           ? selectedExpenses.value
@@ -1032,8 +1233,7 @@ export const useSimulationStore = defineStore('simulation', () => {
         item.remoteId = result?.itemId || item.remoteId
         item.remoteSynced = true
       }
-      const serverReport = await getSimulationReportApi()
-      remoteReport.value = state.ignoreRemoteDraft ? null : serverReport
+      await refreshRemoteReport()
       return true
     } catch (error) {
       syncError.value = error.message
@@ -1083,6 +1283,7 @@ export const useSimulationStore = defineStore('simulation', () => {
 
   return {
     state,
+    remoteEnabled,
     policyCatalog,
     policyCatalogLoading,
     policyCatalogError,
@@ -1113,7 +1314,9 @@ export const useSimulationStore = defineStore('simulation', () => {
     hasDraft,
     syncing,
     syncError,
+    clearSyncError,
     remoteReport,
+    runwayBaseline,
     recentConfirmed,
     financialDataReady,
     runwayCalculationReady,
@@ -1146,6 +1349,8 @@ export const useSimulationStore = defineStore('simulation', () => {
     hydrateDraft,
     prepareConfirmationPreview,
     hydrateConfirmed,
+    hydrateRunwayBaseline,
+    hydrateFinancialSnapshot,
     beginSimulation,
     savePeriod,
     restoreConfirmedSnapshot,

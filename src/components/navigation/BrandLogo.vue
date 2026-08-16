@@ -1,5 +1,5 @@
 <script setup>
-import buttieLogo from '@/assets/images/dashboard/main-logo2.png'
+import buttieLogo from '@/assets/images/brand/buttie-logo-blue.png'
 
 defineProps({
   compact: {
@@ -10,14 +10,13 @@ defineProps({
 </script>
 
 <template>
-  <RouterLink class="brand-logo" :to="{ name: 'dashboard' }">
+  <RouterLink class="brand-logo" :to="{ name: 'dashboard' }" aria-label="버티 홈">
     <img
       class="brand-logo__image"
       :class="{ 'brand-logo__image--compact': compact }"
       :src="buttieLogo"
       alt=""
     />
-    <!-- <span v-if="!compact" class="brand-logo__name">버티</span> -->
   </RouterLink>
 </template>
 
@@ -25,7 +24,6 @@ defineProps({
 .brand-logo {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
 }
 
 .brand-logo__image {
@@ -46,12 +44,5 @@ defineProps({
     width: 92px;
     height: 34px;
   }
-}
-
-.brand-logo__name {
-  color: #171717;
-  font-size: 22px;
-  font-weight: 900;
-  letter-spacing: -0.05em;
 }
 </style>

@@ -7,6 +7,7 @@ import { useSessionStore } from '@/stores/session'
 import { formatExp, useProgressionStore } from '@/stores/progression'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
+import { formatKoreanDateTime } from '@/utils/dateTime'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -52,20 +53,7 @@ function formatDate(value) {
 }
 
 function formatDateTime(value) {
-  if (!value) return '기록 없음'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-    .format(date)
-    .replace(/\.$/, '')
+  return formatKoreanDateTime(value)
 }
 
 const menuItems = [
@@ -96,7 +84,11 @@ async function logout() {
 
 <template>
   <section class="page mypage">
-    <h1 class="mypage__title desktop-only">마이페이지</h1>
+    <header class="mypage-heading desktop-only">
+      <p class="app-page-heading__eyebrow">MY BUTTIE</p>
+      <h1 class="mypage__title">마이페이지</h1>
+      <p class="app-page-heading__description">내 정보와 취업 준비 설정을 한곳에서 관리해요.</p>
+    </header>
 
     <article class="profile-card">
       <div class="profile-card__identity">
@@ -134,19 +126,21 @@ async function logout() {
       </div>
 
       <dl class="profile-card__summary">
-        <div>
-          <dt>취업 준비 유형</dt>
-          <dd>{{ session.currentUser.jobType === 'first' ? '첫취업 준비' : '재취업 준비' }}</dd>
+        <div class="profile-card__employment">
+          <div>
+            <dt>취업 준비 유형</dt>
+            <dd>{{ session.currentUser.jobType === 'first' ? '첫취업 준비' : '재취업 준비' }}</dd>
+          </div>
+          <div>
+            <dt>준비 시작일</dt>
+            <dd>{{ formatDate(session.currentUser.startDate) }}</dd>
+          </div>
+          <div>
+            <dt>목표 취업 시점</dt>
+            <dd>{{ formatDate(session.currentUser.goalDate) }}</dd>
+          </div>
         </div>
-        <div>
-          <dt>준비 시작일</dt>
-          <dd>{{ formatDate(session.currentUser.startDate) }}</dd>
-        </div>
-        <div>
-          <dt>목표 취업 시점</dt>
-          <dd>{{ formatDate(session.currentUser.goalDate) }}</dd>
-        </div>
-        <div>
+        <div class="profile-card__mydata">
           <dt>마이데이터 연결 상태</dt>
           <dd>
             {{ session.myDataConnected ? '연결됨' : '연결 안 됨' }} · 마지막 갱신
@@ -191,10 +185,10 @@ async function logout() {
 
 .profile-card {
   display: grid;
-  grid-template-columns: minmax(165px, 0.28fr) minmax(0, 1fr);
-  gap: 18px 32px;
-  min-height: 350px;
-  padding: 28px 30px;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px 38px;
+  min-height: 330px;
+  padding: 34px 36px;
   border-radius: 18px;
 }
 
@@ -202,18 +196,23 @@ async function logout() {
   grid-row: 1 / 3;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding-right: 28px;
+  border-right: 1px solid #eaecf0;
+  text-align: center;
 }
 
 .profile-avatar {
   position: relative;
-  width: 82px;
+  width: 124px;
 }
 
 .profile-avatar__ring {
   display: grid;
-  width: 82px;
-  height: 82px;
+  width: 124px;
+  height: 124px;
   place-items: center;
   overflow: hidden;
   border-radius: 50%;
@@ -221,9 +220,9 @@ async function logout() {
 }
 
 .profile-avatar img {
-  width: 66px;
-  height: 66px;
-  object-fit: cover;
+  width: 108px;
+  height: 108px;
+  object-fit: contain;
 }
 
 .profile-avatar b {
@@ -231,8 +230,8 @@ async function logout() {
   right: -2px;
   bottom: -4px;
   display: grid;
-  width: 27px;
-  height: 27px;
+  width: 32px;
+  height: 32px;
   place-items: center;
   border-radius: 50%;
   background: #49362c;
@@ -241,16 +240,19 @@ async function logout() {
 }
 
 .profile-card__user h2 {
-  font-size: var(--font-section-title);
+  font-size: var(--type-card-title-size);
+  font-weight: var(--type-card-title-weight);
 }
 .profile-card__user p {
-  margin-top: 4px;
+  margin-top: 6px;
   color: #6b707d;
   font-size: var(--font-small);
 }
 
 .profile-card__progress {
   align-self: start;
+  padding: 4px 0 20px;
+  border-bottom: 1px solid #eaecf0;
 }
 .profile-card__level {
   display: flex;
@@ -271,14 +273,15 @@ async function logout() {
 }
 .profile-card__progress > strong {
   display: block;
-  margin-top: 3px;
-  font-size: var(--font-page-title);
+  margin-top: 10px;
+  font-size: var(--type-result-size);
+  font-weight: var(--type-result-weight);
 }
 .progress-row {
   display: flex;
   align-items: center;
   gap: 13px;
-  margin-top: 7px;
+  margin-top: 10px;
 }
 .progress-row i {
   flex: 1;
@@ -302,27 +305,49 @@ async function logout() {
 .profile-card__summary {
   align-self: end;
   display: grid;
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
-.profile-card__summary div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+.profile-card__summary > div {
+  display: grid;
+  min-height: 66px;
+  align-content: center;
+  gap: 6px;
   min-width: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f7f8fa;
+}
+
+.profile-card__summary .profile-card__employment {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+}
+
+.profile-card__employment > div {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+}
+
+.profile-card__employment > div + div {
+  border-left: 1px solid #dfe3e8;
 }
 .profile-card__summary dt {
   color: #6b707d;
-  font-size: var(--font-body);
+  font-size: var(--type-supporting-size);
 }
 .profile-card__summary dd {
   min-width: 0;
-  max-width: 62%;
+  max-width: none;
   overflow-wrap: anywhere;
-  font-size: var(--font-body);
-  font-weight: 800;
-  text-align: right;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  text-align: left;
 }
 
 .settings-title {
@@ -389,10 +414,10 @@ async function logout() {
 
 @media (max-width: 767px) {
   .profile-card {
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: 14px 12px;
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 16px 14px;
     min-height: auto;
-    padding: 18px 16px 20px;
+    padding: 22px 18px;
     border-radius: 18px;
   }
 
@@ -402,18 +427,18 @@ async function logout() {
 
   .profile-avatar {
     grid-row: 1 / 3;
-    width: 62px;
-    height: 62px;
+    width: 76px;
+    height: 76px;
     align-self: start;
-    transform: translateY(18px);
+    transform: translateY(10px);
   }
   .profile-avatar__ring {
-    width: 62px;
-    height: 62px;
+    width: 76px;
+    height: 76px;
   }
   .profile-avatar img {
-    width: 50px;
-    height: 50px;
+    width: 66px;
+    height: 66px;
   }
   .profile-avatar b {
     width: 22px;
@@ -434,6 +459,7 @@ async function logout() {
   .profile-card__progress {
     grid-column: 2;
     grid-row: 1 / 3;
+    padding-bottom: 14px;
   }
   .profile-card__level {
     font-size: var(--font-caption);
@@ -458,15 +484,28 @@ async function logout() {
   }
   .profile-card__summary {
     grid-column: 1 / -1;
-    gap: 10px;
-    margin-top: 3px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .profile-card__summary > div {
+    min-height: 60px;
+    grid-column: auto;
+    padding: 11px 13px;
+  }
+  .profile-card__summary .profile-card__employment {
+    padding: 0;
+  }
+  .profile-card__employment > div {
+    min-height: 60px;
+    padding: 10px 8px;
   }
   .profile-card__summary dt,
   .profile-card__summary dd {
     font-size: var(--font-small);
   }
   .profile-card__summary dd {
-    max-width: 61%;
+    max-width: none;
   }
   .settings-title {
     margin: 14px 0 8px 3px;

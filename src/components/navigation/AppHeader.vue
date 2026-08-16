@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import BrandLogo from '@/components/navigation/BrandLogo.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import { notifyLatestOncePerDay } from '@/features/notification/notificationService'
 import { useSessionStore } from '@/stores/session'
 import {
   loadNotifications,
@@ -37,6 +37,7 @@ const titles = {
   timeline: '내 재정',
   search: '정책',
   searchFilter: '정책 상세 필터',
+  policyDetail: '정책 상세',
   notifications: '알림',
   mypage: '마이페이지',
   myInfo: '내 정보',
@@ -84,7 +85,6 @@ const mobileTitle = computed(() => {
   }
   return title.value
 })
-const isFinanceMain = computed(() => route.name === 'finance')
 
 async function toggle(name) {
   openPopover.value = openPopover.value === name ? '' : name
@@ -116,7 +116,8 @@ function goBack() {
       policy: '/simulation/income/preview',
     }[route.params.category]
     router.push(previousPath || '/simulation')
-  } else goBackFromMyPageDetail()
+  } else if (isMyPageDetail.value) goBackFromMyPageDetail()
+  else router.back()
 }
 
 async function openNotification(item) {
@@ -141,7 +142,6 @@ onMounted(async () => {
   try {
     await loadNotifications()
   } catch {}
-  notifyLatestOncePerDay()
 })
 onBeforeUnmount(() => document.removeEventListener('pointerdown', closePopoverOnOutsideClick))
 watch(
@@ -153,10 +153,14 @@ watch(
 </script>
 
 <template>
-  <header :class="['app-header', { 'app-header--finance': isFinanceMain }]">
+  <header class="app-header app-header--finance">
     <button
       v-if="hasMobileBack"
-      :class="['app-header__back', 'mobile-only', { 'app-header__back--category': isSimulationCategory }]"
+      :class="[
+        'app-header__back',
+        'mobile-only',
+        { 'app-header__back--category': isSimulationCategory },
+      ]"
       type="button"
       :aria-label="
         isNotifications
@@ -173,7 +177,13 @@ watch(
     >
       ‹
     </button>
-    <strong v-if="!isSimulationCategory" class="app-header__title mobile-only">{{ mobileTitle }}</strong>
+    <BrandLogo
+      v-if="!hasMobileBack && !isSimulationCategory"
+      class="app-header__brand mobile-only"
+    />
+    <strong v-else-if="!isSimulationCategory" class="app-header__title mobile-only">{{
+      mobileTitle
+    }}</strong>
     <div class="app-header__spacer" />
     <button
       v-if="!isFixedExpense && !isNotifications"
@@ -430,6 +440,10 @@ watch(
     color: var(--text);
     font-size: 17px;
     font-weight: 900;
+  }
+  .app-header__brand :deep(.brand-logo__image) {
+    width: 108px;
+    height: 38px;
   }
   .header-chip {
     width: 44px;

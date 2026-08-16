@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
-import { defineStore } from 'pinia'
-import { loginApi, logoutApi, reissueAccessTokenApi } from '@/api/auth'
+import { defineStore, getActivePinia } from 'pinia'
+import { loginApi, logoutApi, reissueAccessTokenApi, resetPasswordApi } from '@/api/auth'
 import {
   getAccessToken,
   setAccessToken,
@@ -20,6 +20,7 @@ import { normalizeButtieProgression, useProgressionStore } from '@/stores/progre
 import { clearCalendar } from '@/features/finance/calendarStore'
 import { clearTransactions } from '@/features/finance/financeStore'
 import { clearNotifications } from '@/features/notification/notificationStore'
+import { resetMyDataConnectionState } from '@/features/mydata/mydataStore'
 
 const AUTH_KEY = 'buttie-auth'
 const API_PROFILE_KEY = 'buttie-api-profile'
@@ -107,6 +108,7 @@ export const useSessionStore = defineStore('session', () => {
   const isRestoring = ref(false)
   const authError = ref('')
   const passwordChangeVerified = ref(false)
+  const passwordChangeIdentityToken = ref('')
   const currentPassword = ref(mockCredentials.password)
   const myDataConnected = ref(myData.connected)
   const myDataLastUpdated = ref(myData.lastUpdated)
@@ -121,6 +123,7 @@ export const useSessionStore = defineStore('session', () => {
   function clearAuthState() {
     isAuthenticated.value = false
     passwordChangeVerified.value = false
+    passwordChangeIdentityToken.value = ''
     authError.value = ''
     sessionStorage.removeItem(AUTH_KEY)
     sessionStorage.removeItem(API_PROFILE_KEY)
@@ -128,6 +131,17 @@ export const useSessionStore = defineStore('session', () => {
     clearCalendar()
     clearTransactions()
     clearNotifications()
+    resetMyDataConnectionState()
+    progression.resetProgression()
+
+    const pinia = getActivePinia()
+    pinia?._s.get('simulation')?.resetScenario()
+    pinia?._s.get('quest')?.resetQuests()
+    localStorage.removeItem('buttie-simulation-v4')
+    sessionStorage.removeItem('buttie-simulation-confirmed-snapshot-v1')
+    myDataConnected.value = false
+    myDataLastUpdated.value = ''
+    currentUser.value = {}
   }
 
   function handleUnauthorized() {
@@ -275,15 +289,30 @@ export const useSessionStore = defineStore('session', () => {
     clearAuthState()
   }
 
-  function verifyPasswordChange() {
+  function verifyPasswordChange(identityVerificationToken = '') {
     passwordChangeVerified.value = true
+    passwordChangeIdentityToken.value = identityVerificationToken
   }
 
   function clearPasswordChangeVerification() {
     passwordChangeVerified.value = false
+    passwordChangeIdentityToken.value = ''
   }
 
-  function changePassword(password) {
+  async function changePassword(password, passwordCheck = password) {
+    if (!isMockMode) {
+      if (!passwordChangeIdentityToken.value) {
+        throw new Error('본인인증 정보가 없습니다. 다시 인증해 주세요.')
+      }
+      await resetPasswordApi(
+        {
+          password,
+          passwordCheck,
+        },
+        passwordChangeIdentityToken.value,
+      )
+      return
+    }
     currentPassword.value = password
     mockCredentials.password = password
     localStorage.setItem('buttie-mock-password', password)
@@ -304,6 +333,17 @@ export const useSessionStore = defineStore('session', () => {
     else persistApiProfile()
   }
 
+  function clearMyDataConnection() {
+    myDataConnected.value = false
+    myDataLastUpdated.value = ''
+    currentUser.value.mydataStatus = 'DISCONNECTED'
+    currentUser.value.lastSyncedAt = ''
+    myData.connected = false
+    myData.lastUpdated = ''
+    if (isMockMode) localStorage.removeItem('buttie-mydata')
+    else persistApiProfile()
+  }
+
   setAccessTokenReissueHandler(reissueAccessTokenApi)
   setUnauthorizedHandler(handleUnauthorized)
 
@@ -315,6 +355,7 @@ export const useSessionStore = defineStore('session', () => {
     currentUser,
     displayName,
     passwordChangeVerified,
+    passwordChangeIdentityToken,
     myDataConnected,
     myDataLastUpdated,
     authenticate,
@@ -331,5 +372,6 @@ export const useSessionStore = defineStore('session', () => {
     changePassword,
     verifyCurrentPassword,
     refreshMyData,
+    clearMyDataConnection,
   }
 })

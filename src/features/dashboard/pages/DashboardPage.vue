@@ -2,11 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
+import { getMyDataAssetsApi } from '@/api/mydata'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import QuestOverview from '@/features/quest/components/QuestOverview.vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
-import FinancialReportCard from '@/features/finance/components/FinancialReportCard.vue'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import { pickButtieMessage } from '@/data/buttieMessages'
@@ -16,6 +16,7 @@ import {
   loadTransactions,
 } from '@/features/finance/financeStore'
 import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalytics'
+import { formatPrepMonths, isInfinitePrepMonths } from '@/utils/prepMonths'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
 import {
@@ -32,7 +33,13 @@ const quests = useQuestStore()
 const buttieDashboard = ref(null)
 const dashboardApiError = ref('')
 const dashboardApiLoading = ref(false)
+const financialAssets = ref(null)
+const financialAssetsError = ref('')
 
+function finiteNumberOrNull(value) {
+  const number = Number(value)
+  return value !== null && value !== undefined && Number.isFinite(number) ? number : null
+}
 async function loadButtieDashboard() {
   if (session.isMockMode) return
   dashboardApiLoading.value = true
@@ -56,12 +63,10 @@ async function loadButtieDashboard() {
   }
 }
 
-onMounted(async () => {
-  await loadButtieDashboard()
-  try {
-    await loadTransactions()
-  } catch {
-    // 홈은 기존 화면을 유지하고 내 재정에서 자세한 오류를 안내합니다.
+async function loadFinancialAssets() {
+  if (session.isMockMode) {
+    financialAssets.value = dashboard.totalAssets
+    return
   }
   const draft = quests.remoteEnabled ? await simulation.hydrateDraft() : null
   if (draft) {
@@ -69,6 +74,26 @@ onMounted(async () => {
     return
   }
   if (simulation.syncError) return
+
+  financialAssetsError.value = ''
+  try {
+    const assets = await getMyDataAssetsApi()
+    const accounts = Array.isArray(assets?.accounts) ? assets.accounts : []
+    financialAssets.value = accounts
+      .filter((account) => account.isConsent !== false)
+      .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
+  } catch (error) {
+    financialAssets.value = null
+    financialAssetsError.value = error.message || '계좌 잔액을 불러오지 못했습니다.'
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([
+    loadButtieDashboard(),
+    loadFinancialAssets(),
+    loadTransactions().catch(() => null),
+  ])
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
 })
@@ -88,6 +113,14 @@ const LEVEL_DESCRIPTIONS = Object.freeze([
   { level: 4, title: '천사 버티', description: '자산을 든든히 지키는 버티' },
   { level: 5, title: '수호신 버티', description: '재정을 완성한 최고 단계 버티' },
 ])
+const POLICY_APPLICATION_URLS = Object.freeze({
+  국민취업지원제도: 'https://m.work24.go.kr/ua/z/z/1300/selectEmssRqutIntro.do',
+  '청년 월세 특별지원': 'https://housing.seoul.go.kr/site/main/content/sh01_060513',
+  '청년 월세 지원': 'https://housing.seoul.go.kr/site/main/content/sh01_060513',
+  청년도약계좌: 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+  'KB 청년도약계좌': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+  'youth-saving': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+})
 const levelInfoOpen = ref(false)
 const levelTitle = computed(() => LEVEL_TITLES[buttieLevel.value] || LEVEL_TITLES[1])
 const levelMessage = ref('')
@@ -155,6 +188,10 @@ function formatCompactWon(value) {
   return formatWon(amount)
 }
 
+function formatOptionalCompactWon(value) {
+  return finiteNumberOrNull(value) === null ? '-' : formatCompactWon(value)
+}
+
 function formatSignedCompactWon(value) {
   const amount = Math.round(Number(value) || 0)
   if (!amount) return formatCompactWon(0)
@@ -214,8 +251,10 @@ const preparationMonthsValue = computed(
   () => preparationDuration.value.months + preparationDuration.value.days / AVERAGE_MONTH_DAYS,
 )
 
-const availableAssets = computed(() =>
-  Math.max(0, Number(dashboard.liquidAssets ?? dashboard.totalAssets) || 0),
+const totalAssets = computed(() =>
+  session.isMockMode
+    ? Math.max(0, Number(dashboard.totalAssets) || 0)
+    : finiteNumberOrNull(financialAssets.value),
 )
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
@@ -233,27 +272,35 @@ const hasConfirmedSimulationDurations = computed(
 )
 
 const survivalMonths = computed(() => {
+  if (!session.isMockMode) {
+    return finiteNumberOrNull(buttieDashboard.value?.currentPrepMonths)
+  }
   if (hasConfirmedSimulationDurations.value) {
     return Math.max(0, Number(simulation.recentConfirmed.currentMonths))
   }
   if (!financeState.loaded) return null
-  return monthlyExpense.value > 0 ? availableAssets.value / monthlyExpense.value : 0
+  return monthlyExpense.value > 0 ? totalAssets.value / monthlyExpense.value : 0
 })
-const displayedSurvivalMonths = computed(() => survivalMonths.value === null
-  ? '-'
-  : survivalMonths.value.toFixed(1))
+const survivalIsInfinite = computed(() => isInfinitePrepMonths(survivalMonths.value))
+const displayedSurvivalMonths = computed(() => formatPrepMonths(survivalMonths.value))
 const hasConfirmedScenario = computed(
   () =>
+    (!session.isMockMode && finiteNumberOrNull(buttieDashboard.value?.expectPrepMonths) !== null) ||
     hasConfirmedSimulationDurations.value ||
     simulation.state.confirmed,
 )
 const displayedExpectedMonths = computed(() => {
+  if (!session.isMockMode) {
+    const expected = finiteNumberOrNull(buttieDashboard.value?.expectPrepMonths)
+    return formatPrepMonths(expected)
+  }
   if (hasConfirmedSimulationDurations.value) {
-    return Math.max(0, Number(simulation.recentConfirmed.expectedMonths)).toFixed(1)
+    return formatPrepMonths(Math.max(0, Number(simulation.recentConfirmed.expectedMonths)))
   }
   if (!simulation.state.confirmed || simulation.expectedMonths === null) return '-'
-  return Number(simulation.expectedMonths).toFixed(1)
+  return formatPrepMonths(simulation.expectedMonths)
 })
+const expectedIsInfinite = computed(() => displayedExpectedMonths.value === '∞')
 const confirmedExpenseRows = computed(() =>
   simulation.state.expenseApplied
     ? simulation.selectedExpenses.map((item) => ({
@@ -325,6 +372,29 @@ function questCompletionId(item) {
   if (quests.remoteEnabled) return item.id
   return item.recurrence === 'monthly' ? `${item.id}@${questMonthKey.value}` : item.id
 }
+
+function policyApplicationUrl(item) {
+  if (item?.kind !== 'policy') return ''
+
+  const directUrl =
+    item.questUrl ||
+    item.applicationUrl ||
+    item.applyUrl ||
+    item.policyUrl ||
+    item.url ||
+    item.detailUrl ||
+    item.link
+  if (directUrl) return directUrl
+
+  const name = String(item.name || '')
+  const exactMatch = POLICY_APPLICATION_URLS[item.id] || POLICY_APPLICATION_URLS[name]
+  if (exactMatch) return exactMatch
+
+  const partialMatch = Object.entries(POLICY_APPLICATION_URLS).find(
+    ([policyName]) => policyName !== 'youth-saving' && name.includes(policyName),
+  )
+  return partialMatch?.[1] || ''
+}
 const completedQuestIds = computed(() => new Set(simulation.state.completedQuestIds || []))
 const completedQuestCount = computed(() => allQuestRows.value.filter(isQuestCompleted).length)
 const activeQuestCount = computed(() => allQuestRows.value.length - completedQuestCount.value)
@@ -376,10 +446,6 @@ const visibleQuestSections = computed(() =>
     return { ...section, visibleRows: rows }
   }),
 )
-const oneTimeBenefitText = computed(() => {
-  const total = simulation.oneTimeIncome + simulation.oneTimePolicy
-  return total > 0 ? `일시 수입·혜택 ${formatCompactWon(total)} 별도` : '정기 반영 금액 기준'
-})
 function isQuestCompleted(item) {
   if (quests.remoteEnabled) return item.completed
   return completedQuestIds.value.has(questCompletionId(item))
@@ -482,11 +548,32 @@ watch(
 )
 
 const initialAssets = computed(() =>
-  Math.max(0, Number(dashboard.initialAssets ?? dashboard.totalAssets) || 0),
+  session.isMockMode
+    ? Math.max(0, Number(dashboard.initialAssets ?? dashboard.totalAssets) || 0)
+    : totalAssets.value,
 )
 const financialRiskAmount = computed(
-  () => Number(currentUser.value.financialRiskAlertAmount) || Math.round(initialAssets.value * 0.2),
+  () =>
+    finiteNumberOrNull(currentUser.value.financialRiskAlertAmount) ??
+    (session.isMockMode && initialAssets.value !== null
+      ? Math.round(initialAssets.value * 0.2)
+      : null),
 )
+const financialSafetyBuffer = computed(() =>
+  Math.max(0, (Number(totalAssets.value) || 0) - (Number(financialRiskAmount.value) || 0)),
+)
+const hasReachedFinancialRiskAmount = computed(() => {
+  const assets = finiteNumberOrNull(totalAssets.value)
+  const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
+  return assets !== null && riskAmount !== null && assets <= riskAmount
+})
+const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
+const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
+const monthlyNetChangeLabel = computed(() => {
+  if (netCashFlow.value > 0) return '매달 들어오는 금액'
+  if (netCashFlow.value < 0) return '매달 나가는 금액'
+  return '매달 순변동 금액'
+})
 const remainingDurationText = computed(() => {
   if (remainingDays.value <= 0) return '목표일 도달'
   return `${remainingDuration.value.months}개월 ${remainingDuration.value.days}일`
@@ -506,14 +593,6 @@ const preparationProgress = computed(() => {
     Math.max(0, Math.round(((today.value.getTime() - start.getTime()) / total) * 100)),
   )
 })
-const financialRiskProgress = computed(() =>
-  initialAssets.value > 0
-    ? Math.min(
-        100,
-        Math.max(0, Math.round((financialRiskAmount.value / initialAssets.value) * 100)),
-      )
-    : 0,
-)
 const currentMonthText = computed(() => formatMonthLabel(today.value))
 const targetMonthText = computed(() =>
   targetEmploymentDate.value ? formatMonthLabel(targetEmploymentDate.value) : '-',
@@ -522,61 +601,77 @@ const targetMonthText = computed(() =>
 
 <template>
   <section class="page dashboard">
-    <section class="level-overview" aria-label="레벨 및 경험치">
-      <div>
-        <div class="level-overview__level">
-          <strong>Lv.{{ buttieLevel }}</strong>
-          <b>{{ levelTitle }}</b>
-        </div>
-        <div :class="['level-info', { 'level-info--open': levelInfoOpen }]">
-          <button
-            type="button"
-            class="level-info__button"
-            aria-label="버티 레벨 설명 보기"
-            aria-controls="level-info-popover"
-            :aria-expanded="levelInfoOpen"
-            @click="levelInfoOpen = !levelInfoOpen"
-            @keydown.esc="levelInfoOpen = false"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 10.5v6M12 7.5h.01" />
-            </svg>
-          </button>
-          <div id="level-info-popover" class="level-info__popover" role="tooltip">
-            <strong class="level-info__title">버티 레벨 안내</strong>
-            <ul>
-              <li
-                v-for="item in LEVEL_DESCRIPTIONS"
-                :key="item.level"
-                :class="{ current: item.level === buttieLevel }"
-              >
-                <b>레벨 {{ item.level }}. {{ item.title }}</b>
-                <span>{{ item.description }}</span>
-              </li>
-            </ul>
+    <div class="dashboard__top">
+      <header class="dashboard__heading">
+        <p class="app-page-heading__eyebrow">FINANCIAL OVERVIEW</p>
+        <h1>버티와 함께하는 취준 여정,<br />지금 확인해 보세요</h1>
+        <p class="app-page-heading__description">취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
+      </header>
+      <section class="level-overview" aria-label="레벨 및 경험치">
+        <div>
+          <div class="level-overview__level">
+            <strong>Lv.{{ buttieLevel }}</strong>
+            <b>{{ levelTitle }}</b>
           </div>
+          <div :class="['level-info', { 'level-info--open': levelInfoOpen }]">
+            <button
+              type="button"
+              class="level-info__button"
+              aria-label="버티 레벨 설명 보기"
+              aria-controls="level-info-popover"
+              :aria-expanded="levelInfoOpen"
+              @click="levelInfoOpen = !levelInfoOpen"
+              @keydown.esc="levelInfoOpen = false"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 10.5v6M12 7.5h.01" />
+              </svg>
+            </button>
+            <div id="level-info-popover" class="level-info__popover" role="tooltip">
+              <strong class="level-info__title">버티 레벨 안내</strong>
+              <ul>
+                <li
+                  v-for="item in LEVEL_DESCRIPTIONS"
+                  :key="item.level"
+                  :class="{ current: item.level === buttieLevel }"
+                >
+                  <b>레벨 {{ item.level }}. {{ item.title }}</b>
+                  <span>{{ item.description }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <span v-if="buttieLevel < 5">다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span>
+          <span v-else>최고 레벨 달성</span>
         </div>
-        <span v-if="buttieLevel < 5"> 다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP </span>
-        <span v-else>최고 레벨 달성</span>
-      </div>
-      <div class="level-overview__progress">
-        <b v-if="buttieLevel < 5">
-          {{ formatExp(buttieExp) }} / {{ formatExp(buttieRequiredExp) }} EXP
-        </b>
-        <b v-else>MAX LEVEL</b>
-        <i><span :style="{ width: `${buttieProgressPercent}%` }" /></i>
-      </div>
-    </section>
-    <header class="dashboard__heading">
-      <h1>버티와 함께하는 취준 여정, 지금 확인해 보세요</h1>
-      <p>취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
-    </header>
+        <div
+          class="level-overview__progress"
+          role="progressbar"
+          aria-label="현재 레벨 경험치"
+          :aria-valuenow="Math.round(buttieProgressPercent)"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <b v-if="buttieLevel < 5">
+            {{ formatExp(buttieExp) }} / {{ formatExp(buttieRequiredExp) }} EXP
+          </b>
+          <b v-else>MAX LEVEL</b>
+          <i aria-hidden="true">
+            <span :style="{ width: `${buttieProgressPercent}%` }" />
+          </i>
+        </div>
+      </section>
+    </div>
     <div v-if="dashboardApiError" class="dashboard-api-notice" role="alert">
       <span>{{ dashboardApiError }}</span>
       <button type="button" :disabled="dashboardApiLoading" @click="loadButtieDashboard">
         {{ dashboardApiLoading ? '불러오는 중' : '다시 시도' }}
       </button>
+    </div>
+    <div v-if="financialAssetsError" class="dashboard-api-notice" role="alert">
+      <span>{{ financialAssetsError }}</span>
+      <button type="button" @click="loadFinancialAssets">다시 시도</button>
     </div>
 
     <section class="survival-section" aria-labelledby="survival-title">
@@ -587,7 +682,10 @@ const targetMonthText = computed(() =>
             지금 자금으로<span class="mobile-only"><br /></span> {{ survivalCardTitle }}
           </h3>
           <h3 v-else>지금 자금으로 버틸 수 있는 기간을 계산 중이에요</h3>
-          <p v-if="survivalMonths !== null">
+          <p v-if="survivalIsInfinite">
+            현재 예상되는 월 수입이 월 지출보다 많아 자산이 소진되지 않는 상태예요.
+          </p>
+          <p v-else-if="survivalMonths !== null">
             목표 취업 시기까지 {{ displayedTargetMonths }}개월,<br />
             버틸 수 있는 기간은 {{ displayedSurvivalMonths }}개월이에요
           </p>
@@ -597,7 +695,10 @@ const targetMonthText = computed(() =>
         <div class="survival-card__metrics">
           <div class="survival-card__metric survival-card__metric--current">
             <span>버티는 기간</span>
-            <strong>{{ displayedSurvivalMonths }}<i v-if="survivalMonths !== null">개월</i></strong>
+            <strong
+              >{{ displayedSurvivalMonths
+              }}<i v-if="survivalMonths !== null && !survivalIsInfinite">개월</i></strong
+            >
           </div>
 
           <div class="survival-card__metric survival-card__metric--target">
@@ -607,7 +708,7 @@ const targetMonthText = computed(() =>
 
           <div class="survival-card__metric survival-card__metric--expected desktop-only">
             <span>예상 버티는 기간</span>
-            <strong>{{ displayedExpectedMonths }} <i>개월</i></strong>
+            <strong>{{ displayedExpectedMonths }} <i v-if="!expectedIsInfinite">개월</i></strong>
             <small v-if="!hasConfirmedScenario">시뮬레이션하면 확인 가능</small>
             <small v-else>확정 시나리오 기준</small>
           </div>
@@ -658,7 +759,48 @@ const targetMonthText = computed(() =>
     </section>
 
     <div class="dashboard-overview">
-      <FinancialReportCard />
+      <section class="summary">
+        <div class="section-head">
+          <h2>현재 재정 리포트</h2>
+          <RouterLink to="/finance">전체 내역 <span>›</span></RouterLink>
+        </div>
+        <div class="dashboard-report">
+          <div class="dashboard-report__summary">
+            <article>
+              <span>총자산</span>
+              <strong>{{ formatOptionalCompactWon(totalAssets) }}</strong>
+            </article>
+            <article>
+              <span>{{ monthlyNetChangeLabel }}</span>
+              <strong :class="{ 'is-positive': netCashFlow > 0 }">
+                {{ formatCompactWon(monthlyNetChange) }}
+              </strong>
+            </article>
+          </div>
+          <div class="dashboard-report__cashflow" aria-label="월평균 수입과 지출">
+            <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--income">
+              <span>월평균 수입</span>
+              <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
+            </div>
+            <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--expense">
+              <span>월평균 지출</span>
+              <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
+            </div>
+          </div>
+          <p class="dashboard-report__notice">
+            <template v-if="survivalMonths === null">
+              재정 데이터를 불러오면 버티는 기간을 확인할 수 있어요
+            </template>
+            <template v-else-if="survivalIsInfinite">
+              현재 예상되는 월 수입이 월 지출보다 많아 자산이 소진되지 않는 상태예요.
+            </template>
+            <template v-else>
+              지금 자금으로 버틸 수 있는 기간은
+              <strong>약 {{ displayedSurvivalMonths }}개월</strong>이에요
+            </template>
+          </p>
+        </div>
+      </section>
 
       <section class="goal-section">
         <div class="section-head section-head--goal">
@@ -683,21 +825,22 @@ const targetMonthText = computed(() =>
           </section>
           <section class="goal-card__item">
             <header>
-              <span>재정 위험 알림 금액</span>
+              <span>재정 위험까지 남은 금액</span>
               <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }"
                 >수정하기 ›</RouterLink
               >
             </header>
             <div class="goal-card__amount-row">
-              <strong class="goal-card__value">{{ formatCompactWon(financialRiskAmount) }}</strong>
-              <span>현재 잔액 {{ formatCompactWon(dashboard.totalAssets) }}</span>
+              <strong
+                class="goal-card__value"
+                :class="{ 'goal-card__value--warning': hasReachedFinancialRiskAmount }"
+                >{{ formatCompactWon(financialSafetyBuffer) }}</strong
+              >
             </div>
-            <div class="goal-card__progress">
-              <i :style="{ width: `${financialRiskProgress}%` }" />
-            </div>
-            <p>
-              잔액이 이 금액에 도달하면 알림을 보내드려요.<br />마이페이지에서 언제든 바꿀 수
-              있어요.
+            <p class="goal-card__risk-caption">
+              현재 {{ formatOptionalCompactWon(totalAssets) }}
+              <span aria-hidden="true">·</span>
+              위험 기준 {{ formatCompactWon(financialRiskAmount) }}
             </p>
           </section>
         </article>
@@ -723,24 +866,30 @@ const targetMonthText = computed(() =>
   padding-bottom: 28px;
 }
 
-.level-overview {
-  display: flex;
+.dashboard__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   align-items: center;
-  justify-content: space-between;
   gap: 28px;
-  margin-bottom: 22px;
-  padding: 18px 24px;
+  margin-bottom: 26px;
+}
+
+.level-overview {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 18px;
   border: 1px solid #e2e3e8;
   border-radius: 18px;
   background: #fff;
-  box-shadow: 0 1px 5px rgb(0 0 0 / 12%);
+  box-shadow: var(--shadow-sm);
 }
 
 .level-overview > div:first-child {
   position: relative;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
 }
 
@@ -751,7 +900,7 @@ const targetMonthText = computed(() =>
 }
 
 .level-overview__level strong {
-  font-size: 22px;
+  font-size: 18px;
 }
 .level-overview__level b {
   color: #51392e;
@@ -759,8 +908,9 @@ const targetMonthText = computed(() =>
   font-weight: 900;
 }
 .level-overview > div:first-child span {
+  margin-left: auto;
   color: #6b7280;
-  font-size: var(--font-small);
+  font-size: var(--type-supporting-size);
 }
 
 .level-info {
@@ -873,39 +1023,39 @@ const targetMonthText = computed(() =>
 }
 
 .level-overview__progress {
-  display: grid;
-  width: min(520px, 55%);
-  gap: 7px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .level-overview__progress b {
+  order: 2;
+  flex: none;
   color: #51392e;
-  font-size: var(--font-small);
+  font-size: var(--type-supporting-size);
   text-align: right;
 }
 
 .level-overview__progress i {
-  height: 10px;
+  display: block;
+  height: 8px;
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   border-radius: 999px;
-  background: #fff3c8;
+  background: #e8eaf0;
 }
 
 .level-overview__progress i span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: var(--primary);
   transition: width 0.25s ease;
 }
 
 .dashboard__heading {
-  margin-bottom: 26px;
+  margin: 0;
 }
 
 .dashboard__heading h1 {
@@ -1037,12 +1187,7 @@ const targetMonthText = computed(() =>
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: #f1b94c;
   transition: width 0.25s ease;
 }
 
@@ -1219,6 +1364,94 @@ const targetMonthText = computed(() =>
 
 .section-head a span {
   margin-left: 3px;
+}
+
+.dashboard-report {
+  display: grid;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+.dashboard-report__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dashboard-report__summary article {
+  display: grid;
+  min-height: 112px;
+  align-content: center;
+  gap: 6px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: none !important;
+}
+
+.dashboard-report__summary span {
+  color: #657086;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dashboard-report__summary strong {
+  min-width: 0;
+  color: #394760;
+  font-size: clamp(16px, 2.2vw, 20px);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-report__summary strong.is-positive {
+  color: #16845b;
+}
+
+.dashboard-report__cashflow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid #eaecf0;
+  border-bottom: 1px solid #eaecf0;
+}
+
+.dashboard-report__cashflow-item {
+  display: grid;
+  gap: 6px;
+  padding: 16px 14px;
+}
+
+.dashboard-report__cashflow-item + .dashboard-report__cashflow-item {
+  border-left: 1px solid #eaecf0;
+}
+
+.dashboard-report__cashflow-item span {
+  color: #737b89;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dashboard-report__cashflow-item strong {
+  color: #0a1680;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.dashboard-report__cashflow-item--expense strong {
+  color: #d94b43;
+}
+
+.dashboard-report__notice {
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: #fbf7df;
+  color: #555f73;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dashboard-report__notice strong {
+  font-weight: 500;
 }
 
 .summary__grid {
@@ -1447,6 +1680,10 @@ const targetMonthText = computed(() =>
   align-items: end;
 }
 
+.goal-card__value--warning {
+  color: #b42318;
+}
+
 .goal-card__progress {
   height: 10px;
   margin-top: 14px;
@@ -1459,12 +1696,7 @@ const targetMonthText = computed(() =>
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: #f1b94c;
 }
 
 .goal-card__item footer {
@@ -1474,6 +1706,15 @@ const targetMonthText = computed(() =>
 .goal-card__item p {
   margin-top: 12px;
   line-height: 1.55;
+}
+
+.goal-card__item .goal-card__risk-caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+  color: #737b89;
+  font-size: var(--type-supporting-size) !important;
 }
 
 .dashboard__bottom {
@@ -1593,17 +1834,20 @@ const targetMonthText = computed(() =>
 
 .quest-tabs {
   display: grid;
-  width: min(72%, 520px);
-  height: 44px;
+  width: min(100%, 440px);
+  height: 50px;
   grid-template-columns: 1fr 1fr;
-  margin-bottom: 20px;
+  margin: 0 auto 22px;
   padding: 3px;
+  overflow: hidden;
+  box-sizing: border-box;
   border: 1px solid #e1e4ea;
   border-radius: 999px;
   background: #f2f3f6;
 }
 
 .quest-tabs button {
+  min-width: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -1647,10 +1891,11 @@ const targetMonthText = computed(() =>
 }
 
 .quest-completion__track {
-  height: 10px;
+  height: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: #fff3c8;
+  border: 1px solid #dfe3e9;
+  background: #eef0f3;
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 8%);
 }
 
@@ -1659,12 +1904,7 @@ const targetMonthText = computed(() =>
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(241 185 76 / 35%) 0%,
-    rgb(241 185 76 / 70%) 55%,
-    #f1b94c 100%
-  );
+  background: var(--primary);
   transition: width 0.3s ease;
 }
 
@@ -1721,12 +1961,12 @@ const targetMonthText = computed(() =>
 
 .quest-groups {
   display: grid;
-  gap: 18px;
+  gap: 24px;
 }
 
 .quest-group {
   display: grid;
-  gap: 9px;
+  gap: 11px;
 }
 
 .quest-group__heading {
@@ -1775,33 +2015,79 @@ const targetMonthText = computed(() =>
 .quest-row {
   display: grid;
   width: 100%;
-  min-height: 62px;
-  grid-template-columns: 42px minmax(0, 1fr) auto 34px;
+  min-height: 76px;
+  grid-template-columns: 46px minmax(0, 1fr) auto 36px;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 14px 16px 14px 14px;
   border: 1px solid #e5e7ec;
+  border-left-width: 4px;
   border-radius: 16px;
   background: #fff;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   color: var(--text);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
 
+.quest-row-wrap {
+  display: contents;
+}
+
+.quest-row-wrap--policy {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid #e5e7ec;
+  border-left: 4px solid var(--accent-strong);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.quest-row-wrap--policy .quest-row {
+  border: 0;
+  border-radius: 0;
+}
+
+.quest-row__policy-link {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 16px 0 auto;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: var(--font-body);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.quest-row__policy-link:hover {
+  background: var(--accent-strong);
+}
+
 .quest-row--expense {
-  background: #fff2f2;
+  border-left-color: #ef5a55;
+  background: #fff;
 }
 .quest-row--income {
-  background: #ecfbf5;
+  border-left-color: #35c992;
+  background: #fff;
 }
 .quest-row--policy {
-  background: #f6f3fc;
+  border-left-color: var(--accent-strong);
+  background: #fff;
 }
 
 .quest-row.is-completed {
-  opacity: 0.62;
+  background: #f7f8fa;
+  color: #777e89;
 }
 
 .quest-row:disabled {
@@ -1811,13 +2097,13 @@ const targetMonthText = computed(() =>
 
 .quest-row__icon {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   place-items: center;
   border: 1px solid #e1e4e9;
   border-radius: 50%;
-  background: white;
-  font-size: 17px;
+  background: #f7f8fa;
+  font-size: 19px;
 }
 
 .quest-row__copy {
@@ -1919,9 +2205,17 @@ const targetMonthText = computed(() =>
 .quest-card__footer a {
   grid-column: 1 / -1;
   justify-self: center;
-  margin-top: 4px;
+  display: inline-flex;
+  width: auto;
+  min-width: 190px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 0 22px;
   color: var(--text);
-  font-size: var(--font-small);
+  font-size: var(--type-primary-action-size);
   font-weight: 800;
 }
 
@@ -2162,9 +2456,26 @@ const targetMonthText = computed(() =>
   }
 }
 
+@media (max-width: 1024px) {
+  .dashboard__top {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .level-overview {
+    max-width: 520px;
+  }
+}
+
 @media (max-width: 767px) {
+  .dashboard__top {
+    display: block;
+    margin-bottom: 16px;
+  }
+
   .level-overview {
     display: grid;
+    max-width: none;
     grid-template-columns: minmax(0, 1fr);
     justify-content: stretch;
     gap: 10px;
@@ -2235,7 +2546,7 @@ const targetMonthText = computed(() =>
 
   .survival-card__metric {
     position: static;
-    min-height: 85px;
+    min-height: 100px;
     align-content: center;
     gap: 9px;
     padding: 12px 14px;
@@ -2262,7 +2573,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card__progress-area {
-    top: 237px;
+    top: 258px;
     bottom: auto;
     left: 17px;
     width: calc(100% - 34px);
@@ -2281,7 +2592,7 @@ const targetMonthText = computed(() =>
   .survival-card__character-panel {
     position: absolute;
     z-index: 2;
-    top: 319px;
+    top: 330px;
     right: 17px;
     bottom: 23px;
     left: 17px;
@@ -2364,6 +2675,38 @@ const targetMonthText = computed(() =>
   .block-title {
     font-size: var(--type-section-title-size);
     font-weight: var(--type-section-title-weight);
+  }
+
+  .dashboard-report {
+    gap: 14px;
+  }
+
+  .dashboard-report__summary {
+    gap: 9px;
+  }
+
+  .dashboard-report__summary article {
+    min-height: 104px;
+    padding: 14px 16px;
+    border-radius: 15px;
+  }
+
+  .dashboard-report__summary strong {
+    font-size: clamp(15px, 5.6vw, 20px);
+    white-space: nowrap;
+  }
+
+  .dashboard-report__cashflow-item {
+    padding: 14px 10px;
+  }
+
+  .dashboard-report__cashflow-item strong {
+    font-size: 16px;
+  }
+
+  .dashboard-report__notice {
+    padding: 9px 14px;
+    font-size: 12px;
   }
 
   .summary__grid {
@@ -2523,9 +2866,9 @@ const targetMonthText = computed(() =>
   }
 
   .quest-tabs {
-    width: 100%;
+    width: min(100%, 360px);
     height: 52px;
-    margin-bottom: 16px;
+    margin: 0 auto 18px;
   }
 
   .quest-completion {
@@ -2560,7 +2903,7 @@ const targetMonthText = computed(() =>
 
   .quest-row {
     min-height: 84px;
-    grid-template-columns: 48px minmax(0, 1fr) auto 34px;
+    grid-template-columns: 48px minmax(0, 1fr) 34px;
     gap: 10px;
     padding: 12px 13px;
     border-radius: 18px;
@@ -2574,6 +2917,17 @@ const targetMonthText = computed(() =>
   .quest-row__copy strong,
   .quest-row__amount {
     font-size: 16px;
+  }
+
+  .quest-row__amount {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: -4px;
+  }
+
+  .quest-row__check {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .quest-row__copy small {
@@ -2590,6 +2944,13 @@ const targetMonthText = computed(() =>
 
   .quest-card__footer strong {
     font-size: 20px;
+  }
+
+  .quest-card__footer a {
+    width: auto;
+    min-width: 188px;
+    max-width: 100%;
+    min-height: 50px;
   }
 
   .goal-setting-card {

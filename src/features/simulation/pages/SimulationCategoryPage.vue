@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
 import { financeState, loadTransactions } from '@/features/finance/financeStore'
+import { policyFilterGroups, toPolicySearchRequest } from '@/features/search/policyData'
+import { calculateAge, normalizePolicyRegion } from '@/mappers/policy'
 import '@/features/simulation/styles/simulation.css'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
 import AppIcon from '@/components/ui/AppIcon.vue'
@@ -15,7 +17,12 @@ const session = useSessionStore()
 simulation.restoreConfirmedSnapshot()
 const category = computed(() => route.params.category)
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
-const goalAmount = (value) => `${money(value)}원`
+const moneyInput = (value) => {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  return digits ? Number(digits).toLocaleString('ko-KR') : ''
+}
+const goalAmount = (value) =>
+  Number(value) % 10000 === 0 ? `${money(Number(value) / 10000)}만원` : `${money(value)}원`
 const stepNumber = computed(() => ({ expense: 1, income: 2, policy: 3 })[category.value])
 const wizardSteps = [
   { label: '01 지출 줄이기', to: '/simulation/expense' },
@@ -35,9 +42,6 @@ const backPath = computed(
     })[category.value],
 )
 const profileDate = (value) => (value ? value.replaceAll('-', '.') : '-')
-const jobTypeLabel = computed(() =>
-  session.currentUser.jobType === 'first' ? '첫 취업 준비' : '재취업 준비',
-)
 const form = reactive({
   name: '',
   amount: '',
@@ -103,6 +107,79 @@ const isEditingConfirmedScenario = computed(
   () => Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
 )
 
+function profilePolicyFilters() {
+  // 현재 정책 API는 REEMPLOYMENT를 받으면 CATALOG_005를 반환한다.
+  // 재취업 사용자를 미취업자로 간주하지 않고, 지원되는 첫취업만 자동 적용한다.
+  const employment = session.currentUser.jobType === 'first' ? ['첫취업'] : []
+  const region = normalizePolicyRegion(session.currentUser.region)
+  const supportedRegions = policyFilterGroups[2][1]
+  return [...employment, ...(supportedRegions.includes(region) ? [region] : []), '신청 가능']
+}
+
+const selectedPolicyFilters = ref(profilePolicyFilters())
+const policySupportAmount = ref(0)
+const policyFilterModalOpen = ref(false)
+const draftPolicyFilters = ref([])
+const draftPolicySupportAmount = ref(0)
+
+const appliedPolicyEmployment = computed(
+  () =>
+    policyFilterGroups[0][1].find((item) => selectedPolicyFilters.value.includes(item)) || '전체',
+)
+const appliedPolicyRegion = computed(
+  () =>
+    policyFilterGroups[2][1].find((item) => selectedPolicyFilters.value.includes(item)) ||
+    normalizePolicyRegion(session.currentUser.region) ||
+    '전체',
+)
+
+function openPolicyFilterModal() {
+  draftPolicyFilters.value = [...selectedPolicyFilters.value]
+  draftPolicySupportAmount.value = policySupportAmount.value
+  policyFilterModalOpen.value = true
+}
+
+function closePolicyFilterModal() {
+  policyFilterModalOpen.value = false
+}
+
+function togglePolicyFilter(group, item) {
+  const [, groupItems] = group
+  if (draftPolicyFilters.value.includes(item)) {
+    draftPolicyFilters.value = draftPolicyFilters.value.filter((value) => value !== item)
+    return
+  }
+  draftPolicyFilters.value = [
+    ...draftPolicyFilters.value.filter((value) => !groupItems.includes(value)),
+    item,
+  ]
+}
+
+function resetPolicyFilters() {
+  draftPolicyFilters.value = profilePolicyFilters()
+  draftPolicySupportAmount.value = 0
+}
+
+async function applyPolicyFilters() {
+  selectedPolicyFilters.value = [...draftPolicyFilters.value]
+  policySupportAmount.value = draftPolicySupportAmount.value
+  const params = toPolicySearchRequest(selectedPolicyFilters.value, policySupportAmount.value, '', {
+    page: 1,
+    size: 100,
+    age: calculateAge(session.currentUser.birth),
+    policyRegion: normalizePolicyRegion(session.currentUser.region),
+  })
+  await simulation.loadPolicyCatalog(params)
+  closePolicyFilterModal()
+  scrollToPolicies()
+}
+
+async function retryPolicyFilters() {
+  draftPolicyFilters.value = [...selectedPolicyFilters.value]
+  draftPolicySupportAmount.value = policySupportAmount.value
+  await applyPolicyFilters()
+}
+
 watch(
   category,
   (value) => {
@@ -110,6 +187,10 @@ watch(
   },
   { immediate: true },
 )
+
+watch(category, (value, previousValue) => {
+  if (value === 'policy' && previousValue !== 'policy') simulation.loadPolicyCatalog()
+})
 
 onMounted(async () => {
   if (category.value === 'expense') {
@@ -199,11 +280,18 @@ function updateExpenseAmount(event) {
   const rawValue = String(event.target.value ?? '').replace(/[^0-9]/g, '')
   const normalized = Math.max(0, Math.min(maximum, Math.trunc(Number(rawValue) || 0)))
   expenseAmount.value = normalized ? String(normalized) : ''
+  event.target.value = moneyInput(expenseAmount.value)
 }
 
 function addQuickExpenseAmount(amount) {
   const maximum = Number(activeExpense.value?.current) || 0
   expenseAmount.value = String(Math.min(maximum, Number(expenseAmount.value || 0) + amount))
+}
+
+function updateIncomeAmount(event) {
+  const digits = event.target.value.replace(/\D/g, '')
+  form.amount = digits ? String(Number(digits)) : ''
+  event.target.value = moneyInput(form.amount)
 }
 
 async function addExpenseGoal() {
@@ -529,12 +617,13 @@ function skip() {
           >예상 금액
           <div class="income-money-field">
             <input
-              v-model="form.amount"
-              type="number"
-              min="1"
+              :value="moneyInput(form.amount)"
+              type="text"
+              inputmode="numeric"
               placeholder="금액 입력"
               required
               @keydown="['e', 'E', '+', '-'].includes($event.key) && $event.preventDefault()"
+              @input="updateIncomeAmount"
             /><b>원</b>
           </div></label
         >
@@ -614,6 +703,36 @@ function skip() {
     <template v-else>
       <h1 class="wizard-title">나에게 맞는 정책을 찾아보세요</h1>
 
+      <section class="policy-qualification">
+        <div class="policy-section-heading">
+          <div>
+            <h2>자격 확인</h2>
+            <p>프로필 정보가 초기 조건으로 적용돼요.</p>
+          </div>
+          <button
+            class="policy-filter-icon-button"
+            type="button"
+            aria-label="정책 필터 수정"
+            @click="openPolicyFilterModal"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+          </button>
+        </div>
+        <div class="policy-condition-grid">
+          <span
+            >거주지역<strong>{{ appliedPolicyRegion }}</strong></span
+          >
+          <span
+            >취업 준비 상태<strong>{{ appliedPolicyEmployment }}</strong></span
+          >
+          <span
+            >가구원 수<strong>{{ session.currentUser.family || 1 }}명</strong></span
+          >
+        </div>
+      </section>
+
       <section class="policy-catalog-scroll">
         <div class="policy-catalog-heading">
           <h2>내 조건에 맞는 정책 모두 보기</h2>
@@ -632,7 +751,7 @@ function skip() {
         </p>
         <div v-else-if="simulation.policyCatalogError" class="api-notice">
           {{ simulation.policyCatalogError }}
-          <button type="button" @click="simulation.loadPolicyCatalog()">다시 시도</button>
+          <button type="button" @click="retryPolicyFilters">다시 시도</button>
         </div>
         <p v-else-if="!simulation.policyCatalog.length" class="policy-selected-empty">
           현재 조건에 맞는 정책이 없어요.
@@ -788,6 +907,89 @@ function skip() {
         시뮬레이션에 적용하기
       </button>
     </template>
+
+    <Teleport to="body">
+      <div
+        v-if="policyFilterModalOpen"
+        class="policy-filter-modal-backdrop"
+        role="presentation"
+        @click.self="closePolicyFilterModal"
+      >
+        <section
+          class="policy-filter-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="policy-filter-modal-title"
+        >
+          <header>
+            <div>
+              <h2 id="policy-filter-modal-title">정책 상세 필터</h2>
+              <p>필요한 조건을 선택해 맞춤 정책을 다시 찾아보세요.</p>
+            </div>
+            <button type="button" aria-label="필터 닫기" @click="closePolicyFilterModal">×</button>
+          </header>
+
+          <div class="policy-filter-modal-body">
+            <p class="policy-filter-guide">
+              연령과 기본 거주 지역은 프로필 정보로 자동 반영돼요. 다른 지역을 선택하면 선택한
+              지역을 우선 적용해요.
+            </p>
+            <div class="policy-filter-groups">
+              <section v-for="group in policyFilterGroups" :key="group[0]">
+                <h3>{{ group[0] }}</h3>
+                <div>
+                  <button
+                    v-for="item in group[1]"
+                    :key="item"
+                    type="button"
+                    :class="{ active: draftPolicyFilters.includes(item) }"
+                    @click="togglePolicyFilter(group, item)"
+                  >
+                    {{ item }}
+                  </button>
+                </div>
+              </section>
+              <section class="policy-amount-filter">
+                <h3>지원 금액</h3>
+                <div>
+                  <input
+                    v-model.number="draftPolicySupportAmount"
+                    type="range"
+                    min="0"
+                    max="500"
+                    step="10"
+                    aria-label="최소 지원 금액"
+                  />
+                  <strong>
+                    {{
+                      draftPolicySupportAmount
+                        ? `${draftPolicySupportAmount}만원 이상`
+                        : '제한 없음'
+                    }}
+                  </strong>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <footer>
+            <button class="policy-filter-reset-button" type="button" @click="resetPolicyFilters">
+              초기화
+            </button>
+            <button
+              class="policy-filter-button"
+              type="button"
+              :disabled="simulation.policyCatalogLoading"
+              @click="applyPolicyFilters"
+            >
+              {{
+                simulation.policyCatalogLoading ? '정책을 찾는 중...' : '선택한 조건으로 정책 보기'
+              }}
+            </button>
+          </footer>
+        </section>
+      </div>
+    </Teleport>
 
     <p v-if="simulation.syncError" class="api-notice">
       서버 저장에 실패했습니다. 입력 내용은 유지되니 잠시 후 다시 시도해 주세요.
@@ -1548,6 +1750,10 @@ function skip() {
   font-size: 10px;
 }
 
+.policy-qualification {
+  margin-top: 26px;
+}
+
 .policy-section-heading,
 .policy-selected-heading,
 .policy-catalog-heading {
@@ -1569,49 +1775,209 @@ function skip() {
   font-size: 10px;
 }
 
-.policy-section-heading button {
+.policy-filter-icon-button {
+  display: grid;
+  width: 38px;
+  height: 38px;
   flex: none;
-  color: #ef6262;
-  font-size: 10px;
+  place-items: center;
+  border: 1px solid #e4e6eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 10%);
+}
+
+.policy-filter-icon-button svg {
+  width: 20px;
+  fill: none;
+  stroke: #14228f;
+  stroke-linecap: round;
+  stroke-width: 2;
 }
 
 .policy-condition-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 14px;
 }
 
-.policy-condition-grid article {
+.policy-condition-grid span {
   display: grid;
   min-width: 0;
   gap: 5px;
   padding: 12px;
   border-radius: 13px;
-  background: #f7f6fc;
-}
-
-.policy-condition-grid span {
-  color: #8d93a0;
+  background: #fff8d8;
+  color: #9298a4;
   font-size: 9px;
 }
 
 .policy-condition-grid strong {
   overflow: hidden;
+  color: #222;
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.policy-filter-modal-backdrop {
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(20 25 45 / 52%);
+}
+
+.policy-filter-modal {
+  display: flex;
+  width: min(720px, 100%);
+  max-height: min(820px, calc(100dvh - 40px));
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  background: #f7f8fa;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 25%);
+}
+
+.policy-filter-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #e7e9ee;
+  background: #fff;
+}
+
+.policy-filter-modal > header h2 {
+  font-size: 20px;
+}
+
+.policy-filter-modal > header p {
+  margin-top: 5px;
+  color: #747c89;
+  font-size: 13px;
+}
+
+.policy-filter-modal > header button {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: #f1f3f6;
+  color: #48505d;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.policy-filter-modal-body {
+  min-height: 0;
+  padding: 20px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.policy-filter-guide {
+  padding: 14px 16px;
+  border: 1px solid #f3cf69;
+  border-radius: 14px;
+  background: #fff0b5;
+  color: #5d4b19;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.policy-filter-groups {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.policy-filter-groups > section {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 13px;
+  background: #f7f6fc;
+}
+
+.policy-filter-groups h3 {
+  font-size: 12px;
+}
+
+.policy-filter-groups section > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+}
+
+.policy-filter-groups button {
+  min-height: 32px;
+  padding: 7px 11px;
+  border: 1px solid #e8eaf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #646b78;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.policy-filter-groups button.active {
+  border-color: #efbd45;
+  background: #ffeca4;
+  color: #14228f;
+}
+
+.policy-amount-filter input {
+  min-width: 120px;
+  flex: 1;
+  accent-color: #14228f;
+}
+
+.policy-amount-filter strong {
+  flex: none;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: #ffeca4;
+  color: #14228f;
+  font-size: 10px;
+}
+
 .policy-filter-button {
-  width: 100%;
+  min-width: 220px;
   min-height: 44px;
-  margin-top: 10px;
   border-radius: 999px;
   background: #ffeca4;
   font-size: 12px;
   font-weight: 800;
   box-shadow: 0 2px 5px rgb(0 0 0 / 12%);
+}
+
+.policy-filter-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.policy-filter-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e7e9ee;
+  background: #fff;
+}
+
+.policy-filter-reset-button {
+  min-width: 90px;
+  min-height: 44px;
+  border-radius: 999px;
+  background: #eef0f3;
+  color: #68707d;
+  font-weight: 700;
 }
 
 .policy-selected-card {
@@ -1913,6 +2279,42 @@ function skip() {
 }
 
 @media (max-width: 767px) {
+  .policy-filter-modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .policy-filter-modal {
+    width: 100%;
+    max-height: 90dvh;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .policy-filter-modal > header {
+    padding: 18px 20px 15px;
+  }
+
+  .policy-filter-modal > header h2 {
+    font-size: 18px;
+  }
+
+  .policy-filter-modal > header p {
+    font-size: 11px;
+  }
+
+  .policy-filter-modal-body {
+    padding: 16px 18px;
+  }
+
+  .policy-filter-modal > footer {
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .policy-filter-button {
+    min-width: 0;
+    flex: 1;
+  }
+
   .sim-category-page > .wizard-progress-tabs {
     margin-top: -10px;
   }
@@ -2159,17 +2561,23 @@ function skip() {
     font-size: 12px;
   }
 
-  .policy-condition-grid article {
+  .policy-filter-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .policy-filter-groups > section {
     padding: 16px;
   }
 
-  .policy-condition-grid span {
-    font-size: 11px;
-  }
-
-  .policy-condition-grid strong,
+  .policy-filter-groups h3,
+  .policy-filter-groups button,
+  .policy-amount-filter strong,
   .policy-filter-button {
     font-size: 14px;
+  }
+
+  .policy-amount-filter {
+    grid-column: 1 / -1;
   }
 
   .policy-selected-card,

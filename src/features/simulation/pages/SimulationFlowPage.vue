@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
 import stableImage from '@/assets/images/dashboard/buttie-stable.png'
 import '@/features/simulation/styles/simulation.css'
@@ -69,6 +70,23 @@ const formatMonths = (value) => {
   if (!Number.isFinite(months)) return '-'
   return Number.isInteger(months) ? String(months) : months.toFixed(1)
 }
+const previewExpectedMonths = computed(() => {
+  const currentMonths = Number(simulation.currentMonths) || 0
+  const expectedMonths = simulation.expectedMonths
+  return expectedMonths !== null && Number.isFinite(Number(expectedMonths))
+    ? Number(expectedMonths)
+    : currentMonths
+})
+const previewAddedMonths = computed(
+  () => Math.max(0, Math.round((previewExpectedMonths.value - simulation.currentMonths) * 10) / 10),
+)
+const currentMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.currentMonths))
+const expectedMonthsLabel = computed(() => formatPrepMonthsWithUnit(previewExpectedMonths.value))
+const addedMonthsLabel = computed(() =>
+  isInfinitePrepMonths(previewExpectedMonths.value)
+    ? '∞ 연장'
+    : `+${previewAddedMonths.value}개월 연장`,
+)
 const nextDraftPath = computed(() => {
   if (!simulation.state.expenseApplied) return '/simulation/expense'
   if (!simulation.state.incomes.length) return '/simulation/income'
@@ -77,6 +95,8 @@ const nextDraftPath = computed(() => {
 })
 
 onMounted(async () => {
+  await simulation.hydrateRunwayBaseline()
+
   // 새 시뮬레이션 화면은 기존 미확정 시뮬레이션을 삭제한 뒤 진입한다.
   // 여기서 다시 조회하면 정상적인 "데이터 없음" 응답이 404 오류처럼 노출된다.
   if (step.value === 'categories') {
@@ -234,6 +254,39 @@ async function confirm() {
         <p v-if="endDate && startDate && endDate <= startDate" class="form-error">
           종료일은 시작일보다 뒤여야 해요.
         </p>
+      </section>
+
+      <section class="baseline-report report-preview">
+        <h2>리포트 미리보기</h2>
+        <article class="report-preview__card">
+          <strong>시뮬레이션을 하면 이런 리포트를 받아볼 수 있어요</strong>
+          <span class="report-preview__badge">지출 줄이기</span>
+          <div class="report-preview__period">
+            <span>예상 버티는 기간 변화</span>
+            <p><del>{{ currentMonthsLabel }}</del><b>→</b><strong>{{ expectedMonthsLabel }}</strong></p>
+            <em>{{ addedMonthsLabel }}</em>
+          </div>
+          <div class="report-preview__charts">
+            <figure>
+              <figcaption>월별 타임라인</figcaption>
+              <svg viewBox="0 0 180 86" role="img" aria-label="시뮬레이션 전후 재정 타임라인 예시">
+                <line x1="12" y1="12" x2="92" y2="72" class="preview-line preview-line--before" />
+                <line x1="12" y1="12" x2="162" y2="72" class="preview-line preview-line--after" />
+                <circle cx="92" cy="72" r="4" class="preview-dot preview-dot--before" />
+                <circle cx="162" cy="72" r="4" class="preview-dot preview-dot--after" />
+                <text x="24" y="57" class="preview-text preview-text--before">적용 전</text>
+                <text x="116" y="34" class="preview-text preview-text--after">적용 후</text>
+              </svg>
+            </figure>
+            <figure>
+              <figcaption>시뮬레이션 적용 결과</figcaption>
+              <div class="preview-bars" aria-label="적용 전후 버티는 기간 비교">
+                <span class="preview-bar preview-bar--before"><i />적용 전</span>
+                <span class="preview-bar preview-bar--after"><i />적용 후</span>
+              </div>
+            </figure>
+          </div>
+        </article>
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
@@ -402,6 +455,169 @@ async function confirm() {
   color: #777;
 }
 
+.report-preview > h2 {
+  font-size: 16px;
+}
+
+.report-preview__card {
+  margin-top: 12px;
+  padding: 20px;
+  border: 1px solid #e4e7ed;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgb(20 30 60 / 9%);
+}
+
+.report-preview__card > strong {
+  display: block;
+  font-size: 14px;
+}
+
+.report-preview__badge {
+  display: inline-flex;
+  margin-top: 14px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: #edf3ff;
+  color: #6c94ee;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.report-preview__period {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 8px 14px;
+  margin-top: 14px;
+}
+
+.report-preview__period > span {
+  grid-column: 1 / -1;
+  color: #555d6c;
+  font-size: 14px;
+}
+
+.report-preview__period p {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.report-preview__period del {
+  color: #a2a7b0;
+  font-size: 18px;
+  text-decoration: none;
+}
+
+.report-preview__period b {
+  color: #8e949d;
+}
+
+.report-preview__period strong {
+  color: #71442e;
+  font-size: 27px;
+}
+
+.report-preview__period em {
+  min-width: 122px;
+  padding: 7px 13px;
+  border: 1px solid #f4ad24;
+  border-radius: 999px;
+  color: #e8a01c;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+}
+
+.report-preview__charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.report-preview__charts figure {
+  min-width: 0;
+}
+
+.report-preview__charts figcaption {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.report-preview__charts svg {
+  display: block;
+  width: 100%;
+  min-height: 90px;
+}
+
+.preview-line {
+  stroke-width: 2;
+}
+
+.preview-line--before {
+  stroke: #161616;
+}
+
+.preview-line--after {
+  stroke: #8eaff7;
+}
+
+.preview-dot--before {
+  fill: #161616;
+}
+
+.preview-dot--after {
+  fill: #8eaff7;
+}
+
+.preview-text {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preview-text--before {
+  fill: #ef625a;
+}
+
+.preview-text--after {
+  fill: #7298ed;
+}
+
+.preview-bars {
+  display: flex;
+  min-height: 90px;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+}
+
+.preview-bar {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  color: #89909d;
+  font-size: 11px;
+}
+
+.preview-bar i {
+  display: block;
+  width: 40px;
+  height: 58px;
+  border: 1px dashed #9da2ab;
+  border-radius: 4px 4px 0 0;
+  background: #f4f4f4;
+}
+
+.preview-bar--after i {
+  height: 72px;
+  border: 1px solid #6f94ea;
+  background: #8faff7;
+}
+
 .confirm-item-name {
   display: flex;
   min-width: 0;
@@ -513,6 +729,63 @@ async function confirm() {
 
   .sim-flow-continue .resume-hero {
     min-height: min(58vh, 560px);
+  }
+
+  .report-preview__card {
+    padding: 17px 14px;
+  }
+
+  .report-preview__card > strong {
+    font-size: 14px;
+  }
+
+  .report-preview__badge,
+  .report-preview__period > span,
+  .report-preview__period em {
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .report-preview__period > span {
+    font-size: 12px;
+  }
+
+  .report-preview__period {
+    gap: 8px;
+  }
+
+  .report-preview__period p {
+    gap: 7px;
+  }
+
+  .report-preview__period del {
+    font-size: 16px;
+  }
+
+  .report-preview__period strong {
+    font-size: 25px;
+    font-weight: 800;
+  }
+
+  .report-preview__period em {
+    min-width: 108px;
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+
+  .report-preview__charts {
+    gap: 10px;
+  }
+
+  .report-preview__charts figcaption {
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .preview-text,
+  .preview-bar {
+    font-size: 11px;
+    font-weight: 600;
   }
 }
 
@@ -653,6 +926,34 @@ async function confirm() {
     font-style: normal;
   }
 
+  .sim-flow-categories > .baseline-report {
+    margin-top: 24px;
+  }
+
+  .sim-flow-categories .report-preview__card {
+    min-height: 350px;
+    padding: 24px 28px;
+  }
+
+  .sim-flow-categories .report-preview__charts {
+    gap: 88px;
+    margin-top: 30px;
+  }
+
+  .sim-flow-categories .report-preview__charts svg,
+  .sim-flow-categories .preview-bars {
+    min-height: 142px;
+  }
+
+  .sim-flow-categories .preview-bar i {
+    width: 54px;
+    height: 82px;
+  }
+
+  .sim-flow-categories .preview-bar--after i {
+    height: 104px;
+  }
+
   .sim-flow-categories > .api-notice,
   .sim-flow-categories > .wide {
     width: 100%;
@@ -671,7 +972,7 @@ async function confirm() {
     min-height: 100dvh;
     grid-template-rows: minmax(360px, 1fr) auto minmax(120px, 0.55fr);
     padding: 0;
-    background: #fcfdff;
+    background: #fff;
   }
 
   .sim-flow-continue .resume-hero {

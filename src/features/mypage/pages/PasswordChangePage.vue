@@ -8,8 +8,10 @@ const session = useSessionStore()
 const password = ref('')
 const passwordConfirm = ref('')
 const errorMessage = ref('')
+const isSubmitting = ref(false)
 
-function changePassword() {
+async function changePassword() {
+  if (isSubmitting.value) return
   const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/
 
   if (!passwordPattern.test(password.value)) {
@@ -23,9 +25,16 @@ function changePassword() {
   }
 
   errorMessage.value = ''
-  session.changePassword(password.value)
-  session.clearPasswordChangeVerification()
-  router.replace('/mypage/security')
+  isSubmitting.value = true
+  try {
+    await session.changePassword(password.value, passwordConfirm.value)
+    session.clearPasswordChangeVerification()
+    await router.replace('/mypage/security')
+  } catch (error) {
+    errorMessage.value = error.message || '비밀번호를 변경하지 못했습니다.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -72,7 +81,14 @@ function changePassword() {
       </label>
 
       <small v-if="errorMessage" class="password-error" role="alert">{{ errorMessage }}</small>
-      <button class="password-submit" type="button" @click="changePassword">비밀번호 변경</button>
+      <button
+        class="password-submit"
+        type="button"
+        :disabled="isSubmitting"
+        @click="changePassword"
+      >
+        {{ isSubmitting ? '변경 중...' : '비밀번호 변경' }}
+      </button>
     </div>
   </section>
 </template>

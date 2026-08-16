@@ -58,3 +58,11 @@ export function expenseCategoryLabel(category) {
 export function expenseCategoryValue(name) {
   return EXPENSE_CATEGORY_BY_NAME[name] || DEFAULT_EXPENSE_CATEGORY
 }
+
+// develop 쪽 코드와의 호환을 위한 별칭
+export const expenseCategoryToLabel = expenseCategoryLabel
+export const expenseLabelToCategory = expenseCategoryValue
+
+export function normalizeExpenseCategoryLabel(label) {
+  return expenseCategoryLabel(expenseCategoryValue(label))
+}

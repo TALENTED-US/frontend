@@ -3,7 +3,6 @@ import { defineStore } from 'pinia'
 import { completeQuestApi, getQuestsApi, revertQuestApi } from '@/api/quest'
 import { useSessionStore } from '@/stores/session'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
-import { EXPENSE_CATEGORY_BY_NAME } from '@/constants/expenseCategories'
 
 const CATEGORY_META = Object.freeze({
   EXPENSE: { kind: 'expense', icon: '🍚' },
@@ -23,43 +22,6 @@ const EXPENSE_ICONS = Object.freeze({
   HEALTH_FITNESS: '🏋️',
   OTHER_FINANCE: '🧾',
 })
-
-function questMatchesPlan(item, plan) {
-  if (!plan) return true
-
-  const category = item?.simulationItemCategory
-  const amount = Number(item?.amount) || 0
-  const matchesRemoteItem = (planItem) =>
-    !planItem.remoteId
-    || !item?.simulationItemId
-    || String(planItem.remoteId) === String(item.simulationItemId)
-
-  if (category === 'EXPENSE') {
-    return (plan.expenses || []).some((expense) =>
-      matchesRemoteItem(expense)
-      && EXPENSE_CATEGORY_BY_NAME[expense.name] === item?.expenseCategory
-      && Number(expense.saving) === amount,
-    )
-  }
-
-  if (category === 'INCOME') {
-    return (plan.incomes || []).some((income) =>
-      matchesRemoteItem(income)
-      && income.name === item?.displayName
-      && Number(income.amount) === amount
-      && (income.type === 'once' ? 'ONCE' : 'MONTHLY') === item?.recurrenceType,
-    )
-  }
-
-  if (category === 'POLICY') {
-    return (plan.policies || []).some((policy) =>
-      matchesRemoteItem(policy)
-      && policy.name === (item?.policyName || item?.displayName),
-    )
-  }
-
-  return false
-}
 
 function dedupeQuests(quests) {
   const unique = new Map()
@@ -130,10 +92,7 @@ export const useQuestStore = defineStore('quest', () => {
     return pendingIds.value.includes(questId)
   }
 
-  async function fetchQuests(
-    simulationId = activeSimulationId.value,
-    plan = activePlan.value,
-  ) {
+  async function fetchQuests(simulationId = activeSimulationId.value, plan = activePlan.value) {
     if (!remoteEnabled) return []
     loading.value = true
     error.value = ''
@@ -143,10 +102,11 @@ export const useQuestStore = defineStore('quest', () => {
       activeSimulationId.value = nextSimulationId
       activePlan.value = plan || null
       items.value = Array.isArray(result)
-        ? dedupeQuests(result.filter((item) =>
-            (!nextSimulationId || String(item?.simulationId || '') === nextSimulationId)
-            && questMatchesPlan(item, activePlan.value),
-          ))
+        ? dedupeQuests(
+            result.filter(
+              (item) => !nextSimulationId || String(item?.simulationId || '') === nextSimulationId,
+            ),
+          )
         : []
       loaded.value = true
       return items.value
