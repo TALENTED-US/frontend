@@ -1036,7 +1036,8 @@ export const useSimulationStore = defineStore('simulation', () => {
         }
       }
 
-      if (!runwayCalculationReady.value) {
+      const previewReady = financialDataReady.value && monthlyExpense.value > 0
+      if (!previewReady) {
         syncError.value = '월 지출 내역이 없어 예상 버티는 기간을 계산할 수 없습니다.'
         return false
       }
@@ -1074,16 +1075,12 @@ export const useSimulationStore = defineStore('simulation', () => {
         }
         applyConfirmedItems(confirmed)
       } else {
-        applyConfirmedItems(remoteConfirmed)
-        recentConfirmed.value = null
-        const localConfirmed = buildClientConfirmedSnapshot()
-        if (!localConfirmed) throw new Error('거래 내역을 불러온 뒤 시뮬레이션을 다시 확인해 주세요.')
         confirmed = {
-          ...localConfirmed,
           ...remoteConfirmed,
           clientCalculationVersion: CLIENT_CALCULATION_VERSION,
         }
         applyConfirmedItems(confirmed)
+        recentConfirmed.value = null
       }
 
       remoteSimulation.value = response
