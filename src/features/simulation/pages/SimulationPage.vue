@@ -335,9 +335,9 @@ onMounted(async () => {
 .simulation-banner__character p { position: relative; padding: 16px 20px; border: 1px solid rgb(190 160 50 / 22%); border-radius: 18px; background: #fff; box-shadow: 0 3px 14px rgb(150 120 20 / 9%); color: #5c554a; font-size: 16px; font-weight: 600; letter-spacing: -.3px; line-height: 1.55; }
 .simulation-banner__character p::after { position: absolute; top: 50%; right: -7px; width: 13px; height: 13px; margin-top: -7px; border-top: 1px solid rgb(190 160 50 / 22%); border-right: 1px solid rgb(190 160 50 / 22%); background: #fff; content: ''; transform: rotate(45deg); }
 .simulation-banner__character img { width: 210px; height: auto; }
-.simulation-banner__action > button { display: flex; width: 100%; height: 50px; min-height: 50px; align-items: center; justify-content: center; gap: 10px; border-radius: 18px; background: #f1b94c; box-shadow: 0 4px 0 rgb(198 160 30 / 35%); color: #3a3222; font-size: 20px; font-weight: 700; transition: transform .16s ease,box-shadow .16s ease,background .16s ease; }
-.simulation-banner__action > button:hover:not(:disabled) { background: #e5ac3c; box-shadow: 0 6px 0 rgb(198 160 30 / 35%); transform: translateY(-2px); }
-.simulation-banner__action > button:active:not(:disabled) { box-shadow: 0 1px 0 rgb(198 160 30 / 35%); transform: translateY(2px); }
+.simulation-banner__action > button { display: flex; width: 100%; height: 50px; min-height: 50px; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 18px; background: #fbedb0; box-shadow: 0 2px 6px rgb(20 30 60 / 16%); color: #0a1680; font-size: 16px; font-weight: 700; transition: background .16s ease; }
+@media (hover: hover) { .simulation-banner__action > button:hover:not(:disabled) { background: #f1b94c; } }
+.simulation-banner__action > button:active:not(:disabled) { background: #f1b94c; }
 .simulation-banner__action > button:disabled { cursor: wait; opacity: .6; }
 .simulation-banner__action > button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
 .simulation-result-banner { display: grid; min-height: 210px; grid-template-columns: minmax(300px,1fr) minmax(390px,1.2fr); align-items: center; gap: 48px; padding: 34px 40px; border-radius: 28px; background: linear-gradient(105deg,#fff4cf 0%,#fff8df 55%,#fff1c5 100%); box-shadow: 0 2px 16px rgb(120 100 20 / 7%); }
@@ -953,7 +953,7 @@ onMounted(async () => {
   .simulation-banner__character { justify-content: center; gap: 8px; }
   .simulation-banner__character p { padding: 12px 14px; font-size: 12px; }
   .simulation-banner__character img { width: min(42vw,170px); }
-  .simulation-banner__action > button { height: 50px; min-height: 50px; border-radius: 15px; font-size: 17px; }
+  .simulation-banner__action > button { height: 50px; min-height: 50px; border-radius: 15px; font-size: 16px; }
   .simulation-result-banner { min-height: 0; grid-template-columns: minmax(0,1fr); gap: 22px; padding: 26px 20px 22px; border-radius: 24px; background: #fff6d9; }
   .simulation-result-banner__copy small { font-size: 13px; }
   .simulation-result-banner__copy h2 { margin-top: 22px; font-size: 22px; letter-spacing: -.6px; line-height: 1.55; }

@@ -713,12 +713,8 @@ async function createNewSimulation() {
   .simulation-edit-all,
   .simulation-create-new,
   .simulation-new-modal section > div button {
-    font-size: 17px;
-    font-weight: 800;
-  }
-
-  .simulation-create-new {
-    font-weight: 900;
+    font-size: 16px;
+    font-weight: 700;
   }
 }
 
@@ -1062,19 +1058,19 @@ async function createNewSimulation() {
   padding: 0 18px;
   border-radius: 12px;
   box-shadow: none;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 .simulation-edit-all {
-  border: 1px solid rgb(196 152 44 / 35%);
-  background: #f7d778;
-  color: #4e3a0c;
+  border: 0;
+  background: #fbedb0;
+  color: #0a1680;
 }
 .simulation-create-new {
   padding: 0 16px;
-  border: 1px solid rgb(10 22 128 / 16%);
+  border: 1px solid #e1e1e1;
   background: #fff;
-  color: var(--muted);
+  color: #666;
 }
 
 .simulation-edit-status {
@@ -1173,11 +1169,12 @@ async function createNewSimulation() {
   font-size: 26px !important;
 }
 :global(#app .app-shell .simulation-edit-page .simulation-edit-period button),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-card > button),
-:global(#app .app-shell .simulation-edit-page .simulation-edit-actions button) {
+:global(#app .app-shell .simulation-edit-page .simulation-edit-card > button) {
   font-size: 12px !important;
 }
-:global(#app .app-shell .simulation-edit-page .simulation-edit-actions button) {
+:global(
+  #app .app-shell .simulation-edit-page .simulation-edit-actions button:not(.simulation-primary-cta):not(.simulation-create-new)
+) {
   font-size: 14px !important;
 }
 
@@ -1468,7 +1465,7 @@ async function createNewSimulation() {
     min-height: 44px;
     margin: 0;
     padding: 0 12px;
-    font-size: 13px !important;
+    font-size: 16px !important;
   }
 }
 
@@ -1823,14 +1820,14 @@ async function createNewSimulation() {
     min-height: 48px;
     border: 0;
     border-radius: 12px;
-    font-size: 14.5px !important;
+    font-size: 16px !important;
   }
 
   .simulation-edit-mobile-actions .simulation-create-new {
     min-height: 46px;
     border-radius: 12px;
-    font-size: 14px !important;
-    font-weight: 600;
+    font-size: 16px !important;
+    font-weight: 700;
   }
 }
 

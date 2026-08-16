@@ -809,7 +809,7 @@ svg text {
 }
 
 #app .app-shell .sim-page .wizard-progress-tabs span.active i {
-  background: var(--sim-butter-deep);
+  background: var(--primary);
 }
 
 #app .app-shell .sim-page .wizard-progress-tabs span.done {
@@ -830,7 +830,7 @@ svg text {
 }
 
 #app .app-shell .sim-category-page > .wizard-progress-tabs span.active {
-  font-size: 17px !important;
+  font-size: 16px !important;
 }
 
 #app .app-shell .sim-page :where(
@@ -908,14 +908,33 @@ svg text {
   .sim-btn--orange,
   .expense-add-button,
   .income-add-button,
-  .policy-filter-button
+  .policy-filter-button,
+  .policy-add-button
 ) {
   border: 0 !important;
   border-radius: 14px !important;
-  background: var(--sim-butter) !important;
-  box-shadow: none !important;
+  background: #fbedb0 !important;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 16%) !important;
   color: var(--primary) !important;
-  font-weight: 850 !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell .sim-page :where(.expense-add-button, .income-add-button, .policy-add-button) {
+  font-size: 15px !important;
+}
+
+@media (hover: hover) {
+  #app .app-shell .sim-page :where(
+    .sim-btn--yellow,
+    .sim-btn--orange,
+    .expense-add-button,
+    .income-add-button,
+    .policy-filter-button,
+    .policy-add-button
+  ):not(:disabled):hover {
+    background: #f1b94c !important;
+  }
 }
 
 #app .app-shell .sim-page :where(
@@ -923,10 +942,15 @@ svg text {
   .sim-btn--orange,
   .expense-add-button,
   .income-add-button,
-  .policy-filter-button
-):not(:disabled):hover {
-  background: #ffdc66 !important;
-  transform: translateY(-1px);
+  .policy-filter-button,
+  .policy-add-button
+):disabled {
+  background: #e1e1e1 !important;
+  color: #999999 !important;
+}
+
+#app .app-shell .sim-page .policy-add-button.added {
+  background: #f1b94c !important;
 }
 
 #app .app-shell .sim-page :where(.added-expense-goals article, .selected-policies article, .policy-selected-list article) {
@@ -998,9 +1022,9 @@ svg text {
 
 #app .app-shell .sim-page .buttie-transition {
   border: 0 !important;
-  background: #fff !important;
+  background: transparent !important;
   background-image: none !important;
-  box-shadow: var(--shadow-figma);
+  box-shadow: none !important;
 }
 
 /* The report already owns its card surface; keep the outer section transparent. */

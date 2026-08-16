@@ -2267,10 +2267,27 @@ const targetMonthText = computed(() =>
   line-height: 1.6;
 }
 .quest-empty a {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin-top: 8px;
-  color: var(--accent-strong);
-  font-size: 14px;
-  font-weight: 600;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 18px;
+  background: #fbedb0;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 16%);
+  color: #0a1680;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background .16s ease;
+}
+@media (hover: hover) {
+  .quest-empty a:hover {
+    background: #f1b94c;
+  }
 }
 
 .block-heading--goal a {

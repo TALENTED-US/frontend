@@ -798,6 +798,7 @@ function skip() {
             </div>
             <button
               class="policy-add-button"
+              :class="{ added: simulation.state.policies.some((item) => item.id === policy.id) }"
               type="button"
               :disabled="simulation.syncing"
               @click="simulation.togglePolicy(policy)"
@@ -1745,7 +1746,7 @@ function skip() {
 
 .policy-condition-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 8px;
   margin-top: 14px;
 }
@@ -2349,7 +2350,7 @@ function skip() {
   }
 
   .sim-category-page .income-form-heading strong::after {
-    font-size: var(--type-field-label-size);
+    font-size: 15px;
     font-weight: var(--type-field-label-weight);
   }
 

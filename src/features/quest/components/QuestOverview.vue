@@ -207,7 +207,7 @@ async function toggle(item) {
   border: 0;
   border-radius: 999px;
   background: #e4ecfd;
-  box-shadow: inset 0 1px 2px rgba(10, 22, 128, 0.08);
+  box-shadow: none;
 }
 .quest-overview-tabs button {
   box-sizing: border-box;
@@ -452,6 +452,9 @@ async function toggle(item) {
 }
 .quest-overview-footer a {
   display: flex;
+  flex: 1 1 100%;
+  box-sizing: border-box;
+  width: 100%;
   min-height: 42px;
   align-items: center;
   justify-content: center;
@@ -459,9 +462,10 @@ async function toggle(item) {
   border-radius: 13px;
   background: #f5f7f9;
   color: #666;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 600;
   text-decoration: none;
+  transition: background .15s ease;
 }
 @media (max-width: 767px) {
   .quest-overview-card {

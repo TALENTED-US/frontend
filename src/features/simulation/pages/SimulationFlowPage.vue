@@ -256,39 +256,6 @@ async function confirm() {
         </p>
       </section>
 
-      <section class="baseline-report report-preview">
-        <h2>리포트 미리보기</h2>
-        <article class="report-preview__card">
-          <strong>시뮬레이션을 하면 이런 리포트를 받아볼 수 있어요</strong>
-          <span class="report-preview__badge">지출 줄이기</span>
-          <div class="report-preview__period">
-            <span>예상 버티는 기간 변화</span>
-            <p><del>{{ currentMonthsLabel }}</del><b>→</b><strong>{{ expectedMonthsLabel }}</strong></p>
-            <em>{{ addedMonthsLabel }}</em>
-          </div>
-          <div class="report-preview__charts">
-            <figure>
-              <figcaption>월별 타임라인</figcaption>
-              <svg viewBox="0 0 180 86" role="img" aria-label="시뮬레이션 전후 재정 타임라인 예시">
-                <line x1="12" y1="12" x2="92" y2="72" class="preview-line preview-line--before" />
-                <line x1="12" y1="12" x2="162" y2="72" class="preview-line preview-line--after" />
-                <circle cx="92" cy="72" r="4" class="preview-dot preview-dot--before" />
-                <circle cx="162" cy="72" r="4" class="preview-dot preview-dot--after" />
-                <text x="24" y="57" class="preview-text preview-text--before">적용 전</text>
-                <text x="116" y="34" class="preview-text preview-text--after">적용 후</text>
-              </svg>
-            </figure>
-            <figure>
-              <figcaption>시뮬레이션 적용 결과</figcaption>
-              <div class="preview-bars" aria-label="적용 전후 버티는 기간 비교">
-                <span class="preview-bar preview-bar--before"><i />적용 전</span>
-                <span class="preview-bar preview-bar--after"><i />적용 후</span>
-              </div>
-            </figure>
-          </div>
-        </article>
-      </section>
-
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
       <button
         class="sim-btn sim-btn--yellow wide simulation-primary-cta"
@@ -451,14 +418,14 @@ async function confirm() {
 .resume-actions .resume-reset {
   min-height: 64px;
   border-radius: 14px;
-  font-size: 17px;
-  font-weight: 800;
-  box-shadow: 0 2px 6px rgb(20 30 60 / 16%);
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .resume-actions .resume-reset {
   border: 1px solid #dfe4ee;
   background: #fff;
+  box-shadow: none;
   color: #777;
 }
 
@@ -1011,7 +978,7 @@ async function confirm() {
   .resume-actions .resume-reset {
     min-height: 58px;
     border-radius: 12px;
-    font-size: 15px;
+    font-size: 16px;
   }
 }
 
