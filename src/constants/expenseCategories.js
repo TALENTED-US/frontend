@@ -6,10 +6,12 @@ export const EXPENSE_CATEGORY_LABELS = Object.freeze({
   SHOPPING: '쇼핑',
   HOBBY_LEISURE: '취미·여가',
   HOUSING_COMMUNICATION: '주거·통신',
-  TRANSPORT_FUEL: '교통·주유',
-  HEALTH_FITNESS: '건강·운동',
+  TRANSPORT_FUEL: '교통·유류비',
+  HEALTH_FITNESS: '의료·건강',
   OTHER_FINANCE: '기타 금융',
 })
+
+export const EXPENSE_CATEGORY_OPTIONS = Object.freeze(Object.values(EXPENSE_CATEGORY_LABELS))
 
 // 이전 UI와 localStorage에 남은 명칭도 새 백엔드 enum으로 변환한다.
 export const EXPENSE_CATEGORY_BY_NAME = Object.freeze({
@@ -34,14 +36,17 @@ export const EXPENSE_CATEGORY_BY_NAME = Object.freeze({
   '주거': 'HOUSING_COMMUNICATION',
   '월세': 'HOUSING_COMMUNICATION',
   '통신비': 'HOUSING_COMMUNICATION',
+  '교통·유류비': 'TRANSPORT_FUEL',
   '교통·주유': 'TRANSPORT_FUEL',
   '교통/주유': 'TRANSPORT_FUEL',
   '교통': 'TRANSPORT_FUEL',
   '교통비': 'TRANSPORT_FUEL',
+  '의료·건강': 'HEALTH_FITNESS',
   '건강·운동': 'HEALTH_FITNESS',
   '건강/운동': 'HEALTH_FITNESS',
   '기타 금융': 'OTHER_FINANCE',
   '기타': 'OTHER_FINANCE',
+  '보험': 'OTHER_FINANCE',
 })
 
 export const DEFAULT_EXPENSE_CATEGORY = 'OTHER_FINANCE'
