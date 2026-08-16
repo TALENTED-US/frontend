@@ -75,6 +75,14 @@ async function loadFinancialAssets() {
   }
   if (simulation.syncError) return
 
+  const isMyDataConnected =
+    session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
+  if (!isMyDataConnected) {
+    financialAssets.value = null
+    financialAssetsError.value = ''
+    return
+  }
+
   financialAssetsError.value = ''
   try {
     const assets = await getMyDataAssetsApi()
@@ -83,6 +91,11 @@ async function loadFinancialAssets() {
       .filter((account) => account.isConsent !== false)
       .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
   } catch (error) {
+    if (error.code === 'MYDATA_007') {
+      financialAssets.value = null
+      financialAssetsError.value = ''
+      return
+    }
     financialAssets.value = null
     financialAssetsError.value = error.message || '계좌 잔액을 불러오지 못했습니다.'
   }

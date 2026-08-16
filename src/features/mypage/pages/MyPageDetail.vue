@@ -200,7 +200,9 @@ if (session.isMockMode) {
 watch(
   () => route.name,
   (name) => {
-    if (name === 'dataManagement' && !session.isMockMode) loadLinkedAssets()
+    const isMyDataConnected =
+      session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
+    if (name === 'dataManagement' && !session.isMockMode && isMyDataConnected) loadLinkedAssets()
     if (name === 'notificationSettings' && !session.isMockMode) loadNotificationSettings()
   },
   { immediate: true },
@@ -280,7 +282,9 @@ async function loadLinkedAssets() {
     await loadMyDataCatalog()
     mapLinkedAssets()
   } catch (error) {
-    dataRefreshMessage.value = error.message || '연결된 마이데이터 자산을 불러오지 못했습니다.'
+    if (error.code !== 'MYDATA_007') {
+      dataRefreshMessage.value = error.message || '연결된 마이데이터 자산을 불러오지 못했습니다.'
+    }
   } finally {
     dataLoading.value = false
   }
