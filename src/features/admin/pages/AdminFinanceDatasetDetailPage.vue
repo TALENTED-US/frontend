@@ -11,6 +11,7 @@ import {
   removeAdminFinanceDatasetMember,
   updateAdminFinanceDatasetRecord,
 } from '@/features/admin/api/financeDataApi'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const TYPE_LABEL = { account: '계좌', transaction: '거래' }
 const STATUS_LABEL = { connected: '연결됨', disconnected: '연결 끊김', pending: '연결 전' }
@@ -140,7 +141,9 @@ onMounted(load)
 
 <template>
   <section v-if="dataset" class="admin-finance-detail">
-    <RouterLink to="/admin/finance-data" class="admin-finance-detail__back">‹ 데이터 세트 관리로</RouterLink>
+    <RouterLink to="/admin/finance-data" class="admin-finance-detail__back"
+      ><AppIcon name="chevron-left" :size="20" />데이터 세트 관리로</RouterLink
+    >
 
     <header class="admin-finance-detail__header">
       <h1>{{ dataset.name }}</h1>
@@ -323,6 +326,9 @@ onMounted(load)
 
 <style scoped>
 .admin-finance-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: var(--font-small);
 }

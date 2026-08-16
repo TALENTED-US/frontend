@@ -566,7 +566,7 @@ function reconnectMyData() {
       aria-label="마이페이지로 돌아가기"
       @click="router.push('/mypage')"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <h1 class="desktop-only">{{ info[0] }}</h1>
     <p class="desktop-only detail-description">{{ info[1] }}</p>

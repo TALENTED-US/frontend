@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import ConfirmedFinancialTimeline from '@/features/simulation/components/ConfirmedFinancialTimeline.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import '@/features/simulation/styles/simulation.css'
 
 const route = useRoute()
@@ -70,7 +71,7 @@ const arrowPath = (before, after) => {
 
 <template>
   <section class="page sim-page sim-wizard preview-page">
-    <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push(`/simulation/${category}`)">‹</button>
+    <button class="sim-back simulation-back-button desktop-only" type="button" aria-label="뒤로가기" @click="router.push(`/simulation/${category}`)"><AppIcon name="chevron-left" :size="22" /></button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <RouterLink
         v-for="(wizardStep, index) in wizardSteps"

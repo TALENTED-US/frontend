@@ -357,7 +357,7 @@ function skip() {
       aria-label="뒤로가기"
       @click="router.push(backPath)"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <RouterLink
@@ -736,14 +736,6 @@ function skip() {
       <section class="policy-catalog-scroll">
         <div class="policy-catalog-heading">
           <h2>내 조건에 맞는 정책 모두 보기</h2>
-          <div class="policy-profile-badges" aria-label="맞춤 정책 검색 조건">
-            <span><small>거주지역</small>{{ session.currentUser.region || '미입력' }}</span>
-            <span><small>취업 준비 상태</small>{{ jobTypeLabel }}</span>
-            <span
-              ><small>가구원 수</small
-              >{{ session.currentUser.family ? `${session.currentUser.family}명` : '미입력' }}</span
-            >
-          </div>
           <span>{{ simulation.policyCatalog.length }}개</span>
         </div>
         <p v-if="simulation.policyCatalogLoading" class="policy-selected-empty">
@@ -782,19 +774,6 @@ function skip() {
                 </svg>
               </button>
             </div>
-            <button
-              class="policy-add-button"
-              type="button"
-              :disabled="simulation.syncing"
-              @click="simulation.togglePolicy(policy)"
-            >
-              {{
-                simulation.state.policies.some((item) => item.id === policy.id)
-                  ? '✓ 추가됨'
-                  : '+ 추가하기'
-              }}
-            </button>
-            <strong>+{{ policy.detail }}</strong>
             <div
               v-if="expandedPolicyIds.has(`catalog:${policy.id}`)"
               :id="`policy-details-${policy.id}`"
@@ -817,6 +796,19 @@ function skip() {
                 >정책 상세 페이지 열기</a
               >
             </div>
+            <button
+              class="policy-add-button"
+              type="button"
+              :disabled="simulation.syncing"
+              @click="simulation.togglePolicy(policy)"
+            >
+              {{
+                simulation.state.policies.some((item) => item.id === policy.id)
+                  ? '✓ 추가됨'
+                  : '+ 추가하기'
+              }}
+            </button>
+            <strong>+{{ policy.detail }}</strong>
           </article>
         </div>
       </section>
@@ -1706,50 +1698,6 @@ function skip() {
   }
 }
 
-.policy-profile-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.policy-profile-badges > span {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: #f6f3fc;
-  color: #4f465f;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.policy-profile-badges small {
-  color: #8e79cd;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.policy-catalog-heading > .policy-profile-badges {
-  min-width: 0;
-  justify-content: flex-end;
-  justify-self: end;
-  margin: 0;
-}
-
-.policy-catalog-heading > .policy-profile-badges > span {
-  min-height: 30px;
-  padding: 6px 10px;
-  font-size: 11px;
-}
-
-.policy-catalog-heading > .policy-profile-badges small {
-  font-size: 10px;
-}
-
 .policy-qualification {
   margin-top: 26px;
 }
@@ -2162,7 +2110,7 @@ function skip() {
 }
 
 .sim-category-page .policy-catalog-list .policy-add-button {
-  grid-row: 2;
+  grid-row: 3;
   grid-column: 2;
   justify-self: end;
 }
@@ -2235,6 +2183,12 @@ function skip() {
   padding: 12px;
   border-radius: 11px;
   background: #f7f6fc;
+}
+
+.sim-category-page .policy-catalog-list article > .policy-detail-panel {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin-top: 4px;
 }
 
 .sim-category-page .policy-detail-panel p {
@@ -2338,23 +2292,6 @@ function skip() {
     grid-column: 2;
     justify-self: end;
     white-space: nowrap;
-  }
-
-  .sim-category-page .policy-catalog-heading > .policy-profile-badges {
-    width: 100%;
-    grid-row: 2;
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    justify-self: stretch;
-    gap: 7px;
-    margin: 0;
-  }
-
-  .sim-category-page .policy-catalog-heading > .policy-profile-badges > span {
-    min-width: 0;
-    min-height: 30px;
-    padding: 6px 10px;
-    font-size: 11px;
   }
 
   .sim-category-page .policy-selected-empty {
@@ -2692,22 +2629,6 @@ function skip() {
 .sim-category-page .policy-selected-heading > span {
   font-size: 15px;
   font-weight: 800;
-}
-
-.sim-category-page .policy-catalog-heading > .policy-profile-badges > span {
-  min-height: 34px;
-  gap: 7px;
-  padding: 7px 11px;
-  background: #e7e1f3;
-  color: #40344f;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.sim-category-page .policy-catalog-heading > .policy-profile-badges small {
-  color: #746584;
-  font-size: 9px;
-  font-weight: 600;
 }
 
 .sim-category-page .policy-selected-card footer strong {

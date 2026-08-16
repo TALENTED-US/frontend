@@ -205,7 +205,7 @@ async function confirm() {
         aria-label="뒤로가기"
         @click="router.push('/simulation')"
       >
-        ‹
+        <AppIcon name="chevron-left" :size="22" />
       </button>
       <h1 class="wizard-title">
         지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
@@ -415,6 +415,13 @@ async function confirm() {
 </template>
 
 <style scoped>
+.final-result em {
+  display: inline-flex;
+  height: 35px;
+  align-items: center;
+  border: 0 !important;
+}
+
 .sim-flow-continue {
   min-height: calc(100vh - var(--header-height));
 }

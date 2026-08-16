@@ -82,8 +82,11 @@ const computeLayout = () => {
   const span = Math.max(W - PAD * 2, 1)
 
   const centers = pts.map((p) => PAD + (p.months / max) * span)
-  for (let i = centers.length - 2; i >= 0; i--) {
-    centers[i] = Math.max(PAD, Math.min(centers[i], centers[i + 1] - DOT_GAP))
+  const order = centers.map((_, i) => i).sort((a, b) => centers[a] - centers[b])
+  for (let k = order.length - 2; k >= 0; k--) {
+    const i = order[k]
+    const next = order[k + 1]
+    centers[i] = Math.max(PAD, Math.min(centers[i], centers[next] - DOT_GAP))
   }
 
   const widths = pts.map((_, i) => labelRefs.value[i]?.offsetWidth || 70)

@@ -2269,7 +2269,8 @@ const targetMonthText = computed(() =>
 .quest-empty a {
   margin-top: 8px;
   color: var(--accent-strong);
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .block-heading--goal a {

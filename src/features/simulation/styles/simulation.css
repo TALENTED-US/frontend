@@ -666,6 +666,18 @@ button.simulation-primary-cta:active:not(:disabled) {
   grid-template-columns: 42px minmax(0, 1fr) auto auto auto auto;
 }
 
+.sim-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.sim-text-button {
+  font-size: 14px;
+  font-weight: 600;
+}
+
 @media (max-width: 767px) {
   .sim-page .confirm-row {
     grid-template-columns: 42px minmax(0, 1fr) auto auto;

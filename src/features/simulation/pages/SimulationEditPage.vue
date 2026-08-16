@@ -127,7 +127,7 @@ async function createNewSimulation() {
       aria-label="뒤로가기"
       @click="router.push('/simulation')"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
 
     <article class="simulation-edit-shell">
@@ -553,12 +553,12 @@ async function createNewSimulation() {
   align-items: center;
   justify-content: center;
   margin-top: 12px;
-  border: 1px solid #dfe3ea;
+  border: 1px solid #e1e1e1;
   border-radius: 13px;
   background: #fff;
-  color: #686f7c;
-  font-size: 15px;
-  font-weight: 800;
+  color: #666;
+  font-size: 16px;
+  font-weight: 700;
   box-shadow: 0 2px 5px rgb(20 30 60 / 9%);
   text-align: center;
 }

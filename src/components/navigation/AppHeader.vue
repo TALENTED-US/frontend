@@ -175,7 +175,7 @@ watch(
       "
       @click="goBack"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <BrandLogo
       v-if="!hasMobileBack && !isSimulationCategory"
@@ -257,13 +257,15 @@ watch(
   flex: 1;
 }
 .app-header__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 5px;
+  padding: 0;
   color: #222;
-  font-size: var(--font-page-title);
   line-height: 1;
 }
 .app-header__back--category {
-  font-size: 26px;
   font-weight: 900;
 }
 .app-header__logout {
