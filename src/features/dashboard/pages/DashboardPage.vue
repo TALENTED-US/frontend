@@ -1,10 +1,12 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import { getMyDataAssetsApi } from '@/api/mydata'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import MyDataConnectModal from '@/components/ui/MyDataConnectModal.vue'
 import QuestOverview from '@/features/quest/components/QuestOverview.vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { useSessionStore } from '@/stores/session'
@@ -26,6 +28,7 @@ import {
   useProgressionStore,
 } from '@/stores/progression'
 
+const router = useRouter()
 const session = useSessionStore()
 const simulation = useSimulationStore()
 const progression = useProgressionStore()
@@ -35,6 +38,16 @@ const dashboardApiError = ref('')
 const dashboardApiLoading = ref(false)
 const financialAssets = ref(null)
 const financialAssetsError = ref('')
+const showMyDataConnectModal = ref(false)
+
+function isMyDataConnected() {
+  return session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
+}
+
+function goToMyDataConnect() {
+  showMyDataConnectModal.value = false
+  router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/dashboard' } })
+}
 
 function finiteNumberOrNull(value) {
   const number = Number(value)
@@ -75,11 +88,10 @@ async function loadFinancialAssets() {
   }
   if (simulation.syncError) return
 
-  const isMyDataConnected =
-    session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
-  if (!isMyDataConnected) {
+  if (!isMyDataConnected()) {
     financialAssets.value = null
     financialAssetsError.value = ''
+    showMyDataConnectModal.value = true
     return
   }
 
@@ -871,6 +883,11 @@ const targetMonthText = computed(() =>
         </article>
       </section>
     </div>
+    <MyDataConnectModal
+      :visible="showMyDataConnectModal"
+      @close="showMyDataConnectModal = false"
+      @connect="goToMyDataConnect"
+    />
   </section>
 </template>
 
