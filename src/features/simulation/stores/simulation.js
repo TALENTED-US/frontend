@@ -31,20 +31,20 @@ import {
 import { getPoliciesApi } from '@/api/policy'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import { getMyDataAssetsApi } from '@/api/mydata'
-import {
-  EXPENSE_CATEGORY_OPTIONS,
-  expenseLabelToCategory,
-  normalizeExpenseCategoryLabel,
-} from '@/constants/expenseCategories'
 import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
+import {
+  EXPENSE_CATEGORY_LABELS,
+  expenseCategoryLabel,
+  expenseCategoryValue,
+} from '@/constants/expenseCategories'
 
 const STORAGE_KEY = 'buttie-simulation-v4'
 const CONFIRMED_SNAPSHOT_KEY = 'buttie-simulation-confirmed-snapshot-v1'
 const CLIENT_CALCULATION_VERSION = 2
 const CATEGORY_META = {
   식비: { icon: '🍚', color: '#ffd0d0' },
-  '술·유흥': { icon: '🍺', color: '#f5ae77' },
-  '카페·간식': { icon: '☕', color: '#d7a86e' },
+  '술·유흥': { icon: '🍻', color: '#e9b8a8' },
+  '카페·간식': { icon: '☕', color: '#e8c89a' },
   '취업 준비': { icon: '📚', color: '#77b6df' },
   쇼핑: { icon: '🛍️', color: '#88a9f6' },
   '취미·여가': { icon: '🎮', color: '#c8a8ef' },
@@ -53,7 +53,9 @@ const CATEGORY_META = {
   '의료·건강': { icon: '🏥', color: '#8dd5c1' },
   '기타 금융': { icon: '🧾', color: '#b8bdc8' },
 }
-const REDUCTION_CATEGORIES = [...EXPENSE_CATEGORY_OPTIONS]
+const EXPENSE_TARGET_CATEGORY_NAMES = Object.entries(EXPENSE_CATEGORY_LABELS)
+  .filter(([category]) => category !== 'HOUSING_COMMUNICATION')
+  .map(([, name]) => name)
 const DAYS_PER_MONTH = 365.2425 / 12
 
 function finiteNumberOrNull(value) {
@@ -113,14 +115,7 @@ const defaultState = () => ({
   endDate: '2027-01-01',
   expenses: [
     { id: 'food', name: '식비', icon: '🍚', current: 150000, saving: 0, selected: false },
-    {
-      id: 'transport',
-      name: '교통·유류비',
-      icon: '🚌',
-      current: 70000,
-      saving: 0,
-      selected: false,
-    },
+    { id: 'transport', name: '교통·유류비', icon: '🚌', current: 70000, saving: 0, selected: false },
     { id: 'shopping', name: '쇼핑', icon: '🛍️', current: 80000, saving: 0, selected: false },
   ],
   expenseApplied: false,
@@ -155,7 +150,6 @@ export const useSimulationStore = defineStore('simulation', () => {
   const policyCatalogLoading = ref(false)
   const policyCatalogError = ref('')
   const financialDataReady = computed(() => financeState.loaded && !financeState.loading)
-  const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
   )
@@ -251,28 +245,27 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function buildExpenseCategories(existing = state.expenses) {
-    const breakdownRows = previousMonthExpenseAnalysis.value.categories.map(
-      ({ name, current }) => ({
-        id: name,
-        name,
-        icon: CATEGORY_META[name]?.icon || CATEGORY_META['기타 금융'].icon,
-        color: CATEGORY_META[name]?.color || CATEGORY_META['기타 금융'].color,
+    const groupedBreakdown = new Map()
+    previousMonthExpenseAnalysis.value.categories.forEach(({ name, current }) => {
+      const normalizedName = expenseCategoryLabel(expenseCategoryValue(name))
+      const previous = groupedBreakdown.get(normalizedName)
+      if (previous) previous.current += current
+      else groupedBreakdown.set(normalizedName, {
+        id: normalizedName,
+        name: normalizedName,
+        icon: CATEGORY_META[normalizedName]?.icon || CATEGORY_META['기타 금융'].icon,
+        color: CATEGORY_META[normalizedName]?.color || CATEGORY_META['기타 금융'].color,
         current,
-      }),
-    )
-    const totals = Object.fromEntries(REDUCTION_CATEGORIES.map((name) => [name, 0]))
-    breakdownRows.forEach((item) => {
-      const category = normalizeExpenseCategoryLabel(item.name)
-      totals[category] += item.current
+      })
     })
-    const rows = REDUCTION_CATEGORIES.map((name) => {
+    const breakdownRows = groupedBreakdown.size
+      ? [...groupedBreakdown.values()]
+      : defaultState().expenses
+    const rows = EXPENSE_TARGET_CATEGORY_NAMES.map((name) => {
+      const current = groupedBreakdown.get(name)?.current || 0
       const previous = existing.find(
-        (item) =>
-          item.id === name ||
-          item.name === name ||
-          normalizeExpenseCategoryLabel(item.name) === name,
+        (item) => expenseCategoryLabel(expenseCategoryValue(item.name)) === name,
       )
-      const current = totals[name]
       return {
         id: name,
         name,
@@ -286,7 +279,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
     return {
       rows,
-      breakdownRows: breakdownRows.length ? breakdownRows : defaultState().expenses,
+      breakdownRows,
       monthKeys: previousMonthExpenseAnalysis.value.monthKeys,
     }
   }
@@ -620,7 +613,27 @@ export const useSimulationStore = defineStore('simulation', () => {
         }
 
     try {
-      const catalog = await fetchPolicyCatalogPages(params)
+      let catalog
+      try {
+        catalog = await fetchPolicyCatalogPages(params)
+      } catch (error) {
+        if (error.code !== 'CATALOG_005') throw error
+
+        const relaxedParams = { ...params }
+        if (relaxedParams.policyRegion) delete relaxedParams.policyRegion
+        else delete relaxedParams.employmentPrepStatus
+        catalog = await fetchPolicyCatalogPages(relaxedParams)
+      }
+
+      // 백엔드의 지역 필터는 해당 지역 전용 정책만 남기고 전국 정책을 제외한다.
+      // 정확 조건 결과가 비었을 때는 지역만 완화해 나이와 취업 상태에 맞는
+      // 정책까지 모두 사라지는 상황을 방지한다.
+      if (!catalog.length && params.policyRegion) {
+        const fallbackParams = { ...params }
+        delete fallbackParams.policyRegion
+        catalog = await fetchPolicyCatalogPages(fallbackParams)
+      }
+
       policyCatalog.value = catalog
       reconcileSelectedPolicies(catalog)
       return catalog
@@ -809,8 +822,12 @@ export const useSimulationStore = defineStore('simulation', () => {
           throw new Error('확정된 시뮬레이션 결과를 불러오지 못했습니다.')
         }
 
-        confirmed = remoteConfirmed
-        applyConfirmedItems(remoteConfirmed)
+        confirmed = {
+          ...localSnapshot,
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        }
+        applyConfirmedItems(confirmed)
         remoteSimulation.value = response
         remoteReport.value = null
       }
@@ -1003,6 +1020,35 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
+  async function prepareConfirmationPreview() {
+    syncing.value = true
+    syncError.value = ''
+    try {
+      await loadTransactions()
+
+      if (remoteEnabled) {
+        try {
+          const serverReport = await getSimulationReportApi()
+          remoteReport.value = state.ignoreRemoteDraft ? null : serverReport
+        } catch {
+          // 버티는 기간은 거래내역과 현재 선택 항목으로 계산할 수 있으므로
+          // 리포트 재조회 실패만으로 확정 화면 전체를 막지 않는다.
+        }
+      }
+
+      if (!runwayCalculationReady.value) {
+        syncError.value = '월 지출 내역이 없어 예상 버티는 기간을 계산할 수 없습니다.'
+        return false
+      }
+      return true
+    } catch (error) {
+      syncError.value = error.message || '재정 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      return false
+    } finally {
+      syncing.value = false
+    }
+  }
+
   async function hydrateConfirmed() {
     if (!remoteEnabled) return null
     syncing.value = true
@@ -1010,11 +1056,40 @@ export const useSimulationStore = defineStore('simulation', () => {
     try {
       const response = await getLatestConfirmedSimulationApi()
       const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
-      if (!remoteConfirmed) return null
-      applyConfirmedItems(remoteConfirmed)
+
+      const restored = restoreConfirmedSnapshot()
+      const canReuseClientSnapshot =
+        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
+        restored.simulationId === remoteConfirmed.simulationId &&
+        restored.confirmedAt === remoteConfirmed.confirmedAt &&
+        Number(restored.currentMonths) < 999 &&
+        Number(restored.expectedMonths) < 999
+      let confirmed
+
+      if (canReuseClientSnapshot) {
+        confirmed = {
+          ...restored,
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        }
+        applyConfirmedItems(confirmed)
+      } else {
+        applyConfirmedItems(remoteConfirmed)
+        recentConfirmed.value = null
+        const localConfirmed = buildClientConfirmedSnapshot()
+        if (!localConfirmed) throw new Error('거래 내역을 불러온 뒤 시뮬레이션을 다시 확인해 주세요.')
+        confirmed = {
+          ...localConfirmed,
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        }
+        applyConfirmedItems(confirmed)
+      }
+
       remoteSimulation.value = response
       remoteReport.value = null
-      recentConfirmed.value = remoteConfirmed
+      recentConfirmed.value = confirmed
+      persistConfirmedSnapshot(confirmed)
       state.confirmed = true
       state.draftStarted = false
       state.ignoreRemoteDraft = false
@@ -1051,7 +1126,18 @@ export const useSimulationStore = defineStore('simulation', () => {
       if (remoteDraftExists.value) {
         await updateSimulationPeriodApi(payload)
       } else {
-        const data = await createSimulationApi(payload)
+        let data
+        try {
+          data = await createSimulationApi(payload)
+        } catch (createError) {
+          if (createError.code !== 'SIMULATION_901') throw createError
+
+          // 조회 API는 Draft가 없다고 응답하지만 생성 API는 기존 Draft를 감지하는
+          // 서버 불일치 상태가 있을 수 있다. 새 시뮬레이션 시작 요청이므로 남은
+          // 미확정 Draft를 정리한 뒤 생성 요청을 한 번만 다시 시도한다.
+          await deleteDraftSimulationApi()
+          data = await createSimulationApi(payload)
+        }
         remoteDraftExists.value = true
         applyRemoteSimulation(data)
       }
@@ -1103,7 +1189,7 @@ export const useSimulationStore = defineStore('simulation', () => {
                 payload: {
                   category: 'EXPENSE',
                   itemName: `${item.name} 줄이기`,
-                  expenseCategory: expenseLabelToCategory(item.name),
+                  expenseCategory: expenseCategoryValue(item.name),
                   amount: item.saving,
                   applyStartDate: state.startDate,
                   applyEndDate: state.endDate,
@@ -1261,6 +1347,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     resetScenario,
     prepareNewScenario,
     hydrateDraft,
+    prepareConfirmationPreview,
     hydrateConfirmed,
     hydrateRunwayBaseline,
     hydrateFinancialSnapshot,

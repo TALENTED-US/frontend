@@ -1,5 +1,9 @@
 import { apiClient, normalizeApiError, unwrapApiResponse } from './client'
-import { expenseCategoryToLabel, expenseLabelToCategory } from '@/constants/expenseCategories'
+import {
+  DEFAULT_EXPENSE_CATEGORY,
+  expenseCategoryLabel,
+  expenseCategoryValue,
+} from '@/constants/expenseCategories'
 
 function splitTransactionAt(value = '') {
   const [date = '', rawTime = ''] = String(value).split('T')
@@ -7,7 +11,7 @@ function splitTransactionAt(value = '') {
 }
 
 function resolveExpenseCategory(row) {
-  const mappedCategory = expenseCategoryToLabel(row?.expenseCategory)
+  const mappedCategory = expenseCategoryLabel(row?.expenseCategory)
   if (mappedCategory !== '기타') return mappedCategory
 
   const transactionText = `${row?.transactionContent || ''} ${row?.transactionMemo || ''}`
@@ -51,7 +55,7 @@ export function mapTransactionForm(payload) {
   const isIncome = payload.amount > 0
   return {
     transactionType: isIncome ? 'INCOME' : 'EXPENSE',
-    expenseCategory: isIncome ? 'OTHER_FINANCE' : expenseLabelToCategory(payload.category),
+    expenseCategory: isIncome ? DEFAULT_EXPENSE_CATEGORY : expenseCategoryValue(payload.category),
     transactionAmount: Math.abs(Math.trunc(Number(payload.amount) || 0)),
     transactionContent: payload.title || payload.memo || (isIncome ? '수입' : payload.category),
     transactionMemo: payload.memo || '',
@@ -82,7 +86,7 @@ export async function getFixedExpenseDetailsApi() {
           date,
           time,
           title: row?.transactionContent || '고정지출',
-          category: expenseCategoryToLabel(row?.expenseCategory),
+          category: expenseCategoryLabel(row?.expenseCategory),
           detail: '고정지출',
           amount: -Math.abs(Number(row?.transactionAmount) || 0),
           fixed: true,

@@ -4,6 +4,9 @@ import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import { getMyDataAssetsApi } from '@/api/mydata'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import QuestOverview from '@/features/quest/components/QuestOverview.vue'
+import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import { pickButtieMessage } from '@/data/buttieMessages'
@@ -65,6 +68,12 @@ async function loadFinancialAssets() {
     financialAssets.value = dashboard.totalAssets
     return
   }
+  const draft = quests.remoteEnabled ? await simulation.hydrateDraft() : null
+  if (draft) {
+    quests.resetQuests()
+    return
+  }
+  if (simulation.syncError) return
 
   financialAssetsError.value = ''
   try {
@@ -331,7 +340,7 @@ const confirmedPolicyRows = computed(() =>
     amount: item.amount,
     kind: 'policy',
     recurrence: item.type === 'monthly' ? 'monthly' : 'once',
-    questUrl: item.questUrl || item.url || item.policyUrl || '',
+    questUrl: normalizeExternalUrl(item.url),
   })),
 )
 const questTab = ref('active')
@@ -394,6 +403,10 @@ const questCompletionPercent = computed(() =>
     ? Math.round((completedQuestCount.value / allQuestRows.value.length) * 100)
     : 0,
 )
+const claimableQuestExp = computed(() => allQuestRows.value
+  .filter((item) => !isQuestCompleted(item))
+  .reduce((sum, item) => sum + questExp(item), 0))
+const questIconName = (item) => ({ expense: 'arrow-down', income: 'briefcase', policy: 'landmark' }[item.kind] || 'check-circle')
 function buildQuestGroups(rows) {
   return [
     { key: 'expense', title: '지출 줄이기' },
@@ -430,7 +443,7 @@ const visibleQuestSections = computed(() =>
     const rows = section.rows.filter((item) =>
       questTab.value === 'completed' ? isQuestCompleted(item) : !isQuestCompleted(item),
     )
-    return { ...section, groups: buildQuestGroups(rows) }
+    return { ...section, visibleRows: rows }
   }),
 )
 function isQuestCompleted(item) {
@@ -836,146 +849,7 @@ const targetMonthText = computed(() =>
 
     <div class="dashboard__bottom">
       <section class="quest-section">
-        <div class="block-heading">
-          <h2>퀘스트 현황</h2>
-          <span v-if="hasConfirmedScenario" class="confirmed-badge">확정됨</span>
-        </div>
-
-        <article v-if="hasConfirmedScenario" class="quest-card">
-          <div
-            v-if="quests.remoteEnabled && (quests.loading || quests.error)"
-            class="quest-api-notice"
-            :class="{ 'quest-api-notice--error': quests.error }"
-            role="status"
-          >
-            <span>{{ quests.loading ? '퀘스트를 불러오는 중이에요.' : quests.error }}</span>
-            <button v-if="quests.error" type="button" @click="quests.fetchQuests()">
-              다시 시도
-            </button>
-          </div>
-          <div class="quest-tabs" role="tablist" aria-label="퀘스트 상태">
-            <button
-              type="button"
-              :class="{ 'is-active': questTab === 'active' }"
-              @click="questTab = 'active'"
-            >
-              진행 중 {{ activeQuestCount }}
-            </button>
-            <button
-              type="button"
-              :class="{ 'is-active': questTab === 'completed' }"
-              @click="questTab = 'completed'"
-            >
-              완료 {{ completedQuestCount }}
-            </button>
-          </div>
-
-          <div class="quest-completion">
-            <div class="quest-completion__label">
-              <strong>퀘스트 완료율 {{ questCompletionPercent }}%</strong>
-              <span>{{ completedQuestCount }} / {{ allQuestRows.length }} 완료</span>
-            </div>
-            <div
-              class="quest-completion__track"
-              role="progressbar"
-              aria-label="전체 퀘스트 완료율"
-              :aria-valuenow="questCompletionPercent"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            >
-              <span :style="{ width: `${questCompletionPercent}%` }" />
-            </div>
-          </div>
-
-          <div class="quest-periods">
-            <section
-              v-for="section in visibleQuestSections"
-              :key="section.key"
-              class="quest-period"
-              :class="`quest-period--${section.key}`"
-            >
-              <header class="quest-period__heading">
-                <div>
-                  <h3>{{ section.title }}</h3>
-                  <p>{{ section.description }}</p>
-                </div>
-                <span v-if="section.key === 'recurring'">{{ questMonthKey }} 기준</span>
-              </header>
-
-              <div v-if="section.groups.length" class="quest-groups">
-                <section
-                  v-for="group in section.groups"
-                  :key="group.key"
-                  class="quest-group"
-                  :class="`quest-group--${group.key}`"
-                >
-                  <div class="quest-group__heading">
-                    <h3><i aria-hidden="true"></i>{{ group.title }}</h3>
-                    <strong v-if="group.amount">
-                      {{ formatSignedCompactWon(group.amount) }}
-                    </strong>
-                    <strong v-else>{{ group.action }}</strong>
-                  </div>
-
-                  <div
-                    v-for="item in group.rows"
-                    :key="item.id"
-                    class="quest-row-wrap"
-                    :class="{ 'quest-row-wrap--policy': item.kind === 'policy' }"
-                  >
-                    <button
-                      type="button"
-                      class="quest-row"
-                      :class="[
-                        `quest-row--${item.kind}`,
-                        { 'is-completed': isQuestCompleted(item) },
-                      ]"
-                      :aria-pressed="isQuestCompleted(item)"
-                      :aria-busy="isQuestPending(item)"
-                      :disabled="isQuestPending(item)"
-                      @click="toggleQuest(item)"
-                    >
-                      <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
-                      <span class="quest-row__copy">
-                        <strong>{{ item.name }}</strong>
-                        <small v-if="item.subtitle" class="quest-row__subtitle">{{
-                          item.subtitle
-                        }}</small>
-                        <small class="quest-row__exp">
-                          +{{ formatExp(questExp(item)) }} EXP
-                          <template v-if="isQuestRewarded(item)"> · 지급 완료 </template>
-                        </small>
-                      </span>
-                      <strong class="quest-row__amount">
-                        {{ formatSignedCompactWon(item.amount) }}
-                      </strong>
-                      <span class="quest-row__check" aria-hidden="true">
-                        {{ isQuestCompleted(item) ? '✓' : '' }}
-                      </span>
-                    </button>
-                    <a
-                      v-if="policyApplicationUrl(item)"
-                      class="quest-row__policy-link"
-                      :href="policyApplicationUrl(item)"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      :aria-label="`${item.name} 정책 신청 페이지로 이동`"
-                    >
-                      신청 바로가기 <span aria-hidden="true">↗</span>
-                    </a>
-                  </div>
-                </section>
-              </div>
-              <p v-else class="quest-period__empty">
-                {{
-                  questTab === 'completed'
-                    ? '완료한 퀘스트가 없어요.'
-                    : '진행 중인 퀘스트가 없어요.'
-                }}
-              </p>
-            </section>
-          </div>
-        </article>
+        <QuestOverview v-if="hasConfirmedScenario" :rows="allQuestRows" :edit-loading="simulation.syncing" />
 
         <article v-else class="quest-empty">
           <h3>진행 중인 퀘스트가 아직 없어요</h3>
@@ -1871,6 +1745,52 @@ const targetMonthText = computed(() =>
   font-size: var(--font-small);
   font-weight: 800;
 }
+
+.home-quest-card { --quest-ink:#222; --quest-paper:#fcfdff; --quest-navy:#0a1680; --quest-yellow:#fbedb0; --quest-lime:#44d795; --quest-blue:#93b2f8; --quest-peach:#f0574f; overflow:hidden; padding:26px 28px 22px; border:1px solid #e1e1e1; border-radius:32px; background:var(--quest-paper); color:var(--quest-ink); }
+.home-quest-header { display:flex; align-items:center; justify-content:space-between; gap:24px; }
+.home-quest-header h2 { font-size:20px; font-weight:900; }
+.home-quest-tabs { display:grid; min-width:240px; grid-template-columns:1fr 1fr; gap:8px; }
+.home-quest-tabs button { min-height:42px; padding:0 18px; border:1px solid #e1e1e1; border-radius:999px; background:#fff; color:#666; font-size:14px; font-weight:700; }
+.home-quest-tabs button strong { margin-left:4px; font-size:16px; }
+.home-quest-tabs button.active { border-color:var(--quest-navy); background:var(--quest-navy); color:#fff; }
+.home-quest-progress { margin-top:20px; padding:17px 20px; border:1px solid rgb(10 22 128 / 12%); border-radius:22px; background:var(--quest-yellow); }
+.home-quest-progress__top { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:24px; }
+.home-quest-progress__top > strong { font-size:15px; font-weight:900; }
+.home-quest-progress__top > span { font-size:13px; font-weight:800; }
+.home-quest-progress__top > b { display:grid; grid-row:1 / span 2; grid-column:3; justify-items:end; color:var(--quest-navy); font-size:21px; line-height:1; }
+.home-quest-progress__top > b small { margin-top:4px; font-size:11px; font-weight:700; }
+.home-quest-progress__track { height:10px; margin-top:11px; overflow:hidden; border-radius:999px; background:rgb(255 255 255 / 72%); }
+.home-quest-progress__track span { display:block; height:100%; border-radius:inherit; background:var(--quest-navy); transition:width .3s ease; }
+.home-quest-section { margin-top:27px; }
+.home-quest-section > header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:16px; }
+.home-quest-section > header h3 { font-size:18px; font-weight:900; }
+.home-quest-section > header p { margin-top:5px; color:#6b7684; font-size:13px; line-height:1.5; }
+.home-quest-section > header > span { flex:none; padding:6px 10px; border:1px solid rgb(10 22 128 / 15%); border-radius:999px; background:var(--quest-yellow); color:var(--quest-navy); font-size:11px; font-weight:800; }
+.home-quest-list { display:grid; gap:12px; }
+.home-quest-row { display:grid; width:100%; min-height:72px; grid-template-columns:44px minmax(0,1fr) auto auto 32px; align-items:center; gap:12px; padding:10px 14px; border:1px solid rgb(10 22 128 / 12%); border-radius:22px; background:#fff; color:var(--quest-ink); }
+.home-quest-row.completed { opacity:.62; }
+.home-quest-row.pending { opacity:.5; }
+.home-quest-row__icon { display:grid; width:40px; height:40px; place-items:center; border-radius:50%; }
+.home-quest-row.is-expense .home-quest-row__icon { background:var(--quest-peach); color:#fff; }
+.home-quest-row.is-income .home-quest-row__icon { background:var(--quest-lime); color:var(--quest-ink); }
+.home-quest-row.is-policy .home-quest-row__icon { background:var(--quest-blue); color:var(--quest-navy); }
+.home-quest-row__copy { display:grid; min-width:0; gap:6px; }
+.home-quest-row__copy > strong { overflow:hidden; font-size:15px; font-weight:900; text-overflow:ellipsis; white-space:nowrap; }
+.home-quest-row__copy small { color:#7a746d; font-size:12px; }
+.home-quest-row__copy small b { color:#8a5b00; font-weight:900; }
+.home-quest-row__apply { grid-column:3; padding:7px 11px; border-radius:999px; background:var(--quest-navy); color:#fff; font-size:12px; font-weight:800; white-space:nowrap; }
+.home-quest-row__amount { grid-column:3; font-size:16px; font-weight:900; white-space:nowrap; }
+.home-quest-row.is-policy .home-quest-row__amount { grid-column:4; color:var(--quest-navy); }
+.home-quest-row.is-expense .home-quest-row__amount { color:var(--quest-peach); }
+.home-quest-row.is-income .home-quest-row__amount { color:#168b5c; }
+.home-quest-row__check { display:grid; width:32px !important; min-width:32px; max-width:32px; height:32px !important; min-height:32px !important; max-height:32px; aspect-ratio:1 / 1; grid-column:5; place-self:center; place-items:center; padding:0 !important; border:2px solid #d8d2c4; border-radius:10px; background:#fff; color:#fff; line-height:1; }
+.home-quest-row.completed .home-quest-row__check { border-color:var(--quest-navy); background:var(--quest-navy); }
+.home-quest-empty-row { display:grid; min-height:116px; align-content:center; justify-items:center; gap:8px; padding:24px 34px; border:1px solid #e1e1e1; border-radius:22px; background:#fff; color:#666; text-align:center; }
+.home-quest-empty-row strong { font-size:16px; font-weight:900; }
+.home-quest-empty-row span { font-size:13px; }
+.home-quest-footer { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-top:32px; padding-top:24px; border-top:1px solid #eee8dc; }
+.home-quest-footer p { color:#81776b; font-size:14px; }
+.home-quest-footer a { display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:7px; padding:0 18px; border:0; border-radius:13px; background:#f5f7f9; color:#666; font-size:14px; font-weight:800; }
 
 .quest-card,
 .quest-empty,
@@ -2906,6 +2826,40 @@ const targetMonthText = computed(() =>
     padding: 7px 16px;
   }
 
+  .home-quest-card { padding:18px 12px 15px; border-radius:20px; }
+  .home-quest-header { display:grid; gap:12px; }
+  .home-quest-header h2 { font-size:18px; }
+  .home-quest-tabs { width:100%; min-width:0; gap:8px; }
+  .home-quest-tabs button { min-height:38px; padding:0 10px; font-size:13px; }
+  .home-quest-tabs button strong { font-size:15px; }
+  .home-quest-progress { margin-top:16px; padding:14px 13px; border-radius:16px; }
+  .home-quest-progress__top { grid-template-columns:1fr auto; gap:8px 12px; }
+  .home-quest-progress__top > strong { font-size:14px; }
+  .home-quest-progress__top > span { font-size:11px; }
+  .home-quest-progress__top > b { grid-row:2; grid-column:1 / -1; justify-items:end; font-size:18px; }
+  .home-quest-progress__track { height:8px; }
+  .home-quest-section { margin-top:22px; }
+  .home-quest-section > header { gap:10px; margin-bottom:13px; }
+  .home-quest-section > header h3 { font-size:16px; }
+  .home-quest-section > header p { font-size:12px; }
+  .home-quest-section > header > span { padding:5px 8px; font-size:10px; }
+  .home-quest-row { min-height:68px; grid-template-columns:40px minmax(0,1fr) 30px; gap:8px; padding:10px 9px; border-radius:16px; }
+  .home-quest-row__icon { width:36px; height:36px; }
+  .home-quest-row__copy > strong { font-size:14px; }
+  .home-quest-row__copy small { font-size:10px; }
+  .home-quest-row__amount { grid-row:2; grid-column:2; justify-self:start; font-size:14px; }
+  .home-quest-row.is-policy { grid-template-columns:40px minmax(0,1fr) auto 30px; }
+  .home-quest-row.is-policy .home-quest-row__icon { grid-row:1 / span 2; grid-column:1; }
+  .home-quest-row.is-policy .home-quest-row__copy { grid-row:1; grid-column:2 / span 2; }
+  .home-quest-row.is-policy .home-quest-row__apply { grid-row:2; grid-column:2; justify-self:end; }
+  .home-quest-row.is-policy .home-quest-row__amount { grid-row:2; grid-column:3; }
+  .home-quest-row__check { width:30px !important; min-width:30px; max-width:30px; height:30px !important; min-height:30px !important; max-height:30px; grid-row:1 / span 3; grid-column:3; }
+  .home-quest-row.is-policy .home-quest-row__check { grid-row:1 / span 2; grid-column:4; }
+  .home-quest-empty-row { min-height:106px; justify-items:center; padding:20px 16px; text-align:center; }
+  .home-quest-footer { display:grid; gap:16px; margin-top:26px; padding-top:20px; }
+  .home-quest-footer p { font-size:12px; }
+  .home-quest-footer a { width:100%; min-height:38px; font-size:13px; }
+
   .quest-card {
     padding: 14px 12px 16px;
     border-radius: 22px;
@@ -3015,5 +2969,22 @@ const targetMonthText = computed(() =>
     padding-right: 7px;
     padding-left: 7px;
   }
+}
+
+@media (max-width: 767px) {
+  .home-quest-footer {
+    justify-items: center;
+  }
+
+  .home-quest-footer a {
+    width: min(100%, 280px);
+    justify-self: center;
+    gap: 0;
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
+  }
+
+  .home-quest-footer a .app-icon { display: none; }
 }
 </style>

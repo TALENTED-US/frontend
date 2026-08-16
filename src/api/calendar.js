@@ -1,5 +1,5 @@
 import { apiClient, normalizeApiError, unwrapApiResponse } from './client'
-import { expenseCategoryToLabel } from '@/constants/expenseCategories'
+import { expenseCategoryLabel } from '@/constants/expenseCategories'
 
 function splitTransactionAt(value = '') {
   const [date = '', rawTime = ''] = String(value).split('T')
@@ -7,7 +7,7 @@ function splitTransactionAt(value = '') {
 }
 
 function resolveExpenseCategory(row) {
-  const mappedCategory = expenseCategoryToLabel(row?.category)
+  const mappedCategory = expenseCategoryLabel(row?.category)
   if (mappedCategory !== '기타') return mappedCategory
 
   const transactionText = `${row?.transactionContent || ''} ${row?.transactionMemo || ''}`
@@ -44,7 +44,7 @@ export function mapCalendarResponse(result = {}) {
     netCashFlow: Number(result?.netCashFlow) || 0,
     categoryExpenses: Array.isArray(result?.categoryExpenses)
       ? result.categoryExpenses.map((item) => ({
-          category: expenseCategoryToLabel(item?.category),
+          category: expenseCategoryLabel(item?.category),
           amount: Number(item?.amount) || 0,
         }))
       : [],

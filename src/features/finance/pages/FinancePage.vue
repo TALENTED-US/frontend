@@ -19,8 +19,86 @@ import {
   isIncomeTransaction,
   transactionKind,
 } from '@/features/finance/transactionAnalysis'
+import { useSimulationStore } from '@/features/simulation/stores/simulation'
 
 const router = useRouter()
+const simulation = useSimulationStore()
+const hasConfirmedSimulationDurations = computed(
+  () =>
+    Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
+    Number.isFinite(Number(simulation.recentConfirmed?.expectedMonths)),
+)
+const confirmedCurrentMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.currentMonths))
+    : simulation.currentMonths,
+)
+const confirmedExpectedMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.expectedMonths))
+    : simulation.expectedMonths,
+)
+const spreadFinanceTimelineLabels = (items) => {
+  const sorted = [...items].sort((a, b) => a.position - b.position)
+  const hasCollision = sorted.some((item, index) => index > 0 && item.position - sorted[index - 1].position < 22)
+  if (!hasCollision) return items.map((item) => ({ ...item, lane: 0, placement: 'below', offset: 18 }))
+
+  const placementById = { now: 'below', 'current-limit': 'above', scenario: 'below', target: 'above' }
+  const lastPositionByPlacement = { above: [], below: [] }
+  const layout = new Map()
+
+  sorted.forEach((item) => {
+    const placement = placementById[item.id] || 'below'
+    const placementLanes = lastPositionByPlacement[placement]
+    let lane = placementLanes.findIndex((last) => item.position - last >= 22)
+    if (lane < 0) lane = placementLanes.length
+    placementLanes[lane] = item.position
+    const offset = placement === 'above' ? -108 - lane * 54 : 18 + lane * 58
+    layout.set(item.id, { lane, placement, offset })
+  })
+
+  return items.map((item) => ({ ...item, ...layout.get(item.id) }))
+}
+const financeTimelineItems = computed(() => {
+  const current = Math.max(0, Number(confirmedCurrentMonths.value) || 0)
+  const expected = hasConfirmedSimulationDurations.value
+    ? Math.max(current, Number(confirmedExpectedMonths.value) || 0)
+    : null
+  const target = Math.max(0, Math.ceil(Number(simulation.targetMonths) || 0))
+  const scale = Math.max(current, expected || 0, target, 1)
+  const position = (value) => Math.min(96, Math.max(4, (value / scale) * 92 + 4))
+  const sameDuration = expected !== null && current === expected
+
+  return spreadFinanceTimelineLabels([
+    { id: 'now', label: '현재', value: '지금', position: 4, tone: 'current' },
+    {
+      id: 'current-limit',
+      label: sameDuration ? '현재 자금 · 계획 적용 후' : '현재 자금 기준',
+      value: current ? `${current}개월` : '계산 중',
+      position: position(current),
+      tone: sameDuration ? 'scenario' : 'limit',
+    },
+    ...(expected !== null && !sameDuration
+      ? [{
+          id: 'scenario',
+          label: '계획 적용 후',
+          value: `${expected}개월`,
+          position: position(expected),
+          tone: 'scenario',
+          staggered: true,
+        }]
+      : []),
+    ...(target
+      ? [{
+          id: 'target',
+          label: '취업 목표',
+          value: `${target}개월`,
+          position: position(target),
+          tone: 'target',
+        }]
+      : []),
+  ])
+})
 const fixedExpenseSummary = ref(null)
 const useCalendarApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 
@@ -990,6 +1068,33 @@ onMounted(async () => {
       </div>
     </details>
 
+    <section class="card timeline">
+      <h2>월별 재정 타임라인</h2>
+      <p class="timeline-description">현재 자금이 유지되는 기간과 취업 목표 시점을 한눈에 확인하세요.</p>
+      <div class="finance-timeline-track" role="list" aria-label="월별 재정 주요 시점">
+        <div class="finance-timeline-track__line" />
+        <div
+          v-for="item in financeTimelineItems"
+          :key="item.id"
+          class="finance-timeline-marker"
+          :class="[`finance-timeline-marker--${item.tone}`, `label-placement-${item.placement}`, `label-lane-${item.lane}`]"
+          :style="{ left: `${item.position}%`, '--timeline-label-offset': `${item.offset}px` }"
+          role="listitem"
+        >
+          <i />
+          <div class="finance-timeline-marker__copy">
+            <strong>{{ item.value }}</strong>
+            <span>{{ item.label }}</span>
+          </div>
+        </div>
+      </div>
+      <p class="timeline-note">
+        직전 3개월 월평균 기준
+        <template v-if="hasConfirmedSimulationDurations"> · 계획 적용 시 {{ confirmedExpectedMonths }}개월</template>
+        <template v-else> · 계획을 만들면 적용 후 기간도 함께 표시돼요</template>
+      </p>
+    </section>
+
     <button class="mobile-add" type="button" aria-label="거래 추가" @click="openAdd">
       <span class="mobile-add__icon" aria-hidden="true">+</span>
     </button>
@@ -1312,6 +1417,233 @@ input {
     background-color 160ms ease,
     box-shadow 160ms ease,
     color 160ms ease;
+}
+.category-insight strong {
+  color: #f97360;
+  font-weight: 700;
+}
+.category-insight span {
+  font-weight: 700;
+}
+.expense-analysis-card {
+  min-height: 270px;
+  height: auto !important;
+  padding: 22px 20px !important;
+}
+.expense-analysis-total {
+  display: grid;
+  gap: 5px;
+}
+.expense-analysis-total h2 {
+  color: #222;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+.expense-analysis-total strong {
+  color: #111;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.expense-analysis-body {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+  margin-top: 18px;
+}
+.expense-analysis-body .finance-category-donut {
+  width: 140px;
+  height: 140px;
+}
+.expense-analysis-body .finance-category-donut::after {
+  inset: 31px;
+}
+.expense-analysis-body ul {
+  display: grid;
+  gap: 13px;
+}
+.expense-analysis-body li {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 0;
+  color: #222;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.expense-analysis-body li > i {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 2px;
+}
+.expense-analysis-body li > span {
+  font-weight: 700;
+}
+.expense-analysis-body li > strong {
+  display: grid;
+  justify-items: end;
+  color: #111;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.expense-analysis-body li small {
+  color: #a1a5ad;
+  font-size: 12px;
+  font-weight: 400;
+}
+.fixed > strong {
+  display: block;
+  margin: 10px 0 9px;
+  font-size: 28px;
+  font-weight: 700;
+}
+.fixed {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.fixed p {
+  margin: 0;
+  color: #666666;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+.fixed hr {
+  width: 100%;
+  margin: auto 0 0;
+  border: 0;
+  border-top: 1px solid #e5e8ee;
+}
+.fixed button {
+  align-self: flex-end;
+  margin-top: 12px;
+  border: 0;
+  background: none;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+.timeline {
+  position: relative;
+  min-height: 298px;
+  height: auto;
+  margin-top: 26px;
+  padding: 15px 26px 30px;
+  overflow: visible;
+  box-sizing: border-box;
+}
+.timeline :deep(.timeline-chart) {
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+}
+.timeline :deep(.timeline-chart__plot) {
+  height: 220px;
+}
+.timeline :deep(.timeline-chart__plot svg) {
+  width: 100%;
+  height: 220px !important;
+}
+.timeline h2 {
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+.timeline-description {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.finance-timeline-track {
+  position: relative;
+  height: 245px;
+  margin: 174px 18px 0;
+}
+.finance-timeline-track__line {
+  position: absolute;
+  top: 34px;
+  right: 0;
+  left: 0;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), #8facf5 68%, var(--accent-strong));
+}
+.finance-timeline-marker {
+  position: absolute;
+  top: 14px;
+  display: grid;
+  width: 46px;
+  justify-items: center;
+  gap: 5px;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.finance-timeline-marker i {
+  width: 46px;
+  height: 46px;
+  border: 6px solid #fff;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 3px 10px rgb(10 22 128 / 20%);
+}
+.finance-timeline-marker__copy {
+  position: absolute;
+  top: calc(54px + var(--timeline-label-offset, 0px));
+  left: 50%;
+  display: grid;
+  width: max-content;
+  max-width: 150px;
+  justify-items: center;
+  gap: 5px;
+  text-align: center;
+  transform: translateX(-50%);
+}
+.finance-timeline-marker__copy strong {
+  grid-row: 1;
+  margin-top: 4px;
+  color: #191f28;
+  font-size: 16px;
+}
+.finance-timeline-marker__copy span {
+  grid-row: 2;
+  max-width: 132px;
+  color: #6b7684;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong {
+  grid-row: 2;
+  margin-top: 0;
+}
+.finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span {
+  grid-row: 1;
+}
+.finance-timeline-marker--limit i {
+  background: #8b95a1;
+}
+.finance-timeline-marker--scenario i {
+  background: #7e9de9;
+}
+.finance-timeline-marker--target i {
+  background: var(--accent-strong);
+}
+.timeline-note {
+  margin-top: 6px;
+  color: #6b7684;
+  font-size: 13px;
+  text-align: center;
+}
+.timeline-chart {
+  width: 100%;
+  height: 224px;
+  margin-top: 7px;
+  overflow: visible;
+}
+.timeline-chart--mobile {
+  display: none;
 }
 
 .view-toggle button > span {
@@ -2411,6 +2743,92 @@ input {
     margin: 0 16px 20px;
     padding: 16px;
     border-radius: 16px;
+  }
+  .timeline {
+    min-height: 260px;
+    height: auto;
+    margin-top: 12px;
+    padding: 15px 14px 22px;
+  }
+  .timeline h2 {
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+  }
+  .timeline-description {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .finance-timeline-track {
+    position: relative;
+    display: block;
+    height: 145px;
+    margin: 90px 8px 0;
+    padding: 0;
+  }
+  .finance-timeline-track__line {
+    top: 26px;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 5px;
+    background: linear-gradient(90deg, var(--primary), #8facf5 68%, var(--accent-strong));
+  }
+  .finance-timeline-marker,
+  .finance-timeline-marker:last-of-type {
+    position: absolute;
+    top: 13px;
+    display: grid;
+    width: 30px;
+    max-width: none;
+    justify-items: center;
+    gap: 3px;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+  .finance-timeline-marker i {
+    z-index: 1;
+    width: 30px;
+    height: 30px;
+    border-width: 4px;
+  }
+  .finance-timeline-marker__copy,
+  .finance-timeline-marker--current .finance-timeline-marker__copy,
+  .finance-timeline-marker:last-of-type .finance-timeline-marker__copy,
+  .finance-timeline-marker.is-staggered .finance-timeline-marker__copy {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    display: grid;
+    width: max-content;
+    max-width: 92px;
+    justify-items: center;
+    gap: 3px;
+    margin: 0;
+    transform: translateX(-50%);
+  }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy { top: -42px; }
+  .finance-timeline-marker.label-placement-below.label-lane-1 .finance-timeline-marker__copy { top: 88px; }
+  .finance-timeline-marker.label-placement-above.label-lane-1 .finance-timeline-marker__copy { top: -78px; }
+  .finance-timeline-marker__copy strong,
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong {
+    grid-row: 1;
+    grid-column: auto;
+    margin: 0;
+    font-size: 12px;
+  }
+  .finance-timeline-marker__copy span,
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span {
+    grid-row: 2;
+    grid-column: auto;
+    max-width: 92px;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong { grid-row: 2; }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span { grid-row: 1; }
+  .timeline-chart--desktop {
+    display: none;
   }
 
   .flow-summary > button {

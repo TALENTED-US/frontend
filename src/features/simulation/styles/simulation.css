@@ -21,6 +21,26 @@
   text-underline-offset: 2px;
 }
 
+@media (min-width: 768px) {
+  .sim-page .simulation-back-button {
+    display: block;
+    width: fit-content;
+    min-width: 32px;
+    margin: 0 0 20px;
+    padding: 0;
+    color: #222;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    text-align: left;
+  }
+
+  .sim-flow-confirm > .confirm-actions {
+    grid-template-columns: 1fr;
+  }
+
+}
+
 /* Shared section/card title scale across simulation views. */
 .sim-page section > h2,
 .sim-page section > header h2,
@@ -151,7 +171,8 @@
 }
 .period-change-card>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.period-change-card>header h2{font-size:16px}.period-change-card>header em{min-width:114px;padding:8px 13px;border:1px solid #f5ab22;border-radius:999px;color:#e9a21d;font-size:11px;font-style:normal;font-weight:700;text-align:center}.period-change-card>div{grid-template-columns:1fr 35px 1fr;margin-top:24px}.period-change-card>div span{gap:7px}.period-change-card>div span strong{font-size:26px}.period-change-card>div span:first-child strong{color:#777;font-size:19px;font-weight:500}.period-change-card>div span small{color:#222;font-size:11px;font-weight:700}.period-change-card>div>b{color:#888;font-size:27px;font-weight:400}.preview-section-title h2{font-size:16px}.preview-section-title p{margin-top:4px;color:#7f8693;font-size:10px}.preview-timeline-section{padding:17px}.preview-timeline-section .timeline-chart{margin-top:12px}.application-result{padding:18px}.cashflow-comparison{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;padding:8px 10px 2px;border-bottom:1px solid #e7e9ed}.cashflow-comparison article{display:grid;justify-items:center}.bar-pair{display:flex;height:82px;align-items:flex-end;justify-content:center;gap:5px}.bar-pair i{display:block;width:34px;border-radius:3px 3px 0 0}.bar-pair .before{border:1px dashed #999;background:#f5f5f5}.bar-pair .after{border:1px solid #5f8df7;background:#93b2f8}.cashflow-comparison article>small{margin-top:7px;color:#666;font-size:9px}.cashflow-comparison article>strong{margin:3px 0 10px;font-size:11px}.comparison-legend{display:flex;justify-content:flex-end;gap:12px;margin-top:8px;color:#8a909b;font-size:8px}.comparison-legend span{display:flex;align-items:center;gap:4px}.comparison-legend i{width:10px;height:10px;border:1px dashed #999;background:#f5f5f5}.comparison-legend span:last-child i{border:1px solid #5f8df7;background:#93b2f8}.net-cashflow-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;padding:13px 2px 2px}.net-cashflow-row>span{display:grid;gap:2px}.net-cashflow-row strong{font-size:11px}.net-cashflow-row small{color:#8b919d;font-size:8px}.net-cashflow-row>b{font-size:11px}.preview-page .application-result .section-heading>span{padding:7px 12px;font-size:9px}
 .preview-page .timeline-chart__plot svg{width:100%;min-width:0}.preview-page .wizard-actions{position:static;margin:28px 0 0;padding:0;background:transparent}.preview-page{padding-bottom:118px}
-.income-plan-form{display:grid;gap:13px;margin-top:16px}.income-plan-form label{display:grid;gap:7px;font-size:10px;font-weight:700}.income-form-heading{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700}.income-form-heading button{color:#ef5757;font-size:9px}.income-field,.income-money-field{width:100%;height:44px;border:1px solid #e1e4e9;border-radius:11px;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 11%)}.income-plan-form>.income-field,.income-plan-form label>.income-field{padding:0 14px;color:#6f7f9d}.income-money-field{display:grid;grid-template-columns:1fr 34px;align-items:center}.income-money-field input{min-width:0;height:100%;padding:0 14px;border:0;background:transparent}.income-money-field b{font-size:10px}.income-plan-form fieldset{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:0}.income-plan-form legend{grid-column:1/-1;margin-bottom:7px;font-size:10px;font-weight:700}.income-plan-form fieldset button{min-height:34px;border:1px solid #dfe3e9;border-radius:999px;background:#fff;color:#7c8494;font-size:10px;font-weight:700;box-shadow:0 2px 5px rgb(0 0 0 / 12%)}.income-plan-form fieldset button.active{border-color:#35c993;background:#eafbf5;color:#2db987}.income-add-button{min-height:46px;margin-top:1px;border-radius:11px;background:#ffeca4;font-size:12px;font-weight:800;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans{margin-top:18px;padding:17px;border:1px solid #e2e4e9;border-radius:17px;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans .section-heading h2{display:flex;align-items:center;gap:6px;font-size:14px}.added-income-plans .section-heading h2>i{width:7px;height:7px;border-radius:50%;background:#35c993}.added-income-plans .section-heading>span{padding:0;background:transparent;color:#35c993;font-size:10px}.added-income-plans article{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:9px;padding:10px;border-radius:10px;background:#ecfbf5}.added-income-plans article>i{display:grid;width:28px;height:28px;place-items:center;border:1px solid #dceae5;border-radius:50%;background:#fff;color:#2cbd88;font-size:11px;font-style:normal}.added-income-plans article>div:nth-child(2){display:grid;gap:2px;min-width:0}.added-income-plans article>div:nth-child(2)>strong{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.added-income-plans article em{padding:2px 5px;border-radius:999px;background:#d9f7eb;color:#27af7d;font-size:7px;font-style:normal}.added-income-plans article small{color:#89928f;font-size:8px}.income-plan-controls{display:grid;justify-items:end;gap:3px}.income-plan-controls>strong{font-size:9px;white-space:nowrap}.income-plan-controls>span{display:flex;gap:10px}.income-plan-controls button{color:#5f8df7;font-size:8px}.income-plan-controls button:last-child{color:#ef5b5b}.added-income-plans footer{display:grid;grid-template-columns:1fr auto;row-gap:5px;margin-top:13px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:9px}.added-income-plans footer strong{text-align:right}.sim-category-page:has(.income-plan-form)>.wizard-actions{margin-top:76px}
+.income-plan-form{display:grid;gap:13px;margin-top:16px}.income-plan-form label{display:grid;gap:7px;font-size:10px;font-weight:700}.income-form-heading{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700}.income-form-heading button{color:#ef5757;font-size:9px}.income-field,.income-money-field{width:100%;height:44px;border-radius:13px}.income-field{border:1px solid #e1e4e9;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 11%)}.income-money-field{border:0;background:#f2f4f6;box-shadow:none}.income-plan-form>.income-field,.income-plan-form label>.income-field{padding:0 14px;color:#6f7f9d}select.income-field{appearance:none;-webkit-appearance:none;-moz-appearance:none;padding-right:32px}
+#app .app-shell .sim-page select.income-field{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="%236f7f9d" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') !important;background-repeat:no-repeat !important;background-position:right 14px center !important;background-size:10px 6px !important}.income-money-field{display:grid;grid-template-columns:1fr 34px;align-items:center}.income-money-field input{min-width:0;height:100%;padding:0 14px;border:0;background:transparent}.income-money-field b{font-size:10px}.income-plan-form fieldset{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:0}.income-plan-form legend{grid-column:1/-1;margin-bottom:7px;font-size:10px;font-weight:700}.income-plan-form fieldset button{min-height:34px;border:1px solid #dfe3e9;border-radius:999px;background:#fff;color:#7c8494;font-size:10px;font-weight:700;box-shadow:0 2px 5px rgb(0 0 0 / 12%)}.income-plan-form fieldset button.active{border-color:#35c993;background:#eafbf5;color:#2db987}.income-add-button{min-height:46px;margin-top:1px;border-radius:11px;background:#ffeca4;font-size:12px;font-weight:800;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans{margin-top:18px;padding:17px;border:1px solid #e2e4e9;border-radius:17px;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans .section-heading h2{display:flex;align-items:center;gap:6px;font-size:14px}.added-income-plans .section-heading h2>i{width:7px;height:7px;border-radius:50%;background:#35c993}.added-income-plans .section-heading>span{padding:0;background:transparent;color:#35c993;font-size:10px}.added-income-plans article{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:9px;padding:10px;border-radius:10px;background:#ecfbf5}.added-income-plans article>i{display:grid;width:28px;height:28px;place-items:center;border:1px solid #dceae5;border-radius:50%;background:#fff;color:#2cbd88;font-size:11px;font-style:normal}.added-income-plans article>div:nth-child(2){display:grid;gap:2px;min-width:0}.added-income-plans article>div:nth-child(2)>strong{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.added-income-plans article em{padding:2px 5px;border-radius:999px;background:#d9f7eb;color:#27af7d;font-size:7px;font-style:normal}.added-income-plans article small{color:#89928f;font-size:8px}.income-plan-controls{display:grid;justify-items:end;gap:3px}.income-plan-controls>strong{font-size:9px;white-space:nowrap}.income-plan-controls>span{display:flex;gap:10px}.income-plan-controls button{color:#5f8df7;font-size:8px}.income-plan-controls button:last-child{color:#ef5b5b}.added-income-plans footer{display:grid;grid-template-columns:1fr auto;row-gap:5px;margin-top:13px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:9px}.added-income-plans footer strong{text-align:right}.sim-category-page:has(.income-plan-form)>.wizard-actions{margin-top:76px}
 .wizard-progress-tabs span.done{color:#b3b6bd;font-weight:400}.wizard-progress-tabs span.done i{background:#e5e6e8}.sim-category-page>.wizard-actions{position:static;margin-right:0;margin-left:0;padding:0;background:transparent}
 .result-delta-badges{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:14px;text-align:center}.result-delta-badges span,.result-delta-badges i{justify-self:center;padding:7px 12px;border-radius:999px;font-size:9px;font-style:normal;white-space:nowrap}.result-delta-badges .income{background:#e9faf4;color:#2cbd88}.result-delta-badges .expense{background:#edf3ff;color:#5f8df7}.result-delta-badges .policy{background:#f2effb;color:#7e66c6}.bar-pair{position:relative}.bar-change-arrow{position:absolute;inset:0;width:90px;height:82px;overflow:visible;pointer-events:none}.bar-change-arrow>path{fill:none;stroke:#17329b;stroke-width:1.6;stroke-dasharray:3 3}.bar-change-arrow marker path{fill:#17329b;stroke:none}
 
@@ -433,4 +454,296 @@
     font-size: 10px;
     font-weight: 700;
   }
+}
+
+/* Shared desktop back control for every simulation subpage. */
+@media (min-width: 768px) {
+  .sim-page .simulation-back-button {
+    display: inline-flex !important;
+    width: 48px;
+    height: 45px;
+    min-width: 48px;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0 0 20px !important;
+    padding: 0;
+    color: transparent !important;
+    font-size: 0 !important;
+    font-weight: 900 !important;
+    line-height: .8 !important;
+    text-align: left;
+  }
+
+  .sim-page .simulation-back-button::before {
+    width: 13px;
+    height: 13px;
+    border-bottom: 5px solid #222;
+    border-left: 5px solid #222;
+    content: '';
+    transform: rotate(45deg);
+  }
+
+  .sim-page > .wizard-progress-tabs {
+    width: calc(100% - 78px) !important;
+    margin: -77px 0 28px 78px !important;
+  }
+}
+
+/* Shared bottom actions across the simulation flow. */
+.sim-page > .wizard-actions {
+  width: 100% !important;
+  max-width: 1052px !important;
+  justify-self: center;
+}
+
+.sim-page > .wizard-actions > button {
+  height: 50px !important;
+  min-height: 50px !important;
+}
+
+.sim-page .sim-btn--yellow,
+.sim-page .sim-btn--orange,
+.sim-page .expense-add-button,
+.sim-page .income-add-button,
+.simulation-new-modal section > div button:last-child {
+  display: inline-flex;
+  width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 18px;
+  background: #f1b94c !important;
+  box-shadow: 0 4px 0 rgb(198 160 30 / 35%) !important;
+  color: #3a3222 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.sim-page .sim-btn--yellow:hover:not(:disabled),
+.sim-page .sim-btn--orange:hover:not(:disabled),
+.sim-page .expense-add-button:hover:not(:disabled),
+.sim-page .income-add-button:hover:not(:disabled),
+.simulation-new-modal section > div button:last-child:hover:not(:disabled) {
+  background: #e5ac3c !important;
+  box-shadow: 0 6px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(-2px);
+}
+
+.sim-page .sim-btn--yellow:active:not(:disabled),
+.sim-page .sim-btn--orange:active:not(:disabled),
+.sim-page .expense-add-button:active:not(:disabled),
+.sim-page .income-add-button:active:not(:disabled),
+.simulation-new-modal section > div button:last-child:active:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(2px);
+}
+
+@media (max-width: 767px) {
+  .sim-page .sim-btn--yellow,
+  .sim-page .sim-btn--orange,
+  .sim-page .expense-add-button,
+  .sim-page .income-add-button,
+  .simulation-new-modal section > div button:last-child {
+    border-radius: 15px;
+    font-size: 17px !important;
+  }
+}
+
+.sim-page > .wizard-actions > .sim-text-button {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+button.simulation-primary-cta {
+  display: inline-flex !important;
+  width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: #f1b94c !important;
+  box-shadow: 0 4px 0 rgb(198 160 30 / 35%) !important;
+  color: #3a3222 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease !important;
+}
+
+button.simulation-primary-cta:hover:not(:disabled) {
+  background: #e5ac3c !important;
+  box-shadow: 0 6px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(-2px) !important;
+}
+
+button.simulation-primary-cta:active:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(2px) !important;
+}
+
+.sim-page.sim-flow-confirm > .final-result,
+.sim-page.sim-flow-confirm > .wizard-actions.confirm-actions {
+  grid-column: 1 / -1 !important;
+  width: min(100%, 1052px) !important;
+  max-width: 1052px !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+  justify-self: center !important;
+}
+
+.sim-page.sim-flow-confirm > .wizard-actions.confirm-actions > button {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+@media (max-width: 767px) {
+  button.simulation-primary-cta {
+    border-radius: 15px !important;
+    font-size: 17px !important;
+  }
+
+  .sim-page.sim-flow-confirm > .wizard-actions.confirm-actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+    background: transparent !important;
+    background-image: none !important;
+  }
+
+  .sim-page.sim-flow-confirm > .wizard-actions.confirm-actions > button {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
+}
+
+/* Keep actual icon containers visually consistent without changing chart dots/bars. */
+.sim-page :is(
+  .simulation-banner__benefits li,
+  .choice-card,
+  .continue-row,
+  .goal-category,
+  .expense-target-info,
+  .added-expense-goals article,
+  .added-income-plans article,
+  .policy-selected-list article,
+  .confirm-row,
+  .edit-summary header
+) > i,
+.sim-page .edit-summary header > div > i {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  flex: 0 0 42px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.sim-page .added-expense-goals article,
+.sim-page .added-income-plans article,
+.sim-page .policy-selected-list article {
+  grid-template-columns: 42px minmax(0, 1fr) auto !important;
+}
+
+.sim-page .confirm-row {
+  grid-template-columns: 42px minmax(0, 1fr) auto auto auto auto;
+}
+
+@media (max-width: 767px) {
+  .sim-page .confirm-row {
+    grid-template-columns: 42px minmax(0, 1fr) auto auto;
+  }
+}
+
+/* 모든 시뮬레이션 적용 결과에서 전·후 막대를 더 명확히 분리한다. */
+.sim-page .application-result .bar-pair {
+  gap: 15px;
+}
+
+/* 모바일 preview의 증감 뱃지가 적용 결과 카드 너비를 넘지 않게 한다. */
+@media (max-width: 767px) {
+  .preview-page .application-result .result-delta-badges {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.expense,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.income,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.same,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges i.policy {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 26px;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 10px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    font-style: normal;
+    line-height: 1;
+    text-align: center;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-comparison article > small {
+    font-size: 13px !important;
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-mobile-break {
+    display: block;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-comparison article > strong {
+    font-size: 14px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row strong {
+    font-size: 14px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row small {
+    font-size: 13px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row > b {
+    min-width: 0;
+    font-size: clamp(11px, 3.6vw, 14px) !important;
+    white-space: nowrap;
+  }
+}
+
+.cashflow-mobile-break {
+  display: none;
+}
+
+/* 세 preview의 예상 버티는 기간 비교 라벨을 같은 크기로 통일한다. */
+#app .app-shell .sim-page.preview-page .period-change-card > div span small {
+  font-size: 14px !important;
+}
+
+#app .app-shell .sim-page.preview-page .period-change-card > header em {
+  font-size: 14px !important;
 }
