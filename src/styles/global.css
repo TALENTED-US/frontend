@@ -63,7 +63,7 @@ svg text {
   line-height: var(--line-height-tight);
 }
 
-#app .app-shell main :where(.section-title, .section-head h2, .block-heading h2) {
+#app .app-shell main :where(.section-title, .section-head h2, .block-heading h2, h2) {
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
 }
@@ -193,12 +193,13 @@ svg text {
 @media (max-width: 767px) {
   #app .app-shell :where(
     .dashboard__heading,
+    .finance-heading > div,
     .search-heading,
     .sim-heading,
     .mypage-heading,
     .notification-page > .page-heading
   ) h1 {
-    font-size: 20px !important;
+    font-size: var(--type-page-title-size) !important;
   }
 }
 
@@ -342,20 +343,15 @@ svg text {
   .added-expense-goals article > strong,
   .expense-goal-controls > strong,
   .expense-goal-controls button,
-  .added-expense-goals footer,
   .income-plan-form label,
   .income-form-heading,
   .income-form-heading button,
   .income-plan-form legend,
-  .income-plan-form fieldset button,
   .income-money-field b,
   .added-income-plans article small,
   .added-income-plans article em,
   .income-plan-controls > strong,
   .income-plan-controls button,
-  .added-income-plans footer,
-  .policy-condition-grid span,
-  .policy-catalog-list p,
   .policy-catalog-list small,
   .period-change-card small,
   .preview-section-title p,
@@ -441,7 +437,7 @@ svg text {
   dd,
   label
 ) {
-  font-size: 14px !important;
+  font-size: var(--type-body-size) !important;
   line-height: 1.5;
 }
 
@@ -456,16 +452,23 @@ svg text {
 
 @media (max-width: 767px) {
   #app .app-shell main :where(
-    p,
     small,
     label,
     figcaption,
     dt,
     dd,
-    li,
-    button
+    li
   ) {
-    font-size: max(13px, 1em) !important;
+    font-size: var(--type-body-size) !important;
+  }
+
+  #app .app-shell main p {
+    font-size: 13px !important;
+  }
+
+  :where(#app .app-shell main button:not(.primary-button):not(.primary-action):not(.primary-cta):not(.simulation-primary-cta):not(.sim-btn):not(.sim-btn--yellow):not(.sim-btn--orange):not(.sim-text-button):not(.expense-add-button):not(.income-add-button):not(.policy-add-button):not(.policy-filter-button):not(.simulation-create-new-bottom):not(.add-btn)) {
+    font-size: var(--type-button-small-size) !important;
+    font-weight: var(--type-button-small-weight) !important;
   }
 
   #app .app-shell main .confirmed-timeline-description {
@@ -486,19 +489,25 @@ svg text {
     .expense-target-editor > small,
     .added-expense-goals article > strong,
     .expense-goal-controls > strong,
-    .expense-goal-controls button,
     .income-plan-form label,
     .income-form-heading,
-    .income-form-heading button,
     .income-plan-form legend,
     .added-income-plans article small,
     .added-income-plans article em,
     .income-plan-controls > strong,
-    .income-plan-controls button,
     .comparison-legend,
     .net-cashflow-row small
   ) {
-    font-size: 15px !important;
+    font-size: var(--type-body-size) !important;
+  }
+
+  #app .app-shell .sim-page :where(
+    .expense-goal-controls button,
+    .income-form-heading button,
+    .income-plan-controls button
+  ) {
+    font-size: var(--type-button-small-size) !important;
+    font-weight: var(--type-button-small-weight) !important;
   }
 }
 
@@ -604,7 +613,7 @@ svg text {
 
 #app .app-shell .finance .timeline h2 {
   color: var(--text);
-  font-size: 21px;
+  font-size: var(--type-section-title-size);
   font-weight: 850;
 }
 
@@ -638,7 +647,8 @@ svg text {
   background: var(--accent);
   box-shadow: none;
   color: var(--primary);
-  font-size: 14px;
+  font-size: var(--type-button-small-size);
+  font-weight: var(--type-button-small-weight);
 }
 
 #app .app-shell .search-page .filter-button {
@@ -681,7 +691,7 @@ svg text {
 
 #app .app-shell .filter-page .filter-groups h2 {
   color: var(--text);
-  font-size: 18px !important;
+  font-size: var(--type-section-title-size) !important;
   font-weight: 850;
 }
 
@@ -693,8 +703,8 @@ svg text {
   background: #f2f4f6;
   box-shadow: none;
   color: #4e5968;
-  font-size: 14px !important;
-  font-weight: 700;
+  font-size: var(--type-button-small-size) !important;
+  font-weight: var(--type-button-small-weight);
 }
 
 #app .app-shell .filter-page .filter-groups button.active {
@@ -718,7 +728,7 @@ svg text {
   border-radius: 10px;
   background: var(--accent);
   color: var(--primary);
-  font-size: 14px !important;
+  font-size: var(--type-total-size) !important;
 }
 
 #app .app-shell .filter-page > footer button {
@@ -916,12 +926,8 @@ svg text {
   background: #fbedb0 !important;
   box-shadow: 0 2px 6px rgb(20 30 60 / 16%) !important;
   color: var(--primary) !important;
-  font-size: 16px !important;
-  font-weight: 700 !important;
-}
-
-#app .app-shell .sim-page :where(.expense-add-button, .income-add-button, .policy-add-button) {
-  font-size: 15px !important;
+  font-size: var(--type-action-size) !important;
+  font-weight: var(--type-action-weight) !important;
 }
 
 @media (hover: hover) {
@@ -1405,7 +1411,7 @@ svg text {
 
 @media (max-width: 767px) {
   #app .app-shell .sim-page :where(.wizard-title, .sim-heading h1) {
-    font-size: 29px !important;
+    font-size: var(--type-page-title-size) !important;
   }
 
   #app .app-shell .sim-page .wizard-progress-tabs {
@@ -1729,7 +1735,7 @@ svg text {
 
 @media (max-width: 767px) {
   #app .app-shell :where(.dashboard__heading h1, .finance .heading h1, .sim-heading h1, .search-heading h1, .mypage__title) {
-    font-size: 30px !important;
+    font-size: var(--type-page-title-size) !important;
   }
 
   #app .finance .summary {
@@ -2549,7 +2555,7 @@ svg text {
  */
 #app .app-shell main small,
 #app .app-shell main figcaption {
-  font-size: 14px !important;
+  font-size: var(--type-body-size) !important;
   line-height: 1.5;
 }
 
@@ -2560,23 +2566,31 @@ svg text {
 #app .app-shell .finance :where(
   .heading p,
   .finance-state,
-  .filters button,
   .list-actions > span,
   .list-filter select,
   .legend,
   .category li,
   .category-insight,
   .fixed p,
-  .fixed button,
   .timeline-legend,
   .timeline-note,
   .sheet-error,
   .transaction-detail__summary div span
 ) {
-  font-size: 14px !important;
+  font-size: var(--type-body-size) !important;
+}
+
+#app .app-shell .finance :where(.filters button, .fixed button) {
+  font-size: var(--type-button-small-size) !important;
+  font-weight: var(--type-button-small-weight);
 }
 
 /* Finance page: butter is the main accent, navy supports selected/strong states. */
+#app .app-shell .finance .add-btn {
+  font-size: var(--type-action-size) !important;
+  font-weight: var(--type-action-weight) !important;
+}
+
 #app .app-shell .finance .add-btn,
 #app .app-shell .finance .tabs button.active,
 #app .app-shell .finance .tabs button.is-active,
@@ -2616,15 +2630,17 @@ svg text {
   .total span,
   .total small,
   .suggest p,
-  .suggest button,
   .selection-head,
   .empty-message,
   .expense-list small,
-  .actions button,
-  footer,
-  footer button
+  footer
 ) {
-  font-size: 14px !important;
+  font-size: var(--type-body-size) !important;
+}
+
+#app .app-shell .fixed-page :where(.suggest button, .actions button, footer button) {
+  font-size: var(--type-action-size) !important;
+  font-weight: var(--type-action-weight) !important;
 }
 
 #app .app-shell .sim-page :where(
@@ -2652,19 +2668,19 @@ svg text {
   .simulation-edit-benefit,
   .api-notice
 ) {
-  font-size: 14px !important;
+  font-size: var(--type-body-size) !important;
   line-height: 1.5;
 }
 
 #app .app-shell main :where(.timeline-marker span, .events button > span) {
-  font-size: 14px !important;
+  font-size: var(--type-body-size) !important;
   line-height: 1.45;
 }
 
 @media (max-width: 767px) {
   #app .app-shell main small,
   #app .app-shell main figcaption {
-    font-size: 13px !important;
+    font-size: var(--type-body-size) !important;
   }
 
   #app .app-shell :where(.finance, .fixed-page, .sim-page, .search-page, .mypage) {
@@ -2846,7 +2862,7 @@ svg text {
 #app .app-shell .dashboard :where(.quest-empty a, .quest-card__footer a) {
   border: 0;
   background: var(--accent);
-  box-shadow: none;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 16%);
   color: var(--primary);
 }
 

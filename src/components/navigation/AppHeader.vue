@@ -106,7 +106,7 @@ function goBack() {
   else if (isFixedExpense.value) router.push('/finance')
   else if (isSimulationStart.value) router.push('/simulation')
   else if (isSimulationEdit.value) router.push('/simulation')
-  else if (isSimulationContinue.value) router.push('/')
+  else if (isSimulationContinue.value) router.back()
   else if (isSimulationPreview.value) router.push(`/simulation/${route.params.category}`)
   else if (isSimulationConfirm.value) router.push('/simulation/policy/preview')
   else if (isSimulationCategory.value) {

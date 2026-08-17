@@ -223,13 +223,12 @@ onMounted(async () => {
       <div class="simulation-banner__copy">
         <small>💡 시뮬레이션 해보기</small>
         <h2>내 선택에 따라<br />버티는 기간이 얼마나 달라질까요?</h2>
-        <p>지출을 줄이고, 수입을 늘리고,<br />받을 수 있는 정책을 적용해보세요.</p>
 
-        <ul class="simulation-banner__benefits" aria-label="시뮬레이션에서 설정할 수 있는 항목">
-          <li><i class="expense" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 7.5 10 14l3.5-3.5L20.5 17"/><path d="M20.5 12.6V17h-4.4"/></svg></i><span>지출 줄이기</span></li>
-          <li><i class="income" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 16.5 10 10l3.5 3.5L20.5 6.5"/><path d="M16.1 6.5h4.4v4.4"/></svg></i><span>수입 늘리기</span></li>
-          <li><i class="policy" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3.2 19 6v5.4c0 4.2-2.9 7.5-7 9.4-4.1-1.9-7-5.2-7-9.4V6l7-2.8Z"/><path d="m8.9 11.8 2.2 2.2 4-4.3"/></svg></i><span>정책 혜택</span></li>
-        </ul>
+        <ol class="simulation-banner__benefits" aria-label="시뮬레이션에서 설정할 수 있는 항목">
+          <li><b>1</b><span>지출을 늘린다면?</span></li>
+          <li><b>2</b><span>수입을 늘린다면?</span></li>
+          <li><b>3</b><span>정책 혜택을 받는다면?</span></li>
+        </ol>
       </div>
 
       <div class="simulation-banner__action">
@@ -316,26 +315,22 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.simulation-banner { position: relative; display: grid; min-height: max(500px,calc(100dvh - var(--header-height) - 210px)); grid-template-columns: minmax(0,1fr) minmax(360px,432px); gap: 48px; overflow: hidden; padding: 56px; border-radius: 28px; background: linear-gradient(105deg,#fff3c4 0%,#fff8de 34%,#fffdf6 62%,#fff 100%); box-shadow: 0 2px 16px rgb(120 100 20 / 7%); }
-.simulation-banner::after { position: absolute; top: -140px; right: -80px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle,rgb(255 220 110 / 30%),rgb(255 220 110 / 0%) 70%); content: ''; pointer-events: none; }
+.simulation-banner,
+:global(#app .app-shell main .simulation-banner) { position: relative; display: flex; min-height: max(420px,calc(100dvh - var(--header-height) - 280px)); flex-direction: column; gap: 0; padding: 28px 20px 24px; border: 1px solid #eceef3 !important; border-radius: 15px !important; background: white; box-shadow: var(--shadow-figma); }
 .simulation-banner__copy,.simulation-banner__action { position: relative; z-index: 1; }
 .simulation-banner__copy { display: flex; min-width: 0; flex-direction: column; }
 .simulation-banner__copy > small { color: #b08a16; font-size: 15px; font-weight: 600; }
-.simulation-banner__copy h2 { margin-top: 18px; color: var(--text); font-size: 38px; font-weight: 800; letter-spacing: -1.1px; line-height: 1.36; }
-.simulation-banner__copy > p { margin-top: 20px; color: #7c7568; font-size: 17px; letter-spacing: -.3px; line-height: 1.65; }
-.simulation-banner__benefits { display: grid; gap: 14px; margin-top: auto; padding-top: 36px; }
-.simulation-banner__benefits li { display: flex; align-items: center; gap: 14px; color: #3e3930; font-size: 17px; font-weight: 600; }
-.simulation-banner__benefits i { display: grid; width: 46px; height: 46px; flex: none; place-items: center; border-radius: 50%; }
-.simulation-banner__benefits i.expense { background: #ffe9a8; color: #b37f0c; }
-.simulation-banner__benefits i.income { background: #dcf0d6; color: #43823a; }
-.simulation-banner__benefits i.policy { background: #e4e6fa; color: #5257c4; }
-.simulation-banner__benefits svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
-.simulation-banner__action { display: flex; flex-direction: column; justify-content: space-between; gap: 28px; }
-.simulation-banner__character { display: flex; flex: 1; align-items: center; justify-content: flex-end; gap: 18px; }
+.simulation-banner__copy h2,
+:global(#app .app-shell main .simulation-banner__copy h2) { margin-top: 18px; color: var(--text); font-size: clamp(32px, 3vw, 40px) !important; font-weight: 800 !important; letter-spacing: -1.1px; line-height: 1.36; }
+.simulation-banner__benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 32px; padding: 0; list-style: none; }
+.simulation-banner__benefits li { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 8px; border-radius: 15px; background: #f7f8fb; text-align: center; color: #3e3930; font-size: 15px; font-weight: 600; }
+.simulation-banner__benefits li b { color: #b37f0c; font-size: 15px; font-weight: 800; }
+.simulation-banner__action { display: flex; flex: 1; flex-direction: column; justify-content: space-between; gap: 28px; }
+.simulation-banner__character { display: flex; flex: 1; align-items: center; justify-content: center; gap: 18px; }
 .simulation-banner__character p { position: relative; padding: 16px 20px; border: 1px solid rgb(190 160 50 / 22%); border-radius: 18px; background: #fff; box-shadow: 0 3px 14px rgb(150 120 20 / 9%); color: #5c554a; font-size: 16px; font-weight: 600; letter-spacing: -.3px; line-height: 1.55; }
 .simulation-banner__character p::after { position: absolute; top: 50%; right: -7px; width: 13px; height: 13px; margin-top: -7px; border-top: 1px solid rgb(190 160 50 / 22%); border-right: 1px solid rgb(190 160 50 / 22%); background: #fff; content: ''; transform: rotate(45deg); }
 .simulation-banner__character img { width: 210px; height: auto; }
-.simulation-banner__action > button { display: flex; width: 100%; height: 50px; min-height: 50px; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 18px; background: #fbedb0; box-shadow: 0 2px 6px rgb(20 30 60 / 16%); color: #0a1680; font-size: 16px; font-weight: 700; transition: background .16s ease; }
+.simulation-banner__action > button { display: flex; width: 100%; height: 50px; min-height: 50px; flex: none; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 18px; background: #fbedb0; box-shadow: 0 2px 6px rgb(20 30 60 / 16%); color: #0a1680; font-size: 16px; font-weight: 700; transition: background .16s ease; }
 @media (hover: hover) { .simulation-banner__action > button:hover:not(:disabled) { background: #f1b94c; } }
 .simulation-banner__action > button:active:not(:disabled) { background: #f1b94c; }
 .simulation-banner__action > button:disabled { cursor: wait; opacity: .6; }
@@ -940,15 +935,13 @@ onMounted(async () => {
 }
 
 @media (max-width: 767px) {
-  .simulation-banner { min-height: 0; grid-template-columns: 1fr; gap: 26px; padding: 28px 20px 24px; border-radius: 22px; }
-  .simulation-banner::after { top: -170px; right: -170px; }
+  .simulation-banner { min-height: 0; grid-template-columns: 1fr; gap: 22px; padding: 22px 18px 20px; border-radius: 15px; }
   .simulation-banner__copy > small { font-size: 13px; }
-  .simulation-banner__copy h2 { margin-top: 14px; font-size: 25px; letter-spacing: -.7px; line-height: 1.4; }
-  .simulation-banner__copy > p { margin-top: 14px; font-size: 14px; }
-  .simulation-banner__benefits { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 24px; padding: 0; }
-  .simulation-banner__benefits li { min-width: 0; flex-direction: column; gap: 7px; font-size: 13px; text-align: center; }
-  .simulation-banner__benefits i { width: 42px; height: 42px; }
-  .simulation-banner__benefits svg { width: 21px; height: 21px; }
+  .simulation-banner__copy h2,
+  :global(#app .app-shell main .simulation-banner__copy h2) { margin-top: 14px; font-size: var(--type-page-title-size) !important; font-weight: var(--type-page-title-weight) !important; letter-spacing: -.7px; line-height: 1.4; }
+  .simulation-banner__benefits { margin-top: 18px; }
+  .simulation-banner__benefits li { padding: 12px 2px; font-size: 15px; }
+  .simulation-banner__benefits li b { font-size: 13px; }
   .simulation-banner__action { gap: 20px; }
   .simulation-banner__character { justify-content: center; gap: 8px; }
   .simulation-banner__character p { padding: 12px 14px; font-size: 12px; }
@@ -970,7 +963,7 @@ onMounted(async () => {
   .simulation-result-banner__periods > div em { grid-row: 3; grid-column: 1; justify-self: inherit; padding: 3px 8px; font-size: 11px; }
   .simulation-result-banner__periods > b { grid-row: 2; grid-column: 2; align-self: center; padding: 0; color: #8d846f; font-size: 21px; }
   .simulation-result-banner__periods > i { grid-row: 1; grid-column: 2; align-self: end; justify-self: center; padding: 5px 9px; font-size: 11px; }
-  .simulation-result-banner__summary > button { width: 100%; height: 54px; min-width: 0; min-height: 54px; justify-self: stretch; padding: 0 16px; border: 0; border-radius: 14px; background: #fbedb0; box-shadow: 0 2px 6px rgb(20 30 60 / 16%); color: #0a1680; font-size: 16px; font-weight: 700; }
+  .simulation-result-banner__summary > button { width: 100%; height: 54px; min-width: 0; min-height: 54px; justify-self: stretch; padding: 0 16px; border: 0; border-radius: 14px; background: #fbedb0; box-shadow: 0 2px 6px rgb(20 30 60 / 16%); color: #0a1680; font-size: var(--type-action-size) !important; font-weight: var(--type-action-weight) !important; }
   .quest-overview-card { padding: 18px 12px 15px; border-radius: 20px; }
   .quest-overview-header { display: grid; gap: 12px; }
   .quest-overview-header h2 { font-size: 18px; }
@@ -1099,12 +1092,12 @@ onMounted(async () => {
   }
   .simulation-new-modal section > div button,
   .simulation-quest-footer button {
-    font-size: 17px;
-    font-weight: 800;
+    font-size: var(--type-action-size);
+    font-weight: var(--type-action-weight);
   }
   .simulation-create-new-bottom {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: var(--type-action-size);
+    font-weight: var(--type-action-weight);
   }
 }
 

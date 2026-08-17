@@ -437,6 +437,10 @@ async function toggle(item) {
   background: #fff;
   color: #666;
 }
+.quest-overview-empty strong {
+  font-size: 15px;
+  font-weight: 700;
+}
 .quest-overview-footer {
   display: flex;
   align-items: center;
@@ -462,8 +466,8 @@ async function toggle(item) {
   border-radius: 13px;
   background: #f5f7f9;
   color: #666;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--type-action-size);
+  font-weight: var(--type-action-weight);
   text-decoration: none;
   transition: background .15s ease;
 }

@@ -711,10 +711,14 @@ async function createNewSimulation() {
   }
 
   .simulation-edit-all,
-  .simulation-create-new,
   .simulation-new-modal section > div button {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-weight) !important;
+  }
+
+  .simulation-create-new {
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-secondary-weight) !important;
   }
 }
 
@@ -850,8 +854,9 @@ async function createNewSimulation() {
   font-size: 12px;
   font-weight: 600;
 }
-.simulation-edit-hero h1 {
-  color: #2a2113;
+.simulation-edit-hero h1,
+:global(#app .app-shell main .simulation-edit-hero h1) {
+  color: #222222 !important;
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.6px;
@@ -991,7 +996,7 @@ async function createNewSimulation() {
 .simulation-edit-runway.expected > strong {
   color: #1e1809;
   font-size: 44px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -1.5px;
 }
 .simulation-edit-runway > strong small {
@@ -1058,8 +1063,13 @@ async function createNewSimulation() {
   padding: 0 18px;
   border-radius: 12px;
   box-shadow: none;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: var(--type-action-size);
+}
+.simulation-edit-all {
+  font-weight: var(--type-action-weight);
+}
+.simulation-create-new {
+  font-weight: var(--type-action-secondary-weight);
 }
 .simulation-edit-all {
   border: 0;
@@ -1166,16 +1176,21 @@ async function createNewSimulation() {
 }
 
 :global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) {
-  font-size: 26px !important;
+  font-size: var(--type-page-title-size) !important;
 }
-:global(#app .app-shell .simulation-edit-page .simulation-edit-period button),
+:global(#app .app-shell .simulation-edit-page .simulation-edit-period button) {
+  font-size: var(--type-button-small-size) !important;
+  font-weight: var(--type-button-small-weight) !important;
+}
 :global(#app .app-shell .simulation-edit-page .simulation-edit-card > button) {
-  font-size: 12px !important;
+  font-size: var(--type-button-small-size) !important;
+  font-weight: 700 !important;
 }
 :global(
   #app .app-shell .simulation-edit-page .simulation-edit-actions button:not(.simulation-primary-cta):not(.simulation-create-new)
 ) {
-  font-size: 14px !important;
+  font-size: var(--type-button-small-size) !important;
+  font-weight: var(--type-button-small-weight) !important;
 }
 
 @media (max-width: 767px) {
@@ -1193,10 +1208,10 @@ async function createNewSimulation() {
     padding: 22px 18px 18px;
   }
   .simulation-edit-hero h1 {
-    font-size: 22px;
+    font-size: var(--type-page-title-size);
   }
   :global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) {
-    font-size: 22px !important;
+    font-size: var(--type-page-title-size) !important;
   }
   .simulation-edit-period {
     display: grid;
@@ -1465,7 +1480,15 @@ async function createNewSimulation() {
     min-height: 44px;
     margin: 0;
     padding: 0 12px;
-    font-size: 16px !important;
+    font-size: var(--type-action-size) !important;
+  }
+
+  .simulation-edit-mobile-actions .simulation-edit-all {
+    font-weight: var(--type-action-weight) !important;
+  }
+
+  .simulation-edit-mobile-actions .simulation-create-new {
+    font-weight: var(--type-action-secondary-weight) !important;
   }
 }
 
@@ -1691,7 +1714,7 @@ async function createNewSimulation() {
 
   .simulation-edit-hero h1,
   :global(#app .app-shell .simulation-edit-page .simulation-edit-hero h1) {
-    font-size: 21px !important;
+    font-size: var(--type-page-title-size) !important;
     letter-spacing: -0.5px;
     line-height: 1.4;
   }
@@ -1820,14 +1843,15 @@ async function createNewSimulation() {
     min-height: 48px;
     border: 0;
     border-radius: 12px;
-    font-size: 16px !important;
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-weight) !important;
   }
 
   .simulation-edit-mobile-actions .simulation-create-new {
     min-height: 46px;
     border-radius: 12px;
-    font-size: 16px !important;
-    font-weight: 700;
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-secondary-weight) !important;
   }
 }
 
@@ -1858,6 +1882,7 @@ async function createNewSimulation() {
 
   .simulation-edit-forecast > .simulation-edit-runway {
     grid-row: 1;
+    align-self: start;
   }
 
   .simulation-edit-forecast > .simulation-edit-runway.current {
@@ -1966,6 +1991,34 @@ async function createNewSimulation() {
   .simulation-edit-period input {
     padding: 0 18px 0 0 !important;
     font-size: 12px !important;
+  }
+}
+
+/* Flatten the edit page: drop the outer card look so content sits directly
+   on the page background, with natural spacing instead of a boxed shell. */
+@media (max-width: 767px) {
+  .simulation-edit-shell,
+  :global(#app .app-shell main .simulation-edit-page .simulation-edit-shell) {
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .simulation-edit-hero,
+  :global(#app .app-shell main .simulation-edit-page .simulation-edit-hero) {
+    padding: 4px 4px 18px !important;
+    background: transparent !important;
+  }
+
+  .simulation-edit-body,
+  :global(#app .app-shell main .simulation-edit-page .simulation-edit-body) {
+    padding: 0 4px 24px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 }
 </style>

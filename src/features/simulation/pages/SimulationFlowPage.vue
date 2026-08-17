@@ -389,6 +389,15 @@ async function confirm() {
   border: 0 !important;
 }
 
+.sim-flow-categories,
+:global(#app .app-shell .sim-page.sim-wizard.sim-flow-categories) {
+  padding: 22px 18px 28px !important;
+  border: 1px solid #eceef3 !important;
+  border-radius: 15px !important;
+  background: white !important;
+  box-shadow: var(--shadow-figma) !important;
+}
+
 .sim-flow-continue {
   min-height: calc(100vh - var(--header-height));
 }
@@ -415,11 +424,22 @@ async function confirm() {
 }
 
 .resume-actions .sim-btn,
-.resume-actions .resume-reset {
+.resume-actions .resume-reset,
+:global(#app .app-shell main .resume-actions .sim-btn),
+:global(#app .app-shell main .resume-actions .resume-reset) {
   min-height: 64px;
   border-radius: 14px;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: var(--type-action-size) !important;
+}
+
+.resume-actions .sim-btn,
+:global(#app .app-shell main .resume-actions .sim-btn) {
+  font-weight: var(--type-action-weight) !important;
+}
+
+.resume-actions .resume-reset,
+:global(#app .app-shell main .resume-actions .resume-reset) {
+  font-weight: var(--type-action-secondary-weight) !important;
 }
 
 .resume-actions .resume-reset {
@@ -975,10 +995,30 @@ async function confirm() {
   }
 
   .resume-actions .sim-btn,
-  .resume-actions .resume-reset {
+  .resume-actions .resume-reset,
+  :global(#app .app-shell main .resume-actions .sim-btn),
+  :global(#app .app-shell main .resume-actions .resume-reset) {
     min-height: 58px;
     border-radius: 12px;
-    font-size: 16px;
+    font-size: var(--type-action-size) !important;
+  }
+
+  .resume-actions .sim-btn,
+  :global(#app .app-shell main .resume-actions .sim-btn) {
+    font-weight: var(--type-action-weight) !important;
+  }
+
+  .resume-actions .resume-reset,
+  :global(#app .app-shell main .resume-actions .resume-reset) {
+    font-weight: var(--type-action-secondary-weight) !important;
+  }
+
+  .resume-actions .resume-reset .mobile-only,
+  .resume-actions .resume-reset .desktop-only,
+  :global(#app .app-shell main .resume-actions .resume-reset .mobile-only),
+  :global(#app .app-shell main .resume-actions .resume-reset .desktop-only) {
+    font-size: inherit !important;
+    font-weight: inherit !important;
   }
 }
 
@@ -1000,7 +1040,7 @@ async function confirm() {
 }
 
 .sim-flow-categories > .wizard-title em {
-  color: #b37f0c;
+  color: inherit;
   font-style: normal;
 }
 
@@ -1114,8 +1154,8 @@ async function confirm() {
   border-radius: 999px;
   background: #fff;
   color: #57503f;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--type-button-choice-size) !important;
+  font-weight: var(--type-button-choice-weight) !important;
 }
 
 .sim-flow-categories .period-presets button.active {

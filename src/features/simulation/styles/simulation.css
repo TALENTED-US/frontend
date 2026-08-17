@@ -15,8 +15,8 @@
 .sim-page .income-plan-controls button,
 .sim-page .policy-selected-list article button,
 .sim-page .edit-summary header button {
-  font-size: var(--type-action-size) !important;
-  font-weight: var(--type-action-weight);
+  font-size: var(--type-button-small-size) !important;
+  font-weight: var(--type-button-small-weight) !important;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -45,9 +45,30 @@
 .sim-page section > h2,
 .sim-page section > header h2,
 .sim-page .section-heading > h2,
-.sim-page .simulation-quest-heading > h2 {
+.sim-page .simulation-quest-heading > h2,
+.sim-page h2 {
   font-size: var(--type-section-title-size) !important;
   font-weight: var(--type-section-title-weight) !important;
+}
+
+/* Per-item card titles (e.g. individual policy cards) are one tier below the
+   section title, not equal to it. */
+.sim-page .policy-catalog-list h2,
+.sim-page .policy-selected-list h2 {
+  font-size: var(--type-card-title-size) !important;
+  font-weight: var(--type-card-title-weight) !important;
+}
+
+/* Shared page-title scale across simulation views (all h1s + wizard-title), mobile only. */
+@media (max-width: 767px) {
+  .sim-page h1,
+  .sim-page .wizard-title,
+  .sim-flow > h1,
+  .sim-category-page > h1,
+  .sim-heading h1 {
+    font-size: var(--type-page-title-size) !important;
+    font-weight: var(--type-page-title-weight) !important;
+  }
 }
 
 /* #7c8190 description text: keep the established responsive scale +1px. */
@@ -435,13 +456,13 @@
   .sim-page:not(.simulation-edit-page) .wizard-actions .sim-btn,
   .sim-page:not(.simulation-edit-page) .income-add-button,
   .sim-page:not(.simulation-edit-page) .expense-add-button {
-    font-size: 17px;
-    font-weight: 800;
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-weight) !important;
   }
 
   .sim-page:not(.simulation-edit-page) .sim-text-button {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-secondary-weight) !important;
   }
 
   .sim-page:not(.simulation-edit-page) .wizard-progress-tabs span,
@@ -518,14 +539,9 @@
   background: #fbedb0 !important;
   box-shadow: 0 2px 6px rgb(20 30 60 / 16%) !important;
   color: #0a1680 !important;
-  font-size: 16px !important;
-  font-weight: 700 !important;
+  font-size: var(--type-action-size) !important;
+  font-weight: var(--type-action-weight) !important;
   transition: background .16s ease;
-}
-
-.sim-page .expense-add-button,
-.sim-page .income-add-button {
-  font-size: 15px !important;
 }
 
 @media (hover: hover) {
@@ -562,12 +578,8 @@
   .sim-page .income-add-button,
   .simulation-new-modal section > div button:last-child {
     border-radius: 15px;
-    font-size: 16px !important;
-  }
-
-  .sim-page .expense-add-button,
-  .sim-page .income-add-button {
-    font-size: 15px !important;
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-weight) !important;
   }
 }
 
@@ -633,7 +645,8 @@ button.simulation-primary-cta:disabled {
 @media (max-width: 767px) {
   button.simulation-primary-cta {
     border-radius: 15px !important;
-    font-size: 16px !important;
+    font-size: var(--type-action-size) !important;
+    font-weight: var(--type-action-weight) !important;
   }
 
   .sim-page.sim-flow-confirm > .wizard-actions.confirm-actions {

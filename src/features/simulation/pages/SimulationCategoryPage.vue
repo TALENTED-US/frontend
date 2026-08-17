@@ -1012,6 +1012,8 @@ function skip() {
 }
 
 .sim-category-page > .wizard-progress-tabs span {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   font-size: 11px;
   cursor: pointer;
 }
@@ -1521,8 +1523,8 @@ function skip() {
   border-radius: 999px;
   background: rgb(255 255 255 / 75%);
   color: #8a6407;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--type-button-choice-size) !important;
+  font-weight: var(--type-button-choice-weight) !important;
 }
 
 .expense-amount-options > small {
@@ -2130,7 +2132,7 @@ function skip() {
   background: transparent !important;
   box-shadow: none !important;
   color: var(--primary, #0a1680) !important;
-  font-size: 12px;
+  font-size: 13px !important;
   font-weight: 400;
   line-height: 24px;
   white-space: nowrap;
@@ -2197,7 +2199,7 @@ function skip() {
   grid-template-columns: 82px minmax(0, 1fr);
   gap: 10px;
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .policy-detail-panel p > span {
@@ -2362,12 +2364,16 @@ function skip() {
   }
 
   .sim-category-page .income-money-field input,
-  .sim-category-page .income-plan-form fieldset button,
   .sim-category-page .income-name-field input.income-field,
   .sim-category-page input.income-field[type='date'],
   .sim-category-page select.income-field {
     font-size: var(--type-input-size);
     font-weight: var(--type-input-weight);
+  }
+
+  .sim-category-page .income-plan-form fieldset button {
+    font-size: var(--type-button-choice-size) !important;
+    font-weight: 700 !important;
   }
 
   .sim-category-page .added-expense-goals footer,
@@ -2377,8 +2383,8 @@ function skip() {
   .sim-category-page .policy-selected-card footer p,
   .sim-category-page .policy-selected-card footer span,
   .sim-category-page .policy-selected-card footer strong {
-    font-size: var(--type-total-size);
-    font-weight: var(--type-total-weight);
+    font-size: var(--type-total-size) !important;
+    font-weight: var(--type-total-weight) !important;
   }
 
   .sim-category-page .policy-selected-card footer p,
@@ -2419,7 +2425,6 @@ function skip() {
 
   .policy-section-heading p,
   .policy-section-heading button,
-  .policy-condition-grid span,
   .policy-selected-heading span,
   .policy-catalog-heading > span,
   .policy-selected-list article small,
@@ -2427,6 +2432,11 @@ function skip() {
   .policy-catalog-list p,
   .policy-catalog-list article > small {
     font-size: 12px;
+    font-weight: 400;
+  }
+
+  .policy-condition-grid span {
+    font-size: 14px;
     font-weight: 400;
   }
 
@@ -2692,7 +2702,8 @@ function skip() {
     justify-content: center;
     gap: 0;
     padding: 6px 2px;
-    font-size: 15px !important;
+    font-size: var(--type-button-choice-size) !important;
+    font-weight: var(--type-button-choice-weight) !important;
     letter-spacing: -0.4px;
   }
 

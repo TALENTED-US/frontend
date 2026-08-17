@@ -2426,7 +2426,6 @@ const targetMonthText = computed(() =>
   .survival-card__legend {
     margin-top: 9px;
     color: #666;
-    font-size: 11px;
   }
 
   .survival-card__character-panel {
@@ -2516,6 +2515,19 @@ const targetMonthText = computed(() =>
 }
 
 @media (max-width: 767px) {
+  .survival-card__metric span,
+  .dashboard-report__summary article span,
+  .dashboard-report__cashflow-item span,
+  .goal-card__item header span {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .survival-card__legend small,
+  :global(#app .app-shell main .survival-card__legend small) {
+    font-size: 12px !important;
+  }
+
   .dashboard__top {
     display: block;
     margin-bottom: 16px;
@@ -2553,7 +2565,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card {
-    min-height: 556px;
+    min-height: 576px;
     border-radius: 20px;
   }
 
@@ -2565,10 +2577,11 @@ const targetMonthText = computed(() =>
     left: 17px;
   }
 
-  .survival-card__intro h3 {
+  .survival-card__intro h3,
+  :global(#app .app-shell main .survival-card__intro h3) {
     max-width: 290px;
-    font-size: 23px;
-    font-weight: var(--type-page-title-weight);
+    font-size: var(--type-page-title-size) !important;
+    font-weight: var(--type-page-title-weight) !important;
     line-height: 1.35;
   }
 
@@ -2627,10 +2640,12 @@ const targetMonthText = computed(() =>
     width: calc(100% - 34px);
   }
 
-  .survival-card__progress-area b {
+  .survival-card__progress-area b,
+  :global(#app .app-shell main .survival-card__progress-area b) {
     display: flex;
     justify-content: space-between;
     margin-bottom: 9px;
+    font-size: 13px !important;
   }
 
   .survival-card__progress {
@@ -2691,7 +2706,7 @@ const targetMonthText = computed(() =>
   .survival-card__message p {
     position: absolute;
     right: 18px;
-    bottom: 13px;
+    top: 172px;
     left: 18px;
     color: var(--type-supporting-color);
     font-size: var(--type-supporting-size);
@@ -2752,9 +2767,10 @@ const targetMonthText = computed(() =>
     font-size: 16px;
   }
 
-  .dashboard-report__notice {
+  .dashboard-report__notice,
+  :global(#app .app-shell main .dashboard-report__notice) {
     padding: 9px 14px;
-    font-size: 12px;
+    font-size: 13px !important;
   }
 
   .summary__grid {
