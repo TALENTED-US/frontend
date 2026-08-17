@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
+import { getCustomRecommendationsApi, getSimulationRecommendationsApi } from '@/api/simulation'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
@@ -26,6 +27,10 @@ const endDate = ref(simulation.state.endDate)
 const selectedPeriod = ref(null)
 const starting = ref(false)
 const preparingResult = ref(step.value === 'confirm')
+const aiPrompt = ref('')
+const aiRecommendations = ref(null)
+const aiLoading = ref(false)
+const aiError = ref('')
 const periodOptions = [1, 3, 6, 12]
 
 function addMonths(dateValue, months) {
@@ -65,34 +70,57 @@ const hasRunwayResult = computed(
     Number.isFinite(Number(simulation.currentMonths)) &&
     Number.isFinite(Number(simulation.expectedMonths)),
 )
-const formatMonths = (value) => {
-  const months = Number(value)
-  if (!Number.isFinite(months)) return '-'
-  return Number.isInteger(months) ? String(months) : months.toFixed(1)
-}
-const previewExpectedMonths = computed(() => {
-  const currentMonths = Number(simulation.currentMonths) || 0
-  const expectedMonths = simulation.expectedMonths
-  return expectedMonths !== null && Number.isFinite(Number(expectedMonths))
-    ? Number(expectedMonths)
-    : currentMonths
-})
-const previewAddedMonths = computed(
-  () => Math.max(0, Math.round((previewExpectedMonths.value - simulation.currentMonths) * 10) / 10),
+const financialRecommendations = computed(
+  () => aiRecommendations.value?.financialRecommendation?.recommendations || [],
 )
-const currentMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.currentMonths))
-const expectedMonthsLabel = computed(() => formatPrepMonthsWithUnit(previewExpectedMonths.value))
-const addedMonthsLabel = computed(() =>
-  isInfinitePrepMonths(previewExpectedMonths.value)
-    ? '∞ 연장'
-    : `+${previewAddedMonths.value}개월 연장`,
+const financialSummary = computed(
+  () => aiRecommendations.value?.financialRecommendation?.summary || '',
 )
+const incomeRecommendation = computed(() => aiRecommendations.value?.incomeRecommendation || {})
+const incomeJobs = computed(() => incomeRecommendation.value?.jobs || [])
+const policyRecommendations = computed(() => aiRecommendations.value?.policyRecommendations || [])
+const hasAiRecommendations = computed(
+  () =>
+    financialRecommendations.value.length > 0 ||
+    incomeJobs.value.length > 0 ||
+    policyRecommendations.value.length > 0,
+)
+const aiPromptLength = computed(() => aiPrompt.value.length)
 const nextDraftPath = computed(() => {
   if (!simulation.state.expenseApplied) return '/simulation/expense'
   if (!simulation.state.incomes.length) return '/simulation/income'
   if (!simulation.state.policies.length) return '/simulation/policy'
   return '/simulation/confirm'
 })
+
+function recommendationErrorMessage(error) {
+  const status = error?.response?.status || error?.status
+  if (status === 503) return 'AI 추천을 지금 생성할 수 없어요. 잠시 후 다시 시도해 주세요.'
+  if (status === 401) return '로그인 정보가 없어 AI 추천을 불러오지 못했어요.'
+  return error?.response?.data?.message || error?.message || 'AI 추천을 불러오지 못했어요.'
+}
+
+async function loadAiRecommendations(prompt = '') {
+  if (aiLoading.value) return
+  aiLoading.value = true
+  aiError.value = ''
+
+  try {
+    aiRecommendations.value = prompt
+      ? await getCustomRecommendationsApi(prompt)
+      : await getSimulationRecommendationsApi()
+  } catch (error) {
+    aiError.value = recommendationErrorMessage(error)
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+async function submitAiPrompt() {
+  const prompt = aiPrompt.value.trim()
+  if (!prompt) return
+  await loadAiRecommendations(prompt)
+}
 
 onMounted(async () => {
   await simulation.hydrateRunwayBaseline()
@@ -101,6 +129,7 @@ onMounted(async () => {
   // 여기서 다시 조회하면 정상적인 "데이터 없음" 응답이 404 오류처럼 노출된다.
   if (step.value === 'categories') {
     startDate.value = getTodayDate()
+    await loadAiRecommendations()
     return
   }
 
@@ -256,37 +285,94 @@ async function confirm() {
         </p>
       </section>
 
-      <section class="baseline-report report-preview">
-        <h2>리포트 미리보기</h2>
-        <article class="report-preview__card">
-          <strong>시뮬레이션을 하면 이런 리포트를 받아볼 수 있어요</strong>
-          <span class="report-preview__badge">지출 줄이기</span>
-          <div class="report-preview__period">
-            <span>예상 버티는 기간 변화</span>
-            <p><del>{{ currentMonthsLabel }}</del><b>→</b><strong>{{ expectedMonthsLabel }}</strong></p>
-            <em>{{ addedMonthsLabel }}</em>
+      <section class="baseline-report ai-plan-recommendation">
+        <div class="ai-plan-recommendation__heading">
+          <span aria-hidden="true">AI</span>
+          <div>
+            <h2>버티 AI 맞춤 계획</h2>
+            <p>지출·수입·정책을 한 번에 추천받아 보세요.</p>
           </div>
-          <div class="report-preview__charts">
-            <figure>
-              <figcaption>월별 타임라인</figcaption>
-              <svg viewBox="0 0 180 86" role="img" aria-label="시뮬레이션 전후 재정 타임라인 예시">
-                <line x1="12" y1="12" x2="92" y2="72" class="preview-line preview-line--before" />
-                <line x1="12" y1="12" x2="162" y2="72" class="preview-line preview-line--after" />
-                <circle cx="92" cy="72" r="4" class="preview-dot preview-dot--before" />
-                <circle cx="162" cy="72" r="4" class="preview-dot preview-dot--after" />
-                <text x="24" y="57" class="preview-text preview-text--before">적용 전</text>
-                <text x="116" y="34" class="preview-text preview-text--after">적용 후</text>
-              </svg>
-            </figure>
-            <figure>
-              <figcaption>시뮬레이션 적용 결과</figcaption>
-              <div class="preview-bars" aria-label="적용 전후 버티는 기간 비교">
-                <span class="preview-bar preview-bar--before"><i />적용 전</span>
-                <span class="preview-bar preview-bar--after"><i />적용 후</span>
-              </div>
-            </figure>
+        </div>
+
+        <form class="ai-plan-recommendation__form" @submit.prevent="submitAiPrompt">
+          <label for="simulation-ai-concept">원하는 계획 컨셉</label>
+          <div class="ai-plan-recommendation__input">
+            <input
+              id="simulation-ai-concept"
+              v-model="aiPrompt"
+              type="text"
+              maxlength="50"
+              placeholder="원하는 컨셉을 넣어보세요"
+              :disabled="aiLoading"
+            />
+            <span>{{ aiPromptLength }}/50</span>
+            <button type="submit" :disabled="aiLoading || !aiPrompt.trim()">
+              {{ aiLoading ? '추천 중…' : '추천받기' }}
+            </button>
           </div>
-        </article>
+          <small>예: 취업 준비 6개월 동안 배달비를 줄이고 자격증 지원을 받고 싶어요.</small>
+        </form>
+
+        <p v-if="aiError" class="ai-plan-recommendation__error">{{ aiError }}</p>
+        <div v-else-if="aiLoading" class="ai-plan-recommendation__empty">
+          내 상황에 맞는 계획을 만드는 중이에요…
+        </div>
+        <div v-else-if="hasAiRecommendations" class="ai-plan-recommendation__results">
+          <article>
+            <header>
+              <span>지출</span><b>{{ financialRecommendations.length }}건</b>
+            </header>
+            <p v-if="financialSummary">{{ financialSummary }}</p>
+            <ul v-if="financialRecommendations.length">
+              <li v-for="item in financialRecommendations.slice(0, 2)" :key="item.title">
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.reason }}</small>
+              </li>
+            </ul>
+            <p v-else class="muted">추천할 지출 계획이 없어요.</p>
+            <button type="button" @click="router.push('/simulation/expense')">
+              지출 계획 보기
+            </button>
+          </article>
+          <article>
+            <header>
+              <span>수입</span><b>{{ incomeJobs.length }}건</b>
+            </header>
+            <p>{{ incomeRecommendation.notice || incomeRecommendation.searchKeyword }}</p>
+            <ul v-if="incomeJobs.length">
+              <li v-for="job in incomeJobs.slice(0, 2)" :key="job.url || job.title">
+                <strong>{{ job.title }}</strong>
+                <small
+                  >{{ job.company
+                  }}<template v-if="job.region"> · {{ job.region }}</template></small
+                >
+              </li>
+            </ul>
+            <p v-else class="muted">조건에 맞는 일자리가 없어요.</p>
+            <button type="button" @click="router.push('/simulation/income')">수입 계획 보기</button>
+          </article>
+          <article>
+            <header>
+              <span>정책</span><b>{{ policyRecommendations.length }}건</b>
+            </header>
+            <ul v-if="policyRecommendations.length">
+              <li
+                v-for="policy in policyRecommendations.slice(0, 2)"
+                :key="policy.policyUrl || policy.policyName"
+              >
+                <strong>{{ policy.policyName }}</strong>
+                <small v-if="policy.policySupportAmount"
+                  >최대 {{ money(policy.policySupportAmount) }}원 지원</small
+                >
+              </li>
+            </ul>
+            <p v-else class="muted">조건에 맞는 정책이 없어요.</p>
+            <button type="button" @click="router.push('/simulation/policy')">정책 계획 보기</button>
+          </article>
+        </div>
+        <div v-else class="ai-plan-recommendation__empty">
+          추천할 계획을 찾지 못했어요. 원하는 컨셉을 더 구체적으로 입력해 보세요.
+        </div>
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
@@ -309,10 +395,16 @@ async function confirm() {
         <p v-if="preparingResult">계산 중...</p>
         <template v-else>
           <p>
-            <del>{{ formatMonths(simulation.currentMonths) }}개월</del><b>→</b
-            ><strong>{{ formatMonths(simulation.expectedMonths) }}개월</strong>
+            <del>{{ formatPrepMonthsWithUnit(simulation.currentMonths) }}</del
+            ><b>→</b><strong>{{ formatPrepMonthsWithUnit(simulation.expectedMonths) }}</strong>
           </p>
-          <em v-if="hasRunwayResult">+{{ formatMonths(simulation.addedMonths) }}개월 연장</em>
+          <em v-if="hasRunwayResult">
+            {{
+              isInfinitePrepMonths(simulation.expectedMonths)
+                ? '∞ 연장'
+                : `+${simulation.addedMonths}개월 연장`
+            }}
+          </em>
           <em v-else>계산 결과를 불러오지 못했어요</em>
         </template>
       </div>
@@ -457,6 +549,226 @@ async function confirm() {
 
 .report-preview > h2 {
   font-size: 16px;
+}
+
+.ai-plan-recommendation {
+  padding: 18px;
+  border: 1px solid #e1e5ee;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgb(26 39 78 / 9%);
+}
+
+.ai-plan-recommendation__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-plan-recommendation__heading > span {
+  display: grid;
+  flex: 0 0 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  background: #121f8d;
+  color: #ffd95b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ai-plan-recommendation__heading h2 {
+  font-size: 16px;
+}
+
+.ai-plan-recommendation__heading p {
+  margin-top: 3px;
+  color: #858d9d;
+  font-size: 11px;
+}
+
+.ai-plan-recommendation__form {
+  margin-top: 18px;
+}
+
+.ai-plan-recommendation__form > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ai-plan-recommendation__input {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #dfe3ec;
+  border-radius: 13px;
+  background: #f8f9fc;
+}
+
+.ai-plan-recommendation__input input {
+  min-width: 0;
+  height: 48px;
+  padding: 0 12px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 12px;
+}
+
+.ai-plan-recommendation__input > span {
+  padding: 0 9px;
+  color: #9aa1ae;
+  font-size: 10px;
+}
+
+.ai-plan-recommendation__input button,
+.ai-plan-recommendation__results article > button {
+  border: 0;
+  background: #101c83;
+  color: #fff;
+  font-weight: 800;
+}
+
+.ai-plan-recommendation__input button {
+  align-self: stretch;
+  min-width: 78px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.ai-plan-recommendation__input button:disabled {
+  background: #dfe3eb;
+  color: #9da4b0;
+}
+
+.ai-plan-recommendation__form > small {
+  display: block;
+  margin-top: 7px;
+  color: #9aa1ae;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.ai-plan-recommendation__results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ai-plan-recommendation__results article {
+  display: flex;
+  min-width: 0;
+  min-height: 176px;
+  flex-direction: column;
+  padding: 12px;
+  border: 1px solid #e7eaf0;
+  border-radius: 14px;
+  background: #fbfcff;
+}
+
+.ai-plan-recommendation__results header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-plan-recommendation__results header span {
+  color: #111d82;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-plan-recommendation__results header b {
+  color: #8b93a2;
+  font-size: 9px;
+}
+
+.ai-plan-recommendation__results article > p {
+  margin-top: 8px;
+  color: #6f7787;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.ai-plan-recommendation__results ul {
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-plan-recommendation__results li {
+  min-width: 0;
+}
+
+.ai-plan-recommendation__results li strong,
+.ai-plan-recommendation__results li small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-plan-recommendation__results li strong {
+  font-size: 10px;
+}
+
+.ai-plan-recommendation__results li small {
+  margin-top: 2px;
+  color: #969daa;
+  font-size: 8px;
+}
+
+.ai-plan-recommendation__results article > button {
+  width: 100%;
+  min-height: 30px;
+  margin-top: auto;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.ai-plan-recommendation__empty,
+.ai-plan-recommendation__error {
+  margin-top: 16px;
+  padding: 18px 12px;
+  border-radius: 12px;
+  font-size: 10px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.ai-plan-recommendation__empty {
+  background: #f4f6fa;
+  color: #7e8695;
+}
+
+.ai-plan-recommendation__error {
+  background: #fff0f0;
+  color: #d94f55;
+}
+
+@media (max-width: 560px) {
+  .ai-plan-recommendation__input {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ai-plan-recommendation__input button {
+    grid-column: 1 / -1;
+    min-height: 40px;
+  }
+
+  .ai-plan-recommendation__results {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-plan-recommendation__results article {
+    min-height: 150px;
+  }
 }
 
 .report-preview__card {
@@ -1306,7 +1618,6 @@ async function confirm() {
     font-size: 14px !important;
     font-weight: 500 !important;
   }
-
 }
 
 :global(#app .app-shell main .sim-flow-confirm .confirm-policy-amount) {

@@ -40,6 +40,12 @@ const loading = ref(false)
 const error = ref('')
 const showingAllPolicies = ref(route.query.all === '1')
 let requestId = 0
+const policyPageSize = 10
+const policyStatusCache = {
+  AVAILABLE: { totalElements: null, pages: new Map() },
+  CLOSED: { totalElements: null, pages: new Map() },
+}
+let policyStatusInitializationPromise = null
 const isMobilePagination = ref(false)
 const paginationMediaQuery =
   typeof window === 'undefined' ? null : window.matchMedia('(max-width: 767px)')
@@ -68,22 +74,102 @@ onBeforeUnmount(() => {
   paginationMediaQuery?.removeEventListener('change', updatePaginationLayout)
 })
 
+async function initializePolicyStatusCache() {
+  if (policyStatusInitializationPromise) return policyStatusInitializationPromise
+
+  policyStatusInitializationPromise = Promise.all(
+    Object.keys(policyStatusCache).map(async (policyStatus) => {
+      const mapped = mapPolicyPage(
+        await getPoliciesApi({ page: 1, size: policyPageSize, policyStatus }),
+      )
+      policyStatusCache[policyStatus].totalElements = mapped.totalElements
+      policyStatusCache[policyStatus].pages.set(1, mapped.content)
+    }),
+  ).catch((cacheError) => {
+    policyStatusInitializationPromise = null
+    throw cacheError
+  })
+
+  return policyStatusInitializationPromise
+}
+
+async function loadPolicyStatusRange(policyStatus, offset, length) {
+  if (length <= 0) return []
+
+  const cache = policyStatusCache[policyStatus]
+  const firstPage = Math.floor(offset / policyPageSize) + 1
+  const lastPage = Math.floor((offset + length - 1) / policyPageSize) + 1
+  const missingPages = []
+
+  for (let page = firstPage; page <= lastPage; page += 1) {
+    if (!cache.pages.has(page)) missingPages.push(page)
+  }
+
+  await Promise.all(
+    missingPages.map(async (page) => {
+      const mapped = mapPolicyPage(
+        await getPoliciesApi({ page, size: policyPageSize, policyStatus }),
+      )
+      cache.pages.set(page, mapped.content)
+    }),
+  )
+
+  return Array.from({ length }, (_, index) => {
+    const itemIndex = offset + index
+    const page = Math.floor(itemIndex / policyPageSize) + 1
+    const indexInPage = itemIndex % policyPageSize
+    return cache.pages.get(page)?.[indexInPage]
+  }).filter(Boolean)
+}
+
+async function loadAllPolicyStatuses(page = 1, size = policyPageSize) {
+  await initializePolicyStatusCache()
+
+  const availableTotal = policyStatusCache.AVAILABLE.totalElements || 0
+  const closedTotal = policyStatusCache.CLOSED.totalElements || 0
+  const totalElements = availableTotal + closedTotal
+  const totalPages = Math.ceil(totalElements / size)
+  const currentPage = Math.min(Math.max(1, Number(page) || 1), Math.max(1, totalPages))
+  const start = (currentPage - 1) * size
+  const availableOffset = Math.min(start, availableTotal)
+  const availableLength = Math.min(size, Math.max(0, availableTotal - availableOffset))
+  const closedOffset = Math.max(0, start - availableTotal)
+  const closedLength = Math.min(size - availableLength, Math.max(0, closedTotal - closedOffset))
+  const [availablePolicies, closedPolicies] = await Promise.all([
+    loadPolicyStatusRange('AVAILABLE', availableOffset, availableLength),
+    loadPolicyStatusRange('CLOSED', closedOffset, closedLength),
+  ])
+
+  return {
+    content: [...availablePolicies, ...closedPolicies],
+    page: currentPage,
+    size,
+    totalElements,
+    totalPages,
+    hasNext: currentPage < totalPages,
+    hasPrevious: currentPage > 1,
+  }
+}
+
 async function loadPolicies(page = 1) {
   const currentRequestId = ++requestId
   loading.value = true
   error.value = ''
   try {
-    const response = showingAllPolicies.value
-      ? await getPoliciesApi({ page, size: 10 })
-      : await searchPoliciesApi(
-          toPolicySearchRequest(activeFilters.value, amount.value, query.value, {
-            page,
-            size: 10,
-            age: calculateAge(session.currentUser.birth),
-          }),
+    const hasSearchConditions =
+      Boolean(query.value.trim()) || activeFilters.value.length > 0 || amount.value > 0
+    const mapped = showingAllPolicies.value || !hasSearchConditions
+      ? await loadAllPolicyStatuses(page, policyPageSize)
+      : mapPolicyPage(
+          await searchPoliciesApi(
+            toPolicySearchRequest(activeFilters.value, amount.value, query.value, {
+              page,
+              size: 10,
+              age: calculateAge(session.currentUser.birth),
+            }),
+          ),
         )
     if (currentRequestId !== requestId) return
-    const mapped = mapPolicyPage(response)
     result.value = mapped.content
     pageInfo.value = mapped
   } catch (requestError) {
@@ -140,7 +226,6 @@ async function showAllPolicies() {
   amount.value = 0
   showingAllPolicies.value = true
   await router.replace({ path: '/search', query: { all: '1' } })
-  await loadPolicies(1)
 }
 
 function openFilter() {
@@ -200,7 +285,7 @@ function openPolicyDetail(item) {
 
     <div class="result-heading">
       <h2>정책 검색 결과</h2>
-      <span>정책 {{ pageInfo.totalElements }}개</span>
+      <span>{{ loading ? '정책 조회 중' : `정책 ${pageInfo.totalElements}개` }}</span>
     </div>
 
     <div v-if="loading" class="policy-state card">정책을 불러오는 중이에요.</div>

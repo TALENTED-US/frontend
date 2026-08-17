@@ -123,9 +123,14 @@ export async function registerMyDataSelection({ accountIds, cardIds }) {
 export async function syncMyData() {
   return run(async () => {
     const syncResult = await syncMyDataTransactionsApi()
-    const candidates = await getFixedExpenseCandidatesApi()
     mydataState.lastSync = syncResult
-    mydataState.fixedExpenseCandidates = Array.isArray(candidates) ? candidates : []
+    try {
+      const candidates = await getFixedExpenseCandidatesApi()
+      mydataState.fixedExpenseCandidates = Array.isArray(candidates) ? candidates : []
+    } catch {
+      // 거래 동기화 성공을 부가적인 후보 조회 실패로 되돌리지 않는다.
+      mydataState.fixedExpenseCandidates = []
+    }
     return syncResult
   }, '마이데이터 거래 내역을 동기화하지 못했습니다.')
 }
@@ -166,9 +171,7 @@ function removeSelectedMyDataAsset(assetType, assetId) {
       (id) => id !== normalizedId,
     )
   } else {
-    mydataState.selectedCardIds = mydataState.selectedCardIds.filter(
-      (id) => id !== normalizedId,
-    )
+    mydataState.selectedCardIds = mydataState.selectedCardIds.filter((id) => id !== normalizedId)
   }
   mydataState.selectionInitialized = true
   persistSelection()
