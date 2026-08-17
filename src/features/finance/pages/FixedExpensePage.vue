@@ -17,13 +17,6 @@ const serverFixedRows = ref([])
 const serverCandidates = ref([])
 const serverFixedSummary = ref(null)
 const useFixedApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
-const fixedCandidateCategories = new Set([
-  '주거·통신',
-  '교통·유류비',
-  '취업 준비',
-  '의료·건강',
-  '기타 금융',
-])
 const now = new Date()
 const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 const fixedMonth = ref(currentMonth)
@@ -42,15 +35,14 @@ const mode = computed(() =>
       ? 'delete'
       : 'detail',
 )
-const isHousingFixedRow = (row) =>
-  ['월세', '주거'].includes(row?.category) ||
-  /월세|임대료|관리비|공과금/.test(`${row?.title || ''} ${row?.memo || ''}`)
-const isRecognizedFixedRow = (row) => Boolean(row?.fixed || isHousingFixedRow(row))
-const fixedSourceRows = computed(() =>
-  useFixedApi
-    ? serverFixedRows.value
-    : financeTransactions.value.filter((row) => isRecognizedFixedRow(row)),
+const isRecognizedFixedRow = (row) => Boolean(row?.fixed)
+const localFixedRows = computed(() =>
+  financeTransactions.value.filter((row) => isRecognizedFixedRow(row) && row.amount < 0),
 )
+const fixedSourceRows = computed(() => {
+  if (!useFixedApi) return localFixedRows.value
+  return serverFixedRows.value
+})
 const fixedRows = computed(() =>
   fixedSourceRows.value.filter(
     (row) => isRecognizedFixedRow(row) && row.amount < 0 && row.date.startsWith(fixedMonth.value),
@@ -62,39 +54,10 @@ const registeredFixedRows = computed(() => {
     .sort((a, b) => b.date.localeCompare(a.date))
 })
 const candidates = computed(() => {
-  if (useFixedApi) {
-    const keyword = query.value.trim()
-    return serverCandidates.value
-      .filter((row) => row.title.includes(keyword))
-      .sort((a, b) => b.occurrenceCount - a.occurrenceCount)
-  }
-
-  const recurringByRule = new Map()
-  financeTransactions.value
-    .filter(
-      (row) =>
-        row.amount < 0 && !isRecognizedFixedRow(row) && fixedCandidateCategories.has(row.category),
-    )
-    .forEach((row) => {
-      const key = `${row.title}|${row.category}`
-      const rows = recurringByRule.get(key) || []
-      rows.push(row)
-      recurringByRule.set(key, rows)
-    })
-
-  return [...recurringByRule.values()]
-    .filter((rows) => rows.length >= 2)
-    .map((rows) => {
-      const sorted = [...rows].sort((a, b) => b.date.localeCompare(a.date))
-      return {
-        ...sorted[0],
-        recurringIds: sorted.map((row) => row.id),
-        occurrenceCount: sorted.length,
-      }
-    })
-    .filter((row) => row.title.includes(query.value.trim()))
-    .sort((a, b) => b.occurrenceCount - a.occurrenceCount || b.date.localeCompare(a.date))
-    .slice(0, 15)
+  const keyword = query.value.trim()
+  return serverCandidates.value
+    .filter((row) => row.title.includes(keyword))
+    .sort((a, b) => b.occurrenceCount - a.occurrenceCount)
 })
 const suggestedRow = computed(() =>
   dismissedSuggestion.value ? null : candidates.value[0] || null,
@@ -186,6 +149,7 @@ async function loadFixedExpenseData() {
   ])
 
   if (detailsResult.status === 'fulfilled') serverFixedRows.value = detailsResult.value
+  else if (detailsResult.reason?.code === 'LEDGER_402') serverFixedRows.value = []
   else fixedApiError.value = detailsResult.reason?.message || '고정지출 내역을 불러오지 못했습니다.'
 
   if (candidatesResult.status === 'fulfilled') {
@@ -209,6 +173,10 @@ async function loadFixedExpenseData() {
     fixedApiError.value = candidatesResult.reason?.message || '고정지출 후보를 불러오지 못했습니다.'
   }
   if (summaryResult.status === 'fulfilled') serverFixedSummary.value = summaryResult.value
+  else if (summaryResult.reason?.code === 'LEDGER_402') serverFixedSummary.value = null
+  else if (!fixedApiError.value) {
+    fixedApiError.value = summaryResult.reason?.message || '고정지출 합계를 불러오지 못했습니다.'
+  }
   fixedApiLoading.value = false
 }
 async function submit() {
@@ -290,7 +258,13 @@ onMounted(loadFixedExpenseData)
         {{ fixedApiError || financeState.error }}
       </p>
       <p v-if="!fixedApiLoading && !visibleRows.length" class="empty-message">
-        {{ mode === 'delete' ? '삭제할 고정지출이 없어요.' : '표시할 거래가 없어요.' }}
+        {{
+          mode === 'add'
+            ? '서버에서 제공한 고정지출 후보가 없어요.'
+            : mode === 'delete'
+              ? '해제할 고정지출이 없어요.'
+              : '서버에 등록된 고정지출이 없어요.'
+        }}
       </p>
       <template v-for="[category, rows] in grouped" :key="category">
         <h2 :class="categoryClass(category)">

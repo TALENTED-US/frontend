@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 
 const props = defineProps({
   currentMonths: { type: Number, default: 0 },
@@ -11,11 +12,12 @@ const props = defineProps({
   },
 })
 
-const fmt = (m) => `${Math.round(m * 10) / 10}개월`
+const fmt = (m) => formatPrepMonthsWithUnit(m)
 
 const extensionMonths = computed(() => {
   const current = Math.max(0, Number(props.currentMonths) || 0)
   const expected = Math.max(current, Number(props.expectedMonths) || 0)
+  if (isInfinitePrepMonths(expected)) return '∞'
   return Math.round((expected - current) * 10) / 10
 })
 
@@ -56,7 +58,17 @@ const points = computed(() => {
       ring: '#0A1680',
     })
   }
-  return list
+
+  const pointOrder = {
+    now: 0,
+    target: 1,
+    'current-limit': 2,
+    scenario: 3,
+  }
+
+  // 아래 충돌 방지 배치는 점이 시간순이라는 전제이므로, API 개월 값이 바뀔 때마다
+  // 목표·현재·적용 후 지점이 실제 위치에 표시되도록 개월 수 기준으로 정렬한다.
+  return list.sort((a, b) => a.months - b.months || pointOrder[a.id] - pointOrder[b.id])
 })
 
 const trackRef = ref(null)
@@ -234,7 +246,9 @@ const connectors = computed(() => {
   <article class="confirmed-financial-timeline sim-card sim-timeline">
     <h2>월별 재정 타임라인</h2>
     <p class="confirmed-timeline-description">
-      계획을 실행하면 <strong>{{ extensionMonths }}개월 더</strong> 버틸 수 있어요.
+      계획을 실행하면
+      <strong>{{ extensionMonths === '∞' ? '∞' : `${extensionMonths}개월 더` }}</strong>
+      버틸 수 있어요.
     </p>
     <div
       ref="trackRef"

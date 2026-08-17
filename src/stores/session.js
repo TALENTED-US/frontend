@@ -53,16 +53,18 @@ function mapProfile(profile) {
 }
 
 function mapProfileSummary(profile) {
-  const buttieProgression = normalizeButtieProgression(profile.buttieTotalExp)
   const startDate = normalizeDate(profile.prepStartDate)
   const goalDate = normalizeDate(profile.targetEmploymentDate)
+  const totalExp = Number(profile.buttieTotalExp)
+  const requiredExp = Number(profile.requiredExp)
+  const level = Number(profile.buttieLevel)
   return {
     nickname: profile.userNickname,
     email: profile.userEmail,
-    level: buttieProgression.level,
-    exp: buttieProgression.exp,
-    totalExp: buttieProgression.totalExp,
-    requiredExp: buttieProgression.requiredExp,
+    level: Number.isFinite(level) ? level : null,
+    exp: Number.isFinite(totalExp) ? totalExp : null,
+    totalExp: Number.isFinite(totalExp) ? totalExp : null,
+    requiredExp: Number.isFinite(requiredExp) ? requiredExp : null,
     buttieImageUrl: profile.buttieImageUrl,
     riskLevel: profile.riskLevel,
     mydataStatus: profile.mydataStatus,
@@ -152,17 +154,15 @@ export const useSessionStore = defineStore('session', () => {
     if (window.location.pathname !== loginPath) window.location.assign(loginPath)
   }
 
-  function syncProgression(profile) {
-    const normalized = normalizeButtieProgression(profile?.buttieTotalExp)
-    progression.level = normalized.level
-    progression.exp = normalized.exp
-  }
-
   async function loadCurrentUser() {
     const [summary, profile] = await Promise.all([getMyProfileSummaryApi(), getMyProfileApi()])
     Object.assign(currentUser.value, mapProfileSummary(summary))
     Object.assign(currentUser.value, mapProfile(profile))
-    syncProgression(summary)
+    if (isMockMode) {
+      const normalized = normalizeButtieProgression(summary?.buttieTotalExp)
+      progression.level = normalized.level
+      progression.exp = normalized.exp
+    }
     myDataConnected.value = summary.mydataStatus === 'CONNECTED'
     myDataLastUpdated.value = summary.lastSyncedAt || ''
 

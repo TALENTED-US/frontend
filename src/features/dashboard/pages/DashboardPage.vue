@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import { getMyDataAssetsApi } from '@/api/mydata'
+import { calendarState, loadCalendar } from '@/features/finance/calendarStore'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import MyDataConnectModal from '@/components/ui/MyDataConnectModal.vue'
@@ -21,12 +22,7 @@ import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalyt
 import { formatPrepMonths, isInfinitePrepMonths } from '@/utils/prepMonths'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
-import {
-  calculateQuestExp,
-  formatExp,
-  normalizeButtieProgression,
-  useProgressionStore,
-} from '@/stores/progression'
+import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -59,12 +55,14 @@ async function loadButtieDashboard() {
   dashboardApiError.value = ''
   try {
     buttieDashboard.value = await getButtieDashboardApi()
-    const normalized = normalizeButtieProgression(buttieDashboard.value.buttieTotalExp)
+    const totalExp = finiteNumberOrNull(buttieDashboard.value.buttieTotalExp)
+    const requiredExp = finiteNumberOrNull(buttieDashboard.value.requiredExp)
+    const level = finiteNumberOrNull(buttieDashboard.value.buttieLevel)
     Object.assign(session.currentUser, {
-      level: normalized.level,
-      exp: normalized.exp,
-      totalExp: normalized.totalExp,
-      requiredExp: normalized.requiredExp,
+      level,
+      exp: totalExp,
+      totalExp,
+      requiredExp,
       buttieImageUrl: buttieDashboard.value.buttieImageUrl,
       riskLevel: buttieDashboard.value.riskLevel,
       goalDate: buttieDashboard.value.targetEmploymentDate,
@@ -81,12 +79,6 @@ async function loadFinancialAssets() {
     financialAssets.value = dashboard.totalAssets
     return
   }
-  const draft = quests.remoteEnabled ? await simulation.hydrateDraft() : null
-  if (draft) {
-    quests.resetQuests()
-    return
-  }
-  if (simulation.syncError) return
 
   if (!isMyDataConnected()) {
     financialAssets.value = null
@@ -114,10 +106,16 @@ async function loadFinancialAssets() {
 }
 
 onMounted(async () => {
+  const dashboardMonth = new Date()
   await Promise.all([
     loadButtieDashboard(),
     loadFinancialAssets(),
     loadTransactions().catch(() => null),
+    session.isMockMode
+      ? Promise.resolve()
+      : loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true).catch(
+          () => null,
+        ),
   ])
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
@@ -243,13 +241,30 @@ function expenseQuestName(name) {
 
 const currentUser = computed(() => session.currentUser)
 const apiButtieProgression = computed(() =>
-  buttieDashboard.value ? normalizeButtieProgression(buttieDashboard.value.buttieTotalExp) : null,
+  buttieDashboard.value
+    ? {
+        level: finiteNumberOrNull(buttieDashboard.value.buttieLevel),
+        exp: finiteNumberOrNull(buttieDashboard.value.buttieTotalExp),
+        requiredExp: finiteNumberOrNull(buttieDashboard.value.requiredExp),
+      }
+    : null,
 )
-const buttieExp = computed(() => apiButtieProgression.value?.exp ?? progression.exp)
-const buttieRequiredExp = computed(
-  () => apiButtieProgression.value?.requiredExp ?? progression.nextLevelExp,
+const buttieExp = computed(() =>
+  session.isMockMode
+    ? progression.exp
+    : (apiButtieProgression.value?.exp ?? finiteNumberOrNull(session.currentUser.totalExp)),
 )
-const buttieLevel = computed(() => apiButtieProgression.value?.level ?? progression.level)
+const buttieRequiredExp = computed(() =>
+  session.isMockMode
+    ? progression.nextLevelExp
+    : (apiButtieProgression.value?.requiredExp ??
+      finiteNumberOrNull(session.currentUser.requiredExp)),
+)
+const buttieLevel = computed(() =>
+  session.isMockMode
+    ? progression.level
+    : (apiButtieProgression.value?.level ?? finiteNumberOrNull(session.currentUser.level)),
+)
 const buttieRemainingExp = computed(() => Math.max(0, buttieRequiredExp.value - buttieExp.value))
 const buttieProgressPercent = computed(() =>
   buttieRequiredExp.value > 0
@@ -284,8 +299,16 @@ const totalAssets = computed(() =>
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
 )
-const monthlyExpense = computed(() => recentFinancialAnalysis.value.monthlyExpense)
-const monthlyIncome = computed(() => recentFinancialAnalysis.value.monthlyIncome)
+const monthlyExpense = computed(() =>
+  session.isMockMode
+    ? recentFinancialAnalysis.value.monthlyExpense
+    : finiteNumberOrNull(calendarState.totalExpense),
+)
+const monthlyIncome = computed(() =>
+  session.isMockMode
+    ? recentFinancialAnalysis.value.monthlyIncome
+    : finiteNumberOrNull(calendarState.totalIncome),
+)
 const hasConfirmedSimulationDurations = computed(
   () =>
     simulation.recentConfirmed?.currentMonths !== null &&
@@ -428,10 +451,13 @@ const questCompletionPercent = computed(() =>
     ? Math.round((completedQuestCount.value / allQuestRows.value.length) * 100)
     : 0,
 )
-const claimableQuestExp = computed(() => allQuestRows.value
-  .filter((item) => !isQuestCompleted(item))
-  .reduce((sum, item) => sum + questExp(item), 0))
-const questIconName = (item) => ({ expense: 'arrow-down', income: 'briefcase', policy: 'landmark' }[item.kind] || 'check-circle')
+const claimableQuestExp = computed(() =>
+  allQuestRows.value
+    .filter((item) => !isQuestCompleted(item))
+    .reduce((sum, item) => sum + questExp(item), 0),
+)
+const questIconName = (item) =>
+  ({ expense: 'arrow-down', income: 'briefcase', policy: 'landmark' })[item.kind] || 'check-circle'
 function buildQuestGroups(rows) {
   return [
     { key: 'expense', title: '지출 줄이기' },
@@ -524,17 +550,29 @@ const survivalCardTitle = computed(() =>
 )
 const financialStatus = computed(() => {
   const apiRisk = buttieDashboard.value?.riskLevel
-  const isDanger = apiRisk === 'DANGER' || (!apiRisk && achievementRate.value <= 30)
-  const isCaution = apiRisk === 'CAUTION' || (!apiRisk && achievementRate.value < 80)
+  if (!session.isMockMode && !apiRisk) {
+    const fallbackImage = getButtieLevelImage(buttieLevel.value || 1, 'stable')
+    return {
+      key: 'unknown',
+      label: '확인 불가',
+      message: '서버에서 재정 위험 상태를 불러오지 못했어요',
+      image: buttieDashboard.value?.buttieImageUrl || fallbackImage,
+      fallbackImage,
+      imageAlt: '재정 위험 상태를 확인할 수 없는 버티',
+    }
+  }
+  const isDanger = apiRisk === 'DANGER' || (session.isMockMode && achievementRate.value <= 30)
+  const isCaution = apiRisk === 'CAUTION' || (session.isMockMode && achievementRate.value < 80)
   const apiImage = buttieDashboard.value?.buttieImageUrl
 
   if (isDanger) {
-    const shortage = Math.max(1, Math.ceil(shortageMonths.value))
     const fallbackImage = getButtieLevelImage(buttieLevel.value, 'danger')
     return {
       key: 'risk',
       label: '위험',
-      message: `버티는 기간이 목표보다 ${shortage}개월 부족해서 버티가 녹고 있어요`,
+      message: session.isMockMode
+        ? `버티는 기간이 목표보다 ${Math.max(1, Math.ceil(shortageMonths.value))}개월 부족해서 버티가 녹고 있어요`
+        : '서버에서 현재 재정 상태를 위험으로 판정했어요',
       image: apiImage || fallbackImage,
       fallbackImage,
       imageAlt: '거의 녹아내린 위험 상태의 버티',
@@ -546,7 +584,9 @@ const financialStatus = computed(() => {
     return {
       key: 'caution',
       label: '주의',
-      message: '버티는 기간이 목표보다 조금 부족해 주의가 필요해요',
+      message: session.isMockMode
+        ? '버티는 기간이 목표보다 조금 부족해 주의가 필요해요'
+        : '서버에서 현재 재정 상태를 주의로 판정했어요',
       image: apiImage || fallbackImage,
       fallbackImage,
       imageAlt: '조금 녹아내린 주의 상태의 버티',
@@ -557,7 +597,9 @@ const financialStatus = computed(() => {
   return {
     key: 'stable',
     label: '안정',
-    message: '버티는 기간이 목표를 넉넉히 채워서 걱정 없어요',
+    message: session.isMockMode
+      ? '버티는 기간이 목표를 넉넉히 채워서 걱정 없어요'
+      : '서버에서 현재 재정 상태를 안정으로 판정했어요',
     image: apiImage || fallbackImage,
     fallbackImage,
     imageAlt: '온전한 안정 상태의 버티',
@@ -592,7 +634,11 @@ const hasReachedFinancialRiskAmount = computed(() => {
   const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
   return assets !== null && riskAmount !== null && assets <= riskAmount
 })
-const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
+const netCashFlow = computed(() =>
+  session.isMockMode
+    ? monthlyIncome.value - monthlyExpense.value
+    : finiteNumberOrNull(calendarState.netCashFlow),
+)
 const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
 const monthlyNetChangeLabel = computed(() => {
   if (netCashFlow.value > 0) return '매달 들어오는 금액'
@@ -804,11 +850,11 @@ const targetMonthText = computed(() =>
           </div>
           <div class="dashboard-report__cashflow" aria-label="월평균 수입과 지출">
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--income">
-              <span>월평균 수입</span>
+              <span>{{ session.isMockMode ? '월평균 수입' : '이번 달 수입' }}</span>
               <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
             </div>
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--expense">
-              <span>월평균 지출</span>
+              <span>{{ session.isMockMode ? '월평균 지출' : '이번 달 지출' }}</span>
               <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
             </div>
           </div>
@@ -874,7 +920,11 @@ const targetMonthText = computed(() =>
 
     <div class="dashboard__bottom">
       <section class="quest-section">
-        <QuestOverview v-if="hasConfirmedScenario" :rows="allQuestRows" :edit-loading="simulation.syncing" />
+        <QuestOverview
+          v-if="hasConfirmedScenario"
+          :rows="allQuestRows"
+          :edit-loading="simulation.syncing"
+        />
 
         <article v-else class="quest-empty">
           <h3>진행 중인 퀘스트가 아직 없어요</h3>
@@ -1776,51 +1826,293 @@ const targetMonthText = computed(() =>
   font-weight: 800;
 }
 
-.home-quest-card { --quest-ink:#222; --quest-paper:#fcfdff; --quest-navy:#0a1680; --quest-yellow:#fbedb0; --quest-lime:#44d795; --quest-blue:#93b2f8; --quest-peach:#f0574f; overflow:hidden; padding:26px 28px 22px; border:1px solid #e1e1e1; border-radius:32px; background:var(--quest-paper); color:var(--quest-ink); }
-.home-quest-header { display:flex; align-items:center; justify-content:space-between; gap:24px; }
-.home-quest-header h2 { font-size:20px; font-weight:900; }
-.home-quest-tabs { display:grid; min-width:240px; grid-template-columns:1fr 1fr; gap:8px; }
-.home-quest-tabs button { min-height:42px; padding:0 18px; border:1px solid #e1e1e1; border-radius:999px; background:#fff; color:#666; font-size:14px; font-weight:700; }
-.home-quest-tabs button strong { margin-left:4px; font-size:16px; }
-.home-quest-tabs button.active { border-color:var(--quest-navy); background:var(--quest-navy); color:#fff; }
-.home-quest-progress { margin-top:20px; padding:17px 20px; border:1px solid rgb(10 22 128 / 12%); border-radius:22px; background:var(--quest-yellow); }
-.home-quest-progress__top { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:24px; }
-.home-quest-progress__top > strong { font-size:15px; font-weight:900; }
-.home-quest-progress__top > span { font-size:13px; font-weight:800; }
-.home-quest-progress__top > b { display:grid; grid-row:1 / span 2; grid-column:3; justify-items:end; color:var(--quest-navy); font-size:21px; line-height:1; }
-.home-quest-progress__top > b small { margin-top:4px; font-size:11px; font-weight:700; }
-.home-quest-progress__track { height:10px; margin-top:11px; overflow:hidden; border-radius:999px; background:rgb(255 255 255 / 72%); }
-.home-quest-progress__track span { display:block; height:100%; border-radius:inherit; background:var(--quest-navy); transition:width .3s ease; }
-.home-quest-section { margin-top:27px; }
-.home-quest-section > header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:16px; }
-.home-quest-section > header h3 { font-size:18px; font-weight:900; }
-.home-quest-section > header p { margin-top:5px; color:#6b7684; font-size:13px; line-height:1.5; }
-.home-quest-section > header > span { flex:none; padding:6px 10px; border:1px solid rgb(10 22 128 / 15%); border-radius:999px; background:var(--quest-yellow); color:var(--quest-navy); font-size:11px; font-weight:800; }
-.home-quest-list { display:grid; gap:12px; }
-.home-quest-row { display:grid; width:100%; min-height:72px; grid-template-columns:44px minmax(0,1fr) auto auto 32px; align-items:center; gap:12px; padding:10px 14px; border:1px solid rgb(10 22 128 / 12%); border-radius:22px; background:#fff; color:var(--quest-ink); }
-.home-quest-row.completed { opacity:.62; }
-.home-quest-row.pending { opacity:.5; }
-.home-quest-row__icon { display:grid; width:40px; height:40px; place-items:center; border-radius:50%; }
-.home-quest-row.is-expense .home-quest-row__icon { background:var(--quest-peach); color:#fff; }
-.home-quest-row.is-income .home-quest-row__icon { background:var(--quest-lime); color:var(--quest-ink); }
-.home-quest-row.is-policy .home-quest-row__icon { background:var(--quest-blue); color:var(--quest-navy); }
-.home-quest-row__copy { display:grid; min-width:0; gap:6px; }
-.home-quest-row__copy > strong { overflow:hidden; font-size:15px; font-weight:900; text-overflow:ellipsis; white-space:nowrap; }
-.home-quest-row__copy small { color:#7a746d; font-size:12px; }
-.home-quest-row__copy small b { color:#8a5b00; font-weight:900; }
-.home-quest-row__apply { grid-column:3; padding:7px 11px; border-radius:999px; background:var(--quest-navy); color:#fff; font-size:12px; font-weight:800; white-space:nowrap; }
-.home-quest-row__amount { grid-column:3; font-size:16px; font-weight:900; white-space:nowrap; }
-.home-quest-row.is-policy .home-quest-row__amount { grid-column:4; color:var(--quest-navy); }
-.home-quest-row.is-expense .home-quest-row__amount { color:var(--quest-peach); }
-.home-quest-row.is-income .home-quest-row__amount { color:#168b5c; }
-.home-quest-row__check { display:grid; width:32px !important; min-width:32px; max-width:32px; height:32px !important; min-height:32px !important; max-height:32px; aspect-ratio:1 / 1; grid-column:5; place-self:center; place-items:center; padding:0 !important; border:2px solid #d8d2c4; border-radius:10px; background:#fff; color:#fff; line-height:1; }
-.home-quest-row.completed .home-quest-row__check { border-color:var(--quest-navy); background:var(--quest-navy); }
-.home-quest-empty-row { display:grid; min-height:116px; align-content:center; justify-items:center; gap:8px; padding:24px 34px; border:1px solid #e1e1e1; border-radius:22px; background:#fff; color:#666; text-align:center; }
-.home-quest-empty-row strong { font-size:16px; font-weight:900; }
-.home-quest-empty-row span { font-size:13px; }
-.home-quest-footer { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-top:32px; padding-top:24px; border-top:1px solid #eee8dc; }
-.home-quest-footer p { color:#81776b; font-size:14px; }
-.home-quest-footer a { display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:7px; padding:0 18px; border:0; border-radius:13px; background:#f5f7f9; color:#666; font-size:14px; font-weight:800; }
+.home-quest-card {
+  --quest-ink: #222;
+  --quest-paper: #fcfdff;
+  --quest-navy: #0a1680;
+  --quest-yellow: #fbedb0;
+  --quest-lime: #44d795;
+  --quest-blue: #93b2f8;
+  --quest-peach: #f0574f;
+  overflow: hidden;
+  padding: 26px 28px 22px;
+  border: 1px solid #e1e1e1;
+  border-radius: 32px;
+  background: var(--quest-paper);
+  color: var(--quest-ink);
+}
+.home-quest-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.home-quest-header h2 {
+  font-size: 20px;
+  font-weight: 900;
+}
+.home-quest-tabs {
+  display: grid;
+  min-width: 240px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.home-quest-tabs button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid #e1e1e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #666;
+  font-size: 14px;
+  font-weight: 700;
+}
+.home-quest-tabs button strong {
+  margin-left: 4px;
+  font-size: 16px;
+}
+.home-quest-tabs button.active {
+  border-color: var(--quest-navy);
+  background: var(--quest-navy);
+  color: #fff;
+}
+.home-quest-progress {
+  margin-top: 20px;
+  padding: 17px 20px;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 22px;
+  background: var(--quest-yellow);
+}
+.home-quest-progress__top {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 24px;
+}
+.home-quest-progress__top > strong {
+  font-size: 15px;
+  font-weight: 900;
+}
+.home-quest-progress__top > span {
+  font-size: 13px;
+  font-weight: 800;
+}
+.home-quest-progress__top > b {
+  display: grid;
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  justify-items: end;
+  color: var(--quest-navy);
+  font-size: 21px;
+  line-height: 1;
+}
+.home-quest-progress__top > b small {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.home-quest-progress__track {
+  height: 10px;
+  margin-top: 11px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+}
+.home-quest-progress__track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--quest-navy);
+  transition: width 0.3s ease;
+}
+.home-quest-section {
+  margin-top: 27px;
+}
+.home-quest-section > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+.home-quest-section > header h3 {
+  font-size: 18px;
+  font-weight: 900;
+}
+.home-quest-section > header p {
+  margin-top: 5px;
+  color: #6b7684;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.home-quest-section > header > span {
+  flex: none;
+  padding: 6px 10px;
+  border: 1px solid rgb(10 22 128 / 15%);
+  border-radius: 999px;
+  background: var(--quest-yellow);
+  color: var(--quest-navy);
+  font-size: 11px;
+  font-weight: 800;
+}
+.home-quest-list {
+  display: grid;
+  gap: 12px;
+}
+.home-quest-row {
+  display: grid;
+  width: 100%;
+  min-height: 72px;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto 32px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 22px;
+  background: #fff;
+  color: var(--quest-ink);
+}
+.home-quest-row.completed {
+  opacity: 0.62;
+}
+.home-quest-row.pending {
+  opacity: 0.5;
+}
+.home-quest-row__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+}
+.home-quest-row.is-expense .home-quest-row__icon {
+  background: var(--quest-peach);
+  color: #fff;
+}
+.home-quest-row.is-income .home-quest-row__icon {
+  background: var(--quest-lime);
+  color: var(--quest-ink);
+}
+.home-quest-row.is-policy .home-quest-row__icon {
+  background: var(--quest-blue);
+  color: var(--quest-navy);
+}
+.home-quest-row__copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+.home-quest-row__copy > strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-quest-row__copy small {
+  color: #7a746d;
+  font-size: 12px;
+}
+.home-quest-row__copy small b {
+  color: #8a5b00;
+  font-weight: 900;
+}
+.home-quest-row__apply {
+  grid-column: 3;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--quest-navy);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.home-quest-row__amount {
+  grid-column: 3;
+  font-size: 16px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.home-quest-row.is-policy .home-quest-row__amount {
+  grid-column: 4;
+  color: var(--quest-navy);
+}
+.home-quest-row.is-expense .home-quest-row__amount {
+  color: var(--quest-peach);
+}
+.home-quest-row.is-income .home-quest-row__amount {
+  color: #168b5c;
+}
+.home-quest-row__check {
+  display: grid;
+  width: 32px !important;
+  min-width: 32px;
+  max-width: 32px;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px;
+  aspect-ratio: 1 / 1;
+  grid-column: 5;
+  place-self: center;
+  place-items: center;
+  padding: 0 !important;
+  border: 2px solid #d8d2c4;
+  border-radius: 10px;
+  background: #fff;
+  color: #fff;
+  line-height: 1;
+}
+.home-quest-row.completed .home-quest-row__check {
+  border-color: var(--quest-navy);
+  background: var(--quest-navy);
+}
+.home-quest-empty-row {
+  display: grid;
+  min-height: 116px;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px 34px;
+  border: 1px solid #e1e1e1;
+  border-radius: 22px;
+  background: #fff;
+  color: #666;
+  text-align: center;
+}
+.home-quest-empty-row strong {
+  font-size: 16px;
+  font-weight: 900;
+}
+.home-quest-empty-row span {
+  font-size: 13px;
+}
+.home-quest-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #eee8dc;
+}
+.home-quest-footer p {
+  color: #81776b;
+  font-size: 14px;
+}
+.home-quest-footer a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 13px;
+  background: #f5f7f9;
+  color: #666;
+  font-size: 14px;
+  font-weight: 800;
+}
 
 .quest-card,
 .quest-empty,
@@ -2856,39 +3148,148 @@ const targetMonthText = computed(() =>
     padding: 7px 16px;
   }
 
-  .home-quest-card { padding:18px 12px 15px; border-radius:20px; }
-  .home-quest-header { display:grid; gap:12px; }
-  .home-quest-header h2 { font-size:18px; }
-  .home-quest-tabs { width:100%; min-width:0; gap:8px; }
-  .home-quest-tabs button { min-height:38px; padding:0 10px; font-size:13px; }
-  .home-quest-tabs button strong { font-size:15px; }
-  .home-quest-progress { margin-top:16px; padding:14px 13px; border-radius:16px; }
-  .home-quest-progress__top { grid-template-columns:1fr auto; gap:8px 12px; }
-  .home-quest-progress__top > strong { font-size:14px; }
-  .home-quest-progress__top > span { font-size:11px; }
-  .home-quest-progress__top > b { grid-row:2; grid-column:1 / -1; justify-items:end; font-size:18px; }
-  .home-quest-progress__track { height:8px; }
-  .home-quest-section { margin-top:22px; }
-  .home-quest-section > header { gap:10px; margin-bottom:13px; }
-  .home-quest-section > header h3 { font-size:16px; }
-  .home-quest-section > header p { font-size:12px; }
-  .home-quest-section > header > span { padding:5px 8px; font-size:10px; }
-  .home-quest-row { min-height:68px; grid-template-columns:40px minmax(0,1fr) 30px; gap:8px; padding:10px 9px; border-radius:16px; }
-  .home-quest-row__icon { width:36px; height:36px; }
-  .home-quest-row__copy > strong { font-size:14px; }
-  .home-quest-row__copy small { font-size:10px; }
-  .home-quest-row__amount { grid-row:2; grid-column:2; justify-self:start; font-size:14px; }
-  .home-quest-row.is-policy { grid-template-columns:40px minmax(0,1fr) auto 30px; }
-  .home-quest-row.is-policy .home-quest-row__icon { grid-row:1 / span 2; grid-column:1; }
-  .home-quest-row.is-policy .home-quest-row__copy { grid-row:1; grid-column:2 / span 2; }
-  .home-quest-row.is-policy .home-quest-row__apply { grid-row:2; grid-column:2; justify-self:end; }
-  .home-quest-row.is-policy .home-quest-row__amount { grid-row:2; grid-column:3; }
-  .home-quest-row__check { width:30px !important; min-width:30px; max-width:30px; height:30px !important; min-height:30px !important; max-height:30px; grid-row:1 / span 3; grid-column:3; }
-  .home-quest-row.is-policy .home-quest-row__check { grid-row:1 / span 2; grid-column:4; }
-  .home-quest-empty-row { min-height:106px; justify-items:center; padding:20px 16px; text-align:center; }
-  .home-quest-footer { display:grid; gap:16px; margin-top:26px; padding-top:20px; }
-  .home-quest-footer p { font-size:12px; }
-  .home-quest-footer a { width:100%; min-height:38px; font-size:13px; }
+  .home-quest-card {
+    padding: 18px 12px 15px;
+    border-radius: 20px;
+  }
+  .home-quest-header {
+    display: grid;
+    gap: 12px;
+  }
+  .home-quest-header h2 {
+    font-size: 18px;
+  }
+  .home-quest-tabs {
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+  }
+  .home-quest-tabs button {
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .home-quest-tabs button strong {
+    font-size: 15px;
+  }
+  .home-quest-progress {
+    margin-top: 16px;
+    padding: 14px 13px;
+    border-radius: 16px;
+  }
+  .home-quest-progress__top {
+    grid-template-columns: 1fr auto;
+    gap: 8px 12px;
+  }
+  .home-quest-progress__top > strong {
+    font-size: 14px;
+  }
+  .home-quest-progress__top > span {
+    font-size: 11px;
+  }
+  .home-quest-progress__top > b {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-items: end;
+    font-size: 18px;
+  }
+  .home-quest-progress__track {
+    height: 8px;
+  }
+  .home-quest-section {
+    margin-top: 22px;
+  }
+  .home-quest-section > header {
+    gap: 10px;
+    margin-bottom: 13px;
+  }
+  .home-quest-section > header h3 {
+    font-size: 16px;
+  }
+  .home-quest-section > header p {
+    font-size: 12px;
+  }
+  .home-quest-section > header > span {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+  .home-quest-row {
+    min-height: 68px;
+    grid-template-columns: 40px minmax(0, 1fr) 30px;
+    gap: 8px;
+    padding: 10px 9px;
+    border-radius: 16px;
+  }
+  .home-quest-row__icon {
+    width: 36px;
+    height: 36px;
+  }
+  .home-quest-row__copy > strong {
+    font-size: 14px;
+  }
+  .home-quest-row__copy small {
+    font-size: 10px;
+  }
+  .home-quest-row__amount {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: start;
+    font-size: 14px;
+  }
+  .home-quest-row.is-policy {
+    grid-template-columns: 40px minmax(0, 1fr) auto 30px;
+  }
+  .home-quest-row.is-policy .home-quest-row__icon {
+    grid-row: 1 / span 2;
+    grid-column: 1;
+  }
+  .home-quest-row.is-policy .home-quest-row__copy {
+    grid-row: 1;
+    grid-column: 2 / span 2;
+  }
+  .home-quest-row.is-policy .home-quest-row__apply {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: end;
+  }
+  .home-quest-row.is-policy .home-quest-row__amount {
+    grid-row: 2;
+    grid-column: 3;
+  }
+  .home-quest-row__check {
+    width: 30px !important;
+    min-width: 30px;
+    max-width: 30px;
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px;
+    grid-row: 1 / span 3;
+    grid-column: 3;
+  }
+  .home-quest-row.is-policy .home-quest-row__check {
+    grid-row: 1 / span 2;
+    grid-column: 4;
+  }
+  .home-quest-empty-row {
+    min-height: 106px;
+    justify-items: center;
+    padding: 20px 16px;
+    text-align: center;
+  }
+  .home-quest-footer {
+    display: grid;
+    gap: 16px;
+    margin-top: 26px;
+    padding-top: 20px;
+  }
+  .home-quest-footer p {
+    font-size: 12px;
+  }
+  .home-quest-footer a {
+    width: 100%;
+    min-height: 38px;
+    font-size: 13px;
+  }
 
   .quest-card {
     padding: 14px 12px 16px;
@@ -3015,6 +3416,8 @@ const targetMonthText = computed(() =>
     text-align: center;
   }
 
-  .home-quest-footer a .app-icon { display: none; }
+  .home-quest-footer a .app-icon {
+    display: none;
+  }
 }
 </style>

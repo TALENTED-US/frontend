@@ -64,3 +64,23 @@ export function revertConfirmedSimulationApi() {
 export function deleteDraftSimulationApi() {
   return requestResult(() => apiClient.delete('simulation'))
 }
+
+export function getSimulationRecommendationsApi() {
+  return requestResult(() => apiClient.post('simulation/recommendations'))
+}
+
+export function getExpenseRecommendationsApi(prompt) {
+  return requestResult(() => apiClient.post('simulation/recommendations/expense', { prompt }))
+}
+
+export function getIncomeRecommendationsApi(prompt) {
+  return requestResult(() => apiClient.post('simulation/recommendations/income', { prompt }))
+}
+
+export function getPolicyRecommendationsApi(prompt) {
+  return requestResult(() => apiClient.post('simulation/recommendations/policies', { prompt }))
+}
+
+export function getCustomRecommendationsApi(prompt) {
+  return requestResult(() => apiClient.post('simulation/recommendations/custom', { prompt }))
+}

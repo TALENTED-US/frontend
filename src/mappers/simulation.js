@@ -86,12 +86,12 @@ export function mapConfirmedSimulationResponse(response, policyCatalog = []) {
   const items = (response.appliedItems || [])
     .map((item) => mapSimulationItemResponse(item, policyCatalog))
     .filter(Boolean)
-  const currentMonths = Math.round(numberOrZero(response.currentPrepMonths) * 10) / 10
-  const expectedMonths = Math.round(numberOrZero(response.expectPrepMonths) * 10) / 10
-  // 백엔드는 자금 소진 시점을 계산할 수 없는 경우 999.99를 상한값으로 내려준다.
-  // 실제 개월 수가 아니므로 필드를 생략해 거래내역 기반 계산값을 사용한다.
-  const hasCurrentMonths = currentMonths > 0 && currentMonths < 999
-  const hasExpectedMonths = expectedMonths > 0 && expectedMonths < 999
+  const rawCurrentMonths = Number(response.currentPrepMonths)
+  const rawExpectedMonths = Number(response.expectPrepMonths)
+  const hasCurrentMonths = Number.isFinite(rawCurrentMonths)
+  const hasExpectedMonths = Number.isFinite(rawExpectedMonths)
+  const currentMonths = hasCurrentMonths ? Math.round(rawCurrentMonths * 10) / 10 : null
+  const expectedMonths = hasExpectedMonths ? Math.round(rawExpectedMonths * 10) / 10 : null
 
   return {
     simulationId: response.simulationId,
@@ -100,6 +100,12 @@ export function mapConfirmedSimulationResponse(response, policyCatalog = []) {
     confirmedAt: response.confirmedAt || '',
     ...(hasCurrentMonths ? { currentMonths } : {}),
     ...(hasExpectedMonths ? { expectedMonths } : {}),
+    ...(typeof response.currentSustainable === 'boolean'
+      ? { currentSustainable: response.currentSustainable }
+      : {}),
+    ...(typeof response.expectSustainable === 'boolean'
+      ? { expectSustainable: response.expectSustainable }
+      : {}),
     endAmount: numberOrZero(response.simulationEndAmount),
     expenses: items.filter((item) => item.kind === 'expense'),
     incomes: items.filter((item) => item.kind === 'income'),

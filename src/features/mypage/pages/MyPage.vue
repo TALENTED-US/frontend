@@ -13,11 +13,15 @@ const router = useRouter()
 const session = useSessionStore()
 const progression = useProgressionStore()
 const simulation = useSimulationStore()
-const profileExp = computed(() => Number(session.currentUser.exp ?? progression.exp))
-const profileRequiredExp = computed(() =>
-  Number(session.currentUser.requiredExp ?? progression.nextLevelExp),
+const profileExp = computed(() =>
+  Number(session.isMockMode ? progression.exp : session.currentUser.exp),
 )
-const profileLevel = computed(() => Number(session.currentUser.level ?? progression.level))
+const profileRequiredExp = computed(() =>
+  Number(session.isMockMode ? progression.nextLevelExp : session.currentUser.requiredExp),
+)
+const profileLevel = computed(() =>
+  Number(session.isMockMode ? progression.level : session.currentUser.level),
+)
 const profileRemainingExp = computed(() => Math.max(0, profileRequiredExp.value - profileExp.value))
 const profileProgressPercent = computed(() =>
   profileRequiredExp.value > 0
@@ -34,7 +38,9 @@ const profileState = computed(() => {
         ? 'caution'
         : apiRisk === 'STABLE'
           ? 'stable'
-          : simulation.currentStatus?.key
+          : session.isMockMode
+            ? simulation.currentStatus?.key
+            : 'unknown'
   const apiImage = session.currentUser.buttieImageUrl
   if (key === 'danger' || key === 'risk') {
     const fallbackImage = getButtieLevelImage(profileLevel.value, 'danger')
@@ -43,6 +49,10 @@ const profileState = computed(() => {
   if (key === 'caution') {
     const fallbackImage = getButtieLevelImage(profileLevel.value, 'caution')
     return { label: '주의', image: apiImage || fallbackImage, fallbackImage }
+  }
+  if (key === 'unknown') {
+    const fallbackImage = getButtieLevelImage(profileLevel.value || 1, 'stable')
+    return { label: '확인 불가', image: apiImage || fallbackImage, fallbackImage }
   }
   const fallbackImage = getButtieLevelImage(profileLevel.value, 'stable')
   return { label: '안정', image: apiImage || fallbackImage, fallbackImage }

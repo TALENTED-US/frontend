@@ -20,11 +20,11 @@ export function getMyDataAssetsApi() {
   return request({ method: 'get', url: 'mydata/assets' })
 }
 
-export function registerMyDataAssetsApi({ accountIds = [], cardIds = [] }) {
+export function registerMyDataAssetsApi({ accountIds = [], cardIds = [], assetSelected = true }) {
   return request({
     method: 'post',
     url: 'mydata/assets',
-    data: { accountIds, cardIds },
+    data: { accountIds, cardIds, assetSelected },
   })
 }
 
