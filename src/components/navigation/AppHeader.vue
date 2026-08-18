@@ -194,7 +194,11 @@ watch(
     >
       <AppIcon name="logout" :size="24" />
     </button>
-    <div v-if="!isFixedExpense && !isNotifications" ref="popoverAnchor" class="popover-anchor">
+    <div
+      v-if="!isFixedExpense && !isNotifications"
+      ref="popoverAnchor"
+      class="popover-anchor mobile-only"
+    >
       <button
         :class="['header-chip', { active: openPopover === 'notification' }]"
         type="button"

@@ -10,6 +10,9 @@ const route = useRoute()
 const body = ref(null)
 const mainContent = ref(null)
 const isSimulationContinue = computed(() => route.name === 'simulationContinue')
+const isEmptyHeaderPage = computed(() =>
+  ['dashboard', 'finance', 'simulation', 'search', 'mypage'].includes(route.name),
+)
 
 watch(
   () => route.fullPath,
@@ -30,12 +33,20 @@ watch(
       class="app-shell__body"
       :class="{ 'app-shell__body--continue': isSimulationContinue }"
     >
-      <AppHeader :class="{ 'app-shell__header--continue': isSimulationContinue }" />
+      <AppHeader
+        :class="{
+          'app-shell__header--continue': isSimulationContinue,
+          'app-shell__header--empty': isEmptyHeaderPage,
+        }"
+      />
       <main
         id="main-content"
         ref="mainContent"
         class="app-shell__content"
-        :class="{ 'app-shell__content--continue': isSimulationContinue }"
+        :class="{
+          'app-shell__content--continue': isSimulationContinue,
+          'app-shell__content--empty-header': isEmptyHeaderPage,
+        }"
         tabindex="-1"
       >
         <RouterView />
@@ -99,6 +110,14 @@ watch(
   .app-shell__content--continue {
     min-height: 100dvh;
     padding: 0;
+  }
+
+  .app-shell__header--empty {
+    display: none;
+  }
+
+  .app-shell__content--empty-header {
+    padding-top: 32px;
   }
 
   /* Desktop layout does not reflow/shrink below this width — narrower

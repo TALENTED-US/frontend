@@ -830,14 +830,12 @@ const targetMonthText = computed(() =>
       <section class="goal-section">
         <div class="section-head section-head--goal">
           <h2>목표 정보</h2>
+          <RouterLink :to="{ name: 'jobInfo' }">수정하기 <span>›</span></RouterLink>
         </div>
         <article class="goal-card">
           <section class="goal-card__item">
             <header>
               <span>목표 취업일</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'goal-date' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <strong class="goal-card__value">{{ targetDateDisplayText }}</strong>
             <div class="goal-card__progress">
@@ -851,9 +849,6 @@ const targetMonthText = computed(() =>
           <section class="goal-card__item">
             <header>
               <span>재정 위험까지 남은 금액</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <div class="goal-card__amount-row">
               <strong
@@ -1684,18 +1679,12 @@ const targetMonthText = computed(() =>
 }
 
 .goal-card__item header span,
-.goal-card__item header a,
 .goal-card__item footer span,
 .goal-card__amount-row > span,
 .goal-card__item p {
   color: var(--type-supporting-color);
   font-size: var(--type-supporting-size);
   font-weight: var(--type-supporting-weight);
-}
-
-.goal-card__item header a {
-  color: #666;
-  white-space: nowrap;
 }
 
 .goal-card__value {

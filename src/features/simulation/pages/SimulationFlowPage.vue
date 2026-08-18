@@ -218,21 +218,23 @@ async function confirm() {
       <h1 class="wizard-title">
         지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
       </h1>
-      <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
+      <div class="category-intro-card">
+        <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
 
-      <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
-        <div>
-          <span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small
-            class="danger"
-            >위험</small
-          >
-        </div>
-        <b aria-hidden="true"><i />→</b>
-        <div>
-          <span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small
-            class="safe"
-            >안정</small
-          >
+        <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
+          <div>
+            <span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small
+              class="danger"
+              >위험</small
+            >
+          </div>
+          <b aria-hidden="true"><i />→</b>
+          <div>
+            <span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small
+              class="safe"
+              >안정</small
+            >
+          </div>
         </div>
       </div>
 
@@ -405,22 +407,31 @@ async function confirm() {
   border: 0 !important;
 }
 
-.sim-flow-categories,
-:global(#app .app-shell .sim-page.sim-wizard.sim-flow-categories) {
-  padding: 22px 18px 28px !important;
-  border: 1px solid #eceef3 !important;
-  border-radius: 15px !important;
-  background: white !important;
-  box-shadow: var(--shadow-figma) !important;
+.category-intro-card {
+  margin-top: 20px;
+  padding: 15px 18px 17px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 20px;
+  background: #fff;
 }
 
-.sim-flow-continue {
+.sim-flow-continue,
+:global(#app .app-shell main .sim-flow-continue) {
   min-height: calc(100vh - var(--header-height));
+}
+
+@media (min-width: 1280px) {
+  .sim-flow-continue,
+  :global(#app .app-shell main .sim-flow-continue) {
+    width: min(100%, 1090px) !important;
+  }
 }
 
 .sim-flow-continue .resume-hero {
   position: relative;
+  width: min(100%, 1052px);
   min-height: 540px;
+  margin: 0 auto;
   align-content: center;
   padding-top: 0;
 }
@@ -457,15 +468,19 @@ async function confirm() {
   font-size: 23px;
 }
 
-.resume-actions {
+.resume-actions,
+:global(#app .app-shell main .resume-actions) {
+  width: min(100%, 1052px) !important;
+  grid-template-columns: 1fr !important;
   gap: 14px;
-  margin-top: 0;
+  margin: 32px auto 0 !important;
 }
 
 .resume-actions .sim-btn,
 .resume-actions .resume-reset,
 :global(#app .app-shell main .resume-actions .sim-btn),
 :global(#app .app-shell main .resume-actions .resume-reset) {
+  width: 100%;
   min-height: 64px;
   border-radius: 14px;
   font-size: var(--type-action-size) !important;
@@ -828,13 +843,6 @@ async function confirm() {
   box-shadow: none;
 }
 
-.sim-flow-categories > .buttie-transition {
-  border: 0;
-  background: none !important;
-  background-image: none !important;
-  box-shadow: none;
-}
-
 .sim-flow-categories .period-grid input[type='date'] {
   position: relative;
   width: 100%;
@@ -881,19 +889,24 @@ async function confirm() {
     line-height: 1.35;
   }
 
-  .sim-flow-categories > .sim-subtitle {
+  .category-intro-card {
+    margin-top: 22px;
+    padding: 24px 40px;
+  }
+
+  .category-intro-card > .sim-subtitle {
     margin-top: 4px;
     font-size: 13px;
   }
 
-  .sim-flow-categories > .buttie-transition {
+  .category-intro-card > .buttie-transition {
     display: grid;
     width: 100%;
     min-height: 128px;
     grid-template-columns: 1fr 64px 1fr;
     align-items: center;
-    margin: 18px 0 28px;
-    padding: 0 116px;
+    margin: 18px 0 0;
+    padding: 0 76px;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -922,7 +935,7 @@ async function confirm() {
 
   .sim-flow-categories > .period-section {
     width: 100%;
-    margin: 0;
+    margin: 22px 0 0;
   }
 
   .sim-flow-categories > .period-section h2 {
@@ -1083,24 +1096,24 @@ async function confirm() {
   font-style: normal;
 }
 
-.sim-flow-categories > .sim-subtitle {
-  margin-top: 5px;
+.category-intro-card > .sim-subtitle {
+  margin-top: 0;
   color: var(--muted);
   font-size: 15px;
   line-height: 1.6;
 }
 
-.sim-flow-categories > .buttie-transition {
+.category-intro-card > .buttie-transition {
   display: grid;
   width: 100%;
   min-height: 158px;
   grid-template-columns: 1fr 70px 1fr;
   align-items: center;
-  margin: 14px 0;
-  padding: 14px 30px 12px;
-  border: 1px solid rgb(190 160 50 / 16%);
-  border-radius: 24px;
-  background: #fff !important;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none !important;
   background-image: none !important;
   box-shadow: none;
 }
@@ -1160,7 +1173,7 @@ async function confirm() {
 
 .sim-flow-categories > .period-section {
   width: 100%;
-  margin: 0;
+  margin: 16px 0 0;
   padding: 15px 18px 17px;
   border: 1px solid rgb(0 0 0 / 6%);
   border-radius: 20px;
@@ -1269,16 +1282,19 @@ async function confirm() {
     font-size: 22px !important;
   }
 
-  .sim-flow-categories > .sim-subtitle {
+  .category-intro-card > .sim-subtitle {
     font-size: 14px;
   }
 
-  .sim-flow-categories > .buttie-transition {
+  .category-intro-card > .buttie-transition {
     min-height: 148px;
     grid-template-columns: 1fr 48px 1fr;
-    margin: 12px 0;
-    padding: 12px 10px 10px;
-    border-radius: 20px;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+
+  .category-intro-card {
+    padding: 14px 14px 16px;
   }
 
   .sim-flow-categories .buttie-transition img {
