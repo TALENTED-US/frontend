@@ -286,7 +286,9 @@ export async function setFixed(ids, fixed) {
     financeState.error = ''
     try {
       const updateFixed = fixed ? registerFixedTransactionApi : unregisterFixedTransactionApi
-      await Promise.all(ids.map((id) => updateFixed(id)))
+      const results = await Promise.allSettled(ids.map((id) => updateFixed(id)))
+      const failed = results.find((result) => result.status === 'rejected')
+      if (failed) throw failed.reason
       await loadTransactions(true)
       return true
     } catch (error) {

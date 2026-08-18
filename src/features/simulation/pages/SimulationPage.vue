@@ -11,6 +11,7 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import QuestOverview from '@/features/quest/components/QuestOverview.vue'
 import MyDataConnectModal from '@/components/ui/MyDataConnectModal.vue'
 import { normalizeExternalUrl } from '@/utils/externalUrl'
+import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import '@/features/simulation/styles/simulation.css'
 
 const router = useRouter()
@@ -31,7 +32,12 @@ function goToMyDataConnect() {
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
 const questTab = ref('active')
 const showNewSimulationModal = ref(false)
-const resultStatusKey = computed(() => simulation.expectedStatus.key === 'safe' ? 'stable' : simulation.expectedStatus.key)
+const resultStatusKey = computed(() =>
+  simulation.expectedStatus.key === 'safe' ? 'stable' : simulation.expectedStatus.key,
+)
+const addedMonthsLabel = computed(() =>
+  isInfinitePrepMonths(simulation.expectedMonths) ? '∞' : `${simulation.addedMonths}개월`,
+)
 const compactWon = (value) => {
   const amount = Math.max(0, Math.round(Number(value) || 0))
   return amount >= 10000 && amount % 10000 === 0
@@ -68,7 +74,14 @@ const localQuestRows = computed(() => [
     recurrence: item.type === 'monthly' ? 'monthly' : 'once',
   })),
   ...simulation.state.policies.map((item) => ({
-    id: `policy-${item.id}`, icon: '🏛️', name: item.name, subtitle: item.detail || item.description || '정책 혜택', amount: Number(item.amount) || 0, kind: 'policy', recurrence: item.type === 'monthly' ? 'monthly' : 'once', questUrl: normalizeExternalUrl(item.url),
+    id: `policy-${item.id}`,
+    icon: '🏛️',
+    name: item.name,
+    subtitle: item.detail || item.description || '정책 혜택',
+    amount: Number(item.amount) || 0,
+    kind: 'policy',
+    recurrence: item.type === 'monthly' ? 'monthly' : 'once',
+    questUrl: normalizeExternalUrl(item.url),
   })),
 ])
 const questRows = computed(() => (quests.remoteEnabled ? quests.rows : localQuestRows.value))
@@ -99,17 +112,33 @@ const isQuestCompleted = (item) =>
   quests.remoteEnabled ? item.completed : completedQuestIds.value.has(questCompletionId(item))
 const completedQuestCount = computed(() => questRows.value.filter(isQuestCompleted).length)
 const activeQuestCount = computed(() => questRows.value.length - completedQuestCount.value)
-const questCompletionPercent = computed(() => questRows.value.length ? Math.round(completedQuestCount.value / questRows.value.length * 100) : 0)
-const claimableQuestExp = computed(() => questRows.value
-  .filter((item) => !isQuestCompleted(item))
-  .reduce((sum, item) => sum + questExp(item), 0))
-const questIconName = (item) => ({ expense: 'arrow-down', income: 'briefcase', policy: 'landmark' }[item.kind] || 'check-circle')
-const buildQuestGroups = (rows) => [
-  { key: 'expense', title: '지출 줄이기' }, { key: 'income', title: '수입 늘리기' }, { key: 'policy', title: '정책 혜택', action: '신청 가능' },
-].map((group) => {
-  const groupRows = rows.filter((item) => item.kind === group.key)
-  return { ...group, rows: groupRows, amount: group.key === 'policy' ? 0 : groupRows.reduce((sum, item) => sum + item.amount, 0) }
-}).filter((group) => group.rows.length)
+const questCompletionPercent = computed(() =>
+  questRows.value.length
+    ? Math.round((completedQuestCount.value / questRows.value.length) * 100)
+    : 0,
+)
+const claimableQuestExp = computed(() =>
+  questRows.value
+    .filter((item) => !isQuestCompleted(item))
+    .reduce((sum, item) => sum + questExp(item), 0),
+)
+const questIconName = (item) =>
+  ({ expense: 'arrow-down', income: 'briefcase', policy: 'landmark' })[item.kind] || 'check-circle'
+const buildQuestGroups = (rows) =>
+  [
+    { key: 'expense', title: '지출 줄이기' },
+    { key: 'income', title: '수입 늘리기' },
+    { key: 'policy', title: '정책 혜택', action: '신청 가능' },
+  ]
+    .map((group) => {
+      const groupRows = rows.filter((item) => item.kind === group.key)
+      return {
+        ...group,
+        rows: groupRows,
+        amount: group.key === 'policy' ? 0 : groupRows.reduce((sum, item) => sum + item.amount, 0),
+      }
+    })
+    .filter((group) => group.rows.length)
 const questSections = computed(() => [
   {
     key: 'recurring',
@@ -124,14 +153,17 @@ const questSections = computed(() => [
     rows: questRows.value.filter((item) => item.recurrence === 'once'),
   },
 ])
-const visibleQuestSections = computed(() => questSections.value.map((section) => ({
-  ...section,
-  visibleRows: section.rows.filter((item) => questTab.value === 'completed' ? isQuestCompleted(item) : !isQuestCompleted(item)),
-})))
-const questExp = (item) => quests.remoteEnabled ? item.expReward : calculateQuestExp(item.amount)
-const isQuestRewarded = (item) => quests.remoteEnabled
-  ? item.completed
-  : progression.isQuestClaimed(questCompletionId(item))
+const visibleQuestSections = computed(() =>
+  questSections.value.map((section) => ({
+    ...section,
+    visibleRows: section.rows.filter((item) =>
+      questTab.value === 'completed' ? isQuestCompleted(item) : !isQuestCompleted(item),
+    ),
+  })),
+)
+const questExp = (item) => (quests.remoteEnabled ? item.expReward : calculateQuestExp(item.amount))
+const isQuestRewarded = (item) =>
+  quests.remoteEnabled ? item.completed : progression.isQuestClaimed(questCompletionId(item))
 const isQuestPending = (item) => quests.remoteEnabled && quests.isPending(item.id)
 
 async function toggleQuest(item) {
@@ -168,16 +200,20 @@ onMounted(async () => {
     return
   }
 
-  await Promise.all([
-    simulation.hydrateFinancialSnapshot(),
-    simulation.hydrateRunwayBaseline(),
-  ])
+  await Promise.all([simulation.hydrateFinancialSnapshot(), simulation.hydrateRunwayBaseline()])
   // Mock 모드에서는 로컬 스냅샷을 복원하고, 실 API 모드에서는 서버 확정 결과를 조회한다.
   simulation.restoreConfirmedSnapshot()
 
-  // 로컬의 과거 확정 스냅샷보다 서버의 현재 Draft 상태를 우선한다.
-  // 수정 중인 Draft가 존재하면 /quest가 QUEST_002를 반환하므로 퀘스트를 조회하지 않는다.
+  // 확정 시뮬레이션이 있으면 미확정 조회를 생략한다.
+  // 확정 이후에는 Draft가 존재하지 않으므로 GET /simulation을 호출하면 불필요한 404가 발생한다.
   if (quests.remoteEnabled) {
+    const confirmed = await simulation.hydrateConfirmed()
+    if (confirmed) {
+      await quests.fetchQuests(confirmed.simulationId, confirmed)
+      return
+    }
+    if (simulation.syncError) return
+
     const draft = await simulation.hydrateDraft()
     if (draft) {
       quests.resetQuests()
@@ -190,15 +226,14 @@ onMounted(async () => {
     return
   }
 
-  const confirmed = await simulation.hydrateConfirmed()
-  if (confirmed) {
-    await quests.fetchQuests(confirmed.simulationId, confirmed)
-    return
-  }
-  quests.resetQuests()
-  if (simulation.syncError) return
-
   if (!quests.remoteEnabled) {
+    const confirmed = await simulation.hydrateConfirmed()
+    if (confirmed) {
+      await quests.fetchQuests(confirmed.simulationId, confirmed)
+      return
+    }
+    if (simulation.syncError) return
+
     const draft = await simulation.hydrateDraft()
     if (draft) {
       router.replace('/simulation/continue')
@@ -207,6 +242,7 @@ onMounted(async () => {
     if (simulation.syncError) return
   }
 
+  quests.resetQuests()
   simulation.resetScenario()
 })
 </script>
@@ -216,7 +252,9 @@ onMounted(async () => {
     <header class="sim-heading desktop-only">
       <p class="app-page-heading__eyebrow">FUTURE PLAN</p>
       <h1>시뮬레이션</h1>
-      <p class="app-page-heading__description">계획을 세우고 버티는 기간이 얼마나 늘어나는지 확인해보세요.</p>
+      <p class="app-page-heading__description">
+        계획을 세우고 버티는 기간이 얼마나 늘어나는지 확인해보세요.
+      </p>
     </header>
 
     <article v-if="!simulation.state.confirmed" class="simulation-banner">
@@ -236,7 +274,12 @@ onMounted(async () => {
           <p>계획을 바꾸면<br />버티는 기간도 달라져요</p>
           <img :src="simulationBannerButtie" alt="버티 캐릭터" />
         </div>
-        <button class="simulation-primary-cta" type="button" :disabled="simulation.syncing" @click="start">
+        <button
+          class="simulation-primary-cta"
+          type="button"
+          :disabled="simulation.syncing"
+          @click="start"
+        >
           {{ simulation.syncing ? '전환하는 중…' : '시뮬레이션 시작' }}
         </button>
       </div>
@@ -244,26 +287,38 @@ onMounted(async () => {
     <article v-else class="simulation-result-banner">
       <div class="simulation-result-banner__copy">
         <small>💡 시뮬레이션 결과</small>
-        <h2>계획을 적용하면<br />버티는 기간이 {{ simulation.addedMonths }}개월 늘어나요</h2>
+        <h2>계획을 적용하면<br />버티는 기간이 {{ addedMonthsLabel }} 늘어나요</h2>
       </div>
 
       <div class="simulation-result-banner__summary">
         <div class="simulation-result-banner__periods">
           <div>
             <span>현재</span>
-            <em :class="`is-${simulation.currentStatus.key}`">{{ simulation.currentStatus.label }}</em>
-            <strong>{{ simulation.currentMonths }}<small>개월</small></strong>
+            <em :class="`is-${simulation.currentStatus.key}`">{{
+              simulation.currentStatus.label
+            }}</em>
+            <strong>{{ formatPrepMonthsWithUnit(simulation.currentMonths) }}</strong>
           </div>
           <b aria-hidden="true">→</b>
-          <i>+{{ simulation.addedMonths }}개월</i>
+          <i>{{
+            isInfinitePrepMonths(simulation.expectedMonths)
+              ? '∞ 연장'
+              : `+${simulation.addedMonths}개월`
+          }}</i>
           <div>
             <span>시뮬레이션 적용 후</span>
             <em :class="`is-${resultStatusKey}`">{{ simulation.expectedStatus.label }}</em>
-            <strong>{{ simulation.expectedMonths }}<small>개월</small></strong>
+            <strong>{{ formatPrepMonthsWithUnit(simulation.expectedMonths) }}</strong>
           </div>
         </div>
-        <button class="simulation-result-banner__edit" type="button" :disabled="simulation.syncing" @click="start">
-          {{ simulation.syncing ? '전환하는 중…' : '시뮬레이션 수정하기' }} <span aria-hidden="true">→</span>
+        <button
+          class="simulation-result-banner__edit"
+          type="button"
+          :disabled="simulation.syncing"
+          @click="start"
+        >
+          {{ simulation.syncing ? '전환하는 중…' : '시뮬레이션 수정하기' }}
+          <span aria-hidden="true">→</span>
         </button>
       </div>
     </article>
@@ -280,7 +335,14 @@ onMounted(async () => {
       <QuestOverview :rows="questRows" :edit-loading="simulation.syncing" />
     </section>
 
-    <button v-if="simulation.state.confirmed" class="simulation-create-new-bottom" type="button" @click="showNewSimulationModal = true">새 시뮬레이션 만들기</button>
+    <button
+      v-if="simulation.state.confirmed"
+      class="simulation-create-new-bottom"
+      type="button"
+      @click="showNewSimulationModal = true"
+    >
+      새 시뮬레이션 만들기
+    </button>
 
     <div
       v-if="showNewSimulationModal"
@@ -298,8 +360,19 @@ onMounted(async () => {
         </p>
         <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
         <div>
-          <button type="button" :disabled="simulation.syncing" @click="showNewSimulationModal = false">취소</button>
-          <button class="simulation-primary-cta" type="button" :disabled="simulation.syncing" @click="createNewSimulation">
+          <button
+            type="button"
+            :disabled="simulation.syncing"
+            @click="showNewSimulationModal = false"
+          >
+            취소
+          </button>
+          <button
+            class="simulation-primary-cta"
+            type="button"
+            :disabled="simulation.syncing"
+            @click="createNewSimulation"
+          >
             {{ simulation.syncing ? '삭제하는 중…' : '새로 만들기' }}
           </button>
         </div>
@@ -408,74 +481,404 @@ onMounted(async () => {
 .simulation-quest-footer p { color: #818793; font-size: 12px; }
 .simulation-create-new-bottom { display: block; margin: 28px auto 0; color: #777e89; font-size: 12px; font-weight: 700; text-decoration: underline; }
 
-.quest-overview-card { --quest-ink: #222; --quest-paper: #fcfdff; --quest-navy: #0a1680; --quest-yellow: #fbedb0; --quest-lime: #44d795; --quest-blue: #93b2f8; --quest-peach: #f0574f; overflow: hidden; padding: 26px 28px 22px; border: 1px solid #e1e1e1; border-radius: 32px; background: var(--quest-paper); color: var(--quest-ink); box-shadow: none; }
-.quest-overview-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.quest-overview-header h2 { color: var(--quest-ink); font-size: 20px; font-weight: 900; }
-.quest-overview-tabs { display: grid; min-width: 240px; grid-template-columns: 1fr 1fr; gap: 8px; }
-.quest-overview-tabs button { min-height: 42px; padding: 0 18px; border: 1px solid #e1e1e1; border-radius: 999px; background: #fff; color: #666; font-size: 14px; font-weight: 700; }
-.quest-overview-tabs button strong { margin-left: 4px; font-size: 16px; }
-.quest-overview-tabs button.active { border-color: var(--quest-navy); background: var(--quest-navy); color: #fff; }
-.quest-overview-progress { margin-top: 20px; padding: 17px 20px; border: 1px solid rgb(10 22 128 / 12%); border-radius: 22px; background: var(--quest-yellow); color: var(--quest-ink); }
-.quest-overview-progress__top { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 24px; }
-.quest-overview-progress__top > strong { font-size: 15px; font-weight: 900; }
-.quest-overview-progress__top > span { font-size: 13px; font-weight: 800; }
-.quest-overview-progress__top > b { display: grid; grid-row: 1 / span 2; grid-column: 3; justify-items: end; color: var(--quest-navy); font-size: 21px; line-height: 1; }
-.quest-overview-progress__top > b small { margin-top: 4px; font-size: 11px; font-weight: 700; }
-.quest-overview-progress__track { height: 10px; margin-top: 11px; overflow: hidden; border-radius: 999px; background: rgb(255 255 255 / 72%); }
-.quest-overview-progress__track span { display: block; height: 100%; border-radius: inherit; background: var(--quest-navy); transition: width .3s ease; }
-.quest-overview-section { margin-top: 27px; }
-.quest-overview-section > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
-.quest-overview-section > header h3 { color: var(--quest-ink); font-size: 18px; font-weight: 900; }
-.quest-overview-section > header p { margin-top: 5px; color: #6b7684; font-size: 13px; line-height: 1.5; }
-.quest-overview-section > header > span { flex: none; padding: 6px 10px; border: 1px solid rgb(10 22 128 / 15%); border-radius: 999px; background: var(--quest-yellow); color: var(--quest-navy); font-size: 11px; font-weight: 800; }
-.quest-overview-list { display: grid; gap: 12px; }
-.quest-overview-row { display: grid; width: 100%; min-height: 72px; grid-template-columns: 44px minmax(0,1fr) auto auto 34px; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid rgb(10 22 128 / 12%); border-radius: 22px; color: var(--quest-ink); text-align: left; transition: border-color .16s ease,transform .16s ease,opacity .16s ease; }
-.quest-overview-row:hover:not(.pending) { border-color: rgb(10 22 128 / 16%); transform: translateY(-1px); }
+.quest-overview-card {
+  --quest-ink: #222;
+  --quest-paper: #fcfdff;
+  --quest-navy: #0a1680;
+  --quest-yellow: #fbedb0;
+  --quest-lime: #44d795;
+  --quest-blue: #93b2f8;
+  --quest-peach: #f0574f;
+  overflow: hidden;
+  padding: 26px 28px 22px;
+  border: 1px solid #e1e1e1;
+  border-radius: 32px;
+  background: var(--quest-paper);
+  color: var(--quest-ink);
+  box-shadow: none;
+}
+.quest-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.quest-overview-header h2 {
+  color: var(--quest-ink);
+  font-size: 20px;
+  font-weight: 900;
+}
+.quest-overview-tabs {
+  display: grid;
+  min-width: 240px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.quest-overview-tabs button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid #e1e1e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #666;
+  font-size: 14px;
+  font-weight: 700;
+}
+.quest-overview-tabs button strong {
+  margin-left: 4px;
+  font-size: 16px;
+}
+.quest-overview-tabs button.active {
+  border-color: var(--quest-navy);
+  background: var(--quest-navy);
+  color: #fff;
+}
+.quest-overview-progress {
+  margin-top: 20px;
+  padding: 17px 20px;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 22px;
+  background: var(--quest-yellow);
+  color: var(--quest-ink);
+}
+.quest-overview-progress__top {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 24px;
+}
+.quest-overview-progress__top > strong {
+  font-size: 15px;
+  font-weight: 900;
+}
+.quest-overview-progress__top > span {
+  font-size: 13px;
+  font-weight: 800;
+}
+.quest-overview-progress__top > b {
+  display: grid;
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  justify-items: end;
+  color: var(--quest-navy);
+  font-size: 21px;
+  line-height: 1;
+}
+.quest-overview-progress__top > b small {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.quest-overview-progress__track {
+  height: 10px;
+  margin-top: 11px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+}
+.quest-overview-progress__track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--quest-navy);
+  transition: width 0.3s ease;
+}
+.quest-overview-section {
+  margin-top: 27px;
+}
+.quest-overview-section > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+.quest-overview-section > header h3 {
+  color: var(--quest-ink);
+  font-size: 18px;
+  font-weight: 900;
+}
+.quest-overview-section > header p {
+  margin-top: 5px;
+  color: #6b7684;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.quest-overview-section > header > span {
+  flex: none;
+  padding: 6px 10px;
+  border: 1px solid rgb(10 22 128 / 15%);
+  border-radius: 999px;
+  background: var(--quest-yellow);
+  color: var(--quest-navy);
+  font-size: 11px;
+  font-weight: 800;
+}
+.quest-overview-list {
+  display: grid;
+  gap: 12px;
+}
+.quest-overview-row {
+  display: grid;
+  width: 100%;
+  min-height: 72px;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto 34px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 22px;
+  color: var(--quest-ink);
+  text-align: left;
+  transition:
+    border-color 0.16s ease,
+    transform 0.16s ease,
+    opacity 0.16s ease;
+}
+.quest-overview-row:hover:not(.pending) {
+  border-color: rgb(10 22 128 / 16%);
+  transform: translateY(-1px);
+}
 .quest-overview-row.is-expense,
 .quest-overview-row.is-income,
-.quest-overview-row.is-policy { background: #fff; }
-.quest-overview-row.completed { opacity: .62; }
-.quest-overview-row.pending { cursor: wait; opacity: .5; }
-.quest-overview-row__icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 50%; }
-.is-expense .quest-overview-row__icon { background: var(--quest-peach); color: #fff; }
-.is-income .quest-overview-row__icon { background: var(--quest-lime); color: var(--quest-ink); }
-.is-policy .quest-overview-row__icon { background: var(--quest-blue); color: var(--quest-navy); }
-.quest-overview-row__copy { display: grid; min-width: 0; gap: 6px; }
-.quest-overview-row__copy > strong { overflow: hidden; font-size: 15px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
-.quest-overview-row__copy small { color: #7a746d; font-size: 12px; }
-.quest-overview-row__copy small b { color: var(--primary); font-weight: 900; }
-.quest-overview-row__amount { grid-column: 3; font-size: 16px; font-weight: 900; white-space: nowrap; }
-.is-expense .quest-overview-row__amount { color: var(--quest-peach); }
-.is-income .quest-overview-row__amount { color: #168b5c; }
-.is-policy .quest-overview-row__amount { grid-column: 4; color: var(--quest-navy); }
-.quest-overview-row__apply { grid-column: 4; padding: 7px 11px; border-radius: 999px; background: var(--quest-navy); color: #fff; font-size: 12px; font-weight: 800; white-space: nowrap; }
-.is-policy .quest-overview-row__apply { grid-column: 3; }
-.quest-overview-row__apply:hover { background: #07105f; }
-.quest-overview-row__check { display: grid; width: 32px !important; min-width: 32px; max-width: 32px; height: 32px !important; min-height: 32px !important; max-height: 32px; aspect-ratio: 1 / 1; grid-column: 5; place-self: center; place-items: center; padding: 0 !important; border: 2px solid #d8d2c4; border-radius: 10px; background: #fff; color: #fff; line-height: 1; }
-.quest-overview-row.completed .quest-overview-row__check { border-color: var(--quest-navy); background: var(--quest-navy); }
-.quest-overview-empty { display: grid; min-height: 116px; align-content: center; justify-items: center; gap: 8px; padding: 24px 34px; border: 1px solid #e1e1e1; border-radius: 22px; background: #fff; color: #666; text-align: center; }
-.quest-overview-empty strong { font-size: 16px; font-weight: 900; }
-.quest-overview-empty span { font-size: 13px; }
-.quest-overview-footer { display: grid; width: 100%; align-items: center; justify-items: center; gap: 16px; margin-top: 32px; padding-top: 24px; border-top: 1px solid #eee8dc; }
-.quest-overview-footer p { width: 100%; color: #81776b; font-size: 14px; }
-.quest-overview-footer button { display: inline-flex; width: 100%; min-height: 42px; align-items: center; justify-content: center; justify-self: stretch; gap: 7px; padding: 0 18px; border: 0; border-radius: 13px; background: #f5f7f9; color: #666666; font-size: 14px; font-weight: 800; text-align: center; }
-.quest-overview-footer button:hover:not(:disabled) { background: #eef0f2; }
+.quest-overview-row.is-policy {
+  background: #fff;
+}
+.quest-overview-row.completed {
+  opacity: 0.62;
+}
+.quest-overview-row.pending {
+  cursor: wait;
+  opacity: 0.5;
+}
+.quest-overview-row__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+}
+.is-expense .quest-overview-row__icon {
+  background: var(--quest-peach);
+  color: #fff;
+}
+.is-income .quest-overview-row__icon {
+  background: var(--quest-lime);
+  color: var(--quest-ink);
+}
+.is-policy .quest-overview-row__icon {
+  background: var(--quest-blue);
+  color: var(--quest-navy);
+}
+.quest-overview-row__copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+.quest-overview-row__copy > strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quest-overview-row__copy small {
+  color: #7a746d;
+  font-size: 12px;
+}
+.quest-overview-row__copy small b {
+  color: var(--primary);
+  font-weight: 900;
+}
+.quest-overview-row__amount {
+  grid-column: 3;
+  font-size: 16px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.is-expense .quest-overview-row__amount {
+  color: var(--quest-peach);
+}
+.is-income .quest-overview-row__amount {
+  color: #168b5c;
+}
+.is-policy .quest-overview-row__amount {
+  grid-column: 4;
+  color: var(--quest-navy);
+}
+.quest-overview-row__apply {
+  grid-column: 4;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--quest-navy);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.is-policy .quest-overview-row__apply {
+  grid-column: 3;
+}
+.quest-overview-row__apply:hover {
+  background: #07105f;
+}
+.quest-overview-row__check {
+  display: grid;
+  width: 32px !important;
+  min-width: 32px;
+  max-width: 32px;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px;
+  aspect-ratio: 1 / 1;
+  grid-column: 5;
+  place-self: center;
+  place-items: center;
+  padding: 0 !important;
+  border: 2px solid #d8d2c4;
+  border-radius: 10px;
+  background: #fff;
+  color: #fff;
+  line-height: 1;
+}
+.quest-overview-row.completed .quest-overview-row__check {
+  border-color: var(--quest-navy);
+  background: var(--quest-navy);
+}
+.quest-overview-empty {
+  display: grid;
+  min-height: 116px;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px 34px;
+  border: 1px solid #e1e1e1;
+  border-radius: 22px;
+  background: #fff;
+  color: #666;
+  text-align: center;
+}
+.quest-overview-empty strong {
+  font-size: 16px;
+  font-weight: 900;
+}
+.quest-overview-empty span {
+  font-size: 13px;
+}
+.quest-overview-footer {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  justify-items: center;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #eee8dc;
+}
+.quest-overview-footer p {
+  width: 100%;
+  color: #81776b;
+  font-size: 14px;
+}
+.quest-overview-footer button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
+  gap: 7px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 13px;
+  background: #f5f7f9;
+  color: #666666;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+.quest-overview-footer button:hover:not(:disabled) {
+  background: #eef0f2;
+}
 
-.confirmed-timeline-description { margin-top: 6px; color: #6b7684; font-size: 14px; }
-.confirmed-timeline-track { position: relative; height: 150px; margin: 34px 18px 0; }
-.confirmed-timeline-track__line { position: absolute; top: 34px; right: 0; left: 0; height: 7px; border-radius: 999px; background: var(--primary); }
-.confirmed-timeline-marker { position: absolute; top: 14px; display: grid; width: max-content; max-width: 130px; justify-items: center; gap: 5px; transform: translateX(-50%); text-align: center; }
-.confirmed-timeline-marker--current { transform: translateX(0); }
-.confirmed-timeline-marker:last-of-type { transform: translateX(-100%); }
-.confirmed-timeline-marker i { width: 46px; height: 46px; border: 6px solid #fff; border-radius: 50%; background: var(--primary); box-shadow: 0 3px 10px rgb(10 22 128 / 20%); }
-.confirmed-timeline-marker__copy { display: grid; justify-items: center; gap: 5px; }
-.confirmed-timeline-marker.is-staggered .confirmed-timeline-marker__copy { margin-top: 48px; }
-.confirmed-timeline-marker__copy strong { margin-top: 4px; color: #191f28; font-size: 16px; }
-.confirmed-timeline-marker__copy span { max-width: 112px; color: #6b7684; font-size: 13px; line-height: 1.3; }
-.confirmed-timeline-marker--limit i { background: #8b95a1; }
-.confirmed-timeline-marker--scenario i { background: #7e9de9; }
-.confirmed-timeline-marker--target i { background: var(--accent-strong); }
-.confirmed-timeline-note { margin-top: 6px; color: #6b7684; font-size: 13px; text-align: center; }
+.confirmed-timeline-description {
+  margin-top: 6px;
+  color: #6b7684;
+  font-size: 14px;
+}
+.confirmed-timeline-track {
+  position: relative;
+  height: 150px;
+  margin: 34px 18px 0;
+}
+.confirmed-timeline-track__line {
+  position: absolute;
+  top: 34px;
+  right: 0;
+  left: 0;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.confirmed-timeline-marker {
+  position: absolute;
+  top: 14px;
+  display: grid;
+  width: max-content;
+  max-width: 130px;
+  justify-items: center;
+  gap: 5px;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.confirmed-timeline-marker--current {
+  transform: translateX(0);
+}
+.confirmed-timeline-marker:last-of-type {
+  transform: translateX(-100%);
+}
+.confirmed-timeline-marker i {
+  width: 46px;
+  height: 46px;
+  border: 6px solid #fff;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 3px 10px rgb(10 22 128 / 20%);
+}
+.confirmed-timeline-marker__copy {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+.confirmed-timeline-marker.is-staggered .confirmed-timeline-marker__copy {
+  margin-top: 48px;
+}
+.confirmed-timeline-marker__copy strong {
+  margin-top: 4px;
+  color: #191f28;
+  font-size: 16px;
+}
+.confirmed-timeline-marker__copy span {
+  max-width: 112px;
+  color: #6b7684;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.confirmed-timeline-marker--limit i {
+  background: #8b95a1;
+}
+.confirmed-timeline-marker--scenario i {
+  background: #7e9de9;
+}
+.confirmed-timeline-marker--target i {
+  background: var(--accent-strong);
+}
+.confirmed-timeline-note {
+  margin-top: 6px;
+  color: #6b7684;
+  font-size: 13px;
+  text-align: center;
+}
 .simulation-quest-heading {
   display: flex;
   align-items: center;
@@ -1048,23 +1451,84 @@ onMounted(async () => {
     height: 44px;
   }
   .confirmed-timeline-marker__copy,
-  .confirmed-timeline-marker.is-staggered .confirmed-timeline-marker__copy { display: grid; width: 100%; grid-row: 1; grid-column: 2 / 4; grid-template-columns: minmax(0,1fr) auto; align-items: center; justify-items: start; gap: 12px; margin: 0; }
-  .confirmed-timeline-marker__copy strong { grid-column: 2; margin: 0; font-size: 15px; }
-  .confirmed-timeline-marker__copy span { grid-row: 1; grid-column: 1; max-width: none; font-size: 14px; }
-  .confirmed-timeline-note { margin-top: 14px; font-size: 13px; text-align: left; }
-  .simulation-quest-heading h2 { font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); }
-  .simulation-quest-card { padding: 14px 12px 16px; }
-  .simulation-quest-tabs { width: 100%; height: 52px; margin-bottom: 16px; }
-  .simulation-quest-progress strong { font-size: 15px; }
-  .simulation-quest-progress > div:first-child > span { font-size: 13px; }
-  .simulation-quest-progress__track { height: 14px; }
-  .simulation-quest-period + .simulation-quest-period { margin-top: 20px; padding-top: 20px; }
-  .simulation-quest-period > header { gap: 10px; margin-bottom: 14px; }
-  .simulation-quest-period > header > span { padding: 6px 10px; }
-  .simulation-quest-groups { gap: 20px; }
-  .simulation-quest-row { min-height: 84px; grid-template-columns: 44px minmax(0,1fr) auto 30px; gap: 8px; padding: 12px 10px; border-radius: 18px; }
-  .simulation-quest-row__icon { width: 40px; height: 40px; }
-  .simulation-quest-row__copy strong,.simulation-quest-row__amount { font-size: 14px; font-weight: 800; }
+  .confirmed-timeline-marker.is-staggered .confirmed-timeline-marker__copy {
+    display: grid;
+    width: 100%;
+    grid-row: 1;
+    grid-column: 2 / 4;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    gap: 12px;
+    margin: 0;
+  }
+  .confirmed-timeline-marker__copy strong {
+    grid-column: 2;
+    margin: 0;
+    font-size: 15px;
+  }
+  .confirmed-timeline-marker__copy span {
+    grid-row: 1;
+    grid-column: 1;
+    max-width: none;
+    font-size: 14px;
+  }
+  .confirmed-timeline-note {
+    margin-top: 14px;
+    font-size: 13px;
+    text-align: left;
+  }
+  .simulation-quest-heading h2 {
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+  }
+  .simulation-quest-card {
+    padding: 14px 12px 16px;
+  }
+  .simulation-quest-tabs {
+    width: 100%;
+    height: 52px;
+    margin-bottom: 16px;
+  }
+  .simulation-quest-progress strong {
+    font-size: 15px;
+  }
+  .simulation-quest-progress > div:first-child > span {
+    font-size: 13px;
+  }
+  .simulation-quest-progress__track {
+    height: 14px;
+  }
+  .simulation-quest-period + .simulation-quest-period {
+    margin-top: 20px;
+    padding-top: 20px;
+  }
+  .simulation-quest-period > header {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .simulation-quest-period > header > span {
+    padding: 6px 10px;
+  }
+  .simulation-quest-groups {
+    gap: 20px;
+  }
+  .simulation-quest-row {
+    min-height: 84px;
+    grid-template-columns: 44px minmax(0, 1fr) auto 30px;
+    gap: 8px;
+    padding: 12px 10px;
+    border-radius: 18px;
+  }
+  .simulation-quest-row__icon {
+    width: 40px;
+    height: 40px;
+  }
+  .simulation-quest-row__copy strong,
+  .simulation-quest-row__amount {
+    font-size: 14px;
+    font-weight: 800;
+  }
   .simulation-quest-api-notice,
   .simulation-quest-progress span,
   .simulation-quest-period > header p,
@@ -1103,7 +1567,9 @@ onMounted(async () => {
 }
 
 @media (max-width: 767px) {
-  .simulation-quest-status { margin-top: 20px; }
+  .simulation-quest-status {
+    margin-top: 20px;
+  }
   .quest-overview-card {
     padding: 24px 20px 20px;
     border-color: #eee9df;
@@ -1116,7 +1582,9 @@ onMounted(async () => {
     align-items: center;
     gap: 12px;
   }
-  .quest-overview-header h2 { font-size: 20px; }
+  .quest-overview-header h2 {
+    font-size: 20px;
+  }
   .quest-overview-tabs {
     width: auto;
     min-width: 0;
@@ -1149,11 +1617,31 @@ onMounted(async () => {
     background: #fff5d7;
     color: #755311;
   }
-  .quest-overview-progress__top { display: contents; }
-  .quest-overview-progress__top > strong { grid-row: 1; grid-column: 1; font-size: 15px; }
-  .quest-overview-progress__top > span { grid-row: 1; grid-column: 2; align-self: center; justify-self: end; font-size: 13px; }
-  .quest-overview-progress__track { grid-row: 2; grid-column: 1 / 3; height: 9px; margin: 0; background: #ecdca8; }
-  .quest-overview-progress__track span { background: #eeb238; }
+  .quest-overview-progress__top {
+    display: contents;
+  }
+  .quest-overview-progress__top > strong {
+    grid-row: 1;
+    grid-column: 1;
+    font-size: 15px;
+  }
+  .quest-overview-progress__top > span {
+    grid-row: 1;
+    grid-column: 2;
+    align-self: center;
+    justify-self: end;
+    font-size: 13px;
+  }
+  .quest-overview-progress__track {
+    grid-row: 2;
+    grid-column: 1 / 3;
+    height: 9px;
+    margin: 0;
+    background: #ecdca8;
+  }
+  .quest-overview-progress__track span {
+    background: #eeb238;
+  }
   .quest-overview-progress__top > b {
     display: flex;
     grid-row: 3;
@@ -1164,12 +1652,31 @@ onMounted(async () => {
     color: var(--primary);
     font-size: 20px;
   }
-  .quest-overview-progress__top > b small { margin: 0; color: var(--primary); font-size: 12px; }
-  .quest-overview-section { margin-top: 26px; }
-  .quest-overview-section > header { align-items: center; margin-bottom: 14px; }
-  .quest-overview-section > header h3 { font-size: 18px; }
-  .quest-overview-section > header p { margin-top: 5px; font-size: 12px; }
-  .quest-overview-section > header > span { border: 0; background: #fff3cf; color: var(--primary); font-size: 11px; }
+  .quest-overview-progress__top > b small {
+    margin: 0;
+    color: var(--primary);
+    font-size: 12px;
+  }
+  .quest-overview-section {
+    margin-top: 26px;
+  }
+  .quest-overview-section > header {
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .quest-overview-section > header h3 {
+    font-size: 18px;
+  }
+  .quest-overview-section > header p {
+    margin-top: 5px;
+    font-size: 12px;
+  }
+  .quest-overview-section > header > span {
+    border: 0;
+    background: #fff3cf;
+    color: var(--primary);
+    font-size: 11px;
+  }
   .quest-overview-row,
   .quest-overview-row.is-policy {
     min-height: 76px;
@@ -1180,20 +1687,56 @@ onMounted(async () => {
     border: 0;
     border-radius: 20px;
   }
-  .quest-overview-row.is-expense { background: #fff3f1; }
-  .quest-overview-row.is-income { background: #effaf5; }
-  .quest-overview-row.is-policy { background: #f4f1fb; }
+  .quest-overview-row.is-expense {
+    background: #fff3f1;
+  }
+  .quest-overview-row.is-income {
+    background: #effaf5;
+  }
+  .quest-overview-row.is-policy {
+    background: #f4f1fb;
+  }
   .quest-overview-row__icon,
-  .is-policy .quest-overview-row__icon { width: 40px; height: 40px; grid-row: 1 / 3; grid-column: 1; align-self: center; }
-  .is-expense .quest-overview-row__icon { background: #f9deda; color: #cf5e54; }
-  .is-income .quest-overview-row__icon { background: #dcefe5; color: #238b62; }
-  .is-policy .quest-overview-row__icon { background: #e8e1f6; color: #7560ae; }
+  .is-policy .quest-overview-row__icon {
+    width: 40px;
+    height: 40px;
+    grid-row: 1 / 3;
+    grid-column: 1;
+    align-self: center;
+  }
+  .is-expense .quest-overview-row__icon {
+    background: #f9deda;
+    color: #cf5e54;
+  }
+  .is-income .quest-overview-row__icon {
+    background: #dcefe5;
+    color: #238b62;
+  }
+  .is-policy .quest-overview-row__icon {
+    background: #e8e1f6;
+    color: #7560ae;
+  }
   .quest-overview-row__copy,
-  .is-policy .quest-overview-row__copy { grid-row: 1 / 3; grid-column: 2; align-self: center; gap: 4px; }
-  .quest-overview-row__copy > strong { font-size: 15px; }
-  .quest-overview-row__copy small { font-size: 11px; }
+  .is-policy .quest-overview-row__copy {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    align-self: center;
+    gap: 4px;
+  }
+  .quest-overview-row__copy > strong {
+    font-size: 15px;
+  }
+  .quest-overview-row__copy small {
+    font-size: 11px;
+  }
   .quest-overview-row__amount,
-  .is-policy .quest-overview-row__amount { grid-row: 1 / 3; grid-column: 3; align-self: center; justify-self: end; font-size: 15px; }
+  .is-policy .quest-overview-row__amount {
+    grid-row: 1 / 3;
+    grid-column: 3;
+    align-self: center;
+    justify-self: end;
+    font-size: 15px;
+  }
   .quest-overview-row__check,
   .is-policy .quest-overview-row__check {
     width: 34px !important;
@@ -1216,7 +1759,11 @@ onMounted(async () => {
     font-size: 10px;
     transform: translateY(19px);
   }
-  .quest-overview-footer { gap: 16px; margin-top: 28px; padding-top: 20px; }
+  .quest-overview-footer {
+    gap: 16px;
+    margin-top: 28px;
+    padding-top: 20px;
+  }
   .quest-overview-footer button {
     width: 100% !important;
     min-height: 54px;
@@ -1231,6 +1778,8 @@ onMounted(async () => {
     font-size: 16px;
     text-align: center;
   }
-  .quest-overview-footer button .app-icon { display: none; }
+  .quest-overview-footer button .app-icon {
+    display: none;
+  }
 }
 </style>

@@ -5,10 +5,11 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
 import { financeState, loadTransactions } from '@/features/finance/financeStore'
 import { policyFilterGroups, toPolicySearchRequest } from '@/features/search/policyData'
-import { calculateAge, normalizePolicyRegion } from '@/mappers/policy'
+import { normalizePolicyRegion } from '@/mappers/policy'
 import '@/features/simulation/styles/simulation.css'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import AiPolicyAssistant from '@/features/simulation/components/AiPolicyAssistant.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,6 +96,23 @@ const moveBreakdownPage = (direction) => {
 }
 const expenseIconPath = expenseCategoryIconPath
 const policyCount = computed(() => simulation.state.policies.length)
+const policyCatalogScroll = ref(null)
+const policyPageNumbers = computed(() => {
+  const totalPages = simulation.policyCatalogPageInfo.totalPages || 0
+  const currentPage = simulation.policyCatalogPageInfo.page || 1
+  if (!totalPages) return []
+  const groupStart = Math.floor((currentPage - 1) / 5) * 5 + 1
+  return Array.from({ length: Math.min(5, totalPages - groupStart + 1) }, (_, index) =>
+    groupStart + index,
+  )
+})
+const jobTypeLabel = computed(() =>
+  session.currentUser.jobType === 'first'
+    ? '첫취업'
+    : session.currentUser.jobType === 'again'
+      ? '재취업'
+      : '미입력',
+)
 const expandedPolicyIds = ref(new Set())
 function togglePolicyDetails(policyId) {
   const next = new Set(expandedPolicyIds.value)
@@ -128,9 +146,13 @@ const appliedPolicyEmployment = computed(
 )
 const appliedPolicyRegion = computed(
   () =>
-    policyFilterGroups[2][1].find((item) => selectedPolicyFilters.value.includes(item)) ||
-    normalizePolicyRegion(session.currentUser.region) ||
-    '전체',
+    policyFilterGroups[2][1].find((item) => selectedPolicyFilters.value.includes(item)) || '전체',
+)
+const appliedPolicyBadges = computed(() =>
+  policyFilterGroups.flatMap(([label, items]) => {
+    const selected = items.find((item) => selectedPolicyFilters.value.includes(item))
+    return selected ? [{ label, value: selected }] : []
+  }),
 )
 
 function openPolicyFilterModal() {
@@ -156,22 +178,37 @@ function togglePolicyFilter(group, item) {
 }
 
 function resetPolicyFilters() {
-  draftPolicyFilters.value = profilePolicyFilters()
+  // 초기화 후에는 화면에 보이지 않는 프로필 조건도 요청에 포함하지 않는다.
+  draftPolicyFilters.value = []
   draftPolicySupportAmount.value = 0
 }
 
 async function applyPolicyFilters() {
   selectedPolicyFilters.value = [...draftPolicyFilters.value]
   policySupportAmount.value = draftPolicySupportAmount.value
-  const params = toPolicySearchRequest(selectedPolicyFilters.value, policySupportAmount.value, '', {
-    page: 1,
-    size: 100,
-    age: calculateAge(session.currentUser.birth),
-    policyRegion: normalizePolicyRegion(session.currentUser.region),
-  })
+  const hasVisibleConditions =
+    selectedPolicyFilters.value.length > 0 || policySupportAmount.value > 0
+  const params = hasVisibleConditions
+    ? toPolicySearchRequest(selectedPolicyFilters.value, policySupportAmount.value, '', {
+        page: 1,
+        size: 10,
+      })
+    : { page: 1, allStatuses: true }
   await simulation.loadPolicyCatalog(params)
   closePolicyFilterModal()
-  scrollToPolicies()
+  policyCatalogScroll.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+async function movePolicyPage(page) {
+  if (
+    page < 1 ||
+    page > simulation.policyCatalogPageInfo.totalPages ||
+    page === simulation.policyCatalogPageInfo.page ||
+    simulation.policyCatalogLoading
+  )
+    return
+  await simulation.loadPolicyCatalogPage(page)
+  policyCatalogScroll.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 async function retryPolicyFilters() {
@@ -733,10 +770,31 @@ function skip() {
         </div>
       </section>
 
-      <section class="policy-catalog-scroll">
+      <section ref="policyCatalogScroll" class="policy-catalog-scroll">
         <div class="policy-catalog-heading">
           <h2>내 조건에 맞는 정책 모두 보기</h2>
-          <span>{{ simulation.policyCatalog.length }}개</span>
+          <div class="policy-profile-badges" aria-label="맞춤 정책 검색 조건">
+            <span v-for="badge in appliedPolicyBadges" :key="`${badge.label}-${badge.value}`">
+              <small>{{ badge.label }}</small>{{ badge.value }}
+            </span>
+            <span v-if="policySupportAmount">
+              <small>지원 금액</small>{{ policySupportAmount }}만원 이상
+            </span>
+            <span v-if="!appliedPolicyBadges.length && !policySupportAmount">
+              <small>상세 조건</small>제한 없음
+            </span>
+            <span
+              ><small>가구원 수</small
+              >{{ session.currentUser.family ? `${session.currentUser.family}명` : '미입력' }}</span
+            >
+          </div>
+          <span>
+            {{
+              simulation.policyCatalogLoading
+                ? '정책 조회 중'
+                : `${simulation.policyCatalogPageInfo.totalElements}개`
+            }}
+          </span>
         </div>
         <p v-if="simulation.policyCatalogLoading" class="policy-selected-empty">
           맞춤 정책을 불러오는 중이에요.
@@ -812,6 +870,38 @@ function skip() {
             <strong>+{{ policy.detail }}</strong>
           </article>
         </div>
+        <nav
+          v-if="!simulation.policyCatalogLoading && simulation.policyCatalogPageInfo.totalPages > 1"
+          class="policy-catalog-pagination"
+          aria-label="맞춤 정책 페이지"
+        >
+          <button
+            type="button"
+            aria-label="이전 정책 페이지"
+            :disabled="!simulation.policyCatalogPageInfo.hasPrevious"
+            @click="movePolicyPage(simulation.policyCatalogPageInfo.page - 1)"
+          >
+            ‹
+          </button>
+          <button
+            v-for="page in policyPageNumbers"
+            :key="page"
+            type="button"
+            :class="{ active: page === simulation.policyCatalogPageInfo.page }"
+            :aria-current="page === simulation.policyCatalogPageInfo.page ? 'page' : undefined"
+            @click="movePolicyPage(page)"
+          >
+            {{ page }}
+          </button>
+          <button
+            type="button"
+            aria-label="다음 정책 페이지"
+            :disabled="!simulation.policyCatalogPageInfo.hasNext"
+            @click="movePolicyPage(simulation.policyCatalogPageInfo.page + 1)"
+          >
+            ›
+          </button>
+        </nav>
       </section>
 
       <section class="policy-selected-card">
@@ -988,6 +1078,7 @@ function skip() {
       서버 저장에 실패했습니다. 입력 내용은 유지되니 잠시 후 다시 시도해 주세요.
       {{ simulation.syncError }}
     </p>
+    <AiPolicyAssistant :category="category" />
   </section>
 </template>
 
@@ -2085,6 +2176,39 @@ function skip() {
 .policy-catalog-list {
   display: grid;
   gap: 10px;
+}
+
+.policy-catalog-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.sim-category-page .policy-catalog-pagination button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e1e3ea;
+  border-radius: 50%;
+  background: #fff;
+  color: #626977;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sim-category-page .policy-catalog-pagination button.active {
+  border-color: var(--primary, #0a1680);
+  background: var(--primary, #0a1680);
+  color: #fff;
+}
+
+.sim-category-page .policy-catalog-pagination button:disabled {
+  cursor: default;
+  opacity: 0.35;
 }
 
 .policy-catalog-list article {
