@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { findAdminFinanceUser, getAdminFinanceHistory } from '@/features/admin/api/financeDataApi'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const ACTION_LABEL = { create: '등록', update: '수정', delete: '삭제' }
 
@@ -39,7 +40,9 @@ onMounted(search)
 
 <template>
   <section class="admin-finance-history">
-    <RouterLink to="/admin/finance-data" class="admin-finance-history__back">‹ 금융데이터 관리</RouterLink>
+    <RouterLink to="/admin/finance-data" class="admin-finance-history__back"
+      ><AppIcon name="chevron-left" :size="20" />금융데이터 관리</RouterLink
+    >
     <header class="admin-finance-history__header">
       <h1>등록·수정·삭제 이력</h1>
       <p>Mock 데이터 등록·수정·삭제 이력을 확인할 수 있어요.</p>
@@ -92,6 +95,9 @@ onMounted(search)
 
 <style scoped>
 .admin-finance-history__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: var(--font-small);
 }

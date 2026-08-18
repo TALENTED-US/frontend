@@ -394,7 +394,7 @@ function skip() {
       aria-label="뒤로가기"
       @click="router.push(backPath)"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <RouterLink
@@ -832,19 +832,6 @@ function skip() {
                 </svg>
               </button>
             </div>
-            <button
-              class="policy-add-button"
-              type="button"
-              :disabled="simulation.syncing"
-              @click="simulation.togglePolicy(policy)"
-            >
-              {{
-                simulation.state.policies.some((item) => item.id === policy.id)
-                  ? '✓ 추가됨'
-                  : '+ 추가하기'
-              }}
-            </button>
-            <strong>+{{ policy.detail }}</strong>
             <div
               v-if="expandedPolicyIds.has(`catalog:${policy.id}`)"
               :id="`policy-details-${policy.id}`"
@@ -867,6 +854,20 @@ function skip() {
                 >정책 상세 페이지 열기</a
               >
             </div>
+            <button
+              class="policy-add-button"
+              :class="{ added: simulation.state.policies.some((item) => item.id === policy.id) }"
+              type="button"
+              :disabled="simulation.syncing"
+              @click="simulation.togglePolicy(policy)"
+            >
+              {{
+                simulation.state.policies.some((item) => item.id === policy.id)
+                  ? '✓ 추가됨'
+                  : '+ 추가하기'
+              }}
+            </button>
+            <strong>+{{ policy.detail }}</strong>
           </article>
         </div>
         <nav
@@ -1102,6 +1103,8 @@ function skip() {
 }
 
 .sim-category-page > .wizard-progress-tabs span {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   font-size: 11px;
   cursor: pointer;
 }
@@ -1611,8 +1614,8 @@ function skip() {
   border-radius: 999px;
   background: rgb(255 255 255 / 75%);
   color: #8a6407;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--type-button-choice-size) !important;
+  font-weight: var(--type-button-choice-weight) !important;
 }
 
 .expense-amount-options > small {
@@ -1743,11 +1746,15 @@ function skip() {
   }
 
   .sim-category-page .expense-analysis-card {
+    display: flex;
+    flex-direction: column;
     padding: clamp(22px, 3vw, 30px);
   }
 
   .sim-category-page .expense-analysis-body {
+    flex: 1;
     grid-template-columns: minmax(240px, 3fr) minmax(150px, 2fr);
+    align-content: center;
     gap: 18px;
     margin-top: 8px;
   }
@@ -1787,50 +1794,6 @@ function skip() {
     font-size: 14px !important;
     font-weight: 600 !important;
   }
-}
-
-.policy-profile-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.policy-profile-badges > span {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: #f6f3fc;
-  color: #4f465f;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.policy-profile-badges small {
-  color: #8e79cd;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.policy-catalog-heading > .policy-profile-badges {
-  min-width: 0;
-  justify-content: flex-end;
-  justify-self: end;
-  margin: 0;
-}
-
-.policy-catalog-heading > .policy-profile-badges > span {
-  min-height: 30px;
-  padding: 6px 10px;
-  font-size: 11px;
-}
-
-.policy-catalog-heading > .policy-profile-badges small {
-  font-size: 10px;
 }
 
 .policy-qualification {
@@ -1880,7 +1843,7 @@ function skip() {
 
 .policy-condition-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 8px;
   margin-top: 14px;
 }
@@ -1893,13 +1856,13 @@ function skip() {
   border-radius: 13px;
   background: #fff8d8;
   color: #9298a4;
-  font-size: 9px;
+  font-size: 14px;
 }
 
 .policy-condition-grid strong {
   overflow: hidden;
   color: #222;
-  font-size: 11px;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2169,13 +2132,20 @@ function skip() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #777e89;
-  font-size: 10px;
+  color: #222222;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.policy-selected-card footer p > span {
+  color: #222222;
+  font-weight: 700;
 }
 
 .policy-selected-card footer strong {
-  color: #222;
-  font-size: 11px;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .policy-catalog-scroll {
@@ -2278,7 +2248,7 @@ function skip() {
 }
 
 .sim-category-page .policy-catalog-list .policy-add-button {
-  grid-row: 2;
+  grid-row: 3;
   grid-column: 2;
   justify-self: end;
 }
@@ -2297,7 +2267,7 @@ function skip() {
   background: transparent !important;
   box-shadow: none !important;
   color: var(--primary, #0a1680) !important;
-  font-size: 12px;
+  font-size: 13px !important;
   font-weight: 400;
   line-height: 24px;
   white-space: nowrap;
@@ -2353,12 +2323,18 @@ function skip() {
   background: #f7f6fc;
 }
 
+.sim-category-page .policy-catalog-list article > .policy-detail-panel {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
 .sim-category-page .policy-detail-panel p {
   display: grid;
   grid-template-columns: 82px minmax(0, 1fr);
   gap: 10px;
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .policy-detail-panel p > span {
@@ -2456,23 +2432,6 @@ function skip() {
     white-space: nowrap;
   }
 
-  .sim-category-page .policy-catalog-heading > .policy-profile-badges {
-    width: 100%;
-    grid-row: 2;
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    justify-self: stretch;
-    gap: 7px;
-    margin: 0;
-  }
-
-  .sim-category-page .policy-catalog-heading > .policy-profile-badges > span {
-    min-width: 0;
-    min-height: 30px;
-    padding: 6px 10px;
-    font-size: 11px;
-  }
-
   .sim-category-page .policy-selected-empty {
     font-size: var(--type-empty-size);
     font-weight: var(--type-empty-weight);
@@ -2528,8 +2487,12 @@ function skip() {
   }
 
   .sim-category-page .income-form-heading strong::after {
-    font-size: var(--type-field-label-size);
+    font-size: 15px;
     font-weight: var(--type-field-label-weight);
+  }
+
+  .sim-category-page .income-form-heading {
+    margin-bottom: -6px;
   }
 
   .sim-category-page input.income-field,
@@ -2540,12 +2503,16 @@ function skip() {
   }
 
   .sim-category-page .income-money-field input,
-  .sim-category-page .income-plan-form fieldset button,
   .sim-category-page .income-name-field input.income-field,
   .sim-category-page input.income-field[type='date'],
   .sim-category-page select.income-field {
     font-size: var(--type-input-size);
     font-weight: var(--type-input-weight);
+  }
+
+  .sim-category-page .income-plan-form fieldset button {
+    font-size: var(--type-button-choice-size) !important;
+    font-weight: 700 !important;
   }
 
   .sim-category-page .added-expense-goals footer,
@@ -2555,8 +2522,8 @@ function skip() {
   .sim-category-page .policy-selected-card footer p,
   .sim-category-page .policy-selected-card footer span,
   .sim-category-page .policy-selected-card footer strong {
-    font-size: var(--type-total-size);
-    font-weight: var(--type-total-weight);
+    font-size: var(--type-total-size) !important;
+    font-weight: var(--type-total-weight) !important;
   }
 
   .sim-category-page .policy-selected-card footer p,
@@ -2597,7 +2564,6 @@ function skip() {
 
   .policy-section-heading p,
   .policy-section-heading button,
-  .policy-condition-grid span,
   .policy-selected-heading span,
   .policy-catalog-heading > span,
   .policy-selected-list article small,
@@ -2605,6 +2571,11 @@ function skip() {
   .policy-catalog-list p,
   .policy-catalog-list article > small {
     font-size: 12px;
+    font-weight: 400;
+  }
+
+  .policy-condition-grid span {
+    font-size: 14px;
     font-weight: 400;
   }
 
@@ -2638,11 +2609,6 @@ function skip() {
 }
 
 @media (min-width: 768px) {
-  .sim-category-page > .sim-back {
-    font-size: 48px;
-    font-weight: 900;
-  }
-
   .sim-category-page > .wizard-progress-tabs {
     width: 100%;
     padding-right: 0;
@@ -2810,24 +2776,8 @@ function skip() {
   font-weight: 800;
 }
 
-.sim-category-page .policy-catalog-heading > .policy-profile-badges > span {
-  min-height: 34px;
-  gap: 7px;
-  padding: 7px 11px;
-  background: #e7e1f3;
-  color: #40344f;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.sim-category-page .policy-catalog-heading > .policy-profile-badges small {
-  color: #746584;
-  font-size: 9px;
-  font-weight: 600;
-}
-
 .sim-category-page .policy-selected-card footer strong {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 @media (max-width: 767px) {
@@ -2886,7 +2836,8 @@ function skip() {
     justify-content: center;
     gap: 0;
     padding: 6px 2px;
-    font-size: 15px !important;
+    font-size: var(--type-button-choice-size) !important;
+    font-weight: var(--type-button-choice-weight) !important;
     letter-spacing: -0.4px;
   }
 

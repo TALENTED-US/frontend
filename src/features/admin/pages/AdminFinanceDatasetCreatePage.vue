@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createAdminFinancePersonaDataset } from '@/features/admin/api/financeDataApi'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const router = useRouter()
 
@@ -247,7 +248,9 @@ async function submitDataset() {
 
 <template>
   <section class="admin-finance-create">
-    <RouterLink to="/admin/finance-data" class="admin-finance-create__back">‹ 데이터 세트 관리</RouterLink>
+    <RouterLink to="/admin/finance-data" class="admin-finance-create__back"
+      ><AppIcon name="chevron-left" :size="20" />데이터 세트 관리</RouterLink
+    >
     <header class="admin-finance-create__header">
       <h1>새 데이터 세트 등록</h1>
       <p>회원에게 적용할 금융 데이터 세트를 생성하고 Mock 데이터를 구성합니다.</p>
@@ -521,6 +524,9 @@ async function submitDataset() {
 
 <style scoped>
 .admin-finance-create__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: var(--font-small);
 }

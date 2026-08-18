@@ -876,14 +876,12 @@ const targetMonthText = computed(() =>
       <section class="goal-section">
         <div class="section-head section-head--goal">
           <h2>목표 정보</h2>
+          <RouterLink :to="{ name: 'jobInfo' }">수정하기 <span>›</span></RouterLink>
         </div>
         <article class="goal-card">
           <section class="goal-card__item">
             <header>
               <span>목표 취업일</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'goal-date' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <strong class="goal-card__value">{{ targetDateDisplayText }}</strong>
             <div class="goal-card__progress">
@@ -897,9 +895,6 @@ const targetMonthText = computed(() =>
           <section class="goal-card__item">
             <header>
               <span>재정 위험까지 남은 금액</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <div class="goal-card__amount-row">
               <strong
@@ -1734,18 +1729,12 @@ const targetMonthText = computed(() =>
 }
 
 .goal-card__item header span,
-.goal-card__item header a,
 .goal-card__item footer span,
 .goal-card__amount-row > span,
 .goal-card__item p {
   color: var(--type-supporting-color);
   font-size: var(--type-supporting-size);
   font-weight: var(--type-supporting-weight);
-}
-
-.goal-card__item header a {
-  color: #666;
-  white-space: nowrap;
 }
 
 .goal-card__value {
@@ -2559,9 +2548,27 @@ const targetMonthText = computed(() =>
   line-height: 1.6;
 }
 .quest-empty a {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin-top: 8px;
-  color: var(--accent-strong);
-  font-weight: 800;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 18px;
+  background: #fbedb0;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 16%);
+  color: #0a1680;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background .16s ease;
+}
+@media (hover: hover) {
+  .quest-empty a:hover {
+    background: #f1b94c;
+  }
 }
 
 .block-heading--goal a {
@@ -2700,7 +2707,6 @@ const targetMonthText = computed(() =>
   .survival-card__legend {
     margin-top: 9px;
     color: #666;
-    font-size: 11px;
   }
 
   .survival-card__character-panel {
@@ -2785,11 +2791,25 @@ const targetMonthText = computed(() =>
   }
 
   .level-overview {
-    max-width: 520px;
+    max-width: none;
+    width: 100%;
   }
 }
 
 @media (max-width: 767px) {
+  .survival-card__metric span,
+  .dashboard-report__summary article span,
+  .dashboard-report__cashflow-item span,
+  .goal-card__item header span {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .survival-card__legend small,
+  :global(#app .app-shell main .survival-card__legend small) {
+    font-size: 12px !important;
+  }
+
   .dashboard__top {
     display: block;
     margin-bottom: 16px;
@@ -2827,7 +2847,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card {
-    min-height: 556px;
+    min-height: 576px;
     border-radius: 20px;
   }
 
@@ -2839,10 +2859,11 @@ const targetMonthText = computed(() =>
     left: 17px;
   }
 
-  .survival-card__intro h3 {
+  .survival-card__intro h3,
+  :global(#app .app-shell main .survival-card__intro h3) {
     max-width: 290px;
-    font-size: 23px;
-    font-weight: var(--type-page-title-weight);
+    font-size: var(--type-page-title-size) !important;
+    font-weight: var(--type-page-title-weight) !important;
     line-height: 1.35;
   }
 
@@ -2901,10 +2922,12 @@ const targetMonthText = computed(() =>
     width: calc(100% - 34px);
   }
 
-  .survival-card__progress-area b {
+  .survival-card__progress-area b,
+  :global(#app .app-shell main .survival-card__progress-area b) {
     display: flex;
     justify-content: space-between;
     margin-bottom: 9px;
+    font-size: 13px !important;
   }
 
   .survival-card__progress {
@@ -2965,7 +2988,7 @@ const targetMonthText = computed(() =>
   .survival-card__message p {
     position: absolute;
     right: 18px;
-    bottom: 13px;
+    top: 172px;
     left: 18px;
     color: var(--type-supporting-color);
     font-size: var(--type-supporting-size);
@@ -3026,9 +3049,10 @@ const targetMonthText = computed(() =>
     font-size: 16px;
   }
 
-  .dashboard-report__notice {
+  .dashboard-report__notice,
+  :global(#app .app-shell main .dashboard-report__notice) {
     padding: 9px 14px;
-    font-size: 12px;
+    font-size: 13px !important;
   }
 
   .summary__grid {

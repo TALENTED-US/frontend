@@ -208,6 +208,14 @@ async function confirm() {
   <section class="page sim-page sim-wizard" :class="`sim-flow-${step}`">
     <template v-if="step === 'continue'">
       <div class="resume-hero">
+        <button
+          class="resume-hero__close"
+          type="button"
+          aria-label="처음부터 다시 시작하기"
+          @click="reset"
+        >
+          <AppIcon name="close" :size="20" />
+        </button>
         <img :src="stableImage" alt="다시 찾아온 버티" />
         <h1>시뮬레이션을 하는 중이었어요.<br />이어서 만드시겠어요?</h1>
       </div>
@@ -234,26 +242,28 @@ async function confirm() {
         aria-label="뒤로가기"
         @click="router.push('/simulation')"
       >
-        ‹
+        <AppIcon name="chevron-left" :size="22" />
       </button>
       <h1 class="wizard-title">
         지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
       </h1>
-      <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
+      <div class="category-intro-card">
+        <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
 
-      <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
-        <div>
-          <span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small
-            class="danger"
-            >위험</small
-          >
-        </div>
-        <b aria-hidden="true"><i />→</b>
-        <div>
-          <span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small
-            class="safe"
-            >안정</small
-          >
+        <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
+          <div>
+            <span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small
+              class="danger"
+              >위험</small
+            >
+          </div>
+          <b aria-hidden="true"><i />→</b>
+          <div>
+            <span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small
+              class="safe"
+              >안정</small
+            >
+          </div>
         </div>
       </div>
 
@@ -388,6 +398,14 @@ async function confirm() {
     </template>
 
     <template v-else>
+      <button
+        class="sim-back simulation-back-button desktop-only"
+        type="button"
+        aria-label="뒤로가기"
+        @click="router.push('/simulation/policy/preview')"
+      >
+        <AppIcon name="chevron-left" :size="22" />
+      </button>
       <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
 
       <div class="final-result" :aria-busy="preparingResult">
@@ -507,14 +525,62 @@ async function confirm() {
 </template>
 
 <style scoped>
-.sim-flow-continue {
+.final-result em {
+  display: inline-flex;
+  height: 35px;
+  align-items: center;
+  border: 0 !important;
+}
+
+.category-intro-card {
+  margin-top: 20px;
+  padding: 15px 18px 17px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.sim-flow-continue,
+:global(#app .app-shell main .sim-flow-continue) {
   min-height: calc(100vh - var(--header-height));
 }
 
+@media (min-width: 1280px) {
+  .sim-flow-continue,
+  :global(#app .app-shell main .sim-flow-continue) {
+    width: min(100%, 1090px) !important;
+  }
+}
+
 .sim-flow-continue .resume-hero {
+  position: relative;
+  width: min(100%, 1052px);
   min-height: 540px;
+  margin: 0 auto;
   align-content: center;
   padding-top: 0;
+}
+
+.resume-hero__close {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #8b95a1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .resume-hero__close:hover {
+    background: #f4f5f8;
+    color: #475569;
+  }
 }
 
 .sim-flow-continue .resume-hero img {
@@ -527,23 +593,38 @@ async function confirm() {
   font-size: 23px;
 }
 
-.resume-actions {
+.resume-actions,
+:global(#app .app-shell main .resume-actions) {
+  width: min(100%, 1052px) !important;
+  grid-template-columns: 1fr !important;
   gap: 14px;
-  margin-top: 0;
+  margin: 32px auto 0 !important;
 }
 
 .resume-actions .sim-btn,
-.resume-actions .resume-reset {
+.resume-actions .resume-reset,
+:global(#app .app-shell main .resume-actions .sim-btn),
+:global(#app .app-shell main .resume-actions .resume-reset) {
+  width: 100%;
   min-height: 64px;
   border-radius: 14px;
-  font-size: 17px;
-  font-weight: 800;
-  box-shadow: 0 2px 6px rgb(20 30 60 / 16%);
+  font-size: var(--type-action-size) !important;
+}
+
+.resume-actions .sim-btn,
+:global(#app .app-shell main .resume-actions .sim-btn) {
+  font-weight: var(--type-action-weight) !important;
+}
+
+.resume-actions .resume-reset,
+:global(#app .app-shell main .resume-actions .resume-reset) {
+  font-weight: var(--type-action-secondary-weight) !important;
 }
 
 .resume-actions .resume-reset {
   border: 1px solid #dfe4ee;
   background: #fff;
+  box-shadow: none;
   color: #777;
 }
 
@@ -1107,13 +1188,6 @@ async function confirm() {
   box-shadow: none;
 }
 
-.sim-flow-categories > .buttie-transition {
-  border: 0;
-  background: none !important;
-  background-image: none !important;
-  box-shadow: none;
-}
-
 .sim-flow-categories .period-grid input[type='date'] {
   position: relative;
   width: 100%;
@@ -1160,19 +1234,24 @@ async function confirm() {
     line-height: 1.35;
   }
 
-  .sim-flow-categories > .sim-subtitle {
+  .category-intro-card {
+    margin-top: 22px;
+    padding: 24px 40px;
+  }
+
+  .category-intro-card > .sim-subtitle {
     margin-top: 4px;
     font-size: 13px;
   }
 
-  .sim-flow-categories > .buttie-transition {
+  .category-intro-card > .buttie-transition {
     display: grid;
     width: 100%;
     min-height: 128px;
     grid-template-columns: 1fr 64px 1fr;
     align-items: center;
-    margin: 18px 0 28px;
-    padding: 0 116px;
+    margin: 18px 0 0;
+    padding: 0 76px;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -1201,7 +1280,7 @@ async function confirm() {
 
   .sim-flow-categories > .period-section {
     width: 100%;
-    margin: 0;
+    margin: 22px 0 0;
   }
 
   .sim-flow-categories > .period-section h2 {
@@ -1313,10 +1392,30 @@ async function confirm() {
   }
 
   .resume-actions .sim-btn,
-  .resume-actions .resume-reset {
+  .resume-actions .resume-reset,
+  :global(#app .app-shell main .resume-actions .sim-btn),
+  :global(#app .app-shell main .resume-actions .resume-reset) {
     min-height: 58px;
     border-radius: 12px;
-    font-size: 15px;
+    font-size: var(--type-action-size) !important;
+  }
+
+  .resume-actions .sim-btn,
+  :global(#app .app-shell main .resume-actions .sim-btn) {
+    font-weight: var(--type-action-weight) !important;
+  }
+
+  .resume-actions .resume-reset,
+  :global(#app .app-shell main .resume-actions .resume-reset) {
+    font-weight: var(--type-action-secondary-weight) !important;
+  }
+
+  .resume-actions .resume-reset .mobile-only,
+  .resume-actions .resume-reset .desktop-only,
+  :global(#app .app-shell main .resume-actions .resume-reset .mobile-only),
+  :global(#app .app-shell main .resume-actions .resume-reset .desktop-only) {
+    font-size: inherit !important;
+    font-weight: inherit !important;
   }
 }
 
@@ -1338,28 +1437,28 @@ async function confirm() {
 }
 
 .sim-flow-categories > .wizard-title em {
-  color: #b37f0c;
+  color: inherit;
   font-style: normal;
 }
 
-.sim-flow-categories > .sim-subtitle {
-  margin-top: 5px;
+.category-intro-card > .sim-subtitle {
+  margin-top: 0;
   color: var(--muted);
   font-size: 15px;
   line-height: 1.6;
 }
 
-.sim-flow-categories > .buttie-transition {
+.category-intro-card > .buttie-transition {
   display: grid;
   width: 100%;
   min-height: 158px;
   grid-template-columns: 1fr 70px 1fr;
   align-items: center;
-  margin: 14px 0;
-  padding: 14px 30px 12px;
-  border: 1px solid rgb(190 160 50 / 16%);
-  border-radius: 24px;
-  background: #fff !important;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none !important;
   background-image: none !important;
   box-shadow: none;
 }
@@ -1407,19 +1506,19 @@ async function confirm() {
 .sim-flow-categories .buttie-transition > b {
   display: flex;
   align-items: center;
+  justify-content: center;
   color: #d99b19;
   font-size: 25px;
   font-weight: 500;
 }
 
 .sim-flow-categories .buttie-transition > b i {
-  width: 38px;
-  border-top: 2px dashed currentColor;
+  display: none;
 }
 
 .sim-flow-categories > .period-section {
   width: 100%;
-  margin: 0;
+  margin: 16px 0 0;
   padding: 15px 18px 17px;
   border: 1px solid rgb(0 0 0 / 6%);
   border-radius: 20px;
@@ -1452,8 +1551,8 @@ async function confirm() {
   border-radius: 999px;
   background: #fff;
   color: #57503f;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--type-button-choice-size) !important;
+  font-weight: var(--type-button-choice-weight) !important;
 }
 
 .sim-flow-categories .period-presets button.active {
@@ -1528,16 +1627,19 @@ async function confirm() {
     font-size: 22px !important;
   }
 
-  .sim-flow-categories > .sim-subtitle {
+  .category-intro-card > .sim-subtitle {
     font-size: 14px;
   }
 
-  .sim-flow-categories > .buttie-transition {
+  .category-intro-card > .buttie-transition {
     min-height: 148px;
     grid-template-columns: 1fr 48px 1fr;
-    margin: 12px 0;
-    padding: 12px 10px 10px;
-    border-radius: 20px;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+
+  .category-intro-card {
+    padding: 14px 14px 16px;
   }
 
   .sim-flow-categories .buttie-transition img {
@@ -1575,33 +1677,6 @@ async function confirm() {
     min-height: 54px;
     margin-top: 16px;
     font-size: 17px;
-  }
-}
-
-@media (min-width: 768px) {
-  .sim-flow-categories > .simulation-back-button {
-    display: inline-flex !important;
-    width: 48px !important;
-    height: 45px !important;
-    min-width: 48px !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    margin: 0 0 20px !important;
-    padding: 0 !important;
-    color: transparent !important;
-    font-size: 0 !important;
-    font-weight: 900 !important;
-    line-height: 0.8 !important;
-    text-align: left !important;
-  }
-
-  .sim-flow-categories > .simulation-back-button::before {
-    width: 13px;
-    height: 13px;
-    border-bottom: 5px solid #222;
-    border-left: 5px solid #222;
-    content: '';
-    transform: rotate(45deg);
   }
 }
 
