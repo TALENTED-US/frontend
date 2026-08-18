@@ -300,13 +300,21 @@ function openPolicyDetail(item) {
         class="result-card"
       >
         <div class="result-card__summary">
-          <h3>{{ item.title }}</h3>
-          <p>상세 지원 조건과 필요 서류를 확인해 보세요.</p>
+          <h3 :title="item.title">{{ item.title }}</h3>
         </div>
         <div class="result-card__facts">
-          <span><small>지원 금액</small><strong>{{ item.benefit }}</strong></span>
-          <span><small>지원 기간</small><strong>{{ item.supportPeriod }}</strong></span>
-          <span><small>신청 마감</small><strong>{{ item.deadline }}</strong></span>
+          <span>
+            <small><AppIcon name="wallet" :size="14" />지원 금액</small>
+            <strong :title="item.benefit">{{ item.benefit }}</strong>
+          </span>
+          <span>
+            <small><AppIcon name="calendar" :size="14" />지원 기간</small>
+            <strong :title="item.supportPeriod">{{ item.supportPeriod }}</strong>
+          </span>
+          <span>
+            <small><AppIcon name="clock" :size="14" />신청 마감</small>
+            <strong :title="item.deadline">{{ item.deadline }}</strong>
+          </span>
         </div>
         <button
           class="result-card__detail"
@@ -496,7 +504,7 @@ function openPolicyDetail(item) {
 }
 .result-card {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(420px, auto) auto;
+  grid-template-columns: minmax(180px, 1fr) 480px auto;
   min-height: 132px;
   align-items: center;
   gap: 22px;
@@ -539,47 +547,52 @@ function openPolicyDetail(item) {
 .policy-pagination button {
   display: grid;
   width: 32px;
-  height: 36px;
+  height: 32px;
   padding: 0;
   place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: white;
-  color: #5f6570;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #8b95a1;
   font-size: 13px;
   transition: 0.15s ease;
 }
 .policy-pagination__pages {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 .policy-pagination button.is-active {
-  border-color: var(--primary);
   background: var(--primary);
   color: white;
   font-weight: 700;
 }
-.policy-pagination button:not(:disabled):hover {
-  border-color: var(--primary);
+.policy-pagination button:not(:disabled):not(.is-active):hover {
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .policy-pagination .policy-pagination__arrow {
-  font-size: 22px;
+  color: #b0b7c3;
+  font-size: 20px;
 }
 .policy-pagination button:disabled {
-  color: #bbb;
+  color: #d5d9e0;
   cursor: not-allowed;
-  opacity: 0.55;
 }
 .result-card__summary {
   display: grid;
-  gap: 10px;
+  align-content: center;
+  min-width: 0;
 }
 .result-card h3 {
+  display: -webkit-box;
+  overflow: hidden;
   color: #222;
   font-size: 16px;
   font-weight: var(--type-item-weight);
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
-.result-card p,
 .result-card small {
   color: var(--type-supporting-color);
   font-size: var(--type-supporting-size);
@@ -587,23 +600,35 @@ function openPolicyDetail(item) {
 }
 .result-card__facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(105px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .result-card__facts > span {
   display: grid;
-  min-height: 68px;
-  align-content: center;
-  gap: 5px;
-  padding: 10px 13px;
-  border-radius: 12px;
-  background: #f7f8fb;
+  min-width: 0;
+  gap: 6px;
+  padding: 0 18px;
+  border-left: 1px solid var(--border);
+}
+.result-card__facts > span:first-child {
+  padding-left: 0;
+  border-left: 0;
 }
 .result-card__facts small {
-  color: #737b89;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #8b95a1;
+}
+.result-card__facts small :deep(svg) {
+  flex: none;
+  color: #b0b7c3;
 }
 .result-card__facts strong {
+  overflow: hidden;
+  color: #222;
+  font-size: 15px;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .result-card__detail {
   display: inline-flex;
@@ -740,11 +765,15 @@ function openPolicyDetail(item) {
   }
   .result-card__facts {
     grid-template-columns: 1fr;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
   }
   .result-card__facts > span {
-    min-height: 54px;
-    grid-template-columns: 78px 1fr;
+    grid-template-columns: 1fr auto;
     align-items: center;
+    padding: 0;
+    border-left: 0;
   }
   .result-card__detail {
     min-height: 42px;
@@ -756,7 +785,6 @@ function openPolicyDetail(item) {
     color: #222;
     font-size: 16px;
   }
-  .result-card p,
   .result-card small {
     font-size: var(--type-supporting-size);
   }
