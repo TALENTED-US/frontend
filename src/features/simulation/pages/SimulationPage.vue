@@ -321,7 +321,7 @@ onMounted(async () => {
 .simulation-banner__copy { display: flex; min-width: 0; flex-direction: column; }
 .simulation-banner__copy > small { color: #b08a16; font-size: 15px; font-weight: 600; }
 .simulation-banner__copy h2,
-:global(#app .app-shell main .simulation-banner__copy h2) { margin-top: 18px; color: var(--text); font-size: clamp(32px, 3vw, 40px) !important; font-weight: 800 !important; letter-spacing: -1.1px; line-height: 1.36; }
+:global(#app .app-shell main .simulation-banner__copy h2) { margin-top: 18px; color: var(--text); font-size: var(--type-page-title-size) !important; font-weight: var(--type-page-title-weight) !important; letter-spacing: -1.1px; line-height: 1.36; }
 .simulation-banner__benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 32px; padding: 0; list-style: none; }
 .simulation-banner__benefits li { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 8px; border-radius: 15px; background: #f7f8fb; text-align: center; color: #3e3930; font-size: 15px; font-weight: 600; }
 .simulation-banner__benefits li b { color: #b37f0c; font-size: 15px; font-weight: 800; }
@@ -331,8 +331,8 @@ onMounted(async () => {
 .simulation-banner__character p::after { position: absolute; top: 50%; right: -7px; width: 13px; height: 13px; margin-top: -7px; border-top: 1px solid rgb(190 160 50 / 22%); border-right: 1px solid rgb(190 160 50 / 22%); background: #fff; content: ''; transform: rotate(45deg); }
 .simulation-banner__character img { width: 210px; height: auto; }
 .simulation-banner__action > button { display: flex; width: 100%; height: 50px; min-height: 50px; flex: none; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 18px; background: #fbedb0; box-shadow: 0 2px 6px rgb(20 30 60 / 16%); color: #0a1680; font-size: 16px; font-weight: 700; transition: background .16s ease; }
-@media (hover: hover) { .simulation-banner__action > button:hover:not(:disabled) { background: #f1b94c; } }
-.simulation-banner__action > button:active:not(:disabled) { background: #f1b94c; }
+@media (hover: hover) { .simulation-banner__action > button:hover:not(:disabled) { background: #f7e48f; box-shadow: 0 4px 12px rgb(241 185 76 / 35%); } }
+.simulation-banner__action > button:active:not(:disabled) { background: #f1dc7c; box-shadow: none; transform: translateY(1px); }
 .simulation-banner__action > button:disabled { cursor: wait; opacity: .6; }
 .simulation-banner__action > button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
 .simulation-result-banner { display: grid; min-height: 210px; grid-template-columns: minmax(300px,1fr) minmax(390px,1.2fr); align-items: center; gap: 48px; padding: 34px 40px; border-radius: 28px; background: linear-gradient(105deg,#fff4cf 0%,#fff8df 55%,#fff1c5 100%); box-shadow: 0 2px 16px rgb(120 100 20 / 7%); }
@@ -352,7 +352,8 @@ onMounted(async () => {
 .simulation-result-banner__periods > b { color: #c1b8a4; font-size: 21px; text-align: center; }
 .simulation-result-banner__periods > i { padding: 7px 9px; border: 1px solid #f1d994; border-radius: 999px; background: white; color: #b17a00; font-size: 11px; font-style: normal; font-weight: 900; text-align: center; white-space: nowrap; }
 .simulation-result-banner__summary > button { display: inline-flex; width: auto; height: 38px; min-width: 154px; min-height: 38px; align-items: center; justify-content: center; gap: 6px; justify-self: end; padding: 0 16px; border: 0; border-radius: 11px; background: #fbedb0; box-shadow: 0 2px 6px rgb(20 30 60 / 16%); color: #0a1680; font-size: 16px; font-weight: 700; }
-@media (hover: hover) { .simulation-result-banner__summary > button:hover:not(:disabled) { background: #f1b94c; } }
+@media (hover: hover) { .simulation-result-banner__summary > button:hover:not(:disabled) { background: #f7e48f; box-shadow: 0 4px 12px rgb(241 185 76 / 35%); } }
+.simulation-result-banner__summary > button:active:not(:disabled) { background: #f1dc7c; box-shadow: none; transform: translateY(1px); }
 .simulation-quest-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .simulation-quest-heading h2 { font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); }
 .simulation-quest-card { padding: 22px 24px 18px; border: 1px solid #e1e4ea; border-radius: 22px; background: white; box-shadow: 0 2px 8px rgb(0 0 0 / 10%); }

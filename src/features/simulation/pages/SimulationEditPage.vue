@@ -755,6 +755,27 @@ async function createNewSimulation() {
     width: min(100%, 1066px);
     padding: 28px 0 80px;
   }
+  .simulation-edit-shell,
+  :global(#app .app-shell main .simulation-edit-shell) {
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .simulation-edit-hero,
+  :global(#app .app-shell main .simulation-edit-hero) {
+    padding: 6px 0 24px !important;
+    background: transparent !important;
+  }
+  .simulation-edit-body,
+  :global(#app .app-shell main .simulation-edit-body) {
+    padding: 0 0 32px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
   .simulation-edit-intro h1 {
     font-size: 28px;
   }

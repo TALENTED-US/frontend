@@ -100,5 +100,16 @@ watch(
     min-height: 100dvh;
     padding: 0;
   }
+
+  /* Desktop layout does not reflow/shrink below this width — narrower
+     windows get a horizontal scrollbar instead, like a fixed-width desktop
+     site. Only the mobile breakpoint above gets a truly fluid layout. */
+  .app-shell {
+    min-width: 1240px;
+  }
+
+  .app-shell__body {
+    min-width: 1024px;
+  }
 }
 </style>

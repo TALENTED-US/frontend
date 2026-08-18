@@ -179,6 +179,14 @@ async function confirm() {
   <section class="page sim-page sim-wizard" :class="`sim-flow-${step}`">
     <template v-if="step === 'continue'">
       <div class="resume-hero">
+        <button
+          class="resume-hero__close"
+          type="button"
+          aria-label="처음부터 다시 시작하기"
+          @click="reset"
+        >
+          <AppIcon name="close" :size="20" />
+        </button>
         <img :src="stableImage" alt="다시 찾아온 버티" />
         <h1>시뮬레이션을 하는 중이었어요.<br />이어서 만드시겠어요?</h1>
       </div>
@@ -269,6 +277,14 @@ async function confirm() {
     </template>
 
     <template v-else>
+      <button
+        class="sim-back simulation-back-button desktop-only"
+        type="button"
+        aria-label="뒤로가기"
+        @click="router.push('/simulation/policy/preview')"
+      >
+        <AppIcon name="chevron-left" :size="22" />
+      </button>
       <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
 
       <div class="final-result" :aria-busy="preparingResult">
@@ -403,9 +419,32 @@ async function confirm() {
 }
 
 .sim-flow-continue .resume-hero {
+  position: relative;
   min-height: 540px;
   align-content: center;
   padding-top: 0;
+}
+
+.resume-hero__close {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #8b95a1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .resume-hero__close:hover {
+    background: #f4f5f8;
+    color: #475569;
+  }
 }
 
 .sim-flow-continue .resume-hero img {
@@ -1109,14 +1148,14 @@ async function confirm() {
 .sim-flow-categories .buttie-transition > b {
   display: flex;
   align-items: center;
+  justify-content: center;
   color: #d99b19;
   font-size: 25px;
   font-weight: 500;
 }
 
 .sim-flow-categories .buttie-transition > b i {
-  width: 38px;
-  border-top: 2px dashed currentColor;
+  display: none;
 }
 
 .sim-flow-categories > .period-section {
@@ -1277,33 +1316,6 @@ async function confirm() {
     min-height: 54px;
     margin-top: 16px;
     font-size: 17px;
-  }
-}
-
-@media (min-width: 768px) {
-  .sim-flow-categories > .simulation-back-button {
-    display: inline-flex !important;
-    width: 48px !important;
-    height: 45px !important;
-    min-width: 48px !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    margin: 0 0 20px !important;
-    padding: 0 !important;
-    color: transparent !important;
-    font-size: 0 !important;
-    font-weight: 900 !important;
-    line-height: 0.8 !important;
-    text-align: left !important;
-  }
-
-  .sim-flow-categories > .simulation-back-button::before {
-    width: 13px;
-    height: 13px;
-    border-bottom: 5px solid #222;
-    border-left: 5px solid #222;
-    content: '';
-    transform: rotate(45deg);
   }
 }
 

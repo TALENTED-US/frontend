@@ -2510,7 +2510,8 @@ const targetMonthText = computed(() =>
   }
 
   .level-overview {
-    max-width: 520px;
+    max-width: none;
+    width: 100%;
   }
 }
 

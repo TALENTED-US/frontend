@@ -1655,11 +1655,15 @@ function skip() {
   }
 
   .sim-category-page .expense-analysis-card {
+    display: flex;
+    flex-direction: column;
     padding: clamp(22px, 3vw, 30px);
   }
 
   .sim-category-page .expense-analysis-body {
+    flex: 1;
     grid-template-columns: minmax(240px, 3fr) minmax(150px, 2fr);
+    align-content: center;
     gap: 18px;
     margin-top: 8px;
   }
@@ -1761,13 +1765,13 @@ function skip() {
   border-radius: 13px;
   background: #fff8d8;
   color: #9298a4;
-  font-size: 9px;
+  font-size: 14px;
 }
 
 .policy-condition-grid strong {
   overflow: hidden;
   color: #222;
-  font-size: 11px;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2037,13 +2041,20 @@ function skip() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #777e89;
-  font-size: 10px;
+  color: #222222;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.policy-selected-card footer p > span {
+  color: #222222;
+  font-weight: 700;
 }
 
 .policy-selected-card footer strong {
-  color: #222;
-  font-size: 11px;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .policy-catalog-scroll {
@@ -2199,7 +2210,7 @@ function skip() {
   grid-template-columns: 82px minmax(0, 1fr);
   gap: 10px;
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .policy-detail-panel p > span {
@@ -2356,6 +2367,10 @@ function skip() {
     font-weight: var(--type-field-label-weight);
   }
 
+  .sim-category-page .income-form-heading {
+    margin-bottom: -6px;
+  }
+
   .sim-category-page input.income-field,
   .sim-category-page .income-money-field input,
   .sim-category-page .income-money-field b {
@@ -2470,11 +2485,6 @@ function skip() {
 }
 
 @media (min-width: 768px) {
-  .sim-category-page > .sim-back {
-    font-size: 48px;
-    font-weight: 900;
-  }
-
   .sim-category-page > .wizard-progress-tabs {
     width: 100%;
     padding-right: 0;
@@ -2643,7 +2653,7 @@ function skip() {
 }
 
 .sim-category-page .policy-selected-card footer strong {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 @media (max-width: 767px) {
