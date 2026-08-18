@@ -388,6 +388,159 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* [보류] develop 브랜치 병합 시 충돌했던 배너 CSS 원본 그대로 보관 (미적용, 삭제하지 않음).
+   주석 처리라 실제 스타일에는 영향 없음. 채택 여부 결정되면 주석 해제하거나 삭제.
+.simulation-banner {
+  position: relative;
+  display: grid;
+  min-height: max(500px, calc(100dvh - var(--header-height) - 210px));
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 432px);
+  gap: 48px;
+  overflow: hidden;
+  padding: 56px;
+  border-radius: 28px;
+  background: linear-gradient(105deg, #fff3c4 0%, #fff8de 34%, #fffdf6 62%, #fff 100%);
+  box-shadow: 0 2px 16px rgb(120 100 20 / 7%);
+}
+.simulation-banner::after {
+  position: absolute;
+  top: -140px;
+  right: -80px;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 220 110 / 30%), rgb(255 220 110 / 0%) 70%);
+  content: '';
+  pointer-events: none;
+}
+.simulation-banner__copy,
+.simulation-banner__action {
+  position: relative;
+  z-index: 1;
+}
+.simulation-banner__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.simulation-banner__copy > small {
+  color: #b08a16;
+  font-size: 15px;
+  font-weight: 600;
+}
+.simulation-banner__copy h2 {
+  margin-top: 18px;
+  color: var(--text);
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -1.1px;
+  line-height: 1.36;
+}
+.simulation-banner__copy > p {
+  margin-top: 20px;
+  color: #7c7568;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  line-height: 1.65;
+}
+.simulation-banner__benefits {
+  display: grid;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 36px;
+}
+.simulation-banner__benefits li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #3e3930;
+  font-size: 17px;
+  font-weight: 600;
+}
+.simulation-banner__benefits i {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+}
+.simulation-banner__benefits i.expense {
+  background: #ffe9a8;
+  color: #b37f0c;
+}
+.simulation-banner__benefits i.income {
+  background: #dcf0d6;
+  color: #43823a;
+}
+.simulation-banner__benefits i.policy {
+  background: #e4e6fa;
+  color: #5257c4;
+}
+.simulation-banner__benefits svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+.simulation-banner__action {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 28px;
+}
+.simulation-banner__character {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+}
+.simulation-banner__action > button {
+  display: flex;
+  width: 100%;
+  height: 50px;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 18px;
+  background: #f1b94c;
+  box-shadow: 0 4px 0 rgb(198 160 30 / 35%);
+  color: #3a3222;
+  font-size: 20px;
+  font-weight: 700;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+.simulation-banner__action > button:hover:not(:disabled) {
+  background: #e5ac3c;
+  box-shadow: 0 6px 0 rgb(198 160 30 / 35%);
+  transform: translateY(-2px);
+}
+.simulation-banner__action > button:active:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(198 160 30 / 35%);
+  transform: translateY(2px);
+}
+.simulation-result-banner__summary > button {
+  border: 1px solid #efd28e;
+  border-radius: 11px;
+  background: #ffebbd;
+  box-shadow: none;
+  color: #6e571f;
+  font-size: 12px;
+  font-weight: 700;
+}
+.simulation-result-banner__summary > button:hover:not(:disabled) {
+  background: #ffe3a1;
+}
+*/
+
 .simulation-banner,
 :global(#app .app-shell main .simulation-banner) { position: relative; display: flex; min-height: max(420px,calc(100dvh - var(--header-height) - 280px)); flex-direction: column; gap: 0; padding: 28px 20px 24px; border: 1px solid #eceef3 !important; border-radius: 15px !important; background: white; box-shadow: var(--shadow-figma); }
 .simulation-banner__copy,.simulation-banner__action { position: relative; z-index: 1; }
