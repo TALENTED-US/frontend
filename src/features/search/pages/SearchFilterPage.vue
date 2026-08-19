@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { policyFilterGroups, readFilters, toFilterQuery } from '@/features/search/policyData'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -47,7 +48,9 @@ function applyFilters() {
 
 <template>
   <section class="page filter-page">
-    <button class="filter-back" type="button" @click="router.back()">‹ 정책 상세 필터</button>
+    <button class="filter-back" type="button" @click="router.back()">
+      <AppIcon name="chevron-left" :size="22" />정책 상세 필터
+    </button>
     <p>필요한 조건을 선택해 결과를 좁혀보세요.</p>
     <div class="filter-tip">
       연령은 프로필 정보로 자동 반영돼요. 지역은 필요한 경우 직접 선택해 주세요.
@@ -97,6 +100,9 @@ function applyFilters() {
   padding-bottom: 5px;
 }
 .filter-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: #222;
   font-size: var(--type-page-title-size);
   font-weight: var(--type-page-title-weight);

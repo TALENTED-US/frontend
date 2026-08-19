@@ -721,7 +721,13 @@ watch(month, () => {
 })
 
 onMounted(async () => {
-  await Promise.allSettled([loadTransactions(), loadSelectedCalendar(), loadFixedExpenseSummary()])
+  await Promise.allSettled([
+    loadTransactions(),
+    loadSelectedCalendar(),
+    loadFixedExpenseSummary(),
+    simulation.hydrateRunwayBaseline(),
+    simulation.hydrateConfirmed(),
+  ])
 })
 </script>
 
@@ -755,7 +761,7 @@ onMounted(async () => {
       <button type="button" @click="reloadFinanceData">다시 시도</button>
     </p>
 
-    <section class="ledger" :class="{ 'ledger--calendar-open': calendarOpen }">
+    <section v-else class="ledger" :class="{ 'ledger--calendar-open': calendarOpen }">
       <div class="ledger__topbar">
         <div class="month-control">
           <button
@@ -986,7 +992,11 @@ onMounted(async () => {
           >
             <template v-if="listExpanded">거래 내역 접기</template>
             <template v-else>나머지 {{ hiddenRowCount }}건 더보기</template>
-            <span :class="{ 'is-open': listExpanded }">⌄</span>
+            <span
+              class="list-toggle__chevron"
+              :class="{ 'is-open': listExpanded }"
+              aria-hidden="true"
+            ></span>
           </button>
         </template>
 
@@ -2032,13 +2042,19 @@ input {
   font-weight: 850;
 }
 
-.list-toggle > span {
-  font-size: 17px;
+.list-toggle__chevron {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transform-origin: center;
   transition: transform 0.2s ease;
 }
 
-.list-toggle > span.is-open {
-  transform: rotate(180deg);
+.list-toggle__chevron.is-open {
+  transform: rotate(225deg);
 }
 
 .date-divider strong {
@@ -2581,18 +2597,21 @@ input {
   background: #f0f2f5;
 }
 
-.type-toggle button {
+.type-toggle button,
+:global(#app .app-shell main .type-toggle button) {
   height: 44px;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: #8b95a1;
-  font-weight: 800;
+  font-size: 13px !important;
+  font-weight: 800 !important;
 }
 
-.type-toggle button.active {
-  background: #fff;
-  color: var(--primary);
+.type-toggle button.active,
+:global(#app .app-shell main .type-toggle button.active) {
+  background: var(--accent) !important;
+  color: var(--primary) !important;
   box-shadow: 0 2px 8px rgb(32 42 74 / 10%);
 }
 
@@ -2656,7 +2675,8 @@ input {
   gap: 12px;
 }
 
-.sheet__primary {
+.sheet__primary,
+:global(#app .app-shell main .sheet__primary) {
   width: 100%;
   height: 54px;
   margin-top: 24px;
@@ -2664,7 +2684,8 @@ input {
   border-radius: 14px;
   background: var(--accent-strong);
   color: var(--primary);
-  font-weight: 900;
+  font-size: 15px !important;
+  font-weight: 700 !important;
 }
 
 .sheet__primary:disabled {
@@ -2751,10 +2772,12 @@ input {
     content: '';
   }
 
-  .filter-scroll button {
+  .filter-scroll button,
+  :global(#app .app-shell main .filter-scroll button) {
     height: 36px;
     padding: 0 16px;
-    font-size: 13px;
+    font-size: 13px !important;
+    font-weight: 700 !important;
   }
 
   .flow-summary {
@@ -2869,7 +2892,7 @@ input {
 
   .flow-summary > button span {
     grid-column: 1;
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .flow-summary > button strong {

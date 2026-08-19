@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminPolicyCategories, adminPolicyRegions } from '@/features/admin/data/adminMockData'
 import { createAdminPolicy, getAdminPolicy, updateAdminPolicy } from '@/features/admin/api/policyApi'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,7 +45,9 @@ onMounted(load)
 
 <template>
   <section class="admin-policy-form">
-    <RouterLink to="/admin/policies" class="admin-policy-form__back">‹ 정부지원정책 관리</RouterLink>
+    <RouterLink to="/admin/policies" class="admin-policy-form__back"
+      ><AppIcon name="chevron-left" :size="20" />정부지원정책 관리</RouterLink
+    >
     <header class="admin-policy-form__header">
       <div>
         <h1>정책 등록·수정</h1>
@@ -144,6 +147,9 @@ onMounted(load)
 
 <style scoped>
 .admin-policy-form__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: var(--font-small);
 }

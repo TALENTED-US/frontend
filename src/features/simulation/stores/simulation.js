@@ -159,11 +159,16 @@ export const useSimulationStore = defineStore('simulation', () => {
   const remoteSimulation = ref(null)
   const runwayBaseline = ref(null)
   const currentFinancialAssets = ref(null)
+  const financialSnapshotLoading = ref(false)
+  const financialSnapshotError = ref('')
+  const runwayBaselineError = ref('')
   const recentConfirmed = ref(null)
   const remoteDraftExists = ref(null)
   const policyCatalog = ref([])
   const policyCatalogLoading = ref(false)
   const policyCatalogError = ref('')
+  const aiPlanPrompt = ref('')
+  const aiPlanRecommendations = ref(null)
   const policyCatalogPageInfo = ref({
     page: 1,
     size: 10,
@@ -214,8 +219,11 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!remoteEnabled) return null
     if (!force && financialSnapshotRequest) return financialSnapshotRequest
 
+    financialSnapshotLoading.value = true
+    financialSnapshotError.value = ''
     financialSnapshotRequest = Promise.allSettled([getMyDataAssetsApi(), loadTransactions(force)])
-      .then(([assetsResult]) => {
+      .then(([assetsResult, transactionsResult]) => {
+        const errors = []
         if (assetsResult.status === 'fulfilled') {
           const accounts = Array.isArray(assetsResult.value?.accounts)
             ? assetsResult.value.accounts
@@ -223,10 +231,20 @@ export const useSimulationStore = defineStore('simulation', () => {
           currentFinancialAssets.value = accounts
             .filter((account) => account.isConsent !== false)
             .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
+        } else {
+          currentFinancialAssets.value = null
+          errors.push(assetsResult.reason?.message || '총자산을 불러오지 못했습니다.')
         }
+
+        if (transactionsResult.status === 'rejected') {
+          errors.push(transactionsResult.reason?.message || '거래 내역을 불러오지 못했습니다.')
+        }
+
+        financialSnapshotError.value = [...new Set(errors)].join(' ')
         return currentFinancialAssets.value
       })
       .finally(() => {
+        financialSnapshotLoading.value = false
         financialSnapshotRequest = null
       })
     return financialSnapshotRequest
@@ -237,12 +255,17 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!force && runwayBaseline.value) return runwayBaseline.value
     if (runwayBaselineRequest) return runwayBaselineRequest
 
+    runwayBaselineError.value = ''
     runwayBaselineRequest = getButtieDashboardApi()
       .then((data) => {
         runwayBaseline.value = data
         return data
       })
-      .catch(() => null)
+      .catch((error) => {
+        runwayBaseline.value = null
+        runwayBaselineError.value = error.message || '버티는 기간을 불러오지 못했습니다.'
+        return null
+      })
       .finally(() => {
         runwayBaselineRequest = null
       })
@@ -1098,14 +1121,31 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
     if (changed) state.completedQuestIds = [...new Set(migrated)]
   }
-  function resetScenario() {
+  function resetScenario({ clearFinancialData = false } = {}) {
     Object.assign(state, defaultState())
     remoteReport.value = null
     remoteSimulation.value = null
     clearConfirmedSnapshot()
     remoteDraftExists.value = null
+    if (clearFinancialData) {
+      runwayBaseline.value = null
+      currentFinancialAssets.value = null
+      financialSnapshotError.value = ''
+      runwayBaselineError.value = ''
+    }
     invalidateRemoteLookups()
     syncError.value = ''
+    clearAiPlanRecommendations()
+  }
+
+  function setAiPlanRecommendations(prompt, recommendations) {
+    aiPlanPrompt.value = String(prompt || '').trim()
+    aiPlanRecommendations.value = recommendations || null
+  }
+
+  function clearAiPlanRecommendations() {
+    aiPlanPrompt.value = ''
+    aiPlanRecommendations.value = null
   }
 
   function prepareNewScenario() {
@@ -1297,30 +1337,30 @@ export const useSimulationStore = defineStore('simulation', () => {
         const response = await getLatestConfirmedSimulationApi()
         const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
 
-      const restored = restoreConfirmedSnapshot()
-      const canReuseClientSnapshot =
-        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
-        restored.simulationId === remoteConfirmed.simulationId &&
-        restored.confirmedAt === remoteConfirmed.confirmedAt &&
-        Number.isFinite(Number(restored.currentMonths)) &&
-        Number.isFinite(Number(restored.expectedMonths))
-      let confirmed
+        const restored = restoreConfirmedSnapshot()
+        const canReuseClientSnapshot =
+          restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
+          restored.simulationId === remoteConfirmed.simulationId &&
+          restored.confirmedAt === remoteConfirmed.confirmedAt &&
+          Number.isFinite(Number(restored.currentMonths)) &&
+          Number.isFinite(Number(restored.expectedMonths))
+        let confirmed
 
-      if (canReuseClientSnapshot) {
-        confirmed = {
-          ...restored,
-          ...remoteConfirmed,
-          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        if (canReuseClientSnapshot) {
+          confirmed = {
+            ...restored,
+            ...remoteConfirmed,
+            clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+          }
+          applyConfirmedItems(confirmed)
+        } else {
+          confirmed = {
+            ...remoteConfirmed,
+            clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+          }
+          applyConfirmedItems(confirmed)
+          recentConfirmed.value = null
         }
-        applyConfirmedItems(confirmed)
-      } else {
-        confirmed = {
-          ...remoteConfirmed,
-          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
-        }
-        applyConfirmedItems(confirmed)
-        recentConfirmed.value = null
-      }
 
         remoteSimulation.value = response
         remoteReport.value = null
@@ -1546,6 +1586,8 @@ export const useSimulationStore = defineStore('simulation', () => {
     policyCatalogLoading,
     policyCatalogError,
     policyCatalogPageInfo,
+    aiPlanPrompt,
+    aiPlanRecommendations,
     totalAssets,
     availableAssets,
     monthlyIncome,
@@ -1574,7 +1616,12 @@ export const useSimulationStore = defineStore('simulation', () => {
     hasDraft,
     syncing,
     syncError,
+    financialSnapshotLoading,
+    financialSnapshotError,
+    runwayBaselineError,
     clearSyncError,
+    setAiPlanRecommendations,
+    clearAiPlanRecommendations,
     remoteReport,
     runwayBaseline,
     recentConfirmed,

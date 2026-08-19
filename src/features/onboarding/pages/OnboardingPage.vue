@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
+import AppFooter from '@/components/navigation/AppFooter.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import FinancialInstitutionLogo from '@/components/ui/FinancialInstitutionLogo.vue'
 import buttieLoadingImage from '@/assets/images/onboarding/buttie-loading.png'
@@ -52,10 +53,26 @@ const regions = [
   '제주특별자치도',
 ]
 
+function formatDateInput(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function addMonthsClamped(date, months) {
+  const target = new Date(date.getFullYear(), date.getMonth() + months, 1)
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
+  target.setDate(Math.min(date.getDate(), lastDay))
+  return target
+}
+
+const onboardingDate = new Date()
 const form = ref({
   type: '첫취업',
-  startDate: '2026-07-22',
-  targetDate: '2027-01-01',
+  startDate: formatDateInput(onboardingDate),
+  targetDate: formatDateInput(addMonthsClamped(onboardingDate, 6)),
   region: '서울특별시',
   household: 1,
   minimumLivingFund: '',
@@ -878,6 +895,7 @@ async function next() {
       </template>
     </section>
   </main>
+  <AppFooter class="desktop-only" />
 </template>
 
 <style scoped>

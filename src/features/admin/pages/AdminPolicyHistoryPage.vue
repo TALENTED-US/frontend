@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { getAdminPolicyHistory, getAdminPolicyReviewQueue, setPolicyReviewExcluded } from '@/features/admin/api/policyApi'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const TYPE_LABEL = { auto: '자동 수집', manual: '수정' }
 
@@ -39,7 +40,9 @@ onMounted(load)
 
 <template>
   <section class="admin-policy-history">
-    <RouterLink to="/admin/policies" class="admin-policy-history__back">‹ 정부지원정책 관리</RouterLink>
+    <RouterLink to="/admin/policies" class="admin-policy-history__back"
+      ><AppIcon name="chevron-left" :size="20" />정부지원정책 관리</RouterLink
+    >
     <header class="admin-policy-history__header">
       <div>
         <h1>정책 변경 이력·검수</h1>
@@ -79,6 +82,9 @@ onMounted(load)
 
 <style scoped>
 .admin-policy-history__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: var(--font-small);
 }

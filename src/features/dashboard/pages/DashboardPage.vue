@@ -35,6 +35,10 @@ const dashboardApiLoading = ref(false)
 const financialAssets = ref(null)
 const financialAssetsError = ref('')
 const showMyDataConnectModal = ref(false)
+const dashboardMonth = new Date()
+const dashboardCalendarKey = `${dashboardMonth.getFullYear()}-${String(
+  dashboardMonth.getMonth() + 1,
+).padStart(2, '0')}`
 
 function isMyDataConnected() {
   return session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
@@ -105,17 +109,21 @@ async function loadFinancialAssets() {
   }
 }
 
+async function loadDashboardCalendar() {
+  if (session.isMockMode) return
+  try {
+    await loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true)
+  } catch {
+    // calendarState.error를 화면에 표시하므로 여기서는 재전파하지 않는다.
+  }
+}
+
 onMounted(async () => {
-  const dashboardMonth = new Date()
   await Promise.all([
     loadButtieDashboard(),
     loadFinancialAssets(),
     loadTransactions().catch(() => null),
-    session.isMockMode
-      ? Promise.resolve()
-      : loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true).catch(
-          () => null,
-        ),
+    loadDashboardCalendar(),
   ])
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
@@ -299,15 +307,27 @@ const totalAssets = computed(() =>
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
 )
+const hasDashboardCalendarSummary = computed(
+  () =>
+    session.isMockMode ||
+    (calendarState.loaded &&
+      calendarState.key === dashboardCalendarKey &&
+      !calendarState.loading &&
+      !calendarState.error),
+)
 const monthlyExpense = computed(() =>
   session.isMockMode
     ? recentFinancialAnalysis.value.monthlyExpense
-    : finiteNumberOrNull(calendarState.totalExpense),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.totalExpense)
+      : null,
 )
 const monthlyIncome = computed(() =>
   session.isMockMode
     ? recentFinancialAnalysis.value.monthlyIncome
-    : finiteNumberOrNull(calendarState.totalIncome),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.totalIncome)
+      : null,
 )
 const hasConfirmedSimulationDurations = computed(
   () =>
@@ -626,9 +646,11 @@ const financialRiskAmount = computed(
       ? Math.round(initialAssets.value * 0.2)
       : null),
 )
-const financialSafetyBuffer = computed(() =>
-  Math.max(0, (Number(totalAssets.value) || 0) - (Number(financialRiskAmount.value) || 0)),
-)
+const financialSafetyBuffer = computed(() => {
+  const assets = finiteNumberOrNull(totalAssets.value)
+  const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
+  return assets === null || riskAmount === null ? null : Math.max(0, assets - riskAmount)
+})
 const hasReachedFinancialRiskAmount = computed(() => {
   const assets = finiteNumberOrNull(totalAssets.value)
   const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
@@ -637,9 +659,14 @@ const hasReachedFinancialRiskAmount = computed(() => {
 const netCashFlow = computed(() =>
   session.isMockMode
     ? monthlyIncome.value - monthlyExpense.value
-    : finiteNumberOrNull(calendarState.netCashFlow),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.netCashFlow)
+      : null,
 )
-const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
+const monthlyNetChange = computed(() => {
+  const value = finiteNumberOrNull(netCashFlow.value)
+  return value === null ? null : Math.abs(value)
+})
 const monthlyNetChangeLabel = computed(() => {
   if (netCashFlow.value > 0) return '매달 들어오는 금액'
   if (netCashFlow.value < 0) return '매달 나가는 금액'
@@ -744,6 +771,12 @@ const targetMonthText = computed(() =>
       <span>{{ financialAssetsError }}</span>
       <button type="button" @click="loadFinancialAssets">다시 시도</button>
     </div>
+    <div v-if="calendarState.error" class="dashboard-api-notice" role="alert">
+      <span>{{ calendarState.error }}</span>
+      <button type="button" :disabled="calendarState.loading" @click="loadDashboardCalendar">
+        {{ calendarState.loading ? '불러오는 중' : '다시 시도' }}
+      </button>
+    </div>
 
     <section class="survival-section" aria-labelledby="survival-title">
       <h2 id="survival-title" class="mobile-only section-label">버티 현황</h2>
@@ -844,18 +877,18 @@ const targetMonthText = computed(() =>
             <article>
               <span>{{ monthlyNetChangeLabel }}</span>
               <strong :class="{ 'is-positive': netCashFlow > 0 }">
-                {{ formatCompactWon(monthlyNetChange) }}
+                {{ formatOptionalCompactWon(monthlyNetChange) }}
               </strong>
             </article>
           </div>
           <div class="dashboard-report__cashflow" aria-label="월평균 수입과 지출">
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--income">
               <span>{{ session.isMockMode ? '월평균 수입' : '이번 달 수입' }}</span>
-              <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
+              <strong>{{ formatOptionalCompactWon(monthlyIncome) }}</strong>
             </div>
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--expense">
               <span>{{ session.isMockMode ? '월평균 지출' : '이번 달 지출' }}</span>
-              <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
+              <strong>{{ formatOptionalCompactWon(monthlyExpense) }}</strong>
             </div>
           </div>
           <p class="dashboard-report__notice">
@@ -876,14 +909,12 @@ const targetMonthText = computed(() =>
       <section class="goal-section">
         <div class="section-head section-head--goal">
           <h2>목표 정보</h2>
+          <RouterLink :to="{ name: 'jobInfo' }">수정하기 <span>›</span></RouterLink>
         </div>
         <article class="goal-card">
           <section class="goal-card__item">
             <header>
               <span>목표 취업일</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'goal-date' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <strong class="goal-card__value">{{ targetDateDisplayText }}</strong>
             <div class="goal-card__progress">
@@ -897,21 +928,18 @@ const targetMonthText = computed(() =>
           <section class="goal-card__item">
             <header>
               <span>재정 위험까지 남은 금액</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <div class="goal-card__amount-row">
               <strong
                 class="goal-card__value"
                 :class="{ 'goal-card__value--warning': hasReachedFinancialRiskAmount }"
-                >{{ formatCompactWon(financialSafetyBuffer) }}</strong
+                >{{ formatOptionalCompactWon(financialSafetyBuffer) }}</strong
               >
             </div>
             <p class="goal-card__risk-caption">
               현재 {{ formatOptionalCompactWon(totalAssets) }}
               <span aria-hidden="true">·</span>
-              위험 기준 {{ formatCompactWon(financialRiskAmount) }}
+              위험 기준 {{ formatOptionalCompactWon(financialRiskAmount) }}
             </p>
           </section>
         </article>
@@ -1734,18 +1762,12 @@ const targetMonthText = computed(() =>
 }
 
 .goal-card__item header span,
-.goal-card__item header a,
 .goal-card__item footer span,
 .goal-card__amount-row > span,
 .goal-card__item p {
   color: var(--type-supporting-color);
   font-size: var(--type-supporting-size);
   font-weight: var(--type-supporting-weight);
-}
-
-.goal-card__item header a {
-  color: #666;
-  white-space: nowrap;
 }
 
 .goal-card__value {
@@ -2559,9 +2581,27 @@ const targetMonthText = computed(() =>
   line-height: 1.6;
 }
 .quest-empty a {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin-top: 8px;
-  color: var(--accent-strong);
-  font-weight: 800;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 18px;
+  background: #fbedb0;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 16%);
+  color: #0a1680;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background .16s ease;
+}
+@media (hover: hover) {
+  .quest-empty a:hover {
+    background: #f1b94c;
+  }
 }
 
 .block-heading--goal a {
@@ -2700,7 +2740,6 @@ const targetMonthText = computed(() =>
   .survival-card__legend {
     margin-top: 9px;
     color: #666;
-    font-size: 11px;
   }
 
   .survival-card__character-panel {
@@ -2785,11 +2824,25 @@ const targetMonthText = computed(() =>
   }
 
   .level-overview {
-    max-width: 520px;
+    max-width: none;
+    width: 100%;
   }
 }
 
 @media (max-width: 767px) {
+  .survival-card__metric span,
+  .dashboard-report__summary article span,
+  .dashboard-report__cashflow-item span,
+  .goal-card__item header span {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .survival-card__legend small,
+  :global(#app .app-shell main .survival-card__legend small) {
+    font-size: 12px !important;
+  }
+
   .dashboard__top {
     display: block;
     margin-bottom: 16px;
@@ -2827,7 +2880,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card {
-    min-height: 556px;
+    min-height: 576px;
     border-radius: 20px;
   }
 
@@ -2839,10 +2892,11 @@ const targetMonthText = computed(() =>
     left: 17px;
   }
 
-  .survival-card__intro h3 {
+  .survival-card__intro h3,
+  :global(#app .app-shell main .survival-card__intro h3) {
     max-width: 290px;
-    font-size: 23px;
-    font-weight: var(--type-page-title-weight);
+    font-size: var(--type-page-title-size) !important;
+    font-weight: var(--type-page-title-weight) !important;
     line-height: 1.35;
   }
 
@@ -2901,10 +2955,12 @@ const targetMonthText = computed(() =>
     width: calc(100% - 34px);
   }
 
-  .survival-card__progress-area b {
+  .survival-card__progress-area b,
+  :global(#app .app-shell main .survival-card__progress-area b) {
     display: flex;
     justify-content: space-between;
     margin-bottom: 9px;
+    font-size: 13px !important;
   }
 
   .survival-card__progress {
@@ -2965,7 +3021,7 @@ const targetMonthText = computed(() =>
   .survival-card__message p {
     position: absolute;
     right: 18px;
-    bottom: 13px;
+    top: 172px;
     left: 18px;
     color: var(--type-supporting-color);
     font-size: var(--type-supporting-size);
@@ -3026,9 +3082,10 @@ const targetMonthText = computed(() =>
     font-size: 16px;
   }
 
-  .dashboard-report__notice {
+  .dashboard-report__notice,
+  :global(#app .app-shell main .dashboard-report__notice) {
     padding: 9px 14px;
-    font-size: 12px;
+    font-size: 13px !important;
   }
 
   .summary__grid {

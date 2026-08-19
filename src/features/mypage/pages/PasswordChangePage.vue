@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -45,7 +46,7 @@ async function changePassword() {
       type="button"
       @click="router.push('/mypage/security')"
     >
-      ‹ 비밀번호·보안
+      <AppIcon name="chevron-left" :size="22" />비밀번호·보안
     </button>
 
     <div class="password-change-form">
@@ -99,6 +100,9 @@ async function changePassword() {
 }
 
 .password-change-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-bottom: 54px;
   color: #666;
   font-size: var(--font-card-title);
