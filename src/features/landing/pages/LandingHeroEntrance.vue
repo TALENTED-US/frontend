@@ -83,18 +83,41 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="!finished" ref="flight" class="hero-flight-title" aria-hidden="true">
-    <span class="hero-title-line">
-      <span class="hero-title-first-word hero-flight-drop">취준,</span>
-      <span class="hero-flight-write hero-flight-write-first">감으로</span>
-    </span>
-    <em class="hero-title-second-line hero-flight-second-line">
-      <span class="hero-flight-write hero-flight-write-second">버티지 마세요.</span>
-    </em>
-  </div>
+  <template v-if="!finished">
+    <div class="hero-flight-backdrop" aria-hidden="true"></div>
+    <div ref="flight" class="hero-flight-title" aria-hidden="true">
+      <span class="hero-title-line">
+        <span class="hero-title-first-word hero-flight-drop">취준,</span>
+        <span class="hero-flight-write hero-flight-write-first">감으로</span>
+      </span>
+      <em class="hero-title-second-line hero-flight-second-line">
+        <span class="hero-flight-write hero-flight-write-second">버티지 마세요.</span>
+      </em>
+    </div>
+  </template>
 </template>
 
 <style scoped>
+/* 인트로 전용 배경. 글자가 나는 동안 실제 페이지(nav·마스코트 등)를 가려
+   깨끗한 인트로 화면을 만들고, 착지 시점(~3.34s)에 페이드아웃되며 페이지를 드러낸다.
+   배경 톤은 랜딩(#f5f7f9)과 같아 사라질 때 이음새가 보이지 않는다. */
+.hero-flight-backdrop {
+  position: fixed;
+  z-index: 9998;
+  inset: 0;
+  pointer-events: none;
+  background-color: #f5f7f9;
+  background-image:
+    radial-gradient(circle at 50% 40%, rgb(255 249 223 / 72%), transparent 46%),
+    linear-gradient(to right, rgb(10 22 128 / 6%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(10 22 128 / 6%) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    25% 100%,
+    100% 25%;
+  animation: hero-backdrop-out 0.44s cubic-bezier(0.4, 0, 0.2, 1) 2.9s both;
+}
+
 .hero-flight-title {
   position: fixed;
   z-index: 9999;
@@ -111,17 +134,27 @@ onBeforeUnmount(() => {
   color: #0a1680 !important;
 }
 
-.hero-flight-title[data-ready='true'] { opacity: 1; }
-.hero-title-line { display: flex; align-items: baseline; gap: .14em; }
-.hero-title-first-word { position: relative; z-index: 0; display: inline-block; }
+.hero-flight-title[data-ready='true'] {
+  opacity: 1;
+}
+.hero-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.14em;
+}
+.hero-title-first-word {
+  position: relative;
+  z-index: 0;
+  display: inline-block;
+}
 .hero-title-first-word::after {
   content: '';
   position: absolute;
   z-index: -1;
   right: -4%;
-  bottom: .02em;
+  bottom: 0.02em;
   left: -4%;
-  height: .13em;
+  height: 0.13em;
   border-radius: 999px;
   background: #f1b94c;
   transform-origin: center;
@@ -129,12 +162,12 @@ onBeforeUnmount(() => {
 
 .hero-flight-drop {
   transform-origin: center bottom;
-  animation: hero-title-drop-in 1s cubic-bezier(.2,.85,.28,1.18) .18s both;
+  animation: hero-title-drop-in 1s cubic-bezier(0.2, 0.85, 0.28, 1.18) 0.18s both;
 }
 
 .hero-flight-drop::after {
   transform: scaleX(0);
-  animation: hero-title-thud .35s ease-out .95s both;
+  animation: hero-title-thud 0.35s ease-out 0.95s both;
 }
 
 .hero-flight-write {
@@ -145,8 +178,16 @@ onBeforeUnmount(() => {
   clip-path: inset(0 100% 0 0);
 }
 
-.hero-flight-write-first { animation: hero-title-write-in .68s steps(7, end) 1.18s both; }
-.hero-title-second-line { position: relative; z-index: 0; display: block; width: max-content; font-style: normal; }
+.hero-flight-write-first {
+  animation: hero-title-write-in 0.68s steps(7, end) 1.18s both;
+}
+.hero-title-second-line {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: max-content;
+  font-style: normal;
+}
 .hero-title-second-line::after {
   content: '';
   position: absolute;
@@ -163,32 +204,75 @@ onBeforeUnmount(() => {
 
 .hero-flight-second-line::after {
   transform: rotate(-1deg) scaleX(0);
-  animation: hero-flight-line-in .34s ease-out 2.38s both;
+  animation: hero-flight-line-in 0.34s ease-out 2.38s both;
 }
 
-.hero-flight-write-second { animation: hero-title-write-in .82s steps(9, end) 1.72s both; }
+.hero-flight-write-second {
+  animation: hero-title-write-in 0.82s steps(9, end) 1.72s both;
+}
 
 @keyframes hero-title-drop-in {
-  0% { opacity: 0; transform: translateY(-78vh) rotate(-7deg) scale(.92); }
-  62% { opacity: 1; transform: translateY(15px) rotate(1deg) scale(1.07, .9); }
-  78% { transform: translateY(-24px) rotate(-.5deg) scale(.98, 1.04); }
-  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(-78vh) rotate(-7deg) scale(0.92);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(15px) rotate(1deg) scale(1.07, 0.9);
+  }
+  78% {
+    transform: translateY(-24px) rotate(-0.5deg) scale(0.98, 1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0) scale(1);
+  }
 }
 
 @keyframes hero-title-thud {
-  0% { opacity: 0; transform: scaleX(0); }
-  55% { opacity: 1; transform: scaleX(1.12); }
-  100% { opacity: 1; transform: scaleX(1); }
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  55% {
+    opacity: 1;
+    transform: scaleX(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
 }
 
-@keyframes hero-flight-line-in { to { transform: rotate(-1deg) scaleX(1); } }
+@keyframes hero-flight-line-in {
+  to {
+    transform: rotate(-1deg) scaleX(1);
+  }
+}
 @keyframes hero-title-write-in {
-  0% { opacity: 1; clip-path: inset(0 100% 0 0); transform: translateX(-10px); }
-  100% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateX(0); }
+  0% {
+    opacity: 1;
+    clip-path: inset(0 100% 0 0);
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateX(0);
+  }
+}
+
+@keyframes hero-backdrop-out {
+  to {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-flight-title { display: none; }
+  .hero-flight-title,
+  .hero-flight-backdrop {
+    display: none;
+  }
 }
 </style>
 
