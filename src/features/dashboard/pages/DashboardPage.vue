@@ -35,6 +35,10 @@ const dashboardApiLoading = ref(false)
 const financialAssets = ref(null)
 const financialAssetsError = ref('')
 const showMyDataConnectModal = ref(false)
+const dashboardMonth = new Date()
+const dashboardCalendarKey = `${dashboardMonth.getFullYear()}-${String(
+  dashboardMonth.getMonth() + 1,
+).padStart(2, '0')}`
 
 function isMyDataConnected() {
   return session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
@@ -105,17 +109,21 @@ async function loadFinancialAssets() {
   }
 }
 
+async function loadDashboardCalendar() {
+  if (session.isMockMode) return
+  try {
+    await loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true)
+  } catch {
+    // calendarState.error를 화면에 표시하므로 여기서는 재전파하지 않는다.
+  }
+}
+
 onMounted(async () => {
-  const dashboardMonth = new Date()
   await Promise.all([
     loadButtieDashboard(),
     loadFinancialAssets(),
     loadTransactions().catch(() => null),
-    session.isMockMode
-      ? Promise.resolve()
-      : loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true).catch(
-          () => null,
-        ),
+    loadDashboardCalendar(),
   ])
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
@@ -299,15 +307,27 @@ const totalAssets = computed(() =>
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
 )
+const hasDashboardCalendarSummary = computed(
+  () =>
+    session.isMockMode ||
+    (calendarState.loaded &&
+      calendarState.key === dashboardCalendarKey &&
+      !calendarState.loading &&
+      !calendarState.error),
+)
 const monthlyExpense = computed(() =>
   session.isMockMode
     ? recentFinancialAnalysis.value.monthlyExpense
-    : finiteNumberOrNull(calendarState.totalExpense),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.totalExpense)
+      : null,
 )
 const monthlyIncome = computed(() =>
   session.isMockMode
     ? recentFinancialAnalysis.value.monthlyIncome
-    : finiteNumberOrNull(calendarState.totalIncome),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.totalIncome)
+      : null,
 )
 const hasConfirmedSimulationDurations = computed(
   () =>
@@ -626,9 +646,11 @@ const financialRiskAmount = computed(
       ? Math.round(initialAssets.value * 0.2)
       : null),
 )
-const financialSafetyBuffer = computed(() =>
-  Math.max(0, (Number(totalAssets.value) || 0) - (Number(financialRiskAmount.value) || 0)),
-)
+const financialSafetyBuffer = computed(() => {
+  const assets = finiteNumberOrNull(totalAssets.value)
+  const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
+  return assets === null || riskAmount === null ? null : Math.max(0, assets - riskAmount)
+})
 const hasReachedFinancialRiskAmount = computed(() => {
   const assets = finiteNumberOrNull(totalAssets.value)
   const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
@@ -637,9 +659,14 @@ const hasReachedFinancialRiskAmount = computed(() => {
 const netCashFlow = computed(() =>
   session.isMockMode
     ? monthlyIncome.value - monthlyExpense.value
-    : finiteNumberOrNull(calendarState.netCashFlow),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.netCashFlow)
+      : null,
 )
-const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
+const monthlyNetChange = computed(() => {
+  const value = finiteNumberOrNull(netCashFlow.value)
+  return value === null ? null : Math.abs(value)
+})
 const monthlyNetChangeLabel = computed(() => {
   if (netCashFlow.value > 0) return '매달 들어오는 금액'
   if (netCashFlow.value < 0) return '매달 나가는 금액'
@@ -744,6 +771,12 @@ const targetMonthText = computed(() =>
       <span>{{ financialAssetsError }}</span>
       <button type="button" @click="loadFinancialAssets">다시 시도</button>
     </div>
+    <div v-if="calendarState.error" class="dashboard-api-notice" role="alert">
+      <span>{{ calendarState.error }}</span>
+      <button type="button" :disabled="calendarState.loading" @click="loadDashboardCalendar">
+        {{ calendarState.loading ? '불러오는 중' : '다시 시도' }}
+      </button>
+    </div>
 
     <section class="survival-section" aria-labelledby="survival-title">
       <h2 id="survival-title" class="mobile-only section-label">버티 현황</h2>
@@ -844,18 +877,18 @@ const targetMonthText = computed(() =>
             <article>
               <span>{{ monthlyNetChangeLabel }}</span>
               <strong :class="{ 'is-positive': netCashFlow > 0 }">
-                {{ formatCompactWon(monthlyNetChange) }}
+                {{ formatOptionalCompactWon(monthlyNetChange) }}
               </strong>
             </article>
           </div>
           <div class="dashboard-report__cashflow" aria-label="월평균 수입과 지출">
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--income">
               <span>{{ session.isMockMode ? '월평균 수입' : '이번 달 수입' }}</span>
-              <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
+              <strong>{{ formatOptionalCompactWon(monthlyIncome) }}</strong>
             </div>
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--expense">
               <span>{{ session.isMockMode ? '월평균 지출' : '이번 달 지출' }}</span>
-              <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
+              <strong>{{ formatOptionalCompactWon(monthlyExpense) }}</strong>
             </div>
           </div>
           <p class="dashboard-report__notice">
@@ -900,13 +933,13 @@ const targetMonthText = computed(() =>
               <strong
                 class="goal-card__value"
                 :class="{ 'goal-card__value--warning': hasReachedFinancialRiskAmount }"
-                >{{ formatCompactWon(financialSafetyBuffer) }}</strong
+                >{{ formatOptionalCompactWon(financialSafetyBuffer) }}</strong
               >
             </div>
             <p class="goal-card__risk-caption">
               현재 {{ formatOptionalCompactWon(totalAssets) }}
               <span aria-hidden="true">·</span>
-              위험 기준 {{ formatCompactWon(financialRiskAmount) }}
+              위험 기준 {{ formatOptionalCompactWon(financialRiskAmount) }}
             </p>
           </section>
         </article>

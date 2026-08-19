@@ -5,11 +5,27 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
 import { financeState, loadTransactions } from '@/features/finance/financeStore'
 import { policyFilterGroups, toPolicySearchRequest } from '@/features/search/policyData'
-import { normalizePolicyRegion } from '@/mappers/policy'
+import { mapPolicyResponse, normalizePolicyRegion } from '@/mappers/policy'
+import { expenseCategoryLabel } from '@/constants/expenseCategories'
+import {
+  getCustomRecommendationsApi,
+  getExpenseRecommendationsApi,
+  getIncomeRecommendationsApi,
+  getPolicyRecommendationsApi,
+  getSimulationRecommendationsApi,
+} from '@/api/simulation'
 import '@/features/simulation/styles/simulation.css'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AiPolicyAssistant from '@/features/simulation/components/AiPolicyAssistant.vue'
+import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
+import {
+  aiRecommendationTargets,
+  filterExpenseRecommendationsForPrompt,
+  normalizeCategoryRecommendationResponse,
+  targetedRecommendationCategories,
+} from '@/features/simulation/utils/aiRecommendationScope'
+import assistantAvatar from '@/assets/images/simulation/buttie-ai-assistant.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,6 +67,11 @@ const form = reactive({
   cycle: '매월',
 })
 const editingIncomeId = ref(null)
+const aiRecommendations = ref(null)
+const usingCustomAiRecommendations = ref(false)
+const aiRecommendationLoading = ref(false)
+const aiRecommendationError = ref('')
+const aiIncomeAmounts = reactive({})
 const selectedExpenseId = ref('식비')
 const expenseAmount = ref('')
 const activeExpense = computed(
@@ -102,8 +123,9 @@ const policyPageNumbers = computed(() => {
   const currentPage = simulation.policyCatalogPageInfo.page || 1
   if (!totalPages) return []
   const groupStart = Math.floor((currentPage - 1) / 5) * 5 + 1
-  return Array.from({ length: Math.min(5, totalPages - groupStart + 1) }, (_, index) =>
-    groupStart + index,
+  return Array.from(
+    { length: Math.min(5, totalPages - groupStart + 1) },
+    (_, index) => groupStart + index,
   )
 })
 const jobTypeLabel = computed(() =>
@@ -124,6 +146,222 @@ const policyApplicationPeriod = (policy) => policy.deadline || policy.dueDate ||
 const isEditingConfirmedScenario = computed(
   () => Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
 )
+
+const aiExpenseRecommendations = computed(() =>
+  (aiRecommendations.value?.financialRecommendation?.recommendations || [])
+    .map((item, index) => {
+      const name = expenseCategoryLabel(item?.category || item?.expenseCategory)
+      const expense = simulation.state.expenses.find(
+        (entry) => entry.name === name || entry.expenseCategory === item?.category,
+      )
+      const suggestedAmount = Math.floor((Number(item?.suggestedMonthlyAmount) || 0) / 100) * 100
+      return {
+        id: `${item?.category || name}-${index}`,
+        expenseId: expense?.id,
+        name,
+        title: item?.title || `${name} 지출 줄이기`,
+        reason: item?.reason || '최근 소비 내역을 바탕으로 추천한 절약 목표예요.',
+        current: Number(expense?.current) || 0,
+        amount: Math.min(Number(expense?.current) || 0, suggestedAmount),
+      }
+    })
+    .filter((item) => item.expenseId && item.amount > 0)
+    .slice(0, 3),
+)
+
+const aiIncomeRecommendations = computed(() =>
+  (aiRecommendations.value?.incomeRecommendation?.jobs || [])
+    .filter((item) => item && (item.title || item.company))
+    .map((item, index) => {
+      const suggestedAmount = Number(
+        item.suggestedMonthlyAmount || item.monthlyAmount || item.monthlyIncome || item.amount,
+      )
+      return {
+        ...item,
+        id: item.url || `${item.title || item.company}-${index}`,
+        suggestedAmount,
+        hasSuggestedAmount: Number.isFinite(suggestedAmount) && suggestedAmount > 0,
+      }
+    })
+    .slice(0, 3),
+)
+
+const aiPolicyRecommendations = computed(() =>
+  (aiRecommendations.value?.policyRecommendations || [])
+    .map(mapPolicyResponse)
+    .filter(Boolean)
+    .slice(0, 3),
+)
+
+const activeAiRecommendations = computed(() => {
+  if (category.value === 'expense') return aiExpenseRecommendations.value
+  if (category.value === 'income') return aiIncomeRecommendations.value
+  return aiPolicyRecommendations.value
+})
+
+const aiRecommendationCopy = computed(
+  () =>
+    ({
+      expense: {
+        title: 'AI 지출 절약 추천',
+        description: '최근 소비 내역을 바탕으로 실천 가능한 목표를 추천했어요.',
+        empty: '현재 추가할 수 있는 지출 절약 추천이 없어요.',
+      },
+      income: {
+        title: 'AI 수입 늘리기 추천',
+        description: '내 조건에 맞는 일자리와 수입 계획을 추천했어요.',
+        empty: '현재 조건에 맞는 수입 추천이 없어요.',
+      },
+      policy: {
+        title: 'AI 맞춤 정책 추천',
+        description: '프로필과 재정 상태를 바탕으로 정책을 추천했어요.',
+        empty: '현재 추가할 수 있는 맞춤 정책 추천이 없어요.',
+      },
+    })[category.value],
+)
+
+const aiRecommendationDescription = computed(() => {
+  const prompt = simulation.aiPlanPrompt
+  if (!prompt || !usingCustomAiRecommendations.value) return aiRecommendationCopy.value.description
+  return `“${prompt}” 컨셉을 바탕으로 추천했어요.`
+})
+
+function scopedCustomRecommendations(recommendations, currentCategory, prompt) {
+  if (!recommendations || !prompt) return null
+
+  const targets = aiRecommendationTargets(prompt)
+  const financialItems = recommendations?.financialRecommendation?.recommendations || []
+  const incomeItems = recommendations?.incomeRecommendation?.jobs || []
+  const policyItems = recommendations?.policyRecommendations || []
+  const responseHasCategory = {
+    expense: financialItems.length > 0,
+    income: incomeItems.length > 0,
+    policy: policyItems.length > 0,
+  }
+  const hasExplicitTarget = Object.values(targets).some(Boolean)
+
+  if (hasExplicitTarget ? !targets[currentCategory] : !responseHasCategory[currentCategory]) {
+    return null
+  }
+
+  if (currentCategory !== 'expense') return recommendations
+
+  return filterExpenseRecommendationsForPrompt(recommendations, prompt)
+}
+
+async function requestCustomRecommendationsForCategory(currentCategory, prompt) {
+  const targetCategories = targetedRecommendationCategories(prompt)
+  if (targetCategories.length !== 1) return getCustomRecommendationsApi(prompt)
+
+  const response =
+    currentCategory === 'expense'
+      ? await getExpenseRecommendationsApi(prompt)
+      : currentCategory === 'income'
+        ? await getIncomeRecommendationsApi(prompt)
+        : await getPolicyRecommendationsApi(prompt)
+  return normalizeCategoryRecommendationResponse(currentCategory, response)
+}
+
+function aiRecommendationErrorMessage(error) {
+  if (error?.status === 503) return 'AI 추천을 지금 생성할 수 없어요. 잠시 후 다시 시도해 주세요.'
+  if (error?.status === 401) return '로그인 정보가 없어 AI 추천을 불러오지 못했어요.'
+  return error?.message || 'AI 추천을 불러오지 못했어요.'
+}
+
+async function loadAiRecommendations(regenerate = false) {
+  if (aiRecommendationLoading.value) return
+
+  const storedCustomRecommendations = scopedCustomRecommendations(
+    simulation.aiPlanRecommendations,
+    category.value,
+    simulation.aiPlanPrompt,
+  )
+
+  if (!regenerate && storedCustomRecommendations) {
+    aiRecommendations.value = storedCustomRecommendations
+    usingCustomAiRecommendations.value = true
+    aiRecommendationError.value = ''
+    return
+  }
+
+  aiRecommendationLoading.value = true
+  aiRecommendationError.value = ''
+  try {
+    if (regenerate && storedCustomRecommendations) {
+      const recommendations = await requestCustomRecommendationsForCategory(
+        category.value,
+        simulation.aiPlanPrompt,
+      )
+      simulation.setAiPlanRecommendations(simulation.aiPlanPrompt, recommendations)
+      aiRecommendations.value =
+        scopedCustomRecommendations(recommendations, category.value, simulation.aiPlanPrompt) ||
+        recommendations
+      usingCustomAiRecommendations.value = true
+    } else {
+      aiRecommendations.value = await getSimulationRecommendationsApi()
+      usingCustomAiRecommendations.value = false
+    }
+  } catch (error) {
+    aiRecommendationError.value = aiRecommendationErrorMessage(error)
+  } finally {
+    aiRecommendationLoading.value = false
+  }
+}
+
+function aiExpenseSelected(item) {
+  const expense = simulation.state.expenses.find((entry) => entry.id === item.expenseId)
+  return Boolean(expense?.selected && Number(expense.saving) === Number(item.amount))
+}
+
+async function addAiExpense(item) {
+  if (aiExpenseSelected(item) || simulation.syncing) return
+  await simulation.saveExpenseGoal(item.expenseId, item.amount)
+}
+
+function aiIncomeAmount(item) {
+  const enteredAmount = Number(aiIncomeAmounts[item.id])
+  if (enteredAmount > 0) return enteredAmount
+  return Number.isFinite(item.suggestedAmount) && item.suggestedAmount > 0
+    ? item.suggestedAmount
+    : 0
+}
+
+function updateAiIncomeAmount(item, event) {
+  const digits = String(event.target.value || '').replace(/\D/g, '')
+  aiIncomeAmounts[item.id] = digits ? String(Number(digits)) : ''
+  event.target.value = moneyInput(aiIncomeAmounts[item.id])
+}
+
+function aiIncomeSelected(item) {
+  return simulation.state.incomes.some(
+    (income) =>
+      income.aiRecommendationId === item.id || (item.url && income.sourceUrl === item.url),
+  )
+}
+
+function addAiIncome(item) {
+  const amount = aiIncomeAmount(item)
+  if (!amount || aiIncomeSelected(item) || simulation.syncing) return
+  simulation.addIncome({
+    name: item.title || item.company || 'AI 추천 수입 계획',
+    amount,
+    type: 'monthly',
+    startDate: simulation.state.startDate,
+    cycle: '매월',
+    sourceUrl: item.url || '',
+    aiRecommendationId: item.id,
+    remoteSynced: false,
+  })
+}
+
+function aiPolicySelected(policy) {
+  return simulation.state.policies.some((item) => item.id === policy.id)
+}
+
+function addAiPolicy(policy) {
+  if (aiPolicySelected(policy) || simulation.syncing) return
+  simulation.togglePolicy(policy)
+}
 
 function profilePolicyFilters() {
   // 현재 정책 API는 REEMPLOYMENT를 받으면 CATALOG_005를 반환한다.
@@ -225,8 +463,15 @@ watch(
   { immediate: true },
 )
 
-watch(category, (value, previousValue) => {
+watch(category, async (value, previousValue) => {
   if (value === 'policy' && previousValue !== 'policy') simulation.loadPolicyCatalog()
+  if (!previousValue || value === previousValue) return
+
+  aiRecommendations.value = null
+  usingCustomAiRecommendations.value = false
+  aiRecommendationError.value = ''
+  await simulation.hydrateCategory(value)
+  await loadAiRecommendations()
 })
 
 onMounted(async () => {
@@ -238,6 +483,7 @@ onMounted(async () => {
   }
   if (category.value === 'policy') await simulation.loadPolicyCatalog()
   await simulation.hydrateCategory(category.value)
+  await loadAiRecommendations()
 })
 
 const donutStyle = computed(() => {
@@ -580,6 +826,50 @@ function skip() {
         </div>
       </section>
 
+      <section class="ai-inline-recommendations" aria-live="polite">
+        <header>
+          <img :src="assistantAvatar" alt="" aria-hidden="true" />
+          <div>
+            <h2>{{ aiRecommendationCopy.title }}</h2>
+            <p>{{ aiRecommendationDescription }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="aiRecommendationLoading"
+            aria-label="AI 지출 추천 다시 불러오기"
+            @click="loadAiRecommendations(true)"
+          >
+            ↻
+          </button>
+        </header>
+        <AiRecommendationLoader v-if="aiRecommendationLoading" />
+        <div v-else-if="aiRecommendationError" class="ai-inline-state ai-inline-state--error">
+          <span>{{ aiRecommendationError }}</span>
+          <button type="button" @click="loadAiRecommendations(true)">다시 시도</button>
+        </div>
+        <p v-else-if="!activeAiRecommendations.length" class="ai-inline-state">
+          {{ aiRecommendationCopy.empty }}
+        </p>
+        <div v-else class="ai-inline-list">
+          <article v-for="item in aiExpenseRecommendations" :key="item.id">
+            <div class="ai-inline-card-copy">
+              <span>{{ item.name }}</span>
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.reason }}</p>
+              <small>지난달 {{ money(item.current) }}원 · 월 {{ money(item.amount) }}원 절약</small>
+            </div>
+            <button
+              type="button"
+              :class="{ added: aiExpenseSelected(item) }"
+              :disabled="aiExpenseSelected(item) || simulation.syncing"
+              @click="addAiExpense(item)"
+            >
+              {{ aiExpenseSelected(item) ? '추가됨' : '+ 추가' }}
+            </button>
+          </article>
+        </div>
+      </section>
+
       <section class="added-expense-goals">
         <div class="section-heading">
           <h2><i />추가한 지출 절약 목표</h2>
@@ -696,6 +986,73 @@ function skip() {
           {{ editingIncomeId ? '수입 계획 수정하기' : '수입 계획 추가하기' }}
         </button>
       </form>
+      <section class="ai-inline-recommendations" aria-live="polite">
+        <header>
+          <img :src="assistantAvatar" alt="" aria-hidden="true" />
+          <div>
+            <h2>{{ aiRecommendationCopy.title }}</h2>
+            <p>{{ aiRecommendationDescription }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="aiRecommendationLoading"
+            aria-label="AI 수입 추천 다시 불러오기"
+            @click="loadAiRecommendations(true)"
+          >
+            ↻
+          </button>
+        </header>
+        <AiRecommendationLoader v-if="aiRecommendationLoading" />
+        <div v-else-if="aiRecommendationError" class="ai-inline-state ai-inline-state--error">
+          <span>{{ aiRecommendationError }}</span>
+          <button type="button" @click="loadAiRecommendations(true)">다시 시도</button>
+        </div>
+        <p v-else-if="!activeAiRecommendations.length" class="ai-inline-state">
+          {{ aiRecommendationCopy.empty }}
+        </p>
+        <div v-else class="ai-inline-list">
+          <article v-for="item in aiIncomeRecommendations" :key="item.id">
+            <div class="ai-inline-card-copy">
+              <span>{{ item.company || '추천 일자리' }}</span>
+              <strong>{{ item.title || '수입 늘리기 계획' }}</strong>
+              <p>
+                {{ item.region || '지역 정보 없음' }} ·
+                {{ item.employmentType || '고용 형태 확인 필요' }}
+              </p>
+              <small>
+                {{ item.pay || '급여는 공고에서 확인해 주세요.' }}
+                <template v-if="item.hasSuggestedAmount">
+                  · 예상 월수입 {{ money(item.suggestedAmount) }}원
+                </template>
+              </small>
+              <label v-if="!item.hasSuggestedAmount">
+                <span>예상 월수입</span>
+                <input
+                  :value="moneyInput(aiIncomeAmounts[item.id])"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="금액 입력"
+                  @input="updateAiIncomeAmount(item, $event)"
+                />
+                <b>원</b>
+              </label>
+            </div>
+            <div class="ai-inline-card-actions">
+              <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer"
+                >공고 보기</a
+              >
+              <button
+                type="button"
+                :class="{ added: aiIncomeSelected(item) }"
+                :disabled="!aiIncomeAmount(item) || aiIncomeSelected(item) || simulation.syncing"
+                @click="addAiIncome(item)"
+              >
+                {{ aiIncomeSelected(item) ? '추가됨' : '+ 추가' }}
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
       <section v-if="simulation.state.incomes.length" class="added-income-plans">
         <div class="section-heading">
           <h2><i />추가한 수입 계획</h2>
@@ -775,7 +1132,8 @@ function skip() {
           <h2>내 조건에 맞는 정책 모두 보기</h2>
           <div class="policy-profile-badges" aria-label="맞춤 정책 검색 조건">
             <span v-for="badge in appliedPolicyBadges" :key="`${badge.label}-${badge.value}`">
-              <small>{{ badge.label }}</small>{{ badge.value }}
+              <small>{{ badge.label }}</small
+              >{{ badge.value }}
             </span>
             <span v-if="policySupportAmount">
               <small>지원 금액</small>{{ policySupportAmount }}만원 이상
@@ -902,6 +1260,59 @@ function skip() {
             ›
           </button>
         </nav>
+      </section>
+
+      <section class="ai-inline-recommendations" aria-live="polite">
+        <header>
+          <img :src="assistantAvatar" alt="" aria-hidden="true" />
+          <div>
+            <h2>{{ aiRecommendationCopy.title }}</h2>
+            <p>{{ aiRecommendationDescription }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="aiRecommendationLoading"
+            aria-label="AI 정책 추천 다시 불러오기"
+            @click="loadAiRecommendations(true)"
+          >
+            ↻
+          </button>
+        </header>
+        <AiRecommendationLoader v-if="aiRecommendationLoading" />
+        <div v-else-if="aiRecommendationError" class="ai-inline-state ai-inline-state--error">
+          <span>{{ aiRecommendationError }}</span>
+          <button type="button" @click="loadAiRecommendations(true)">다시 시도</button>
+        </div>
+        <p v-else-if="!activeAiRecommendations.length" class="ai-inline-state">
+          {{ aiRecommendationCopy.empty }}
+        </p>
+        <div v-else class="ai-inline-list">
+          <article v-for="policy in aiPolicyRecommendations" :key="policy.id">
+            <div class="ai-inline-card-copy">
+              <span>맞춤 정책</span>
+              <strong>{{ policy.name }}</strong>
+              <p>{{ policy.benefit || policy.detail }}</p>
+              <p v-if="policy.recommendationReason" class="ai-policy-recommendation-reason">
+                <b>추천 이유</b>
+                {{ policy.recommendationReason }}
+              </p>
+              <small>신청 기한 {{ policy.deadline }}</small>
+            </div>
+            <div class="ai-inline-card-actions">
+              <a v-if="policy.url" :href="policy.url" target="_blank" rel="noopener noreferrer"
+                >상세 보기</a
+              >
+              <button
+                type="button"
+                :class="{ added: aiPolicySelected(policy) }"
+                :disabled="aiPolicySelected(policy) || simulation.syncing"
+                @click="addAiPolicy(policy)"
+              >
+                {{ aiPolicySelected(policy) ? '추가됨' : '+ 추가' }}
+              </button>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section class="policy-selected-card">
@@ -1112,6 +1523,253 @@ function skip() {
 .sim-category-page > .wizard-progress-tabs span.active {
   font-size: 13px;
   font-weight: 900;
+}
+
+.ai-inline-recommendations {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgb(26 42 153 / 12%);
+  border-radius: 22px;
+  background: linear-gradient(145deg, #f7f8ff, #fff);
+  box-shadow: 0 8px 24px rgb(26 42 153 / 7%);
+}
+
+.expense-target-card + .ai-inline-recommendations,
+.income-plan-form + .ai-inline-recommendations,
+.policy-catalog-scroll + .ai-inline-recommendations {
+  margin-top: 18px;
+}
+
+@media (min-width: 1280px) {
+  .sim-category-page > .expense-target-card + .ai-inline-recommendations {
+    grid-column: 1 / -1;
+    width: 100%;
+    box-sizing: border-box;
+    justify-self: stretch;
+  }
+}
+
+.ai-inline-recommendations > header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 34px;
+  gap: 11px;
+  align-items: center;
+}
+
+.ai-inline-recommendations > header > img {
+  display: block;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  object-fit: cover;
+}
+
+.ai-inline-recommendations > header h2 {
+  margin: 0;
+  color: #17203a;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.ai-inline-recommendations > header p {
+  margin: 4px 0 0;
+  color: #747d90;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ai-inline-recommendations > header > button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e3e6f1;
+  border-radius: 50%;
+  background: #fff;
+  color: #15239c;
+  font-size: 18px;
+}
+
+.ai-inline-recommendations > header > button:disabled {
+  opacity: 0.45;
+}
+
+.ai-inline-state {
+  margin: 0;
+  padding: 22px 14px;
+  border-radius: 14px;
+  background: #f3f4f8;
+  color: #737b8b;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.ai-inline-state--error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff1f1;
+  color: #b34b4b;
+  text-align: left;
+}
+
+.ai-inline-state--error button {
+  flex: none;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: #fff;
+  color: #9f3333;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ai-inline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-inline-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid #e8eaf3;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.ai-inline-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.ai-inline-card-copy > span {
+  color: #5662b4;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ai-inline-card-copy > strong {
+  overflow: hidden;
+  color: #20263a;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+}
+
+.ai-inline-card-copy > p,
+.ai-inline-card-copy > small {
+  margin: 0;
+  color: #747d8f;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.ai-inline-card-copy > small {
+  color: #4d5870;
+  font-weight: 700;
+}
+
+.ai-inline-card-copy > .ai-policy-recommendation-reason {
+  display: grid;
+  gap: 3px;
+  margin: 3px 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: #f3f4ff;
+  color: #4c5572;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ai-policy-recommendation-reason b {
+  color: #2634a7;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ai-inline-card-copy > label {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f4f5fa;
+  color: #5b6477;
+  font-size: 10px;
+}
+
+.ai-inline-card-copy > label input {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #20263a;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.ai-inline-card-copy > label b {
+  font-size: 10px;
+}
+
+.ai-inline-list article > button,
+.ai-inline-card-actions > button {
+  min-width: 58px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: #15239c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ai-inline-list button.added,
+.ai-inline-list button:disabled {
+  background: #eceef5;
+  color: #8b92a2;
+}
+
+.ai-inline-card-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.ai-inline-card-actions a {
+  color: #5360ad;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 420px) {
+  .ai-inline-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-inline-list article > button,
+  .ai-inline-card-actions {
+    width: 100%;
+  }
+
+  .ai-inline-card-actions {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+
+  .ai-inline-card-actions > button {
+    width: 100%;
+  }
 }
 
 .expense-category-tabs button {

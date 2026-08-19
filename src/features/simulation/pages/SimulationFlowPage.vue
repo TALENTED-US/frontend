@@ -3,8 +3,20 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
-import { getCustomRecommendationsApi, getSimulationRecommendationsApi } from '@/api/simulation'
+import {
+  getCustomRecommendationsApi,
+  getExpenseRecommendationsApi,
+  getIncomeRecommendationsApi,
+  getPolicyRecommendationsApi,
+} from '@/api/simulation'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
+import {
+  filterExpenseRecommendationsForPrompt,
+  normalizeCategoryRecommendationResponse,
+  targetedRecommendationCategories,
+} from '@/features/simulation/utils/aiRecommendationScope'
+import assistantAvatar from '@/assets/images/simulation/buttie-ai-assistant.png'
 import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
 import stableImage from '@/assets/images/dashboard/buttie-stable.png'
@@ -31,6 +43,7 @@ const aiPrompt = ref('')
 const aiRecommendations = ref(null)
 const aiLoading = ref(false)
 const aiError = ref('')
+const aiRecommendationCompleted = ref(false)
 const periodOptions = [1, 3, 6, 12]
 
 function addMonths(dateValue, months) {
@@ -70,20 +83,8 @@ const hasRunwayResult = computed(
     Number.isFinite(Number(simulation.currentMonths)) &&
     Number.isFinite(Number(simulation.expectedMonths)),
 )
-const financialRecommendations = computed(
-  () => aiRecommendations.value?.financialRecommendation?.recommendations || [],
-)
 const financialSummary = computed(
   () => aiRecommendations.value?.financialRecommendation?.summary || '',
-)
-const incomeRecommendation = computed(() => aiRecommendations.value?.incomeRecommendation || {})
-const incomeJobs = computed(() => incomeRecommendation.value?.jobs || [])
-const policyRecommendations = computed(() => aiRecommendations.value?.policyRecommendations || [])
-const hasAiRecommendations = computed(
-  () =>
-    financialRecommendations.value.length > 0 ||
-    incomeJobs.value.length > 0 ||
-    policyRecommendations.value.length > 0,
 )
 const aiPromptLength = computed(() => aiPrompt.value.length)
 const nextDraftPath = computed(() => {
@@ -100,15 +101,34 @@ function recommendationErrorMessage(error) {
   return error?.response?.data?.message || error?.message || 'AI 추천을 불러오지 못했어요.'
 }
 
-async function loadAiRecommendations(prompt = '') {
+async function loadAiRecommendations(prompt) {
   if (aiLoading.value) return
   aiLoading.value = true
   aiError.value = ''
+  aiRecommendationCompleted.value = false
 
   try {
-    aiRecommendations.value = prompt
-      ? await getCustomRecommendationsApi(prompt)
-      : await getSimulationRecommendationsApi()
+    const targetCategories = targetedRecommendationCategories(prompt)
+    let recommendations
+
+    if (targetCategories.length === 1) {
+      const targetCategory = targetCategories[0]
+      const response =
+        targetCategory === 'expense'
+          ? await getExpenseRecommendationsApi(prompt)
+          : targetCategory === 'income'
+            ? await getIncomeRecommendationsApi(prompt)
+            : await getPolicyRecommendationsApi(prompt)
+      recommendations = normalizeCategoryRecommendationResponse(targetCategory, response)
+      if (targetCategory === 'expense') {
+        recommendations = filterExpenseRecommendationsForPrompt(recommendations, prompt)
+      }
+    } else {
+      recommendations = await getCustomRecommendationsApi(prompt)
+    }
+    aiRecommendations.value = recommendations
+    if (prompt) simulation.setAiPlanRecommendations(prompt, recommendations)
+    aiRecommendationCompleted.value = true
   } catch (error) {
     aiError.value = recommendationErrorMessage(error)
   } finally {
@@ -129,7 +149,7 @@ onMounted(async () => {
   // 여기서 다시 조회하면 정상적인 "데이터 없음" 응답이 404 오류처럼 노출된다.
   if (step.value === 'categories') {
     startDate.value = getTodayDate()
-    await loadAiRecommendations()
+    simulation.clearAiPlanRecommendations()
     return
   }
 
@@ -245,7 +265,10 @@ async function confirm() {
         <AppIcon name="chevron-left" :size="22" />
       </button>
       <h1 class="wizard-title">
-        지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
+        <template v-if="financialSummary">{{ financialSummary }}</template>
+        <template v-else>
+          지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
+        </template>
       </h1>
       <div class="category-intro-card">
         <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
@@ -297,7 +320,7 @@ async function confirm() {
 
       <section class="baseline-report ai-plan-recommendation">
         <div class="ai-plan-recommendation__heading">
-          <span aria-hidden="true">AI</span>
+          <img :src="assistantAvatar" alt="" aria-hidden="true" />
           <div>
             <h2>버티 AI 맞춤 계획</h2>
             <p>지출·수입·정책을 한 번에 추천받아 보세요.</p>
@@ -314,75 +337,21 @@ async function confirm() {
               maxlength="50"
               placeholder="원하는 컨셉을 넣어보세요"
               :disabled="aiLoading"
+              @input="aiRecommendationCompleted = false"
             />
             <span>{{ aiPromptLength }}/50</span>
-            <button type="submit" :disabled="aiLoading || !aiPrompt.trim()">
-              {{ aiLoading ? '추천 중…' : '추천받기' }}
-            </button>
+            <button type="submit" :disabled="aiLoading || !aiPrompt.trim()">추천받기</button>
           </div>
-          <small>예: 취업 준비 6개월 동안 배달비를 줄이고 자격증 지원을 받고 싶어요.</small>
+          <small v-if="aiRecommendationCompleted" class="ai-plan-recommendation__success">
+            추천이 준비됐어요. 이제 시뮬레이션을 시작해서 결과를 확인해 보세요!
+          </small>
+          <small v-else>
+            예: 취업 준비 6개월 동안 배달비를 줄이고 자격증 지원을 받고 싶어요.
+          </small>
         </form>
 
         <p v-if="aiError" class="ai-plan-recommendation__error">{{ aiError }}</p>
-        <div v-else-if="aiLoading" class="ai-plan-recommendation__empty">
-          내 상황에 맞는 계획을 만드는 중이에요…
-        </div>
-        <div v-else-if="hasAiRecommendations" class="ai-plan-recommendation__results">
-          <article>
-            <header>
-              <span>지출</span><b>{{ financialRecommendations.length }}건</b>
-            </header>
-            <p v-if="financialSummary">{{ financialSummary }}</p>
-            <ul v-if="financialRecommendations.length">
-              <li v-for="item in financialRecommendations.slice(0, 2)" :key="item.title">
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.reason }}</small>
-              </li>
-            </ul>
-            <p v-else class="muted">추천할 지출 계획이 없어요.</p>
-            <button type="button" @click="router.push('/simulation/expense')">
-              지출 계획 보기
-            </button>
-          </article>
-          <article>
-            <header>
-              <span>수입</span><b>{{ incomeJobs.length }}건</b>
-            </header>
-            <p>{{ incomeRecommendation.notice || incomeRecommendation.searchKeyword }}</p>
-            <ul v-if="incomeJobs.length">
-              <li v-for="job in incomeJobs.slice(0, 2)" :key="job.url || job.title">
-                <strong>{{ job.title }}</strong>
-                <small
-                  >{{ job.company
-                  }}<template v-if="job.region"> · {{ job.region }}</template></small
-                >
-              </li>
-            </ul>
-            <p v-else class="muted">조건에 맞는 일자리가 없어요.</p>
-            <button type="button" @click="router.push('/simulation/income')">수입 계획 보기</button>
-          </article>
-          <article>
-            <header>
-              <span>정책</span><b>{{ policyRecommendations.length }}건</b>
-            </header>
-            <ul v-if="policyRecommendations.length">
-              <li
-                v-for="policy in policyRecommendations.slice(0, 2)"
-                :key="policy.policyUrl || policy.policyName"
-              >
-                <strong>{{ policy.policyName }}</strong>
-                <small v-if="policy.policySupportAmount"
-                  >최대 {{ money(policy.policySupportAmount) }}원 지원</small
-                >
-              </li>
-            </ul>
-            <p v-else class="muted">조건에 맞는 정책이 없어요.</p>
-            <button type="button" @click="router.push('/simulation/policy')">정책 계획 보기</button>
-          </article>
-        </div>
-        <div v-else class="ai-plan-recommendation__empty">
-          추천할 계획을 찾지 못했어요. 원하는 컨셉을 더 구체적으로 입력해 보세요.
-        </div>
+        <AiRecommendationLoader v-else-if="aiLoading" class="ai-plan-recommendation__loader" />
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
@@ -573,7 +542,9 @@ async function confirm() {
   border-radius: 50%;
   background: transparent;
   color: #8b95a1;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 @media (hover: hover) {
@@ -646,16 +617,13 @@ async function confirm() {
   gap: 12px;
 }
 
-.ai-plan-recommendation__heading > span {
-  display: grid;
+.ai-plan-recommendation__heading > img {
+  display: block;
+  width: 42px;
   flex: 0 0 42px;
   height: 42px;
-  place-items: center;
   border-radius: 13px;
-  background: #121f8d;
-  color: #ffd95b;
-  font-size: 13px;
-  font-weight: 900;
+  object-fit: cover;
 }
 
 .ai-plan-recommendation__heading h2 {
@@ -759,19 +727,19 @@ async function confirm() {
 
 .ai-plan-recommendation__results header span {
   color: #111d82;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 900;
 }
 
 .ai-plan-recommendation__results header b {
   color: #8b93a2;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .ai-plan-recommendation__results article > p {
   margin-top: 8px;
   color: #6f7787;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -796,13 +764,13 @@ async function confirm() {
 }
 
 .ai-plan-recommendation__results li strong {
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .ai-plan-recommendation__results li small {
   margin-top: 2px;
   color: #969daa;
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .ai-plan-recommendation__results article > button {
@@ -810,7 +778,7 @@ async function confirm() {
   min-height: 30px;
   margin-top: auto;
   border-radius: 8px;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .ai-plan-recommendation__empty,
@@ -831,6 +799,10 @@ async function confirm() {
 .ai-plan-recommendation__error {
   background: #fff0f0;
   color: #d94f55;
+}
+
+.ai-plan-recommendation__loader {
+  margin-top: 16px;
 }
 
 @media (max-width: 560px) {

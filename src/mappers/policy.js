@@ -32,6 +32,7 @@ export function mapPolicyResponse(policy) {
     url: policy.policyUrl || '',
     status: policy.policyStatus || 'AVAILABLE',
     requiredDocument: policy.requiredDocument || '',
+    recommendationReason: policy.recommendationReason || '',
   }
 }
 
