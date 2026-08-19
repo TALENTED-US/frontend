@@ -219,6 +219,7 @@ onMounted(async () => {
   if (quests.remoteEnabled) {
     const confirmed = await simulation.hydrateConfirmed()
     if (confirmed) {
+      await simulation.hydrateTimeline(true)
       await quests.fetchQuests(confirmed.simulationId, confirmed)
       return
     }
