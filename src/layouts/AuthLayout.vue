@@ -1,4 +1,5 @@
 <script setup>
+import AppFooter from '@/components/navigation/AppFooter.vue'
 import SkipLink from '@/components/ui/SkipLink.vue'
 </script>
 
@@ -7,6 +8,7 @@ import SkipLink from '@/components/ui/SkipLink.vue'
   <main id="main-content" class="auth-shell" tabindex="-1">
     <RouterView />
   </main>
+  <AppFooter class="desktop-only" />
 </template>
 
 <style scoped>

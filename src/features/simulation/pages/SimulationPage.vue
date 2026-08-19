@@ -32,6 +32,9 @@ function goToMyDataConnect() {
 const money = (value) => new Intl.NumberFormat('ko-KR').format(value)
 const questTab = ref('active')
 const showNewSimulationModal = ref(false)
+const financialDataError = computed(() =>
+  [simulation.financialSnapshotError, simulation.runwayBaselineError].filter(Boolean).join(' '),
+)
 const resultStatusKey = computed(() =>
   simulation.expectedStatus.key === 'safe' ? 'stable' : simulation.expectedStatus.key,
 )
@@ -194,6 +197,13 @@ async function createNewSimulation() {
   router.push('/simulation/new')
 }
 
+async function retryFinancialData() {
+  await Promise.all([
+    simulation.hydrateFinancialSnapshot(true),
+    simulation.hydrateRunwayBaseline(true),
+  ])
+}
+
 onMounted(async () => {
   if (!session.isMockMode && !isMyDataConnected()) {
     showMyDataConnectModal.value = true
@@ -323,6 +333,16 @@ onMounted(async () => {
       </div>
     </article>
     <p v-if="simulation.syncError" class="api-notice" role="alert">{{ simulation.syncError }}</p>
+    <p v-if="financialDataError" class="api-notice simulation-data-notice" role="alert">
+      <span>{{ financialDataError }}</span>
+      <button
+        type="button"
+        :disabled="simulation.financialSnapshotLoading"
+        @click="retryFinancialData"
+      >
+        {{ simulation.financialSnapshotLoading ? '불러오는 중' : '다시 시도' }}
+      </button>
+    </p>
 
     <ConfirmedFinancialTimeline
       v-if="simulation.state.confirmed && simulation.runwayCalculationReady"
@@ -388,6 +408,26 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.simulation-data-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.simulation-data-notice button {
+  flex: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 900;
+  text-decoration: underline;
+}
+
+.simulation-data-notice button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 /* [보류] develop 브랜치 병합 시 충돌했던 배너 CSS 원본 그대로 보관 (미적용, 삭제하지 않음).
    주석 처리라 실제 스타일에는 영향 없음. 채택 여부 결정되면 주석 해제하거나 삭제.
 .simulation-banner {
@@ -1483,11 +1523,93 @@ onMounted(async () => {
 }
 
 @media (min-width: 768px) {
+  .simulation-result-banner__summary {
+    min-width: 0;
+    justify-items: center;
+  }
+  .simulation-result-banner__periods {
+    width: min(100%, 620px);
+    justify-self: center;
+  }
+  .simulation-result-banner__periods > div {
+    justify-content: center;
+    justify-items: center;
+    text-align: center;
+  }
   .simulation-new-modal h2 {
     font-size: 21px;
   }
   .simulation-new-modal p {
     font-size: 14px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .simulation-result-banner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .simulation-result-banner__summary {
+    width: 100%;
+  }
+
+  .simulation-result-banner__periods {
+    width: 100%;
+    max-width: 620px;
+    grid-template-columns: minmax(0, 1fr) auto auto minmax(0, 1fr);
+    gap: clamp(8px, 2vw, 18px);
+  }
+
+  .simulation-result-banner__summary > button {
+    justify-self: center;
+  }
+}
+
+@media (min-width: 1200px) {
+  .simulation-result-banner {
+    grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.65fr);
+    gap: clamp(28px, 3vw, 64px);
+  }
+
+  .simulation-result-banner__copy,
+  .simulation-result-banner__summary {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .simulation-result-banner__copy {
+    position: static;
+    width: auto;
+    min-width: 0;
+    justify-self: stretch;
+  }
+
+  .simulation-result-banner__summary {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+  }
+
+  .simulation-result-banner__periods {
+    width: 100%;
+    max-width: none;
+    grid-template-columns: minmax(105px, 1fr) auto auto minmax(130px, 1fr);
+    gap: clamp(8px, 1.2vw, 22px);
+  }
+
+  .simulation-result-banner__periods > div:first-child,
+  .simulation-result-banner__periods > div:last-child {
+    justify-self: center;
+  }
+
+  .simulation-result-banner__periods > b,
+  .simulation-result-banner__periods > i {
+    justify-self: center;
+  }
+
+  .simulation-result-banner__summary > button {
+    justify-self: center;
   }
 }
 

@@ -223,21 +223,6 @@ const policies = [
       </div>
     </section>
 
-    <footer>
-      <div class="shell footer-inner">
-        <div>
-          <a class="brand footer-brand" href="#top" aria-label="버티 홈으로 이동">
-            <img class="brand-character" :src="buttieLogo" alt="버티" />
-          </a>
-          <p>취업 준비를 버티는 가장 현실적인 방법</p>
-        </div>
-        <div class="footer-links">
-          <a href="#story">서비스 소개</a><a href="#features">주요 기능</a
-          ><a href="#policy">정책 추천</a>
-        </div>
-        <div class="copyright">© 2026 BUTTIE.<br />ALL RIGHTS RESERVED.</div>
-      </div>
-    </footer>
   </main>
 </template>
 

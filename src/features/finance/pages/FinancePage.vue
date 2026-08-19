@@ -721,7 +721,13 @@ watch(month, () => {
 })
 
 onMounted(async () => {
-  await Promise.allSettled([loadTransactions(), loadSelectedCalendar(), loadFixedExpenseSummary()])
+  await Promise.allSettled([
+    loadTransactions(),
+    loadSelectedCalendar(),
+    loadFixedExpenseSummary(),
+    simulation.hydrateRunwayBaseline(),
+    simulation.hydrateConfirmed(),
+  ])
 })
 </script>
 
@@ -755,7 +761,7 @@ onMounted(async () => {
       <button type="button" @click="reloadFinanceData">다시 시도</button>
     </p>
 
-    <section class="ledger" :class="{ 'ledger--calendar-open': calendarOpen }">
+    <section v-else class="ledger" :class="{ 'ledger--calendar-open': calendarOpen }">
       <div class="ledger__topbar">
         <div class="month-control">
           <button
@@ -986,7 +992,11 @@ onMounted(async () => {
           >
             <template v-if="listExpanded">거래 내역 접기</template>
             <template v-else>나머지 {{ hiddenRowCount }}건 더보기</template>
-            <span :class="{ 'is-open': listExpanded }">⌄</span>
+            <span
+              class="list-toggle__chevron"
+              :class="{ 'is-open': listExpanded }"
+              aria-hidden="true"
+            ></span>
           </button>
         </template>
 
@@ -2032,13 +2042,19 @@ input {
   font-weight: 850;
 }
 
-.list-toggle > span {
-  font-size: 17px;
+.list-toggle__chevron {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transform-origin: center;
   transition: transform 0.2s ease;
 }
 
-.list-toggle > span.is-open {
-  transform: rotate(180deg);
+.list-toggle__chevron.is-open {
+  transform: rotate(225deg);
 }
 
 .date-divider strong {

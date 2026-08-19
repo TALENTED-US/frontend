@@ -97,16 +97,23 @@ export const useSessionStore = defineStore('session', () => {
   const savedMyData = readJson(localStorage, 'buttie-mydata')
   const legacyMyDataUpdated = localStorage.getItem('buttie-mydata-updated')
 
-  if (savedProfile) Object.assign(user, savedProfile)
-  if (savedPassword) mockCredentials.password = savedPassword
-  if (savedMyData) Object.assign(myData, savedMyData)
-  else if (legacyMyDataUpdated) myData.lastUpdated = legacyMyDataUpdated
-  mockCredentials.email = user.email
+  if (isMockMode) {
+    if (savedProfile) Object.assign(user, savedProfile)
+    if (savedPassword) mockCredentials.password = savedPassword
+    if (savedMyData) Object.assign(myData, savedMyData)
+    else if (legacyMyDataUpdated) myData.lastUpdated = legacyMyDataUpdated
+    mockCredentials.email = user.email
+  } else {
+    // 이전 버전이 실 API 사용자도 localStorage에 저장했던 프로필을 정리한다.
+    localStorage.removeItem('buttie-profile')
+  }
 
   const isAuthenticated = ref(
     isMockMode ? sessionStorage.getItem(AUTH_KEY) === 'true' : Boolean(getAccessToken()),
   )
-  const currentUser = ref({ ...user, ...(cachedApiProfile || {}) })
+  const currentUser = ref(
+    isMockMode ? { ...user } : getAccessToken() ? { ...(cachedApiProfile || {}) } : {},
+  )
   const isRestoring = ref(false)
   const authError = ref('')
   const passwordChangeVerified = ref(false)
@@ -129,6 +136,7 @@ export const useSessionStore = defineStore('session', () => {
     authError.value = ''
     sessionStorage.removeItem(AUTH_KEY)
     sessionStorage.removeItem(API_PROFILE_KEY)
+    if (!isMockMode) localStorage.removeItem('buttie-profile')
     setAccessToken('')
     clearCalendar()
     clearTransactions()
@@ -137,7 +145,7 @@ export const useSessionStore = defineStore('session', () => {
     progression.resetProgression()
 
     const pinia = getActivePinia()
-    pinia?._s.get('simulation')?.resetScenario()
+    pinia?._s.get('simulation')?.resetScenario({ clearFinancialData: true })
     pinia?._s.get('quest')?.resetQuests()
     localStorage.removeItem('buttie-simulation-v4')
     sessionStorage.removeItem('buttie-simulation-confirmed-snapshot-v1')
@@ -156,8 +164,10 @@ export const useSessionStore = defineStore('session', () => {
 
   async function loadCurrentUser() {
     const [summary, profile] = await Promise.all([getMyProfileSummaryApi(), getMyProfileApi()])
-    Object.assign(currentUser.value, mapProfileSummary(summary))
-    Object.assign(currentUser.value, mapProfile(profile))
+    const nextUser = {
+      ...mapProfileSummary(summary),
+      ...mapProfile(profile),
+    }
     if (isMockMode) {
       const normalized = normalizeButtieProgression(summary?.buttieTotalExp)
       progression.level = normalized.level
@@ -168,14 +178,24 @@ export const useSessionStore = defineStore('session', () => {
 
     try {
       const employment = await getEmploymentPreparationApi()
-      Object.assign(currentUser.value, mapEmployment(employment), {
+      Object.assign(nextUser, mapEmployment(employment), {
         employmentPreparationRegistered: true,
       })
     } catch (error) {
       if (error.status !== 404) throw error
-      currentUser.value.employmentPreparationRegistered = false
+      Object.assign(nextUser, {
+        employmentPreparationRegistered: false,
+        jobType: '',
+        startDate: '',
+        goalDate: '',
+        targetDate: '',
+        region: '',
+        family: null,
+        financialRiskAlertAmount: null,
+      })
     }
 
+    currentUser.value = nextUser
     persistApiProfile()
     return currentUser.value
   }
@@ -252,10 +272,13 @@ export const useSessionStore = defineStore('session', () => {
 
   function updateProfile(profile) {
     Object.assign(currentUser.value, profile)
-    Object.assign(user, profile)
-    if (profile.email) mockCredentials.email = profile.email
-    localStorage.setItem('buttie-profile', JSON.stringify(currentUser.value))
-    if (!isMockMode) persistApiProfile()
+    if (isMockMode) {
+      Object.assign(user, profile)
+      if (profile.email) mockCredentials.email = profile.email
+      localStorage.setItem('buttie-profile', JSON.stringify(currentUser.value))
+    } else {
+      persistApiProfile()
+    }
   }
 
   async function saveNickname(nickname) {

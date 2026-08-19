@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/navigation/AppHeader.vue'
+import AppFooter from '@/components/navigation/AppFooter.vue'
 import BottomNavigation from '@/components/navigation/BottomNavigation.vue'
 import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
 import SkipLink from '@/components/ui/SkipLink.vue'
@@ -51,6 +52,7 @@ watch(
       >
         <RouterView />
       </main>
+      <AppFooter class="desktop-only" />
     </div>
     <BottomNavigation class="mobile-only" />
   </div>
@@ -65,6 +67,8 @@ watch(
 
 .app-shell__body {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh;
   margin-left: var(--sidebar-width);
 }
@@ -76,6 +80,7 @@ watch(
 
 .app-shell__content {
   width: min(100%, 1180px);
+  flex: 1;
   margin: 0 auto;
   padding: 79px clamp(32px, 5vw, 64px) 96px;
 }
