@@ -22,8 +22,13 @@ function updateLandingMotion() {
     const rect = scene.getBoundingClientRect()
     const travel = Math.max(scene.offsetHeight - window.innerHeight, 1)
     const progress = Math.min(1, Math.max(0, -rect.top / travel))
-    const eased = progress * progress * (3 - 2 * progress)
-    const copyProgress = Math.min(1, Math.max(0, (progress - 0.2) / 0.52))
+    // 버티가 끝에서 가만히 떠 있는 시간을 줄이려고, 상승 모션이 스크롤의
+    // 90% 지점에서 마무리되도록 진행도를 늘려 매핑한다.
+    const riseProgress = Math.min(1, progress / 0.9)
+    const eased = riseProgress * riseProgress * (3 - 2 * riseProgress)
+    // 헤드라인이 너무 일찍 사라지지 않게, 버티가 올라와 자리를 잡는
+    // 구간(0.44~0.78)에 맞춰 천천히 페이드아웃한다.
+    const copyProgress = Math.min(1, Math.max(0, (progress - 0.44) / 0.34))
     const copyEased = copyProgress * copyProgress * (3 - 2 * copyProgress)
 
     scene.style.setProperty('--mascot-y', `${76 - eased * 84}%`)
@@ -55,8 +60,10 @@ function updateLandingMotion() {
       const clamped = Math.min(1, Math.max(0, value))
       return clamped * clamped * (3 - 2 * clamped)
     }
-    const galleryExit = smooth((progress - 0.16) / 0.12)
-    const burstIn = smooth((progress - 0.14) / 0.1)
+    // 갤러리 → 버스트 전환을 넓은 구간에서 겹치게 해, 어두운 화면이
+    // 갑자기 덮이지 않고 부드럽게 크로스페이드되도록 한다.
+    const galleryExit = smooth((progress - 0.14) / 0.22)
+    const burstIn = smooth((progress - 0.12) / 0.22)
     const burstOut = smooth((progress - 0.55) / 0.12)
     const burstProgress = Math.min(1, Math.max(0, (progress - 0.18) / 0.38))
     const copyShift = smooth((progress - 0.34) / 0.1)
@@ -207,10 +214,13 @@ const policies = [
       <div class="hero-intro">
         <div class="hero-copy">
           <p class="eyebrow">취준 기간을 위한 현실적인 자산 계획</p>
-          <h1>
-            <span class="hero-title-line">취준 생활,</span>
-            <span class="hero-title-line"><em>버티와 함께</em></span>
-            <span class="hero-title-line">계획해요.</span>
+          <h1 data-hero-title>
+            <span class="hero-title-line"
+              ><span class="hero-title-first-word">취준,</span> 감으로</span
+            >
+            <span class="hero-title-line"
+              ><em class="hero-title-second-line">버티지 마세요.</em></span
+            >
           </h1>
           <p class="hero-description">
             소득 공백기의 자산을 분석하고 미래를 시뮬레이션해요.<br />
@@ -240,7 +250,6 @@ const policies = [
             </div>
           </div>
         </div>
-
       </div>
 
       <div ref="productShowcase" class="hero-frame" aria-label="버티 서비스 시뮬레이션 화면">
@@ -430,11 +439,7 @@ const policies = [
 
         <div class="motion-burst" aria-hidden="true">
           <div class="motion-burst__lines">
-            <i
-              v-for="line in 36"
-              :key="line"
-              :style="{ '--line-index': line }"
-            ></i>
+            <i v-for="line in 36" :key="line" :style="{ '--line-index': line }"></i>
           </div>
           <p>FROM UNCERTAINTY TO CLARITY</p>
           <div class="motion-burst__copy">

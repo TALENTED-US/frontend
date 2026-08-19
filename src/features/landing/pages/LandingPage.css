@@ -40,7 +40,7 @@
 }
 
 .shell {
-  width: min(1200px, calc(100% - 64px));
+  width: 100%;
   margin-inline: auto;
 }
 
@@ -206,6 +206,79 @@
   font-weight: 500 !important;
   letter-spacing: -0.055em !important;
   line-height: 0.99 !important;
+}
+
+/* flight 인트로가 나는 동안 진짜 히어로 제목을 숨겨, 날아다니는 복제본과
+   겹쳐 보이지 않게 한다. 복제본이 착지하는 3.34s(=인트로 delay 2.6s+0.78s)에
+   맞춰 나타나고, 인트로가 끝나면(hero-entrance-complete) 즉시 노출한다. */
+.hero-copy h1[data-hero-title] {
+  opacity: 0;
+  animation: hero-target-reveal 0.08s linear 3.34s both;
+}
+
+/* 인트로가 끝나면(정상 착지든 스킵이든) 리빌 애니메이션을 걷어내고 즉시 노출.
+   !important 로 진행 중 애니메이션 값까지 확실히 덮어, 조기 종료 시에도
+   제목이 3.34s 동안 빈 채로 남지 않게 한다. */
+:global(.hero-entrance-complete .hero-copy h1[data-hero-title]) {
+  opacity: 1 !important;
+  animation: none !important;
+}
+
+@keyframes hero-target-reveal {
+  to {
+    opacity: 1;
+  }
+}
+
+/* flight 복제본이 착지해 진짜 제목으로 넘어갈 때 색·밑줄이 튀지 않도록,
+   이 제목만 복제본과 동일하게 맞춘다: 네이비 글자 + 노란 형광펜/밑줄.
+   (복제본 스타일과 값이 1:1로 일치한다) */
+.hero-copy h1[data-hero-title] {
+  color: #0a1680 !important;
+}
+
+.hero-copy h1[data-hero-title] .hero-title-first-word {
+  position: relative;
+  z-index: 0;
+  display: inline-block;
+}
+
+.hero-copy h1[data-hero-title] .hero-title-first-word::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: -4%;
+  bottom: 0.02em;
+  left: -4%;
+  height: 0.13em;
+  border-radius: 999px;
+  background: #f1b94c;
+  transform-origin: center;
+}
+
+.hero-copy h1[data-hero-title] em.hero-title-second-line {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: max-content;
+  font-style: normal;
+}
+
+/* 기본 .hero h1 em::after(하늘색 밑줄 + underline-draw)를 확실히 덮어쓴다. */
+.hero-copy h1[data-hero-title] em.hero-title-second-line::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: -3%;
+  bottom: 1%;
+  left: -3%;
+  height: 18%;
+  border-radius: 999px;
+  background: #f1b94c;
+  opacity: 1;
+  transform: rotate(-1deg);
+  transform-origin: center;
+  animation: none;
 }
 
 .hero-title-line {
@@ -616,7 +689,7 @@
   --cloud-y: 0%;
   position: relative;
   z-index: 2;
-  height: 220svh;
+  height: 170svh;
   background: var(--sky-tint);
 }
 
@@ -1391,7 +1464,8 @@
   font-size: clamp(54px, 5.15vw, 76px) !important;
   font-weight: 800 !important;
   letter-spacing: -0.075em !important;
-  line-height: 0.87 !important;
+  /* 두 줄 한글 제목이 서로 겹치지 않도록 넉넉하게. (기존 0.87은 겹침) */
+  line-height: 1.04 !important;
 }
 
 .hero-title-line {
@@ -2734,7 +2808,7 @@
 
 @media (max-width: 900px) {
   .shell {
-    width: min(680px, calc(100% - 40px));
+    width: 100%;
   }
 
   .nav {
@@ -2865,7 +2939,7 @@
 
 @media (max-width: 600px) {
   .shell {
-    width: calc(100% - 28px);
+    width: 100%;
   }
 
   .nav {
@@ -3314,7 +3388,9 @@
   position: relative;
   z-index: 4;
   height: 350svh;
-  background: #081329;
+  /* 차가운 near-black 대신 브랜드 인디고 계열로 두어 어두운 구간이
+     팔레트 밖으로 튀지 않게 한다. */
+  background: #141f6b;
 }
 
 .motion-sequence__sticky {
@@ -3537,9 +3613,9 @@
 .motion-burst {
   z-index: 3;
   overflow: hidden;
-  background:
-    radial-gradient(circle at center, rgb(10 22 128 / 32%), transparent 34%),
-    #050b18;
+  /* 브랜드 블루 글로우를 얹은 인디고. 밝은 스피드라인·흰 텍스트는 그대로
+     읽히면서도 near-black 특유의 이질감은 사라진다. */
+  background: radial-gradient(circle at center, rgb(89 115 232 / 42%), transparent 40%), #141f6b;
   color: #fff;
   opacity: var(--burst-opacity);
   will-change: opacity;
@@ -3582,8 +3658,7 @@
   background: linear-gradient(90deg, transparent, #8fc7ff 34%, #fff 100%);
   box-shadow: 0 0 18px rgb(143 199 255 / 55%);
   opacity: calc(0.18 + var(--burst-progress) * 0.78);
-  transform: rotate(var(--line-angle))
-    translateX(calc(22px + var(--burst-progress) * 24vw))
+  transform: rotate(var(--line-angle)) translateX(calc(22px + var(--burst-progress) * 24vw))
     scaleX(calc(0.14 + var(--burst-progress) * 0.92));
   transform-origin: left center;
   will-change: opacity, transform;
@@ -3695,8 +3770,7 @@
   );
   filter: drop-shadow(0 34px 32px rgb(10 22 128 / 18%));
   opacity: calc(0.45 + var(--finale-progress) * 0.35);
-  transform: translate(-50%, -50%)
-    scale(calc(0.82 + var(--finale-progress) * 0.18));
+  transform: translate(-50%, -50%) scale(calc(0.82 + var(--finale-progress) * 0.18));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-stroke: 1px rgb(255 255 255 / 72%);
@@ -4034,6 +4108,12 @@
   .hero-label {
     animation-duration: 900ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  /* 모션 최소화 사용자는 flight 인트로가 생략되므로 진짜 제목을 즉시 노출한다. */
+  .hero-copy h1[data-hero-title] {
+    opacity: 1 !important;
+    animation: none !important;
   }
 
   [data-reveal] {
