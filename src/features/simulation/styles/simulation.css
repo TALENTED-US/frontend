@@ -3,7 +3,7 @@
 
 /* New guided simulation flow */
 .sim-wizard{width:min(100%,430px);margin:0 auto;padding:4px 18px 112px;background:#fcfdff}.sim-wizard .sim-back{margin:0 0 34px;padding:4px 0;font-size:16px}.wizard-title{font-size:24px!important;line-height:1.42;letter-spacing:-.03em}.sim-wizard>.sim-subtitle{margin-top:9px;line-height:1.55}.buttie-transition{display:grid;grid-template-columns:1fr 28px 1fr;align-items:center;gap:8px;margin:28px 0 32px}.buttie-transition>div{display:grid;justify-items:center;gap:8px}.buttie-transition img{width:118px;height:100px;object-fit:contain}.buttie-transition span{padding:4px 12px;border-radius:999px;background:#f0f3f8;color:#677185;font-size:13px}.buttie-transition>b{color:#93b2f8;font-size:24px;text-align:center}.period-section,.baseline-report,.expense-snapshot,.preview-timeline-section,.application-result{margin-top:22px}.period-section>h2,.baseline-report h2,.section-heading h2,.selected-policies>h2{font-size:16px}.period-section>p{margin-top:5px;color:#8b92a1;font-size:11px}.sim-wizard .period-grid{gap:10px;margin-top:14px}.sim-wizard .period-grid label{padding:13px 14px;border:1px solid #e1e5ed;border-radius:13px;background:#fff;box-shadow:0 1px 4px rgb(0 0 0 / 7%)}.sim-wizard .period-grid label>span{color:#8b92a1;font-size:10px}.sim-wizard .period-grid input{height:28px;padding:0;border:0;border-radius:0;font-weight:700}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-heading>span{padding:5px 9px;border-radius:999px;background:#f1f5ff;color:#5f8df7;font-size:10px}.report-grid-compact{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.report-grid-compact article{display:grid;gap:5px;padding:14px;border:1px solid #e7eaf0;border-radius:13px;background:#fff}.report-grid-compact span{color:#838b9b;font-size:12px}.report-grid-compact strong{font-size:15px}.report-grid-compact .income{color:#31b986}.report-grid-compact .expense{color:#ef625a}.api-notice,.form-error{margin-top:12px;padding:10px 12px;border-radius:9px;background:#fff0f0;color:#d94f55;font-size:11px;line-height:1.45}.api-notice.neutral{background:#f6f7fa;color:#7d8492}.resume-hero{display:grid;justify-items:center;padding-top:62px;text-align:center}.resume-hero img{width:170px;height:150px;object-fit:contain}.resume-hero h1{margin-top:28px;font-size:23px;line-height:1.45}.resume-hero p{margin-top:10px;color:#858c9a;font-size:12px}.wizard-actions{display:grid;grid-template-columns:1fr 1.75fr;align-items:center;gap:12px;margin-top:28px}.wizard-actions.vertical{grid-template-columns:1fr}.wizard-actions .sim-btn{width:100%;min-height:52px;padding:0 16px}.wizard-actions .sim-text-button{margin:0}.wizard-stepper{display:grid;grid-template-columns:repeat(3,1fr);margin:-4px 0 34px}.wizard-stepper span{position:relative;display:grid;justify-items:center;gap:6px;color:#adb2bc;font-size:12px}.wizard-stepper span:not(:last-child)::after{position:absolute;top:11px;left:calc(50% + 16px);width:calc(100% - 32px);height:1px;background:#dfe2e8;content:''}.wizard-stepper i{z-index:1;display:grid;width:23px;height:23px;place-items:center;border-radius:50%;background:#e8eaf0;color:#999;font-size:10px;font-style:normal}.wizard-stepper .active{color:#9e7011;font-weight:700}.wizard-stepper .active i{background:#f1b94c;color:#fff}.wizard-stepper .done i{background:#93b2f8;color:#fff}.wizard-stepper .done:not(:last-child)::after{background:#93b2f8}.expense-snapshot{display:grid;grid-template-columns:1fr 104px;align-items:center;padding:17px 20px;border-radius:15px;background:#fff;box-shadow:0 1px 5px rgb(0 0 0 / 16%)}.expense-snapshot>div:first-child{display:grid;gap:5px}.expense-snapshot span{color:#777;font-size:13px}.expense-snapshot strong{font-size:20px}.expense-snapshot .donut{width:92px;height:92px}.expense-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.expense-chips span{display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:#fff;border:1px solid #e8ebf1;color:#666;font-size:11px}.expense-chips i{width:7px;height:7px;border-radius:50%}.expense-goals{display:grid;gap:9px;margin-top:12px}.expense-goals article{padding:12px;border:1px solid #e5e8ee;border-radius:14px;background:#fff}.expense-goals article.active{border-color:#f2cf72;background:#fffdf6}.goal-category{display:grid;width:100%;grid-template-columns:38px 1fr 24px;align-items:center;gap:10px;text-align:left}.goal-category>i{display:grid;width:38px;height:38px;place-items:center;border-radius:50%;background:#f6f7f9;font-style:normal}.goal-category>span{display:grid;gap:2px}.goal-category small{color:#969ca8;font-size:10px}.goal-category>b{display:grid;width:22px;height:22px;place-items:center;border-radius:50%;background:#f4bf4a;color:#fff}.expense-goals label{display:grid;grid-template-columns:1fr 160px;align-items:center;gap:12px;margin-top:11px;padding-top:11px;border-top:1px solid #f0f1f4;color:#6e7685;font-size:10px}.expense-goals label>div{display:grid;grid-template-columns:1fr auto;align-items:center;border:1px solid #dfe3ea;border-radius:9px;background:#fff}.expense-goals input{width:100%;height:38px;padding:0 8px;border:0;background:transparent;text-align:right;font-weight:700}.expense-goals label b{padding-right:10px}.goal-total{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding:14px 16px;border-radius:12px;background:#fff2f2}.goal-total span{font-size:11px}.goal-total strong{color:#ef574f;font-size:17px}.wizard-form{margin-top:24px;padding:0;border:0}.wizard-form .sim-btn{margin-top:0}.add-outline{min-height:44px;border:1px dashed #e3ab37;border-radius:11px;color:#bd8413;font-weight:700}.income-plans{margin-top:26px}.income-plans .section-heading{margin-bottom:8px}.income-plans .section-heading span{font-size:10px}.income-plans article{grid-template-columns:1fr auto 24px;padding:13px 4px}.income-plans article>b{font-size:12px}.empty-row{padding:18px!important;color:#999!important;font-size:11px!important;text-align:center}.qualification-grid.compact{gap:8px}.qualification-grid.compact article{padding:12px}.qualification-grid.compact span{font-size:10px}.qualification-grid.compact strong{font-size:12px}.selected-policies{margin-top:22px}.selected-policies article{display:grid;grid-template-columns:1fr 24px;align-items:center;margin-top:8px;padding:13px;border-radius:12px;background:#fff8dc}.selected-policies article>div{display:grid;gap:3px}.selected-policies small{color:#8d8268;font-size:10px}.selected-policies button{color:#cf5f61}.wizard-policy-list{margin-top:25px}.wizard-policy-list article{grid-template-columns:1fr 30px;padding:15px}.wizard-policy-list article h2{margin-top:4px;font-size:14px}.wizard-policy-list article p{margin-top:4px;font-size:11px}.wizard-policy-list article em{font-size:9px}.period-change-card{margin-top:20px;padding:17px;border-radius:15px;background:#fff;box-shadow:0 1px 5px rgb(0 0 0 / 16%)}.period-change-card h2{font-size:15px}.period-change-card>div{display:grid;grid-template-columns:1fr 30px 1.25fr;align-items:center;margin-top:15px;text-align:center}.period-change-card span{display:grid;gap:4px}.period-change-card small{color:#666;font-size:10px}.period-change-card strong{font-size:20px}.period-change-card em{justify-self:center;padding:4px 8px;border:1px solid #f5bb3f;border-radius:999px;color:#e7a726;font-size:9px;font-style:normal}.preview-timeline-section,.application-result{padding:16px;border-radius:15px;background:#fff;box-shadow:0 1px 5px rgb(0 0 0 / 15%)}.preview-timeline-section .timeline-chart__plot{border:0}.application-result .section-heading span{background:rgb(95 141 247 / 10%)}.cashflow-metrics{display:grid;gap:8px;margin-top:14px}.cashflow-metrics article{display:grid;grid-template-columns:1fr auto;gap:10px;padding:11px;border-radius:9px;background:#f7f9fc}.cashflow-metrics span{color:#778092;font-size:10px}.cashflow-metrics strong{font-size:11px}.edit-summary{margin-top:13px;padding:15px;border:1px solid #e4e7ed;border-radius:14px;background:#fff}.edit-summary header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.edit-summary header>div{display:flex;align-items:center;gap:8px}.edit-summary header i{display:grid;width:26px;height:26px;place-items:center;border-radius:50%;background:#ffe5e5;color:#e95858;font-size:9px;font-style:normal}.edit-summary.income header i{background:#e2f9f0;color:#2fbb85}.edit-summary.policy header i{background:#eee9fb;color:#7e66c6}.edit-summary h2{font-size:14px}.edit-summary header button{color:#7c8492;font-size:10px;text-decoration:underline}.edit-summary>p{display:flex;justify-content:space-between;gap:12px;padding:7px 2px;border-top:1px solid #f1f2f4;font-size:10px}.edit-summary>p strong{font-size:10px}.final-result{display:grid;justify-items:center;margin-top:20px;padding:18px;border-radius:15px;background:#fff8dc}.final-result>span{font-size:11px}.final-result p{display:flex;align-items:center;gap:12px;margin-top:7px}.final-result del{color:#969ba5;font-size:13px}.final-result strong{font-size:23px}.final-result em{margin-top:7px;color:#e6a527;font-size:11px;font-style:normal;font-weight:700}
-@media(min-width:768px){.sim-wizard{min-height:calc(100vh - 90px);padding-top:28px}.sim-wizard .sim-back{margin-bottom:30px}}
+@media(min-width:768px){.sim-wizard{min-height:calc(100vh - 90px)}.sim-wizard .sim-back{margin-bottom:30px}}
 @media(max-width:767px){.sim-wizard{padding:0 4px 98px}.sim-wizard .sim-back{margin-bottom:24px}.wizard-title{font-size:22px!important}.wizard-stepper{margin-bottom:28px}.period-grid{grid-template-columns:1fr 1fr!important}.preview-timeline-section{padding:13px}.preview-page .timeline-chart__legend{font-size:9px}.preview-page .timeline-chart__plot svg{min-width:350px}.wizard-actions{position:sticky;bottom:0;z-index:5;margin-right:-4px;margin-left:-4px;padding:12px 4px calc(12px + env(safe-area-inset-bottom));background:#fcfdff}.wizard-actions.vertical{padding-top:20px}}
 @media(max-width:767px){.income-form-heading strong{font-size:0}.income-form-heading strong::after{content:'수입명';font-size:10px}.income-name-field>span{display:none}}
 
@@ -19,6 +19,26 @@
   font-weight: var(--type-action-weight);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+@media (min-width: 768px) {
+  .sim-page .simulation-back-button {
+    display: block;
+    width: fit-content;
+    min-width: 32px;
+    margin: 0 0 20px;
+    padding: 0;
+    color: #222;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    text-align: left;
+  }
+
+  .sim-flow-confirm > .confirm-actions {
+    grid-template-columns: 1fr;
+  }
+
 }
 
 /* Shared section/card title scale across simulation views. */
@@ -151,12 +171,13 @@
 }
 .period-change-card>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.period-change-card>header h2{font-size:16px}.period-change-card>header em{min-width:114px;padding:8px 13px;border:1px solid #f5ab22;border-radius:999px;color:#e9a21d;font-size:11px;font-style:normal;font-weight:700;text-align:center}.period-change-card>div{grid-template-columns:1fr 35px 1fr;margin-top:24px}.period-change-card>div span{gap:7px}.period-change-card>div span strong{font-size:26px}.period-change-card>div span:first-child strong{color:#777;font-size:19px;font-weight:500}.period-change-card>div span small{color:#222;font-size:11px;font-weight:700}.period-change-card>div>b{color:#888;font-size:27px;font-weight:400}.preview-section-title h2{font-size:16px}.preview-section-title p{margin-top:4px;color:#7f8693;font-size:10px}.preview-timeline-section{padding:17px}.preview-timeline-section .timeline-chart{margin-top:12px}.application-result{padding:18px}.cashflow-comparison{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;padding:8px 10px 2px;border-bottom:1px solid #e7e9ed}.cashflow-comparison article{display:grid;justify-items:center}.bar-pair{display:flex;height:82px;align-items:flex-end;justify-content:center;gap:5px}.bar-pair i{display:block;width:34px;border-radius:3px 3px 0 0}.bar-pair .before{border:1px dashed #999;background:#f5f5f5}.bar-pair .after{border:1px solid #5f8df7;background:#93b2f8}.cashflow-comparison article>small{margin-top:7px;color:#666;font-size:9px}.cashflow-comparison article>strong{margin:3px 0 10px;font-size:11px}.comparison-legend{display:flex;justify-content:flex-end;gap:12px;margin-top:8px;color:#8a909b;font-size:8px}.comparison-legend span{display:flex;align-items:center;gap:4px}.comparison-legend i{width:10px;height:10px;border:1px dashed #999;background:#f5f5f5}.comparison-legend span:last-child i{border:1px solid #5f8df7;background:#93b2f8}.net-cashflow-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;padding:13px 2px 2px}.net-cashflow-row>span{display:grid;gap:2px}.net-cashflow-row strong{font-size:11px}.net-cashflow-row small{color:#8b919d;font-size:8px}.net-cashflow-row>b{font-size:11px}.preview-page .application-result .section-heading>span{padding:7px 12px;font-size:9px}
 .preview-page .timeline-chart__plot svg{width:100%;min-width:0}.preview-page .wizard-actions{position:static;margin:28px 0 0;padding:0;background:transparent}.preview-page{padding-bottom:118px}
-.income-plan-form{display:grid;gap:13px;margin-top:16px}.income-plan-form label{display:grid;gap:7px;font-size:10px;font-weight:700}.income-form-heading{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700}.income-form-heading button{color:#ef5757;font-size:9px}.income-field,.income-money-field{width:100%;height:44px;border:1px solid #e1e4e9;border-radius:11px;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 11%)}.income-plan-form>.income-field,.income-plan-form label>.income-field{padding:0 14px;color:#6f7f9d}.income-money-field{display:grid;grid-template-columns:1fr 34px;align-items:center}.income-money-field input{min-width:0;height:100%;padding:0 14px;border:0;background:transparent}.income-money-field b{font-size:10px}.income-plan-form fieldset{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:0}.income-plan-form legend{grid-column:1/-1;margin-bottom:7px;font-size:10px;font-weight:700}.income-plan-form fieldset button{min-height:34px;border:1px solid #dfe3e9;border-radius:999px;background:#fff;color:#7c8494;font-size:10px;font-weight:700;box-shadow:0 2px 5px rgb(0 0 0 / 12%)}.income-plan-form fieldset button.active{border-color:#35c993;background:#eafbf5;color:#2db987}.income-add-button{min-height:46px;margin-top:1px;border-radius:11px;background:#ffeca4;font-size:12px;font-weight:800;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans{margin-top:18px;padding:17px;border:1px solid #e2e4e9;border-radius:17px;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans .section-heading h2{display:flex;align-items:center;gap:6px;font-size:14px}.added-income-plans .section-heading h2>i{width:7px;height:7px;border-radius:50%;background:#35c993}.added-income-plans .section-heading>span{padding:0;background:transparent;color:#35c993;font-size:10px}.added-income-plans article{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:9px;padding:10px;border-radius:10px;background:#ecfbf5}.added-income-plans article>i{display:grid;width:28px;height:28px;place-items:center;border:1px solid #dceae5;border-radius:50%;background:#fff;color:#2cbd88;font-size:11px;font-style:normal}.added-income-plans article>div:nth-child(2){display:grid;gap:2px;min-width:0}.added-income-plans article>div:nth-child(2)>strong{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.added-income-plans article em{padding:2px 5px;border-radius:999px;background:#d9f7eb;color:#27af7d;font-size:7px;font-style:normal}.added-income-plans article small{color:#89928f;font-size:8px}.income-plan-controls{display:grid;justify-items:end;gap:3px}.income-plan-controls>strong{font-size:9px;white-space:nowrap}.income-plan-controls>span{display:flex;gap:10px}.income-plan-controls button{color:#5f8df7;font-size:8px}.income-plan-controls button:last-child{color:#ef5b5b}.added-income-plans footer{display:grid;grid-template-columns:1fr auto;row-gap:5px;margin-top:13px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:9px}.added-income-plans footer strong{text-align:right}.sim-category-page:has(.income-plan-form)>.wizard-actions{margin-top:76px}
+.income-plan-form{display:grid;gap:13px;margin-top:16px}.income-plan-form label{display:grid;gap:7px;font-size:10px;font-weight:700}.income-form-heading{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:700}.income-form-heading button{color:#ef5757;font-size:9px}.income-field,.income-money-field{width:100%;height:44px;border-radius:13px}.income-field{border:1px solid #e1e4e9;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 11%)}.income-money-field{border:0;background:#f2f4f6;box-shadow:none}.income-plan-form>.income-field,.income-plan-form label>.income-field{padding:0 14px;color:#6f7f9d}select.income-field{appearance:none;-webkit-appearance:none;-moz-appearance:none;padding-right:32px}
+#app .app-shell .sim-page select.income-field{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="%236f7f9d" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') !important;background-repeat:no-repeat !important;background-position:right 14px center !important;background-size:10px 6px !important}.income-money-field{display:grid;grid-template-columns:1fr 34px;align-items:center}.income-money-field input{min-width:0;height:100%;padding:0 14px;border:0;background:transparent}.income-money-field b{font-size:10px}.income-plan-form fieldset{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:0}.income-plan-form legend{grid-column:1/-1;margin-bottom:7px;font-size:10px;font-weight:700}.income-plan-form fieldset button{min-height:34px;border:1px solid #dfe3e9;border-radius:999px;background:#fff;color:#7c8494;font-size:10px;font-weight:700;box-shadow:0 2px 5px rgb(0 0 0 / 12%)}.income-plan-form fieldset button.active{border-color:#35c993;background:#eafbf5;color:#2db987}.income-add-button{min-height:46px;margin-top:1px;border-radius:11px;background:#ffeca4;font-size:12px;font-weight:800;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans{margin-top:18px;padding:17px;border:1px solid #e2e4e9;border-radius:17px;background:#fff;box-shadow:0 2px 5px rgb(0 0 0 / 14%)}.added-income-plans .section-heading h2{display:flex;align-items:center;gap:6px;font-size:14px}.added-income-plans .section-heading h2>i{width:7px;height:7px;border-radius:50%;background:#35c993}.added-income-plans .section-heading>span{padding:0;background:transparent;color:#35c993;font-size:10px}.added-income-plans article{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:9px;padding:10px;border-radius:10px;background:#ecfbf5}.added-income-plans article>i{display:grid;width:28px;height:28px;place-items:center;border:1px solid #dceae5;border-radius:50%;background:#fff;color:#2cbd88;font-size:11px;font-style:normal}.added-income-plans article>div:nth-child(2){display:grid;gap:2px;min-width:0}.added-income-plans article>div:nth-child(2)>strong{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.added-income-plans article em{padding:2px 5px;border-radius:999px;background:#d9f7eb;color:#27af7d;font-size:7px;font-style:normal}.added-income-plans article small{color:#89928f;font-size:8px}.income-plan-controls{display:grid;justify-items:end;gap:3px}.income-plan-controls>strong{font-size:9px;white-space:nowrap}.income-plan-controls>span{display:flex;gap:10px}.income-plan-controls button{color:#5f8df7;font-size:8px}.income-plan-controls button:last-child{color:#ef5b5b}.added-income-plans footer{display:grid;grid-template-columns:1fr auto;row-gap:5px;margin-top:13px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:9px}.added-income-plans footer strong{text-align:right}.sim-category-page:has(.income-plan-form)>.wizard-actions{margin-top:76px}
 .wizard-progress-tabs span.done{color:#b3b6bd;font-weight:400}.wizard-progress-tabs span.done i{background:#e5e6e8}.sim-category-page>.wizard-actions{position:static;margin-right:0;margin-left:0;padding:0;background:transparent}
 .result-delta-badges{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:14px;text-align:center}.result-delta-badges span,.result-delta-badges i{justify-self:center;padding:7px 12px;border-radius:999px;font-size:9px;font-style:normal;white-space:nowrap}.result-delta-badges .income{background:#e9faf4;color:#2cbd88}.result-delta-badges .expense{background:#edf3ff;color:#5f8df7}.result-delta-badges .policy{background:#f2effb;color:#7e66c6}.bar-pair{position:relative}.bar-change-arrow{position:absolute;inset:0;width:90px;height:82px;overflow:visible;pointer-events:none}.bar-change-arrow>path{fill:none;stroke:#17329b;stroke-width:1.6;stroke-dasharray:3 3}.bar-change-arrow marker path{fill:#17329b;stroke:none}
 
 @media(min-width:768px){
-  .sim-wizard{width:100%;max-width:1066px;margin:0 auto;padding:24px 0 72px}.sim-wizard>*{min-width:0}.sim-wizard .sim-back{width:auto;justify-self:start;margin-bottom:20px;font-size:16px;text-align:left}.sim-wizard .wizard-title{font-size:28px!important;line-height:1.35}.sim-wizard>.sim-subtitle{margin-top:8px;font-size:14px}.sim-wizard>.wizard-progress-tabs{margin:0 auto 28px}.wizard-progress-tabs span{min-width:0;font-size:14px;white-space:normal}.wizard-progress-tabs span i{height:4px}
+  .sim-wizard{width:100%;max-width:1066px;margin:0 auto;padding:0 0 72px}.sim-wizard>*{min-width:0}.sim-wizard .sim-back{width:auto;justify-self:start;margin-bottom:20px;font-size:16px;text-align:left}.sim-wizard .wizard-title{font-size:28px!important;line-height:1.35}.sim-wizard>.sim-subtitle{margin-top:8px;font-size:14px}.sim-wizard>.wizard-progress-tabs{margin:0 auto 28px}.wizard-progress-tabs span{min-width:0;font-size:14px;white-space:normal}.wizard-progress-tabs span i{height:4px}
   .expense-analysis-total span{font-size:14px}.expense-analysis-total strong{font-size:28px}.expense-analysis-body li,.expense-target-card>p,.expense-target-info>span,.expense-target-editor>label,.added-expense-goals footer{font-size:12px}.expense-analysis-body li>strong{font-size:12px}.expense-analysis-body li small,.expense-target-editor>small{font-size:10px}.expense-target-card>h2{font-size:18px}.expense-category-tabs button{min-height:40px;font-size:14px}.expense-target-info>strong{font-size:15px}.expense-add-button{min-height:46px;font-size:14px}.added-expense-goals .section-heading h2,.added-income-plans .section-heading h2{font-size:17px}.added-expense-goals article>strong,.added-income-plans article>div:nth-child(2)>strong{font-size:13px}.expense-goal-controls>strong,.income-plan-controls>strong{font-size:12px}.added-expense-goals .expense-goal-controls button,.income-plan-controls button{font-size:11px}
   .income-plan-form{gap:17px;padding:24px;border:1px solid #e2e5eb;border-radius:20px;background:#fff;box-shadow:0 2px 8px rgb(20 30 60 / 8%)}.income-plan-form label,.income-form-heading,.income-plan-form legend{font-size:13px}.income-form-heading strong{font-size:18px}.income-form-heading button{font-size:12px}.income-field,.income-money-field{height:50px}.income-plan-form fieldset button{min-height:42px;font-size:13px}.income-add-button{min-height:50px;font-size:14px}.added-income-plans article small{font-size:11px}.added-income-plans footer{font-size:12px}
   .qualification-grid.compact article{padding:17px}.qualification-grid.compact span{font-size:12px}.qualification-grid.compact strong{font-size:15px}.wizard-policy-list article{padding:20px}.wizard-policy-list article h2{font-size:17px}.wizard-policy-list article p{font-size:13px}.wizard-policy-list article em{font-size:11px}
@@ -165,7 +186,7 @@
 }
 
 @media(min-width:1280px){
-  .sim-wizard{width:100%;max-width:1066px;padding:24px 0 80px}.sim-wizard .sim-back,.sim-wizard>.wizard-progress-tabs,.sim-wizard>.wizard-title,.sim-wizard>.sim-subtitle,.sim-wizard>.api-notice{grid-column:1/-1}.sim-wizard>.wizard-progress-tabs{margin-bottom:30px}.sim-wizard>.wizard-title{max-width:760px}.sim-wizard>.wizard-actions{grid-column:1/-1;width:min(100%,520px);justify-self:center}
+  .sim-wizard{width:100%;max-width:1066px;padding:0 0 80px}.sim-wizard .sim-back,.sim-wizard>.wizard-progress-tabs,.sim-wizard>.wizard-title,.sim-wizard>.sim-subtitle,.sim-wizard>.api-notice{grid-column:1/-1}.sim-wizard>.wizard-progress-tabs{margin-bottom:30px}.sim-wizard>.wizard-title{max-width:760px}.sim-wizard>.wizard-actions{grid-column:1/-1;width:min(100%,520px);justify-self:center}
   .sim-flow-categories{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(420px,1.15fr);column-gap:42px}.sim-flow-categories>.sim-back,.sim-flow-categories>.wizard-title,.sim-flow-categories>.sim-subtitle{grid-column:1/-1}.sim-flow-categories>.buttie-transition{grid-column:1;grid-row:4 / span 2;min-height:360px;align-self:stretch;margin:22px 0 0;padding:34px 24px;border:1px solid #f2e8bf;border-radius:22px;background:#fffaf0}.sim-flow-categories>.period-section{grid-column:2;margin-top:22px}.sim-flow-categories>.baseline-report{grid-column:2}.sim-flow-categories>.wide,.sim-flow-categories>.api-notice{grid-column:1/-1;width:min(100%,540px);justify-self:center}
   .sim-flow-continue{width:min(100%,760px)}
   .sim-flow-confirm{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.sim-flow-confirm>.sim-back,.sim-flow-confirm>.wizard-title,.sim-flow-confirm>.sim-subtitle,.sim-flow-confirm>.final-result,.sim-flow-confirm>.api-notice,.sim-flow-confirm>.wide{grid-column:1/-1}.sim-flow-confirm>.edit-summary{margin-top:18px}.sim-flow-confirm>.final-result{width:min(100%,680px);justify-self:center}.sim-flow-confirm>.wide{width:min(100%,540px);justify-self:center}
@@ -433,4 +454,296 @@
     font-size: 10px;
     font-weight: 700;
   }
+}
+
+/* Shared desktop back control for every simulation subpage. */
+@media (min-width: 768px) {
+  .sim-page .simulation-back-button {
+    display: inline-flex !important;
+    width: 48px;
+    height: 45px;
+    min-width: 48px;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0 0 20px !important;
+    padding: 0;
+    color: transparent !important;
+    font-size: 0 !important;
+    font-weight: 900 !important;
+    line-height: .8 !important;
+    text-align: left;
+  }
+
+  .sim-page .simulation-back-button::before {
+    width: 13px;
+    height: 13px;
+    border-bottom: 5px solid #222;
+    border-left: 5px solid #222;
+    content: '';
+    transform: rotate(45deg);
+  }
+
+  .sim-page > .wizard-progress-tabs {
+    width: calc(100% - 78px) !important;
+    margin: -77px 0 28px 78px !important;
+  }
+}
+
+/* Shared bottom actions across the simulation flow. */
+.sim-page > .wizard-actions {
+  width: 100% !important;
+  max-width: 1052px !important;
+  justify-self: center;
+}
+
+.sim-page > .wizard-actions > button {
+  height: 50px !important;
+  min-height: 50px !important;
+}
+
+.sim-page .sim-btn--yellow,
+.sim-page .sim-btn--orange,
+.sim-page .expense-add-button,
+.sim-page .income-add-button,
+.simulation-new-modal section > div button:last-child {
+  display: inline-flex;
+  width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 18px;
+  background: #f1b94c !important;
+  box-shadow: 0 4px 0 rgb(198 160 30 / 35%) !important;
+  color: #3a3222 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.sim-page .sim-btn--yellow:hover:not(:disabled),
+.sim-page .sim-btn--orange:hover:not(:disabled),
+.sim-page .expense-add-button:hover:not(:disabled),
+.sim-page .income-add-button:hover:not(:disabled),
+.simulation-new-modal section > div button:last-child:hover:not(:disabled) {
+  background: #e5ac3c !important;
+  box-shadow: 0 6px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(-2px);
+}
+
+.sim-page .sim-btn--yellow:active:not(:disabled),
+.sim-page .sim-btn--orange:active:not(:disabled),
+.sim-page .expense-add-button:active:not(:disabled),
+.sim-page .income-add-button:active:not(:disabled),
+.simulation-new-modal section > div button:last-child:active:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(2px);
+}
+
+@media (max-width: 767px) {
+  .sim-page .sim-btn--yellow,
+  .sim-page .sim-btn--orange,
+  .sim-page .expense-add-button,
+  .sim-page .income-add-button,
+  .simulation-new-modal section > div button:last-child {
+    border-radius: 15px;
+    font-size: 17px !important;
+  }
+}
+
+.sim-page > .wizard-actions > .sim-text-button {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+button.simulation-primary-cta {
+  display: inline-flex !important;
+  width: 100%;
+  height: 50px !important;
+  min-height: 50px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: #f1b94c !important;
+  box-shadow: 0 4px 0 rgb(198 160 30 / 35%) !important;
+  color: #3a3222 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease !important;
+}
+
+button.simulation-primary-cta:hover:not(:disabled) {
+  background: #e5ac3c !important;
+  box-shadow: 0 6px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(-2px) !important;
+}
+
+button.simulation-primary-cta:active:not(:disabled) {
+  box-shadow: 0 1px 0 rgb(198 160 30 / 35%) !important;
+  transform: translateY(2px) !important;
+}
+
+.sim-page.sim-flow-confirm > .final-result,
+.sim-page.sim-flow-confirm > .wizard-actions.confirm-actions {
+  grid-column: 1 / -1 !important;
+  width: min(100%, 1052px) !important;
+  max-width: 1052px !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+  justify-self: center !important;
+}
+
+.sim-page.sim-flow-confirm > .wizard-actions.confirm-actions > button {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+@media (max-width: 767px) {
+  button.simulation-primary-cta {
+    border-radius: 15px !important;
+    font-size: 17px !important;
+  }
+
+  .sim-page.sim-flow-confirm > .wizard-actions.confirm-actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+    background: transparent !important;
+    background-image: none !important;
+  }
+
+  .sim-page.sim-flow-confirm > .wizard-actions.confirm-actions > button {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
+}
+
+/* Keep actual icon containers visually consistent without changing chart dots/bars. */
+.sim-page :is(
+  .simulation-banner__benefits li,
+  .choice-card,
+  .continue-row,
+  .goal-category,
+  .expense-target-info,
+  .added-expense-goals article,
+  .added-income-plans article,
+  .policy-selected-list article,
+  .confirm-row,
+  .edit-summary header
+) > i,
+.sim-page .edit-summary header > div > i {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  flex: 0 0 42px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.sim-page .added-expense-goals article,
+.sim-page .added-income-plans article,
+.sim-page .policy-selected-list article {
+  grid-template-columns: 42px minmax(0, 1fr) auto !important;
+}
+
+.sim-page .confirm-row {
+  grid-template-columns: 42px minmax(0, 1fr) auto auto auto auto;
+}
+
+@media (max-width: 767px) {
+  .sim-page .confirm-row {
+    grid-template-columns: 42px minmax(0, 1fr) auto auto;
+  }
+}
+
+/* 모든 시뮬레이션 적용 결과에서 전·후 막대를 더 명확히 분리한다. */
+.sim-page .application-result .bar-pair {
+  gap: 15px;
+}
+
+/* 모바일 preview의 증감 뱃지가 적용 결과 카드 너비를 넘지 않게 한다. */
+@media (max-width: 767px) {
+  .preview-page .application-result .result-delta-badges {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.expense,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.income,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges span.same,
+  #app .app-shell .sim-page.preview-page .application-result .result-delta-badges i.policy {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 26px;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 10px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    font-style: normal;
+    line-height: 1;
+    text-align: center;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-comparison article > small {
+    font-size: 13px !important;
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-mobile-break {
+    display: block;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .cashflow-comparison article > strong {
+    font-size: 14px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row strong {
+    font-size: 14px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row small {
+    font-size: 13px !important;
+  }
+
+  #app .app-shell .sim-page.preview-page .application-result .net-cashflow-row > b {
+    min-width: 0;
+    font-size: clamp(11px, 3.6vw, 14px) !important;
+    white-space: nowrap;
+  }
+}
+
+.cashflow-mobile-break {
+  display: none;
+}
+
+/* 세 preview의 예상 버티는 기간 비교 라벨을 같은 크기로 통일한다. */
+#app .app-shell .sim-page.preview-page .period-change-card > div span small {
+  font-size: 14px !important;
+}
+
+#app .app-shell .sim-page.preview-page .period-change-card > header em {
+  font-size: 14px !important;
 }

@@ -15,12 +15,104 @@ import {
   updateTransaction,
 } from '@/features/finance/financeStore'
 import {
+  analyzableSignedAmount,
   isExpenseTransaction,
   isIncomeTransaction,
   transactionKind,
 } from '@/features/finance/transactionAnalysis'
+import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { formatPrepMonthsWithUnit } from '@/utils/prepMonths'
 
 const router = useRouter()
+const simulation = useSimulationStore()
+const hasConfirmedSimulationDurations = computed(
+  () =>
+    Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
+    Number.isFinite(Number(simulation.recentConfirmed?.expectedMonths)),
+)
+const confirmedCurrentMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.currentMonths))
+    : simulation.currentMonths,
+)
+const confirmedExpectedMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.expectedMonths))
+    : simulation.expectedMonths,
+)
+const spreadFinanceTimelineLabels = (items) => {
+  const sorted = [...items].sort((a, b) => a.position - b.position)
+  const hasCollision = sorted.some(
+    (item, index) => index > 0 && item.position - sorted[index - 1].position < 22,
+  )
+  if (!hasCollision)
+    return items.map((item) => ({ ...item, lane: 0, placement: 'below', offset: 18 }))
+
+  const placementById = {
+    now: 'below',
+    'current-limit': 'above',
+    scenario: 'below',
+    target: 'above',
+  }
+  const lastPositionByPlacement = { above: [], below: [] }
+  const layout = new Map()
+
+  sorted.forEach((item) => {
+    const placement = placementById[item.id] || 'below'
+    const placementLanes = lastPositionByPlacement[placement]
+    let lane = placementLanes.findIndex((last) => item.position - last >= 22)
+    if (lane < 0) lane = placementLanes.length
+    placementLanes[lane] = item.position
+    const offset = placement === 'above' ? -108 - lane * 54 : 18 + lane * 58
+    layout.set(item.id, { lane, placement, offset })
+  })
+
+  return items.map((item) => ({ ...item, ...layout.get(item.id) }))
+}
+const financeTimelineItems = computed(() => {
+  const current = Math.max(0, Number(confirmedCurrentMonths.value) || 0)
+  const expected = hasConfirmedSimulationDurations.value
+    ? Math.max(current, Number(confirmedExpectedMonths.value) || 0)
+    : null
+  const target = Math.max(0, Math.ceil(Number(simulation.targetMonths) || 0))
+  const scale = Math.max(current, expected || 0, target, 1)
+  const position = (value) => Math.min(96, Math.max(4, (value / scale) * 92 + 4))
+  const sameDuration = expected !== null && current === expected
+
+  return spreadFinanceTimelineLabels([
+    { id: 'now', label: '현재', value: '지금', position: 4, tone: 'current' },
+    {
+      id: 'current-limit',
+      label: sameDuration ? '현재 자금 · 계획 적용 후' : '현재 자금 기준',
+      value: current ? formatPrepMonthsWithUnit(current) : '계산 중',
+      position: position(current),
+      tone: sameDuration ? 'scenario' : 'limit',
+    },
+    ...(expected !== null && !sameDuration
+      ? [
+          {
+            id: 'scenario',
+            label: '계획 적용 후',
+            value: formatPrepMonthsWithUnit(expected),
+            position: position(expected),
+            tone: 'scenario',
+            staggered: true,
+          },
+        ]
+      : []),
+    ...(target
+      ? [
+          {
+            id: 'target',
+            label: '취업 목표',
+            value: `${target}개월`,
+            position: position(target),
+            tone: 'target',
+          },
+        ]
+      : []),
+  ])
+})
 const fixedExpenseSummary = ref(null)
 const useCalendarApi = import.meta.env.VITE_USE_MOCK_API !== 'true'
 
@@ -67,13 +159,19 @@ const form = reactive({
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(Number(value) || 0))
 const signed = (value) => `${Number(value) >= 0 ? '+' : '-'}${money(value)}원`
 const transactionTypeLabel = (row) =>
-  transactionKind(row) === 'income'
-    ? '수입'
-    : transactionKind(row) === 'transfer'
-      ? '계좌이체'
-      : row.analysisExcluded
-        ? '지출 · 분석 제외'
-        : '지출'
+  row?.transactionType === 'FIXED'
+    ? '고정지출'
+    : transactionKind(row) === 'income'
+      ? '수입'
+      : transactionKind(row) === 'transfer'
+        ? '계좌이체'
+        : row.analysisExcluded
+          ? '지출 · 분석 제외'
+          : '지출'
+const transactionSourceText = (row) =>
+  ({ ACCOUNT: '계좌', CARD: '카드', MANUAL: '직접 입력' })[row?.transactionSource] ||
+  row?.detail ||
+  '-'
 const compactCalendarAmount = (value) => {
   const amount = Math.abs(Number(value) || 0)
   if (amount < 10000) return money(amount)
@@ -166,6 +264,11 @@ const enrichedCalendarTransactions = computed(() => {
           analysisExcluded: transaction.analysisExcluded,
           classificationMethod: transaction.classificationMethod,
           transactionSource: transaction.transactionSource,
+          merchantName: transaction.merchantName,
+          merchantRegistrationNumber: transaction.merchantRegistrationNumber,
+          memo: transaction.memo,
+          fixed: transaction.fixed,
+          detail: transaction.merchantName || row.detail,
         }
       : row
   })
@@ -177,11 +280,13 @@ const monthRows = computed(() =>
 )
 
 const filteredMonthRows = computed(() =>
-  monthRows.value.filter(
-    (row) =>
-      filter.value === 'all' ||
-      (filter.value === 'income' ? isIncomeTransaction(row) : isExpenseTransaction(row)),
-  ),
+  monthRows.value.filter((row) => {
+    if (filter.value === 'all') return true
+    if (filter.value === 'income') return isIncomeTransaction(row)
+    if (filter.value === 'expense') return isExpenseTransaction(row)
+    if (filter.value === 'transfer') return transactionKind(row) === 'transfer'
+    return true
+  }),
 )
 
 const categoryOptions = computed(() => [
@@ -193,7 +298,7 @@ const quickCategories = computed(() =>
   [
     ...new Set(
       monthRows.value
-        .filter((row) => row.amount < 0)
+        .filter(isExpenseTransaction)
         .map((row) => row.category)
         .filter(Boolean),
     ),
@@ -233,28 +338,12 @@ const income = computed(() =>
         .reduce((sum, row) => sum + Math.abs(row.amount), 0),
 )
 
-const normalizeAnalysisCategory = (category) => (category === '월세' ? '주거' : category || '기타')
-const isHousingRow = (row) =>
-  ['월세', '주거'].includes(row?.category) ||
-  /월세|임대료|관리비|공과금/.test(`${row?.title || ''} ${row?.memo || ''}`)
-const housingTransactionTotal = computed(() =>
-  monthRows.value
-    .filter((row) => row.amount < 0 && isHousingRow(row))
-    .reduce((sum, row) => sum + Math.abs(row.amount), 0),
-)
-const reportedHousingTotal = computed(() =>
-  calendarState.categoryExpenses
-    .filter((item) => normalizeAnalysisCategory(item.category) === '주거')
-    .reduce((sum, item) => sum + Math.abs(Number(item.amount) || 0), 0),
-)
-const housingExpenseSupplement = computed(() =>
-  useCalendarApi ? Math.max(0, housingTransactionTotal.value - reportedHousingTotal.value) : 0,
-)
+const normalizeAnalysisCategory = (category) => category || '기타 금융'
 
 const expense = computed(() =>
   useCalendarApi
     ? hasSelectedCalendarSummary.value
-      ? Math.abs(Number(calendarState.totalExpense) || 0) + housingExpenseSupplement.value
+      ? Math.abs(Number(calendarState.totalExpense) || 0)
       : 0
     : monthRows.value
         .filter(isExpenseTransaction)
@@ -264,7 +353,9 @@ const expense = computed(() =>
 const netCashFlow = computed(() =>
   useCalendarApi
     ? hasSelectedCalendarSummary.value
-      ? Number(calendarState.netCashFlow) || income.value - expense.value
+      ? Number.isFinite(Number(calendarState.netCashFlow))
+        ? Number(calendarState.netCashFlow)
+        : income.value - expense.value
       : 0
     : income.value - expense.value,
 )
@@ -283,7 +374,7 @@ const fixedTotal = computed(() => {
     if (Number.isFinite(lastTotal)) return Math.abs(lastTotal)
   }
   return monthRows.value
-    .filter((row) => isExpenseTransaction(row) && (row.fixed || isHousingRow(row)))
+    .filter((row) => isExpenseTransaction(row) && row.fixed)
     .reduce((sum, row) => sum + Math.abs(row.amount), 0)
 })
 
@@ -294,9 +385,6 @@ const categoryTotals = computed(() => {
       const category = normalizeAnalysisCategory(item.category)
       totals[category] = (totals[category] || 0) + Math.abs(Number(item.amount) || 0)
     })
-    if (housingExpenseSupplement.value) {
-      totals.주거 = (totals.주거 || 0) + housingExpenseSupplement.value
-    }
   } else if (!useCalendarApi) {
     monthRows.value.filter(isExpenseTransaction).forEach((row) => {
       const category = normalizeAnalysisCategory(row.category)
@@ -429,7 +517,9 @@ const days = computed(() => {
   })
 })
 
-const selectedDayNet = computed(() => displayedRows.value.reduce((sum, row) => sum + row.amount, 0))
+const selectedDayNet = computed(() =>
+  displayedRows.value.reduce((sum, row) => sum + analyzableSignedAmount(row), 0),
+)
 
 function applyQuickFilter(nextFilter, nextCategory = 'all') {
   filter.value = nextFilter
@@ -461,16 +551,16 @@ function categoryIcon(category, amount) {
   return (
     {
       식비: '🍚',
-      월세: '🏠',
-      주거: '🏠',
-      교통: '🚌',
-      구독: '🎬',
-      보험: '🛡️',
-      교육: '📚',
+      '술·유흥': '🍻',
+      '카페·간식': '☕',
+      '취업 준비': '📚',
       쇼핑: '🛍️',
-      의료: '💊',
-      여가: '🎮',
-      통신비: '📱',
+      '취미·여가': '🎮',
+      '주거·통신': '🏠',
+      '교통·유류비': '🚌',
+      '의료·건강': '💊',
+      '기타 금융': '💳',
+      계좌이체: '↔️',
     }[category] || '✨'
   )
 }
@@ -524,22 +614,11 @@ async function openDetail(row) {
   if (!transactionId) return
   try {
     const detail = await getTransactionDetailApi(transactionId)
-    const [date = row.date, rawTime = row.time] = String(detail?.transactionAt || '').split('T')
     selectedTransaction.value = {
       ...row,
-      date,
-      time: rawTime ? rawTime.slice(0, 5) : row.time,
-      title: detail?.transactionContent || row.title,
-      memo: detail?.transactionMemo || row.memo,
-      amount:
-        detail?.transactionAmount == null
-          ? row.amount
-          : Math.abs(Number(detail.transactionAmount)) *
-            (detail.transactionType === 'INCOME' ? 1 : -1),
-      transactionType: detail?.transactionType || row.transactionType,
-      transactionSource: detail?.transactionSource || row.transactionSource,
-      classificationMethod: detail?.classificationMethod || row.classificationMethod,
-      analysisExcluded: Boolean(detail?.analysisExcluded ?? row.analysisExcluded),
+      ...detail,
+      id: detail?.id || row.id,
+      apiId: detail?.apiId || row.apiId,
     }
   } catch (error) {
     actionError.value = error.message || '거래 상세 정보를 불러오지 못했습니다.'
@@ -751,6 +830,13 @@ onMounted(async () => {
           수입
         </button>
         <button
+          :class="{ active: filter === 'transfer' }"
+          type="button"
+          @click="applyQuickFilter('transfer')"
+        >
+          계좌이체
+        </button>
+        <button
           v-for="category in quickCategories"
           :key="category"
           :class="{ active: filter === 'expense' && categoryFilter === category }"
@@ -869,7 +955,7 @@ onMounted(async () => {
                     signed(
                       displayedRows
                         .filter((item) => item.date === row.date)
-                        .reduce((sum, item) => sum + item.amount, 0),
+                        .reduce((sum, item) => sum + analyzableSignedAmount(item), 0),
                     )
                   }}
                 </span>
@@ -990,6 +1076,41 @@ onMounted(async () => {
       </div>
     </details>
 
+    <section class="card timeline">
+      <h2>월별 재정 타임라인</h2>
+      <p class="timeline-description">
+        현재 자금이 유지되는 기간과 취업 목표 시점을 한눈에 확인하세요.
+      </p>
+      <div class="finance-timeline-track" role="list" aria-label="월별 재정 주요 시점">
+        <div class="finance-timeline-track__line" />
+        <div
+          v-for="item in financeTimelineItems"
+          :key="item.id"
+          class="finance-timeline-marker"
+          :class="[
+            `finance-timeline-marker--${item.tone}`,
+            `label-placement-${item.placement}`,
+            `label-lane-${item.lane}`,
+          ]"
+          :style="{ left: `${item.position}%`, '--timeline-label-offset': `${item.offset}px` }"
+          role="listitem"
+        >
+          <i />
+          <div class="finance-timeline-marker__copy">
+            <strong>{{ item.value }}</strong>
+            <span>{{ item.label }}</span>
+          </div>
+        </div>
+      </div>
+      <p class="timeline-note">
+        직전 3개월 월평균 기준
+        <template v-if="hasConfirmedSimulationDurations">
+          · 계획 적용 시 {{ formatPrepMonthsWithUnit(confirmedExpectedMonths) }}</template
+        >
+        <template v-else> · 계획을 만들면 적용 후 기간도 함께 표시돼요</template>
+      </p>
+    </section>
+
     <button class="mobile-add" type="button" aria-label="거래 추가" @click="openAdd">
       <span class="mobile-add__icon" aria-hidden="true">+</span>
     </button>
@@ -1023,8 +1144,12 @@ onMounted(async () => {
               <dd>{{ selectedTransaction.category || '-' }}</dd>
             </div>
             <div>
-              <dt>결제 수단</dt>
-              <dd>{{ selectedTransaction.detail || '-' }}</dd>
+              <dt>거래처</dt>
+              <dd>{{ selectedTransaction.merchantName || selectedTransaction.title || '-' }}</dd>
+            </div>
+            <div>
+              <dt>거래 출처</dt>
+              <dd>{{ transactionSourceText(selectedTransaction) }}</dd>
             </div>
             <div>
               <dt>메모</dt>
@@ -1144,8 +1269,8 @@ onMounted(async () => {
   width: 100%;
   max-width: 1080px;
   margin: 0 auto;
-  padding: 42px 0 40px;
-  color: #191f28;
+  color: #222;
+  font-weight: 400;
 }
 
 button,
@@ -1312,6 +1437,233 @@ input {
     background-color 160ms ease,
     box-shadow 160ms ease,
     color 160ms ease;
+}
+.category-insight strong {
+  color: #f97360;
+  font-weight: 700;
+}
+.category-insight span {
+  font-weight: 700;
+}
+.expense-analysis-card {
+  min-height: 270px;
+  height: auto !important;
+  padding: 22px 20px !important;
+}
+.expense-analysis-total {
+  display: grid;
+  gap: 5px;
+}
+.expense-analysis-total h2 {
+  color: #222;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+.expense-analysis-total strong {
+  color: #111;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.expense-analysis-body {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+  margin-top: 18px;
+}
+.expense-analysis-body .finance-category-donut {
+  width: 140px;
+  height: 140px;
+}
+.expense-analysis-body .finance-category-donut::after {
+  inset: 31px;
+}
+.expense-analysis-body ul {
+  display: grid;
+  gap: 13px;
+}
+.expense-analysis-body li {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 0;
+  color: #222;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.expense-analysis-body li > i {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 2px;
+}
+.expense-analysis-body li > span {
+  font-weight: 700;
+}
+.expense-analysis-body li > strong {
+  display: grid;
+  justify-items: end;
+  color: #111;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.expense-analysis-body li small {
+  color: #a1a5ad;
+  font-size: 12px;
+  font-weight: 400;
+}
+.fixed > strong {
+  display: block;
+  margin: 10px 0 9px;
+  font-size: 28px;
+  font-weight: 700;
+}
+.fixed {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.fixed p {
+  margin: 0;
+  color: #666666;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+.fixed hr {
+  width: 100%;
+  margin: auto 0 0;
+  border: 0;
+  border-top: 1px solid #e5e8ee;
+}
+.fixed button {
+  align-self: flex-end;
+  margin-top: 12px;
+  border: 0;
+  background: none;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+.timeline {
+  position: relative;
+  min-height: 298px;
+  height: auto;
+  margin-top: 26px;
+  padding: 15px 26px 30px;
+  overflow: visible;
+  box-sizing: border-box;
+}
+.timeline :deep(.timeline-chart) {
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+}
+.timeline :deep(.timeline-chart__plot) {
+  height: 220px;
+}
+.timeline :deep(.timeline-chart__plot svg) {
+  width: 100%;
+  height: 220px !important;
+}
+.timeline h2 {
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+.timeline-description {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.finance-timeline-track {
+  position: relative;
+  height: 245px;
+  margin: 174px 18px 0;
+}
+.finance-timeline-track__line {
+  position: absolute;
+  top: 34px;
+  right: 0;
+  left: 0;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), #8facf5 68%, var(--accent-strong));
+}
+.finance-timeline-marker {
+  position: absolute;
+  top: 14px;
+  display: grid;
+  width: 46px;
+  justify-items: center;
+  gap: 5px;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.finance-timeline-marker i {
+  width: 46px;
+  height: 46px;
+  border: 6px solid #fff;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 3px 10px rgb(10 22 128 / 20%);
+}
+.finance-timeline-marker__copy {
+  position: absolute;
+  top: calc(54px + var(--timeline-label-offset, 0px));
+  left: 50%;
+  display: grid;
+  width: max-content;
+  max-width: 150px;
+  justify-items: center;
+  gap: 5px;
+  text-align: center;
+  transform: translateX(-50%);
+}
+.finance-timeline-marker__copy strong {
+  grid-row: 1;
+  margin-top: 4px;
+  color: #191f28;
+  font-size: 16px;
+}
+.finance-timeline-marker__copy span {
+  grid-row: 2;
+  max-width: 132px;
+  color: #6b7684;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong {
+  grid-row: 2;
+  margin-top: 0;
+}
+.finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span {
+  grid-row: 1;
+}
+.finance-timeline-marker--limit i {
+  background: #8b95a1;
+}
+.finance-timeline-marker--scenario i {
+  background: #7e9de9;
+}
+.finance-timeline-marker--target i {
+  background: var(--accent-strong);
+}
+.timeline-note {
+  margin-top: 6px;
+  color: #6b7684;
+  font-size: 13px;
+  text-align: center;
+}
+.timeline-chart {
+  width: 100%;
+  height: 224px;
+  margin-top: 7px;
+  overflow: visible;
+}
+.timeline-chart--mobile {
+  display: none;
 }
 
 .view-toggle button > span {
@@ -2411,6 +2763,102 @@ input {
     margin: 0 16px 20px;
     padding: 16px;
     border-radius: 16px;
+  }
+  .timeline {
+    min-height: 260px;
+    height: auto;
+    margin-top: 12px;
+    padding: 15px 14px 22px;
+  }
+  .timeline h2 {
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+  }
+  .timeline-description {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .finance-timeline-track {
+    position: relative;
+    display: block;
+    height: 145px;
+    margin: 90px 8px 0;
+    padding: 0;
+  }
+  .finance-timeline-track__line {
+    top: 26px;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 5px;
+    background: linear-gradient(90deg, var(--primary), #8facf5 68%, var(--accent-strong));
+  }
+  .finance-timeline-marker,
+  .finance-timeline-marker:last-of-type {
+    position: absolute;
+    top: 13px;
+    display: grid;
+    width: 30px;
+    max-width: none;
+    justify-items: center;
+    gap: 3px;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+  .finance-timeline-marker i {
+    z-index: 1;
+    width: 30px;
+    height: 30px;
+    border-width: 4px;
+  }
+  .finance-timeline-marker__copy,
+  .finance-timeline-marker--current .finance-timeline-marker__copy,
+  .finance-timeline-marker:last-of-type .finance-timeline-marker__copy,
+  .finance-timeline-marker.is-staggered .finance-timeline-marker__copy {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    display: grid;
+    width: max-content;
+    max-width: 92px;
+    justify-items: center;
+    gap: 3px;
+    margin: 0;
+    transform: translateX(-50%);
+  }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy {
+    top: -42px;
+  }
+  .finance-timeline-marker.label-placement-below.label-lane-1 .finance-timeline-marker__copy {
+    top: 88px;
+  }
+  .finance-timeline-marker.label-placement-above.label-lane-1 .finance-timeline-marker__copy {
+    top: -78px;
+  }
+  .finance-timeline-marker__copy strong,
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong {
+    grid-row: 1;
+    grid-column: auto;
+    margin: 0;
+    font-size: 12px;
+  }
+  .finance-timeline-marker__copy span,
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span {
+    grid-row: 2;
+    grid-column: auto;
+    max-width: 92px;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy strong {
+    grid-row: 2;
+  }
+  .finance-timeline-marker.label-placement-above .finance-timeline-marker__copy span {
+    grid-row: 1;
+  }
+  .timeline-chart--desktop {
+    display: none;
   }
 
   .flow-summary > button {

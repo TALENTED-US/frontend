@@ -1,13 +1,8 @@
-import { expenseCategoryToLabel } from '@/constants/expenseCategories'
+import { expenseCategoryLabel } from '@/constants/expenseCategories'
 
 function numberOrZero(value) {
   const number = Number(value)
   return Number.isFinite(number) ? number : 0
-}
-
-function numberOrNull(value) {
-  const number = Number(value)
-  return value !== null && value !== undefined && Number.isFinite(number) ? number : null
 }
 
 function recurrenceToType(value) {
@@ -40,7 +35,7 @@ export function mapSimulationItemResponse(item, policyCatalog = []) {
   }
 
   if (item.itemCategory === 'EXPENSE') {
-    const name = expenseCategoryToLabel(item.expenseCategory)
+    const name = expenseCategoryLabel(item.expenseCategory)
     return {
       ...common,
       kind: 'expense',
@@ -91,14 +86,26 @@ export function mapConfirmedSimulationResponse(response, policyCatalog = []) {
   const items = (response.appliedItems || [])
     .map((item) => mapSimulationItemResponse(item, policyCatalog))
     .filter(Boolean)
+  const rawCurrentMonths = Number(response.currentPrepMonths)
+  const rawExpectedMonths = Number(response.expectPrepMonths)
+  const hasCurrentMonths = Number.isFinite(rawCurrentMonths)
+  const hasExpectedMonths = Number.isFinite(rawExpectedMonths)
+  const currentMonths = hasCurrentMonths ? Math.round(rawCurrentMonths * 10) / 10 : null
+  const expectedMonths = hasExpectedMonths ? Math.round(rawExpectedMonths * 10) / 10 : null
 
   return {
     simulationId: response.simulationId,
     startDate: response.simulationStartDate || '',
     endDate: response.simulationDueDate || '',
     confirmedAt: response.confirmedAt || '',
-    currentMonths: numberOrNull(response.currentPrepMonths),
-    expectedMonths: numberOrNull(response.expectPrepMonths),
+    ...(hasCurrentMonths ? { currentMonths } : {}),
+    ...(hasExpectedMonths ? { expectedMonths } : {}),
+    ...(typeof response.currentSustainable === 'boolean'
+      ? { currentSustainable: response.currentSustainable }
+      : {}),
+    ...(typeof response.expectSustainable === 'boolean'
+      ? { expectSustainable: response.expectSustainable }
+      : {}),
     endAmount: numberOrZero(response.simulationEndAmount),
     expenses: items.filter((item) => item.kind === 'expense'),
     incomes: items.filter((item) => item.kind === 'income'),

@@ -37,6 +37,7 @@ const titles = {
   timeline: '내 재정',
   search: '정책',
   searchFilter: '정책 상세 필터',
+  policyDetail: '정책 상세',
   notifications: '알림',
   mypage: '마이페이지',
   myInfo: '내 정보',
@@ -55,6 +56,7 @@ const isSimulationEdit = computed(() => route.name === 'simulationEdit')
 const isSimulationContinue = computed(() => route.name === 'simulationContinue')
 const isSimulationCategory = computed(() => route.name === 'simulationCategory')
 const isSimulationPreview = computed(() => route.name === 'simulationCategoryPreview')
+const isSimulationConfirm = computed(() => route.name === 'simulationConfirm')
 const isFixedExpense = computed(() =>
   ['fixedExpenses', 'fixedExpenseAdd', 'fixedExpenseDelete'].includes(route.name),
 )
@@ -67,6 +69,7 @@ const hasMobileBack = computed(
     isSimulationContinue.value ||
     isSimulationCategory.value ||
     isSimulationPreview.value ||
+    isSimulationConfirm.value ||
     isFixedExpense.value ||
     isNotifications.value,
 )
@@ -82,7 +85,6 @@ const mobileTitle = computed(() => {
   }
   return title.value
 })
-const isFinanceMain = computed(() => route.name === 'finance')
 
 async function toggle(name) {
   openPopover.value = openPopover.value === name ? '' : name
@@ -106,6 +108,7 @@ function goBack() {
   else if (isSimulationEdit.value) router.push('/simulation')
   else if (isSimulationContinue.value) router.push('/')
   else if (isSimulationPreview.value) router.push(`/simulation/${route.params.category}`)
+  else if (isSimulationConfirm.value) router.push('/simulation/policy/preview')
   else if (isSimulationCategory.value) {
     const previousPath = {
       expense: '/simulation/new',
@@ -113,7 +116,8 @@ function goBack() {
       policy: '/simulation/income/preview',
     }[route.params.category]
     router.push(previousPath || '/simulation')
-  } else goBackFromMyPageDetail()
+  } else if (isMyPageDetail.value) goBackFromMyPageDetail()
+  else router.back()
 }
 
 async function openNotification(item) {
@@ -149,7 +153,7 @@ watch(
 </script>
 
 <template>
-  <header :class="['app-header', { 'app-header--finance': isFinanceMain }]">
+  <header class="app-header app-header--finance">
     <button
       v-if="hasMobileBack"
       :class="[
@@ -165,7 +169,7 @@ watch(
             ? '내 재정으로 돌아가기'
             : isSimulationStart || isSimulationEdit || isSimulationContinue
               ? '시뮬레이션에서 나가기'
-              : isSimulationCategory || isSimulationPreview
+              : isSimulationCategory || isSimulationPreview || isSimulationConfirm
                 ? '이전 시뮬레이션 단계로 돌아가기'
                 : '마이페이지로 돌아가기'
       "

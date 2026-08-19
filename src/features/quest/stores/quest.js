@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { completeQuestApi, getQuestsApi, revertQuestApi } from '@/api/quest'
 import { useSessionStore } from '@/stores/session'
+import { normalizeExternalUrl } from '@/utils/externalUrl'
 
 const CATEGORY_META = Object.freeze({
   EXPENSE: { kind: 'expense', icon: '🍚' },
@@ -11,14 +12,14 @@ const CATEGORY_META = Object.freeze({
 
 const EXPENSE_ICONS = Object.freeze({
   FOOD: '🍚',
-  ALCOHOL_ENTERTAINMENT: '🍺',
+  ALCOHOL_ENTERTAINMENT: '🍻',
   CAFE_SNACK: '☕',
   JOB_PREPARATION: '📚',
   SHOPPING: '🛍️',
-  HOBBY_LEISURE: '🎮',
+  HOBBY_LEISURE: '🎨',
   HOUSING_COMMUNICATION: '🏠',
   TRANSPORT_FUEL: '🚌',
-  HEALTH_FITNESS: '🏥',
+  HEALTH_FITNESS: '🏋️',
   OTHER_FINANCE: '🧾',
 })
 
@@ -60,9 +61,17 @@ function mapQuestResponse(item) {
         ? EXPENSE_ICONS[item?.expenseCategory] || category.icon
         : category.icon,
     kind: category.kind,
+    expenseCategory: item?.expenseCategory || '',
     recurrence: item?.recurrenceType === 'MONTHLY' ? 'monthly' : 'once',
     completed: item?.questStatus === 'COMPLETED',
-    questUrl: item?.questUrl || '',
+    questUrl: normalizeExternalUrl(
+      item?.questUrl
+      || item?.policyUrl
+      || item?.applicationUrl
+      || item?.applyUrl
+      || item?.sourceUrl
+      || item?.url,
+    ),
   }
 }
 
@@ -106,7 +115,7 @@ export const useQuestStore = defineStore('quest', () => {
       pendingIds.value = []
       loaded.value = true
 
-      if (requestError.status === 404) {
+      if (requestError.status === 404 || requestError.code === 'QUEST_002') {
         error.value = ''
         return []
       }

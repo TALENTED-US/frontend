@@ -1,5 +1,6 @@
 import { computed, reactive } from 'vue'
-import { transactions as seedTransactions } from '@/data/mockData'
+import { dashboard, transactions as seedTransactions } from '@/data/mockData'
+import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalytics'
 import { normalizeExpenseCategoryLabel } from '@/constants/expenseCategories'
 import {
   createTransactionApi,
@@ -194,6 +195,21 @@ export const financeState = reactive(
     : { transactions: [], seedDate: TODAY_KEY, loading: false, loaded: false, error: '' },
 )
 export const financeTransactions = computed(() => financeState.transactions)
+export const financialReport = computed(() => {
+  const analysis = analyzePreviousCompletedMonths(financeState.transactions)
+  const totalAssets = Math.max(0, Number(dashboard.totalAssets) || 0)
+  const monthlyIncome = analysis.monthlyIncome
+  const monthlyExpense = analysis.monthlyExpense
+  const monthlyDecrease = Math.max(0, monthlyExpense - monthlyIncome)
+
+  return {
+    totalAssets,
+    monthlyIncome,
+    monthlyExpense,
+    monthlyDecrease,
+    depletionMonths: monthlyDecrease > 0 ? totalAssets / monthlyDecrease : null,
+  }
+})
 
 function persist() {
   localStorage.setItem(
@@ -270,7 +286,9 @@ export async function setFixed(ids, fixed) {
     financeState.error = ''
     try {
       const updateFixed = fixed ? registerFixedTransactionApi : unregisterFixedTransactionApi
-      await Promise.all(ids.map((id) => updateFixed(id)))
+      const results = await Promise.allSettled(ids.map((id) => updateFixed(id)))
+      const failed = results.find((result) => result.status === 'rejected')
+      if (failed) throw failed.reason
       await loadTransactions(true)
       return true
     } catch (error) {

@@ -1,19 +1,17 @@
 import { apiClient, normalizeApiError, unwrapApiResponse } from './client'
-import { expenseCategoryToLabel, expenseLabelToCategory } from '@/constants/expenseCategories'
+import {
+  DEFAULT_EXPENSE_CATEGORY,
+  expenseCategoryLabel,
+  expenseCategoryValue,
+} from '@/constants/expenseCategories'
 
 function splitTransactionAt(value = '') {
   const [date = '', rawTime = ''] = String(value).split('T')
   return { date, time: rawTime.slice(0, 5) }
 }
 
-function resolveExpenseCategory(row) {
-  const mappedCategory = expenseCategoryToLabel(row?.expenseCategory)
-  if (mappedCategory !== '기타') return mappedCategory
-
-  const transactionText = `${row?.transactionContent || ''} ${row?.transactionMemo || ''}`
-  if (/월세|임대료|관리비|공과금/.test(transactionText)) return '주거'
-  return mappedCategory
-}
+const transactionSourceLabel = (source) =>
+  ({ ACCOUNT: '계좌', CARD: '카드', MANUAL: '직접 입력' })[source] || ''
 
 export function mapTransactionResponse(row) {
   const { date, time } = splitTransactionAt(row?.transactionAt)
@@ -30,12 +28,15 @@ export function mapTransactionResponse(row) {
       row?.transactionContent ||
       row?.transactionMemo ||
       (isIncome ? '수입' : isTransfer ? '계좌이체' : '지출'),
-    category: isIncome ? '수입' : isTransfer ? '계좌이체' : resolveExpenseCategory(row),
-    detail: isIncome
-      ? '입금'
+    category: isIncome
+      ? '수입'
       : isTransfer
-        ? '계좌이체 · 분석 제외'
-        : `${row?.transactionType === 'FIXED' ? '고정지출' : '지출'}${row?.analysisExcluded ? ' · 분석 제외' : ''}`,
+        ? '계좌이체'
+        : expenseCategoryLabel(row?.expenseCategory),
+    detail:
+      row?.merchantName ||
+      transactionSourceLabel(row?.transactionSource) ||
+      (isIncome ? '입금' : isTransfer ? '계좌이체 · 분석 제외' : '지출'),
     amount,
     memo: row?.transactionMemo || '',
     fixed: row?.transactionType === 'FIXED',
@@ -44,6 +45,8 @@ export function mapTransactionResponse(row) {
     analysisExcluded: Boolean(row?.analysisExcluded),
     classificationMethod: row?.classificationMethod || '',
     transactionSource: row?.transactionSource || '',
+    merchantName: row?.merchantName || '',
+    merchantRegistrationNumber: row?.merchantRegistrationNumber || '',
   }
 }
 
@@ -51,7 +54,7 @@ export function mapTransactionForm(payload) {
   const isIncome = payload.amount > 0
   return {
     transactionType: isIncome ? 'INCOME' : 'EXPENSE',
-    expenseCategory: isIncome ? 'OTHER_FINANCE' : expenseLabelToCategory(payload.category),
+    expenseCategory: isIncome ? DEFAULT_EXPENSE_CATEGORY : expenseCategoryValue(payload.category),
     transactionAmount: Math.abs(Math.trunc(Number(payload.amount) || 0)),
     transactionContent: payload.title || payload.memo || (isIncome ? '수입' : payload.category),
     transactionMemo: payload.memo || '',
@@ -82,7 +85,7 @@ export async function getFixedExpenseDetailsApi() {
           date,
           time,
           title: row?.transactionContent || '고정지출',
-          category: expenseCategoryToLabel(row?.expenseCategory),
+          category: expenseCategoryLabel(row?.expenseCategory),
           detail: '고정지출',
           amount: -Math.abs(Number(row?.transactionAmount) || 0),
           fixed: true,
@@ -97,8 +100,11 @@ export function getFixedExpenseSummaryApi() {
   return requestResult(() => apiClient.get('transactions/fixed/sum'))
 }
 
-export function getTransactionDetailApi(transactionId) {
-  return requestResult(() => apiClient.get(`transactions/${encodeURIComponent(transactionId)}`))
+export async function getTransactionDetailApi(transactionId) {
+  const row = await requestResult(() =>
+    apiClient.get(`transactions/${encodeURIComponent(transactionId)}`),
+  )
+  return mapTransactionResponse(row)
 }
 
 export function createTransactionApi(payload) {

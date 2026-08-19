@@ -1,11 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { getTimelineApi } from '@/api/timeline'
+import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 
 const AVERAGE_MONTH_DAYS = 365.2425 / 12
 const DAY_MS = 24 * 60 * 60 * 1000
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true'
-const SUSTAINABLE_MONTHS = 999
 const mockTimeline = {
   currentPrepMonths: 2.6,
   expectPrepMonths: 8.2,
@@ -60,10 +60,7 @@ function normalizedMonths(value) {
 }
 
 function formatPrepMonths(value) {
-  const months = normalizedMonths(value)
-  if (months === null) return '-'
-  if (months >= SUSTAINABLE_MONTHS) return '고갈 예상 없음'
-  return `${months.toFixed(1)}개월`
+  return formatPrepMonthsWithUnit(value)
 }
 
 const today = computed(() => startOfToday())
@@ -71,11 +68,11 @@ const targetDate = computed(() => parseLocalDate(timeline.value?.targetEmploymen
 const currentMonths = computed(() => normalizedMonths(timeline.value?.currentPrepMonths))
 const expectedMonths = computed(() => normalizedMonths(timeline.value?.expectPrepMonths))
 const currentEndDate = computed(() => {
-  if (currentMonths.value === null || currentMonths.value >= SUSTAINABLE_MONTHS) return null
+  if (currentMonths.value === null || isInfinitePrepMonths(currentMonths.value)) return null
   return addAverageMonths(today.value, currentMonths.value)
 })
 const expectedEndDate = computed(() => {
-  if (expectedMonths.value === null || expectedMonths.value >= SUSTAINABLE_MONTHS) return null
+  if (expectedMonths.value === null || isInfinitePrepMonths(expectedMonths.value)) return null
   return addAverageMonths(today.value, expectedMonths.value)
 })
 const hasSimulation = computed(() => Boolean(timeline.value?.simulationId))

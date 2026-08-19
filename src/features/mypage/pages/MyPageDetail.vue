@@ -31,11 +31,15 @@ const router = useRouter()
 const session = useSessionStore()
 const progression = useProgressionStore()
 const simulation = useSimulationStore()
-const profileExp = computed(() => Number(session.currentUser.exp ?? progression.exp))
-const profileRequiredExp = computed(() =>
-  Number(session.currentUser.requiredExp ?? progression.nextLevelExp),
+const profileExp = computed(() =>
+  Number(session.isMockMode ? progression.exp : session.currentUser.exp),
 )
-const profileLevel = computed(() => Number(session.currentUser.level ?? progression.level))
+const profileRequiredExp = computed(() =>
+  Number(session.isMockMode ? progression.nextLevelExp : session.currentUser.requiredExp),
+)
+const profileLevel = computed(() =>
+  Number(session.isMockMode ? progression.level : session.currentUser.level),
+)
 
 const fallbackProfileImage = computed(() => {
   const apiRisk = session.currentUser.riskLevel
@@ -46,7 +50,9 @@ const fallbackProfileImage = computed(() => {
         ? 'caution'
         : apiRisk === 'STABLE'
           ? 'stable'
-          : simulation.currentStatus?.key
+          : session.isMockMode
+            ? simulation.currentStatus?.key
+            : 'unknown'
   if (key === 'danger' || key === 'risk') return getButtieLevelImage(profileLevel.value, 'danger')
   if (key === 'caution') return getButtieLevelImage(profileLevel.value, 'caution')
   return getButtieLevelImage(profileLevel.value, 'stable')
@@ -94,7 +100,9 @@ const notificationSettings = reactive({
   ...notificationDefaults,
   ...savedNotificationSettings,
 })
-const twoFactorEnabled = ref(localStorage.getItem('buttie-two-factor') === 'true')
+const twoFactorEnabled = ref(
+  session.isMockMode && localStorage.getItem('buttie-two-factor') === 'true',
+)
 
 onMounted(async () => {
   const focusTarget = route.query.focus
@@ -135,7 +143,7 @@ const form = reactive({
   goal: session.currentUser.goalDate,
   region: session.currentUser.region,
   family: session.currentUser.family,
-  financialRiskAlertAmount: Number(session.currentUser.financialRiskAlertAmount) || 600000,
+  financialRiskAlertAmount: Number(session.currentUser.financialRiskAlertAmount ?? 600000),
   password: '',
 })
 
@@ -186,8 +194,8 @@ watch(
   },
   { deep: true },
 )
-watch(twoFactorEnabled, (value) => localStorage.setItem('buttie-two-factor', String(value)))
 if (session.isMockMode) {
+  watch(twoFactorEnabled, (value) => localStorage.setItem('buttie-two-factor', String(value)))
   watch(
     accounts,
     (value) => localStorage.setItem('buttie-linked-accounts', JSON.stringify(value)),
@@ -200,7 +208,9 @@ if (session.isMockMode) {
 watch(
   () => route.name,
   (name) => {
-    if (name === 'dataManagement' && !session.isMockMode) loadLinkedAssets()
+    const isMyDataConnected =
+      session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
+    if (name === 'dataManagement' && !session.isMockMode && isMyDataConnected) loadLinkedAssets()
     if (name === 'notificationSettings' && !session.isMockMode) loadNotificationSettings()
   },
   { immediate: true },
@@ -280,7 +290,9 @@ async function loadLinkedAssets() {
     await loadMyDataCatalog()
     mapLinkedAssets()
   } catch (error) {
-    dataRefreshMessage.value = error.message || '연결된 마이데이터 자산을 불러오지 못했습니다.'
+    if (error.code !== 'MYDATA_007') {
+      dataRefreshMessage.value = error.message || '연결된 마이데이터 자산을 불러오지 못했습니다.'
+    }
   } finally {
     dataLoading.value = false
   }
@@ -399,11 +411,6 @@ async function withdrawAccount() {
   } finally {
     withdrawSubmitting.value = false
   }
-}
-
-async function logout() {
-  await session.logout()
-  router.replace('/auth/login')
 }
 
 async function setAllNotifications(value) {
@@ -761,21 +768,8 @@ function reconnectMyData() {
         <span
           ><strong>2단계 인증</strong><small>로그인 시 인증번호를 추가로 입력합니다</small></span
         >
-        <input v-model="twoFactorEnabled" type="checkbox" />
+        <input v-model="twoFactorEnabled" type="checkbox" :disabled="!session.isMockMode" />
       </label>
-      <article class="devices-card">
-        <header>
-          <h2>최근 로그인 기기</h2>
-          <button type="button" @click="logout">전체 로그아웃</button>
-        </header>
-        <div class="device-row">
-          <i /><span><strong>Chrome / MacOS</strong><small>서울 · 2026-07-15 10:32</small></span
-          ><b>현재</b>
-        </div>
-        <div class="device-row">
-          <i /><span><strong>Safari / iPhone</strong><small>서울 · 2026-07-14 18:20</small></span>
-        </div>
-      </article>
     </template>
 
     <template v-else-if="route.name === 'dataManagement'">
@@ -1168,7 +1162,6 @@ function reconnectMyData() {
 .toggle-card,
 .toggle-list,
 .security-card,
-.devices-card,
 .accounts-card,
 .withdraw-warning {
   border: 1px solid #e2e3e8;
@@ -1372,13 +1365,11 @@ function reconnectMyData() {
   font-size: var(--font-caption);
 }
 
-.security-card,
-.devices-card {
+.security-card {
   margin-top: 20px;
   padding: 20px;
 }
 .security-card h2,
-.devices-card h2,
 .accounts-card h2 {
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
@@ -1398,18 +1389,15 @@ function reconnectMyData() {
 .two-factor {
   margin-top: 18px;
 }
-.devices-card header,
 .accounts-card header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.devices-card header button,
 .accounts-card header button {
   color: #ff5e61;
   font-size: var(--font-small);
 }
-.device-row,
 .account-row {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
@@ -1418,33 +1406,14 @@ function reconnectMyData() {
   min-height: 64px;
   border-bottom: 1px solid #e6e6e6;
 }
-.device-row:last-child {
-  border-bottom: 0;
-}
-.device-row i {
-  width: 16px;
-  height: 16px;
-  border: 1px solid #9aa3b2;
-  border-radius: 2px;
-}
-.device-row span,
 .account-row span {
   display: grid;
 }
-.device-row strong,
 .account-row strong {
   font-size: var(--font-body);
 }
-.device-row small,
 .account-row small {
   color: #777;
-  font-size: var(--font-caption);
-}
-.device-row b {
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: #def7e8;
-  color: #15925f;
   font-size: var(--font-caption);
 }
 
@@ -1842,8 +1811,7 @@ function reconnectMyData() {
   .toggle-list small {
     font-size: var(--font-caption);
   }
-  .security-card,
-  .devices-card {
+  .security-card {
     margin-top: 0;
     padding: 20px;
     border-radius: 17px;
@@ -1856,16 +1824,6 @@ function reconnectMyData() {
     margin-top: 25px;
     border-radius: 22px;
     font-size: var(--font-small);
-  }
-  .devices-card {
-    margin-top: 14px;
-  }
-  .devices-card h2 {
-    font-size: var(--type-section-title-size);
-    font-weight: var(--type-section-title-weight);
-  }
-  .device-row {
-    min-height: 65px;
   }
   .accounts-card {
     margin-top: 0;

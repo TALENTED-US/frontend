@@ -1,9 +1,15 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { dashboard } from '@/data/mockData'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import { getMyDataAssetsApi } from '@/api/mydata'
+import { calendarState, loadCalendar } from '@/features/finance/calendarStore'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import MyDataConnectModal from '@/components/ui/MyDataConnectModal.vue'
+import QuestOverview from '@/features/quest/components/QuestOverview.vue'
+import { normalizeExternalUrl } from '@/utils/externalUrl'
 import { useSessionStore } from '@/stores/session'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import { pickButtieMessage } from '@/data/buttieMessages'
@@ -16,13 +22,9 @@ import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalyt
 import { formatPrepMonths, isInfinitePrepMonths } from '@/utils/prepMonths'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
-import {
-  calculateQuestExp,
-  formatExp,
-  normalizeButtieProgression,
-  useProgressionStore,
-} from '@/stores/progression'
+import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
 
+const router = useRouter()
 const session = useSessionStore()
 const simulation = useSimulationStore()
 const progression = useProgressionStore()
@@ -32,6 +34,16 @@ const dashboardApiError = ref('')
 const dashboardApiLoading = ref(false)
 const financialAssets = ref(null)
 const financialAssetsError = ref('')
+const showMyDataConnectModal = ref(false)
+
+function isMyDataConnected() {
+  return session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
+}
+
+function goToMyDataConnect() {
+  showMyDataConnectModal.value = false
+  router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/dashboard' } })
+}
 
 function finiteNumberOrNull(value) {
   const number = Number(value)
@@ -43,12 +55,14 @@ async function loadButtieDashboard() {
   dashboardApiError.value = ''
   try {
     buttieDashboard.value = await getButtieDashboardApi()
-    const normalized = normalizeButtieProgression(buttieDashboard.value.buttieTotalExp)
+    const totalExp = finiteNumberOrNull(buttieDashboard.value.buttieTotalExp)
+    const requiredExp = finiteNumberOrNull(buttieDashboard.value.requiredExp)
+    const level = finiteNumberOrNull(buttieDashboard.value.buttieLevel)
     Object.assign(session.currentUser, {
-      level: normalized.level,
-      exp: normalized.exp,
-      totalExp: normalized.totalExp,
-      requiredExp: normalized.requiredExp,
+      level,
+      exp: totalExp,
+      totalExp,
+      requiredExp,
       buttieImageUrl: buttieDashboard.value.buttieImageUrl,
       riskLevel: buttieDashboard.value.riskLevel,
       goalDate: buttieDashboard.value.targetEmploymentDate,
@@ -66,6 +80,13 @@ async function loadFinancialAssets() {
     return
   }
 
+  if (!isMyDataConnected()) {
+    financialAssets.value = null
+    financialAssetsError.value = ''
+    showMyDataConnectModal.value = true
+    return
+  }
+
   financialAssetsError.value = ''
   try {
     const assets = await getMyDataAssetsApi()
@@ -74,16 +95,27 @@ async function loadFinancialAssets() {
       .filter((account) => account.isConsent !== false)
       .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
   } catch (error) {
+    if (error.code === 'MYDATA_007') {
+      financialAssets.value = null
+      financialAssetsError.value = ''
+      return
+    }
     financialAssets.value = null
     financialAssetsError.value = error.message || '계좌 잔액을 불러오지 못했습니다.'
   }
 }
 
 onMounted(async () => {
+  const dashboardMonth = new Date()
   await Promise.all([
     loadButtieDashboard(),
     loadFinancialAssets(),
     loadTransactions().catch(() => null),
+    session.isMockMode
+      ? Promise.resolve()
+      : loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true).catch(
+          () => null,
+        ),
   ])
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
@@ -104,6 +136,14 @@ const LEVEL_DESCRIPTIONS = Object.freeze([
   { level: 4, title: '천사 버티', description: '자산을 든든히 지키는 버티' },
   { level: 5, title: '수호신 버티', description: '재정을 완성한 최고 단계 버티' },
 ])
+const POLICY_APPLICATION_URLS = Object.freeze({
+  국민취업지원제도: 'https://m.work24.go.kr/ua/z/z/1300/selectEmssRqutIntro.do',
+  '청년 월세 특별지원': 'https://housing.seoul.go.kr/site/main/content/sh01_060513',
+  '청년 월세 지원': 'https://housing.seoul.go.kr/site/main/content/sh01_060513',
+  청년도약계좌: 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+  'KB 청년도약계좌': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+  'youth-saving': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
+})
 const levelInfoOpen = ref(false)
 const levelTitle = computed(() => LEVEL_TITLES[buttieLevel.value] || LEVEL_TITLES[1])
 const levelMessage = ref('')
@@ -201,13 +241,30 @@ function expenseQuestName(name) {
 
 const currentUser = computed(() => session.currentUser)
 const apiButtieProgression = computed(() =>
-  buttieDashboard.value ? normalizeButtieProgression(buttieDashboard.value.buttieTotalExp) : null,
+  buttieDashboard.value
+    ? {
+        level: finiteNumberOrNull(buttieDashboard.value.buttieLevel),
+        exp: finiteNumberOrNull(buttieDashboard.value.buttieTotalExp),
+        requiredExp: finiteNumberOrNull(buttieDashboard.value.requiredExp),
+      }
+    : null,
 )
-const buttieExp = computed(() => apiButtieProgression.value?.exp ?? progression.exp)
-const buttieRequiredExp = computed(
-  () => apiButtieProgression.value?.requiredExp ?? progression.nextLevelExp,
+const buttieExp = computed(() =>
+  session.isMockMode
+    ? progression.exp
+    : (apiButtieProgression.value?.exp ?? finiteNumberOrNull(session.currentUser.totalExp)),
 )
-const buttieLevel = computed(() => apiButtieProgression.value?.level ?? progression.level)
+const buttieRequiredExp = computed(() =>
+  session.isMockMode
+    ? progression.nextLevelExp
+    : (apiButtieProgression.value?.requiredExp ??
+      finiteNumberOrNull(session.currentUser.requiredExp)),
+)
+const buttieLevel = computed(() =>
+  session.isMockMode
+    ? progression.level
+    : (apiButtieProgression.value?.level ?? finiteNumberOrNull(session.currentUser.level)),
+)
 const buttieRemainingExp = computed(() => Math.max(0, buttieRequiredExp.value - buttieExp.value))
 const buttieProgressPercent = computed(() =>
   buttieRequiredExp.value > 0
@@ -242,8 +299,16 @@ const totalAssets = computed(() =>
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
 )
-const monthlyExpense = computed(() => recentFinancialAnalysis.value.monthlyExpense)
-const monthlyIncome = computed(() => recentFinancialAnalysis.value.monthlyIncome)
+const monthlyExpense = computed(() =>
+  session.isMockMode
+    ? recentFinancialAnalysis.value.monthlyExpense
+    : finiteNumberOrNull(calendarState.totalExpense),
+)
+const monthlyIncome = computed(() =>
+  session.isMockMode
+    ? recentFinancialAnalysis.value.monthlyIncome
+    : finiteNumberOrNull(calendarState.totalIncome),
+)
 const hasConfirmedSimulationDurations = computed(
   () =>
     simulation.recentConfirmed?.currentMonths !== null &&
@@ -323,6 +388,7 @@ const confirmedPolicyRows = computed(() =>
     amount: item.amount,
     kind: 'policy',
     recurrence: item.type === 'monthly' ? 'monthly' : 'once',
+    questUrl: normalizeExternalUrl(item.url),
   })),
 )
 const questTab = ref('active')
@@ -354,6 +420,29 @@ function questCompletionId(item) {
   if (quests.remoteEnabled) return item.id
   return item.recurrence === 'monthly' ? `${item.id}@${questMonthKey.value}` : item.id
 }
+
+function policyApplicationUrl(item) {
+  if (item?.kind !== 'policy') return ''
+
+  const directUrl =
+    item.questUrl ||
+    item.applicationUrl ||
+    item.applyUrl ||
+    item.policyUrl ||
+    item.url ||
+    item.detailUrl ||
+    item.link
+  if (directUrl) return directUrl
+
+  const name = String(item.name || '')
+  const exactMatch = POLICY_APPLICATION_URLS[item.id] || POLICY_APPLICATION_URLS[name]
+  if (exactMatch) return exactMatch
+
+  const partialMatch = Object.entries(POLICY_APPLICATION_URLS).find(
+    ([policyName]) => policyName !== 'youth-saving' && name.includes(policyName),
+  )
+  return partialMatch?.[1] || ''
+}
 const completedQuestIds = computed(() => new Set(simulation.state.completedQuestIds || []))
 const completedQuestCount = computed(() => allQuestRows.value.filter(isQuestCompleted).length)
 const activeQuestCount = computed(() => allQuestRows.value.length - completedQuestCount.value)
@@ -362,6 +451,13 @@ const questCompletionPercent = computed(() =>
     ? Math.round((completedQuestCount.value / allQuestRows.value.length) * 100)
     : 0,
 )
+const claimableQuestExp = computed(() =>
+  allQuestRows.value
+    .filter((item) => !isQuestCompleted(item))
+    .reduce((sum, item) => sum + questExp(item), 0),
+)
+const questIconName = (item) =>
+  ({ expense: 'arrow-down', income: 'briefcase', policy: 'landmark' })[item.kind] || 'check-circle'
 function buildQuestGroups(rows) {
   return [
     { key: 'expense', title: '지출 줄이기' },
@@ -398,7 +494,7 @@ const visibleQuestSections = computed(() =>
     const rows = section.rows.filter((item) =>
       questTab.value === 'completed' ? isQuestCompleted(item) : !isQuestCompleted(item),
     )
-    return { ...section, groups: buildQuestGroups(rows) }
+    return { ...section, visibleRows: rows }
   }),
 )
 function isQuestCompleted(item) {
@@ -454,17 +550,29 @@ const survivalCardTitle = computed(() =>
 )
 const financialStatus = computed(() => {
   const apiRisk = buttieDashboard.value?.riskLevel
-  const isDanger = apiRisk === 'DANGER' || (!apiRisk && achievementRate.value <= 30)
-  const isCaution = apiRisk === 'CAUTION' || (!apiRisk && achievementRate.value < 80)
+  if (!session.isMockMode && !apiRisk) {
+    const fallbackImage = getButtieLevelImage(buttieLevel.value || 1, 'stable')
+    return {
+      key: 'unknown',
+      label: '확인 불가',
+      message: '서버에서 재정 위험 상태를 불러오지 못했어요',
+      image: buttieDashboard.value?.buttieImageUrl || fallbackImage,
+      fallbackImage,
+      imageAlt: '재정 위험 상태를 확인할 수 없는 버티',
+    }
+  }
+  const isDanger = apiRisk === 'DANGER' || (session.isMockMode && achievementRate.value <= 30)
+  const isCaution = apiRisk === 'CAUTION' || (session.isMockMode && achievementRate.value < 80)
   const apiImage = buttieDashboard.value?.buttieImageUrl
 
   if (isDanger) {
-    const shortage = Math.max(1, Math.ceil(shortageMonths.value))
     const fallbackImage = getButtieLevelImage(buttieLevel.value, 'danger')
     return {
       key: 'risk',
       label: '위험',
-      message: `버티는 기간이 목표보다 ${shortage}개월 부족해서 버티가 녹고 있어요`,
+      message: session.isMockMode
+        ? `버티는 기간이 목표보다 ${Math.max(1, Math.ceil(shortageMonths.value))}개월 부족해서 버티가 녹고 있어요`
+        : '서버에서 현재 재정 상태를 위험으로 판정했어요',
       image: apiImage || fallbackImage,
       fallbackImage,
       imageAlt: '거의 녹아내린 위험 상태의 버티',
@@ -476,7 +584,9 @@ const financialStatus = computed(() => {
     return {
       key: 'caution',
       label: '주의',
-      message: '버티는 기간이 목표보다 조금 부족해 주의가 필요해요',
+      message: session.isMockMode
+        ? '버티는 기간이 목표보다 조금 부족해 주의가 필요해요'
+        : '서버에서 현재 재정 상태를 주의로 판정했어요',
       image: apiImage || fallbackImage,
       fallbackImage,
       imageAlt: '조금 녹아내린 주의 상태의 버티',
@@ -487,7 +597,9 @@ const financialStatus = computed(() => {
   return {
     key: 'stable',
     label: '안정',
-    message: '버티는 기간이 목표를 넉넉히 채워서 걱정 없어요',
+    message: session.isMockMode
+      ? '버티는 기간이 목표를 넉넉히 채워서 걱정 없어요'
+      : '서버에서 현재 재정 상태를 안정으로 판정했어요',
     image: apiImage || fallbackImage,
     fallbackImage,
     imageAlt: '온전한 안정 상태의 버티',
@@ -522,7 +634,11 @@ const hasReachedFinancialRiskAmount = computed(() => {
   const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
   return assets !== null && riskAmount !== null && assets <= riskAmount
 })
-const netCashFlow = computed(() => monthlyIncome.value - monthlyExpense.value)
+const netCashFlow = computed(() =>
+  session.isMockMode
+    ? monthlyIncome.value - monthlyExpense.value
+    : finiteNumberOrNull(calendarState.netCashFlow),
+)
 const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
 const monthlyNetChangeLabel = computed(() => {
   if (netCashFlow.value > 0) return '매달 들어오는 금액'
@@ -558,8 +674,9 @@ const targetMonthText = computed(() =>
   <section class="page dashboard">
     <div class="dashboard__top">
       <header class="dashboard__heading">
+        <p class="app-page-heading__eyebrow">FINANCIAL OVERVIEW</p>
         <h1>버티와 함께하는 취준 여정,<br />지금 확인해 보세요</h1>
-        <p>취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
+        <p class="app-page-heading__description">취업 준비 기간 동안의 재정 상태를 관리해보세요</p>
       </header>
       <section class="level-overview" aria-label="레벨 및 경험치">
         <div>
@@ -733,11 +850,11 @@ const targetMonthText = computed(() =>
           </div>
           <div class="dashboard-report__cashflow" aria-label="월평균 수입과 지출">
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--income">
-              <span>월평균 수입</span>
+              <span>{{ session.isMockMode ? '월평균 수입' : '이번 달 수입' }}</span>
               <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
             </div>
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--expense">
-              <span>월평균 지출</span>
+              <span>{{ session.isMockMode ? '월평균 지출' : '이번 달 지출' }}</span>
               <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
             </div>
           </div>
@@ -803,128 +920,11 @@ const targetMonthText = computed(() =>
 
     <div class="dashboard__bottom">
       <section class="quest-section">
-        <div class="block-heading">
-          <h2>퀘스트 현황</h2>
-          <span v-if="hasConfirmedScenario" class="confirmed-badge">확정됨</span>
-        </div>
-
-        <article v-if="hasConfirmedScenario" class="quest-card">
-          <div
-            v-if="quests.remoteEnabled && (quests.loading || quests.error)"
-            class="quest-api-notice"
-            :class="{ 'quest-api-notice--error': quests.error }"
-            role="status"
-          >
-            <span>{{ quests.loading ? '퀘스트를 불러오는 중이에요.' : quests.error }}</span>
-            <button v-if="quests.error" type="button" @click="quests.fetchQuests()">
-              다시 시도
-            </button>
-          </div>
-          <div class="quest-tabs" role="tablist" aria-label="퀘스트 상태">
-            <button
-              type="button"
-              :class="{ 'is-active': questTab === 'active' }"
-              @click="questTab = 'active'"
-            >
-              진행 중 {{ activeQuestCount }}
-            </button>
-            <button
-              type="button"
-              :class="{ 'is-active': questTab === 'completed' }"
-              @click="questTab = 'completed'"
-            >
-              완료 {{ completedQuestCount }}
-            </button>
-          </div>
-
-          <div class="quest-completion">
-            <div class="quest-completion__label">
-              <strong>퀘스트 완료율 {{ questCompletionPercent }}%</strong>
-              <span>{{ completedQuestCount }} / {{ allQuestRows.length }} 완료</span>
-            </div>
-            <div
-              class="quest-completion__track"
-              role="progressbar"
-              aria-label="전체 퀘스트 완료율"
-              :aria-valuenow="questCompletionPercent"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            >
-              <span :style="{ width: `${questCompletionPercent}%` }" />
-            </div>
-          </div>
-
-          <div class="quest-periods">
-            <section
-              v-for="section in visibleQuestSections"
-              :key="section.key"
-              class="quest-period"
-              :class="`quest-period--${section.key}`"
-            >
-              <header class="quest-period__heading">
-                <div>
-                  <h3>{{ section.title }}</h3>
-                  <p>{{ section.description }}</p>
-                </div>
-                <span v-if="section.key === 'recurring'">{{ questMonthKey }} 기준</span>
-              </header>
-
-              <div v-if="section.groups.length" class="quest-groups">
-                <section
-                  v-for="group in section.groups"
-                  :key="group.key"
-                  class="quest-group"
-                  :class="`quest-group--${group.key}`"
-                >
-                  <div class="quest-group__heading">
-                    <h3><i aria-hidden="true"></i>{{ group.title }}</h3>
-                    <strong v-if="group.amount">
-                      {{ formatSignedCompactWon(group.amount) }}
-                    </strong>
-                    <strong v-else>{{ group.action }}</strong>
-                  </div>
-
-                  <button
-                    v-for="item in group.rows"
-                    :key="item.id"
-                    type="button"
-                    class="quest-row"
-                    :class="[`quest-row--${item.kind}`, { 'is-completed': isQuestCompleted(item) }]"
-                    :aria-pressed="isQuestCompleted(item)"
-                    :aria-busy="isQuestPending(item)"
-                    :disabled="isQuestPending(item)"
-                    @click="toggleQuest(item)"
-                  >
-                    <span class="quest-row__icon" aria-hidden="true">{{ item.icon }}</span>
-                    <span class="quest-row__copy">
-                      <strong>{{ item.name }}</strong>
-                      <small v-if="item.subtitle" class="quest-row__subtitle">{{
-                        item.subtitle
-                      }}</small>
-                      <small class="quest-row__exp">
-                        +{{ formatExp(questExp(item)) }} EXP
-                        <template v-if="isQuestRewarded(item)"> · 지급 완료 </template>
-                      </small>
-                    </span>
-                    <strong class="quest-row__amount">
-                      {{ formatSignedCompactWon(item.amount) }}
-                    </strong>
-                    <span class="quest-row__check" aria-hidden="true">
-                      {{ isQuestCompleted(item) ? '✓' : '' }}
-                    </span>
-                  </button>
-                </section>
-              </div>
-              <p v-else class="quest-period__empty">
-                {{
-                  questTab === 'completed'
-                    ? '완료한 퀘스트가 없어요.'
-                    : '진행 중인 퀘스트가 없어요.'
-                }}
-              </p>
-            </section>
-          </div>
-        </article>
+        <QuestOverview
+          v-if="hasConfirmedScenario"
+          :rows="allQuestRows"
+          :edit-loading="simulation.syncing"
+        />
 
         <article v-else class="quest-empty">
           <h3>진행 중인 퀘스트가 아직 없어요</h3>
@@ -933,6 +933,11 @@ const targetMonthText = computed(() =>
         </article>
       </section>
     </div>
+    <MyDataConnectModal
+      :visible="showMyDataConnectModal"
+      @close="showMyDataConnectModal = false"
+      @connect="goToMyDataConnect"
+    />
   </section>
 </template>
 
@@ -1821,6 +1826,294 @@ const targetMonthText = computed(() =>
   font-weight: 800;
 }
 
+.home-quest-card {
+  --quest-ink: #222;
+  --quest-paper: #fcfdff;
+  --quest-navy: #0a1680;
+  --quest-yellow: #fbedb0;
+  --quest-lime: #44d795;
+  --quest-blue: #93b2f8;
+  --quest-peach: #f0574f;
+  overflow: hidden;
+  padding: 26px 28px 22px;
+  border: 1px solid #e1e1e1;
+  border-radius: 32px;
+  background: var(--quest-paper);
+  color: var(--quest-ink);
+}
+.home-quest-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.home-quest-header h2 {
+  font-size: 20px;
+  font-weight: 900;
+}
+.home-quest-tabs {
+  display: grid;
+  min-width: 240px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.home-quest-tabs button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid #e1e1e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #666;
+  font-size: 14px;
+  font-weight: 700;
+}
+.home-quest-tabs button strong {
+  margin-left: 4px;
+  font-size: 16px;
+}
+.home-quest-tabs button.active {
+  border-color: var(--quest-navy);
+  background: var(--quest-navy);
+  color: #fff;
+}
+.home-quest-progress {
+  margin-top: 20px;
+  padding: 17px 20px;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 22px;
+  background: var(--quest-yellow);
+}
+.home-quest-progress__top {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 24px;
+}
+.home-quest-progress__top > strong {
+  font-size: 15px;
+  font-weight: 900;
+}
+.home-quest-progress__top > span {
+  font-size: 13px;
+  font-weight: 800;
+}
+.home-quest-progress__top > b {
+  display: grid;
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  justify-items: end;
+  color: var(--quest-navy);
+  font-size: 21px;
+  line-height: 1;
+}
+.home-quest-progress__top > b small {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.home-quest-progress__track {
+  height: 10px;
+  margin-top: 11px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+}
+.home-quest-progress__track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--quest-navy);
+  transition: width 0.3s ease;
+}
+.home-quest-section {
+  margin-top: 27px;
+}
+.home-quest-section > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+.home-quest-section > header h3 {
+  font-size: 18px;
+  font-weight: 900;
+}
+.home-quest-section > header p {
+  margin-top: 5px;
+  color: #6b7684;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.home-quest-section > header > span {
+  flex: none;
+  padding: 6px 10px;
+  border: 1px solid rgb(10 22 128 / 15%);
+  border-radius: 999px;
+  background: var(--quest-yellow);
+  color: var(--quest-navy);
+  font-size: 11px;
+  font-weight: 800;
+}
+.home-quest-list {
+  display: grid;
+  gap: 12px;
+}
+.home-quest-row {
+  display: grid;
+  width: 100%;
+  min-height: 72px;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto 32px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgb(10 22 128 / 12%);
+  border-radius: 22px;
+  background: #fff;
+  color: var(--quest-ink);
+}
+.home-quest-row.completed {
+  opacity: 0.62;
+}
+.home-quest-row.pending {
+  opacity: 0.5;
+}
+.home-quest-row__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+}
+.home-quest-row.is-expense .home-quest-row__icon {
+  background: var(--quest-peach);
+  color: #fff;
+}
+.home-quest-row.is-income .home-quest-row__icon {
+  background: var(--quest-lime);
+  color: var(--quest-ink);
+}
+.home-quest-row.is-policy .home-quest-row__icon {
+  background: var(--quest-blue);
+  color: var(--quest-navy);
+}
+.home-quest-row__copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+.home-quest-row__copy > strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-quest-row__copy small {
+  color: #7a746d;
+  font-size: 12px;
+}
+.home-quest-row__copy small b {
+  color: #8a5b00;
+  font-weight: 900;
+}
+.home-quest-row__apply {
+  grid-column: 3;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--quest-navy);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.home-quest-row__amount {
+  grid-column: 3;
+  font-size: 16px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.home-quest-row.is-policy .home-quest-row__amount {
+  grid-column: 4;
+  color: var(--quest-navy);
+}
+.home-quest-row.is-expense .home-quest-row__amount {
+  color: var(--quest-peach);
+}
+.home-quest-row.is-income .home-quest-row__amount {
+  color: #168b5c;
+}
+.home-quest-row__check {
+  display: grid;
+  width: 32px !important;
+  min-width: 32px;
+  max-width: 32px;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px;
+  aspect-ratio: 1 / 1;
+  grid-column: 5;
+  place-self: center;
+  place-items: center;
+  padding: 0 !important;
+  border: 2px solid #d8d2c4;
+  border-radius: 10px;
+  background: #fff;
+  color: #fff;
+  line-height: 1;
+}
+.home-quest-row.completed .home-quest-row__check {
+  border-color: var(--quest-navy);
+  background: var(--quest-navy);
+}
+.home-quest-empty-row {
+  display: grid;
+  min-height: 116px;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px 34px;
+  border: 1px solid #e1e1e1;
+  border-radius: 22px;
+  background: #fff;
+  color: #666;
+  text-align: center;
+}
+.home-quest-empty-row strong {
+  font-size: 16px;
+  font-weight: 900;
+}
+.home-quest-empty-row span {
+  font-size: 13px;
+}
+.home-quest-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #eee8dc;
+}
+.home-quest-footer p {
+  color: #81776b;
+  font-size: 14px;
+}
+.home-quest-footer a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 13px;
+  background: #f5f7f9;
+  color: #666;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .quest-card,
 .quest-empty,
 .goal-setting-card {
@@ -2060,6 +2353,47 @@ const targetMonthText = computed(() =>
   cursor: pointer;
 }
 
+.quest-row-wrap {
+  display: contents;
+}
+
+.quest-row-wrap--policy {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid #e5e7ec;
+  border-left: 4px solid var(--accent-strong);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.quest-row-wrap--policy .quest-row {
+  border: 0;
+  border-radius: 0;
+}
+
+.quest-row__policy-link {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 16px 0 auto;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--primary);
+  font-size: var(--font-body);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.quest-row__policy-link:hover {
+  background: var(--accent-strong);
+}
+
 .quest-row--expense {
   border-left-color: #ef5a55;
   background: #fff;
@@ -2069,7 +2403,7 @@ const targetMonthText = computed(() =>
   background: #fff;
 }
 .quest-row--policy {
-  border-left-color: #8e79cd;
+  border-left-color: var(--accent-strong);
   background: #fff;
 }
 
@@ -2814,6 +3148,149 @@ const targetMonthText = computed(() =>
     padding: 7px 16px;
   }
 
+  .home-quest-card {
+    padding: 18px 12px 15px;
+    border-radius: 20px;
+  }
+  .home-quest-header {
+    display: grid;
+    gap: 12px;
+  }
+  .home-quest-header h2 {
+    font-size: 18px;
+  }
+  .home-quest-tabs {
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+  }
+  .home-quest-tabs button {
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .home-quest-tabs button strong {
+    font-size: 15px;
+  }
+  .home-quest-progress {
+    margin-top: 16px;
+    padding: 14px 13px;
+    border-radius: 16px;
+  }
+  .home-quest-progress__top {
+    grid-template-columns: 1fr auto;
+    gap: 8px 12px;
+  }
+  .home-quest-progress__top > strong {
+    font-size: 14px;
+  }
+  .home-quest-progress__top > span {
+    font-size: 11px;
+  }
+  .home-quest-progress__top > b {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-items: end;
+    font-size: 18px;
+  }
+  .home-quest-progress__track {
+    height: 8px;
+  }
+  .home-quest-section {
+    margin-top: 22px;
+  }
+  .home-quest-section > header {
+    gap: 10px;
+    margin-bottom: 13px;
+  }
+  .home-quest-section > header h3 {
+    font-size: 16px;
+  }
+  .home-quest-section > header p {
+    font-size: 12px;
+  }
+  .home-quest-section > header > span {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+  .home-quest-row {
+    min-height: 68px;
+    grid-template-columns: 40px minmax(0, 1fr) 30px;
+    gap: 8px;
+    padding: 10px 9px;
+    border-radius: 16px;
+  }
+  .home-quest-row__icon {
+    width: 36px;
+    height: 36px;
+  }
+  .home-quest-row__copy > strong {
+    font-size: 14px;
+  }
+  .home-quest-row__copy small {
+    font-size: 10px;
+  }
+  .home-quest-row__amount {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: start;
+    font-size: 14px;
+  }
+  .home-quest-row.is-policy {
+    grid-template-columns: 40px minmax(0, 1fr) auto 30px;
+  }
+  .home-quest-row.is-policy .home-quest-row__icon {
+    grid-row: 1 / span 2;
+    grid-column: 1;
+  }
+  .home-quest-row.is-policy .home-quest-row__copy {
+    grid-row: 1;
+    grid-column: 2 / span 2;
+  }
+  .home-quest-row.is-policy .home-quest-row__apply {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: end;
+  }
+  .home-quest-row.is-policy .home-quest-row__amount {
+    grid-row: 2;
+    grid-column: 3;
+  }
+  .home-quest-row__check {
+    width: 30px !important;
+    min-width: 30px;
+    max-width: 30px;
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px;
+    grid-row: 1 / span 3;
+    grid-column: 3;
+  }
+  .home-quest-row.is-policy .home-quest-row__check {
+    grid-row: 1 / span 2;
+    grid-column: 4;
+  }
+  .home-quest-empty-row {
+    min-height: 106px;
+    justify-items: center;
+    padding: 20px 16px;
+    text-align: center;
+  }
+  .home-quest-footer {
+    display: grid;
+    gap: 16px;
+    margin-top: 26px;
+    padding-top: 20px;
+  }
+  .home-quest-footer p {
+    font-size: 12px;
+  }
+  .home-quest-footer a {
+    width: 100%;
+    min-height: 38px;
+    font-size: 13px;
+  }
+
   .quest-card {
     padding: 14px 12px 16px;
     border-radius: 22px;
@@ -2922,6 +3399,25 @@ const targetMonthText = computed(() =>
   .summary-card {
     padding-right: 7px;
     padding-left: 7px;
+  }
+}
+
+@media (max-width: 767px) {
+  .home-quest-footer {
+    justify-items: center;
+  }
+
+  .home-quest-footer a {
+    width: min(100%, 280px);
+    justify-self: center;
+    gap: 0;
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
+  }
+
+  .home-quest-footer a .app-icon {
+    display: none;
   }
 }
 </style>

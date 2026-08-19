@@ -1,18 +1,9 @@
 import { apiClient, normalizeApiError, unwrapApiResponse } from './client'
-import { expenseCategoryToLabel } from '@/constants/expenseCategories'
+import { expenseCategoryLabel } from '@/constants/expenseCategories'
 
 function splitTransactionAt(value = '') {
   const [date = '', rawTime = ''] = String(value).split('T')
   return { date, time: rawTime.slice(0, 5) }
-}
-
-function resolveExpenseCategory(row) {
-  const mappedCategory = expenseCategoryToLabel(row?.category)
-  if (mappedCategory !== '기타') return mappedCategory
-
-  const transactionText = `${row?.transactionContent || ''} ${row?.transactionMemo || ''}`
-  if (/월세|임대료|관리비|공과금/.test(transactionText)) return '주거'
-  return mappedCategory
 }
 
 export function mapCalendarTransaction(row) {
@@ -27,7 +18,7 @@ export function mapCalendarTransaction(row) {
     date,
     time,
     title: row?.transactionContent || (isIncome ? '수입' : isTransfer ? '계좌이체' : '지출'),
-    category: isIncome ? '수입' : isTransfer ? '계좌이체' : resolveExpenseCategory(row),
+    category: isIncome ? '수입' : isTransfer ? '계좌이체' : expenseCategoryLabel(row?.category),
     detail: row?.institutionName || (isIncome ? '입금' : isTransfer ? '계좌이체' : '지출'),
     amount,
     memo: row?.transactionContent || '',
@@ -44,7 +35,7 @@ export function mapCalendarResponse(result = {}) {
     netCashFlow: Number(result?.netCashFlow) || 0,
     categoryExpenses: Array.isArray(result?.categoryExpenses)
       ? result.categoryExpenses.map((item) => ({
-          category: expenseCategoryToLabel(item?.category),
+          category: expenseCategoryLabel(item?.category),
           amount: Number(item?.amount) || 0,
         }))
       : [],

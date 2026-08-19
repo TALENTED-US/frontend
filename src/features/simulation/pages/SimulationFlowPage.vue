@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
+import { getCustomRecommendationsApi, getSimulationRecommendationsApi } from '@/api/simulation'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
 import stableImage from '@/assets/images/dashboard/buttie-stable.png'
@@ -21,31 +24,103 @@ const getTodayDate = () => {
 }
 const startDate = ref(step.value === 'categories' ? getTodayDate() : simulation.state.startDate)
 const endDate = ref(simulation.state.endDate)
+const selectedPeriod = ref(null)
+const starting = ref(false)
+const preparingResult = ref(step.value === 'confirm')
+const aiPrompt = ref('')
+const aiRecommendations = ref(null)
+const aiLoading = ref(false)
+const aiError = ref('')
+const periodOptions = [1, 3, 6, 12]
+
+function addMonths(dateValue, months) {
+  const [year, month, day] = String(dateValue).split('-').map(Number)
+  if (!year || !month || !day) return ''
+  const result = new Date(year, month - 1 + months, day)
+  return [
+    result.getFullYear(),
+    String(result.getMonth() + 1).padStart(2, '0'),
+    String(result.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function selectPeriod(months) {
+  if (!startDate.value) startDate.value = getTodayDate()
+  selectedPeriod.value = months
+  endDate.value = addMonths(startDate.value, months)
+}
+
+function clearSelectedPeriod() {
+  selectedPeriod.value = null
+}
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.round(Number(value) || 0))
-const manwon = (value) => `${money((Number(value) || 0) / 10000)}만원`
-const previewExpectedMonths = computed(() => {
-  const currentMonths = Number(simulation.currentMonths) || 0
-  const expectedMonths = simulation.expectedMonths
-  return expectedMonths !== null && Number.isFinite(Number(expectedMonths))
-    ? Number(expectedMonths)
-    : currentMonths
-})
-const previewAddedMonths = computed(
-  () => Math.max(0, Math.round((previewExpectedMonths.value - simulation.currentMonths) * 10) / 10),
+const confirmAmount = (item, kind) => {
+  const amount = kind === 'expense' ? item.saving : item.amount
+  const sign = kind === 'expense' ? '-' : '+'
+  return item.type === 'once' ? `${sign}${money(amount)}원` : `${sign}${money(amount)}원/월`
+}
+const policySupportMonths = (item) => {
+  const months = Number(item.months)
+  return item.type !== 'once' && Number.isFinite(months) && months > 0 ? money(months) : ''
+}
+const expenseIconPath = (item) =>
+  expenseCategoryIconPath(item.expenseCategory || item.category || item.name)
+const hasRunwayResult = computed(
+  () =>
+    Number.isFinite(Number(simulation.currentMonths)) &&
+    Number.isFinite(Number(simulation.expectedMonths)),
 )
-const currentMonthsLabel = computed(() => formatPrepMonthsWithUnit(simulation.currentMonths))
-const expectedMonthsLabel = computed(() => formatPrepMonthsWithUnit(previewExpectedMonths.value))
-const addedMonthsLabel = computed(() =>
-  isInfinitePrepMonths(previewExpectedMonths.value)
-    ? '∞ 연장'
-    : `+${previewAddedMonths.value}개월 연장`,
+const financialRecommendations = computed(
+  () => aiRecommendations.value?.financialRecommendation?.recommendations || [],
 )
+const financialSummary = computed(
+  () => aiRecommendations.value?.financialRecommendation?.summary || '',
+)
+const incomeRecommendation = computed(() => aiRecommendations.value?.incomeRecommendation || {})
+const incomeJobs = computed(() => incomeRecommendation.value?.jobs || [])
+const policyRecommendations = computed(() => aiRecommendations.value?.policyRecommendations || [])
+const hasAiRecommendations = computed(
+  () =>
+    financialRecommendations.value.length > 0 ||
+    incomeJobs.value.length > 0 ||
+    policyRecommendations.value.length > 0,
+)
+const aiPromptLength = computed(() => aiPrompt.value.length)
 const nextDraftPath = computed(() => {
   if (!simulation.state.expenseApplied) return '/simulation/expense'
   if (!simulation.state.incomes.length) return '/simulation/income'
   if (!simulation.state.policies.length) return '/simulation/policy'
   return '/simulation/confirm'
 })
+
+function recommendationErrorMessage(error) {
+  const status = error?.response?.status || error?.status
+  if (status === 503) return 'AI 추천을 지금 생성할 수 없어요. 잠시 후 다시 시도해 주세요.'
+  if (status === 401) return '로그인 정보가 없어 AI 추천을 불러오지 못했어요.'
+  return error?.response?.data?.message || error?.message || 'AI 추천을 불러오지 못했어요.'
+}
+
+async function loadAiRecommendations(prompt = '') {
+  if (aiLoading.value) return
+  aiLoading.value = true
+  aiError.value = ''
+
+  try {
+    aiRecommendations.value = prompt
+      ? await getCustomRecommendationsApi(prompt)
+      : await getSimulationRecommendationsApi()
+  } catch (error) {
+    aiError.value = recommendationErrorMessage(error)
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+async function submitAiPrompt() {
+  const prompt = aiPrompt.value.trim()
+  if (!prompt) return
+  await loadAiRecommendations(prompt)
+}
 
 onMounted(async () => {
   await simulation.hydrateRunwayBaseline()
@@ -54,6 +129,7 @@ onMounted(async () => {
   // 여기서 다시 조회하면 정상적인 "데이터 없음" 응답이 404 오류처럼 노출된다.
   if (step.value === 'categories') {
     startDate.value = getTodayDate()
+    await loadAiRecommendations()
     return
   }
 
@@ -61,8 +137,14 @@ onMounted(async () => {
   if (data) {
     startDate.value = simulation.state.startDate
     endDate.value = simulation.state.endDate
+    if (step.value === 'confirm') {
+      await simulation.prepareConfirmationPreview()
+      preparingResult.value = false
+    }
     return
   }
+
+  if (step.value === 'confirm') preparingResult.value = false
 
   // 이어갈 미확정 시뮬레이션이 실제로 없다면 빈 이어하기 화면에 머물지 않는다.
   if (step.value === 'continue' && !simulation.syncError) {
@@ -72,23 +154,38 @@ onMounted(async () => {
 })
 
 async function startSimulation() {
-  if (!startDate.value || !endDate.value || endDate.value <= startDate.value) return
-
-  // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
-  // 먼저 Draft로 되돌려 새 시뮬레이션 생성 요청(409)을 방지한다.
-  const confirmed = await simulation.hydrateConfirmed()
-  if (confirmed) {
-    const reverted = await simulation.revertConfirmedScenario()
-    if (!reverted) return
-  } else if (simulation.syncError) {
+  if (starting.value || !startDate.value || !endDate.value || endDate.value <= startDate.value)
     return
-  }
+  starting.value = true
 
-  simulation.prepareNewScenario()
-  simulation.state.startDate = startDate.value
-  simulation.state.endDate = endDate.value
-  const ok = await simulation.beginSimulation()
-  if (ok) router.push('/simulation/expense')
+  try {
+    // 로컬의 Draft 존재 여부는 다른 탭이나 이전 요청 이후 오래된 값일 수 있다.
+    // 생성 직전에 서버를 다시 확인해 동일 사용자의 미확정 시뮬레이션 중복 생성을 막는다.
+    const existingDraft = await simulation.hydrateDraft()
+    if (existingDraft) {
+      router.replace('/simulation/continue')
+      return
+    }
+    if (simulation.syncError) return
+
+    // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
+    // 먼저 Draft로 되돌려 새 시뮬레이션 생성 요청(409)을 방지한다.
+    const confirmed = await simulation.hydrateConfirmed()
+    if (confirmed) {
+      const reverted = await simulation.revertConfirmedScenario()
+      if (!reverted) return
+    } else if (simulation.syncError) {
+      return
+    }
+
+    simulation.prepareNewScenario()
+    simulation.state.startDate = startDate.value
+    simulation.state.endDate = endDate.value
+    const ok = await simulation.beginSimulation()
+    if (ok) router.push('/simulation/expense')
+  } finally {
+    starting.value = false
+  }
 }
 
 async function reset() {
@@ -115,8 +212,12 @@ async function confirm() {
         <h1>시뮬레이션을 하는 중이었어요.<br />이어서 만드시겠어요?</h1>
       </div>
       <div class="wizard-actions vertical resume-actions">
-        <button class="sim-btn sim-btn--yellow" type="button" @click="router.push(nextDraftPath)">
-          <span class="desktop-only">이어서 계속하기 →</span>
+        <button
+          class="sim-btn sim-btn--yellow simulation-primary-cta"
+          type="button"
+          @click="router.push(nextDraftPath)"
+        >
+          <span class="desktop-only">이어서 계속하기</span>
           <span class="mobile-only">이어서 만들기</span>
         </button>
         <button class="resume-reset" type="button" @click="reset">
@@ -127,115 +228,278 @@ async function confirm() {
     </template>
 
     <template v-else-if="step === 'categories'">
-      <button class="sim-back categories-desktop-back desktop-only" type="button" @click="router.push('/simulation')">
-        ‹ 예상 재정 계획 만들기
+      <button
+        class="sim-back simulation-back-button desktop-only"
+        type="button"
+        aria-label="뒤로가기"
+        @click="router.push('/simulation')"
+      >
+        ‹
       </button>
       <h1 class="wizard-title">
-        <span class="desktop-only">지출을 매달 10만원 줄이면<br />생존기간이 얼마나 늘어날까요?</span>
-        <span class="mobile-only">지출을 매달 10만원 줄이면<br />버티는 기간이 얼마나 늘어날까요?</span>
+        지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
       </h1>
-      <p class="sim-subtitle">
-        <span class="desktop-only">생존 기간이 늘어나면 버티도 살아나요!</span>
-        <span class="mobile-only">현재 재정 상태를 기준으로 나만의 계획을 만들어보세요.</span>
-      </p>
+      <p class="sim-subtitle">생존 기간이 늘어나면 버티도 살아나요</p>
 
       <div class="buttie-transition" aria-label="현재 상태에서 안정 상태로 변화하는 버티">
-        <div><img :src="meltingImage" alt="현재 상태의 버티" /><span>현재</span></div>
-        <b>→</b>
-        <div><img :src="stableImage" alt="목표 상태의 버티" /><span>목표</span></div>
+        <div>
+          <span>지금</span><img :src="meltingImage" alt="현재 위험 상태의 버티" /><small
+            class="danger"
+            >위험</small
+          >
+        </div>
+        <b aria-hidden="true"><i />→</b>
+        <div>
+          <span>아끼면</span><img :src="stableImage" alt="절약 후 안정 상태의 버티" /><small
+            class="safe"
+            >안정</small
+          >
+        </div>
       </div>
 
       <section class="period-section">
-        <h2><span class="desktop-only">예상 재정 계획 기간</span><span class="mobile-only">시뮬레이션 기간</span></h2>
-        <p>
-          <span class="desktop-only">시작일은 오늘, 종료일은 목표 취업 시점이 기본이에요</span>
-          <span class="mobile-only">오늘부터 목표 취업일까지 자동으로 설정했어요.</span>
-        </p>
-        <div class="period-grid">
-          <label><span>시작일</span><input v-model="startDate" type="date" /></label>
-          <i class="period-separator desktop-only">~</i>
-          <label><span>종료일</span><input v-model="endDate" type="date" /></label>
+        <h2>시뮬레이션 기간</h2>
+        <p>시작일은 오늘, 종료일은 목표 취업 시점이 기본이에요</p>
+        <div class="period-presets" aria-label="시뮬레이션 기간 빠른 선택">
+          <button
+            v-for="months in periodOptions"
+            :key="months"
+            type="button"
+            :class="{ active: selectedPeriod === months }"
+            @click="selectPeriod(months)"
+          >
+            {{ months }}개월
+          </button>
         </div>
-        <p v-if="endDate && startDate && endDate <= startDate" class="form-error">종료일은 시작일보다 뒤여야 해요.</p>
+        <div class="period-grid">
+          <label
+            ><span>시작일</span><input v-model="startDate" type="date" @input="clearSelectedPeriod"
+          /></label>
+          <i class="period-separator">~</i>
+          <label
+            ><span>종료일</span><input v-model="endDate" type="date" @input="clearSelectedPeriod"
+          /></label>
+        </div>
+        <p v-if="endDate && startDate && endDate <= startDate" class="form-error">
+          종료일은 시작일보다 뒤여야 해요.
+        </p>
       </section>
 
-      <section class="baseline-report report-preview">
-        <h2>리포트 미리보기</h2>
-        <article class="report-preview__card">
-          <strong>시뮬레이션을 하면 이런 리포트를 받아볼 수 있어요</strong>
-          <span class="report-preview__badge">지출 줄이기</span>
-          <div class="report-preview__period">
-            <span>예상 버티는 기간 변화</span>
-            <p><del>{{ currentMonthsLabel }}</del><b>→</b><strong>{{ expectedMonthsLabel }}</strong></p>
-            <em>{{ addedMonthsLabel }}</em>
+      <section class="baseline-report ai-plan-recommendation">
+        <div class="ai-plan-recommendation__heading">
+          <span aria-hidden="true">AI</span>
+          <div>
+            <h2>버티 AI 맞춤 계획</h2>
+            <p>지출·수입·정책을 한 번에 추천받아 보세요.</p>
           </div>
-          <div class="report-preview__charts">
-            <figure>
-              <figcaption>월별 타임라인</figcaption>
-              <svg viewBox="0 0 180 86" role="img" aria-label="시뮬레이션 전후 재정 타임라인 예시">
-                <line x1="12" y1="12" x2="92" y2="72" class="preview-line preview-line--before" />
-                <line x1="12" y1="12" x2="162" y2="72" class="preview-line preview-line--after" />
-                <circle cx="92" cy="72" r="4" class="preview-dot preview-dot--before" />
-                <circle cx="162" cy="72" r="4" class="preview-dot preview-dot--after" />
-                <text x="24" y="57" class="preview-text preview-text--before">적용 전</text>
-                <text x="116" y="34" class="preview-text preview-text--after">적용 후</text>
-              </svg>
-            </figure>
-            <figure>
-              <figcaption>시뮬레이션 적용 결과</figcaption>
-              <div class="preview-bars" aria-label="적용 전후 버티는 기간 비교">
-                <span class="preview-bar preview-bar--before"><i />적용 전</span>
-                <span class="preview-bar preview-bar--after"><i />적용 후</span>
-              </div>
-            </figure>
+        </div>
+
+        <form class="ai-plan-recommendation__form" @submit.prevent="submitAiPrompt">
+          <label for="simulation-ai-concept">원하는 계획 컨셉</label>
+          <div class="ai-plan-recommendation__input">
+            <input
+              id="simulation-ai-concept"
+              v-model="aiPrompt"
+              type="text"
+              maxlength="50"
+              placeholder="원하는 컨셉을 넣어보세요"
+              :disabled="aiLoading"
+            />
+            <span>{{ aiPromptLength }}/50</span>
+            <button type="submit" :disabled="aiLoading || !aiPrompt.trim()">
+              {{ aiLoading ? '추천 중…' : '추천받기' }}
+            </button>
           </div>
-        </article>
+          <small>예: 취업 준비 6개월 동안 배달비를 줄이고 자격증 지원을 받고 싶어요.</small>
+        </form>
+
+        <p v-if="aiError" class="ai-plan-recommendation__error">{{ aiError }}</p>
+        <div v-else-if="aiLoading" class="ai-plan-recommendation__empty">
+          내 상황에 맞는 계획을 만드는 중이에요…
+        </div>
+        <div v-else-if="hasAiRecommendations" class="ai-plan-recommendation__results">
+          <article>
+            <header>
+              <span>지출</span><b>{{ financialRecommendations.length }}건</b>
+            </header>
+            <p v-if="financialSummary">{{ financialSummary }}</p>
+            <ul v-if="financialRecommendations.length">
+              <li v-for="item in financialRecommendations.slice(0, 2)" :key="item.title">
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.reason }}</small>
+              </li>
+            </ul>
+            <p v-else class="muted">추천할 지출 계획이 없어요.</p>
+            <button type="button" @click="router.push('/simulation/expense')">
+              지출 계획 보기
+            </button>
+          </article>
+          <article>
+            <header>
+              <span>수입</span><b>{{ incomeJobs.length }}건</b>
+            </header>
+            <p>{{ incomeRecommendation.notice || incomeRecommendation.searchKeyword }}</p>
+            <ul v-if="incomeJobs.length">
+              <li v-for="job in incomeJobs.slice(0, 2)" :key="job.url || job.title">
+                <strong>{{ job.title }}</strong>
+                <small
+                  >{{ job.company
+                  }}<template v-if="job.region"> · {{ job.region }}</template></small
+                >
+              </li>
+            </ul>
+            <p v-else class="muted">조건에 맞는 일자리가 없어요.</p>
+            <button type="button" @click="router.push('/simulation/income')">수입 계획 보기</button>
+          </article>
+          <article>
+            <header>
+              <span>정책</span><b>{{ policyRecommendations.length }}건</b>
+            </header>
+            <ul v-if="policyRecommendations.length">
+              <li
+                v-for="policy in policyRecommendations.slice(0, 2)"
+                :key="policy.policyUrl || policy.policyName"
+              >
+                <strong>{{ policy.policyName }}</strong>
+                <small v-if="policy.policySupportAmount"
+                  >최대 {{ money(policy.policySupportAmount) }}원 지원</small
+                >
+              </li>
+            </ul>
+            <p v-else class="muted">조건에 맞는 정책이 없어요.</p>
+            <button type="button" @click="router.push('/simulation/policy')">정책 계획 보기</button>
+          </article>
+        </div>
+        <div v-else class="ai-plan-recommendation__empty">
+          추천할 계획을 찾지 못했어요. 원하는 컨셉을 더 구체적으로 입력해 보세요.
+        </div>
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
-      <button class="sim-btn sim-btn--yellow wide" :disabled="simulation.syncing || !startDate || !endDate || endDate <= startDate" type="button" @click="startSimulation">
+      <button
+        class="sim-btn sim-btn--yellow wide simulation-primary-cta"
+        :disabled="starting || simulation.syncing || !startDate || !endDate || endDate <= startDate"
+        type="button"
+        @click="startSimulation"
+      >
         <span v-if="simulation.syncing">불러오는 중…</span>
-        <template v-else>
-          <span class="desktop-only">예상 재정 계획 만들기 →</span>
-          <span class="mobile-only">시뮬레이션 시작하기 →</span>
-        </template>
+        <span v-else>시뮬레이션 시작하기</span>
       </button>
     </template>
 
     <template v-else>
       <h1 class="wizard-title">지금까지 만든 계획을<br />한 번 더 확인해 주세요</h1>
-      <p class="sim-subtitle">항목을 눌러 각 단계로 돌아가 수정할 수 있어요.</p>
+
+      <div class="final-result" :aria-busy="preparingResult">
+        <span>예상 버티는 기간</span>
+        <p v-if="preparingResult">계산 중...</p>
+        <template v-else>
+          <p>
+            <del>{{ formatPrepMonthsWithUnit(simulation.currentMonths) }}</del
+            ><b>→</b><strong>{{ formatPrepMonthsWithUnit(simulation.expectedMonths) }}</strong>
+          </p>
+          <em v-if="hasRunwayResult">
+            {{
+              isInfinitePrepMonths(simulation.expectedMonths)
+                ? '∞ 연장'
+                : `+${simulation.addedMonths}개월 연장`
+            }}
+          </em>
+          <em v-else>계산 결과를 불러오지 못했어요</em>
+        </template>
+      </div>
 
       <section class="edit-summary expense">
-        <header><div><i>01</i><h2>지출 줄이기</h2></div><button @click="router.push('/simulation/expense')">수정</button></header>
-        <p v-for="item in simulation.selectedExpenses" :key="item.id"><span>{{ item.icon }} {{ item.name }}</span><strong>-{{ money(item.saving) }}원 / 월</strong></p>
+        <header>
+          <div>
+            <span class="confirm-section-dot" aria-hidden="true"></span>
+            <h2>지출 줄이기</h2>
+          </div>
+          <button
+            class="confirm-edit-action"
+            type="button"
+            aria-label="지출 줄이기 수정"
+            title="수정"
+            @click="router.push('/simulation/expense')"
+          >
+            <AppIcon name="edit" :size="18" />
+          </button>
+        </header>
+        <p v-for="item in simulation.selectedExpenses" :key="item.id">
+          <span class="confirm-item-name">
+            <i>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="expenseIconPath(item)" />
+              </svg>
+            </i>
+            {{ item.name }}
+          </span>
+          <strong class="confirm-item-amount">{{ confirmAmount(item, 'expense') }}</strong>
+        </p>
         <p v-if="!simulation.selectedExpenses.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
       <section class="edit-summary income">
-        <header><div><i>02</i><h2>수입 늘리기</h2></div><button @click="router.push('/simulation/income')">수정</button></header>
-        <p v-for="item in simulation.state.incomes" :key="item.id"><span>💰 {{ item.name }}</span><strong>+{{ money(item.amount) }}원</strong></p>
+        <header>
+          <div>
+            <span class="confirm-section-dot" aria-hidden="true"></span>
+            <h2>수입 늘리기</h2>
+          </div>
+          <button
+            class="confirm-edit-action"
+            type="button"
+            aria-label="수입 늘리기 수정"
+            title="수정"
+            @click="router.push('/simulation/income')"
+          >
+            <AppIcon name="edit" :size="18" />
+          </button>
+        </header>
+        <p v-for="item in simulation.state.incomes" :key="item.id">
+          <span class="confirm-item-name"
+            ><i><AppIcon name="briefcase" :size="18" /></i>{{ item.name }}</span
+          ><strong class="confirm-item-amount">{{ confirmAmount(item, 'income') }}</strong>
+        </p>
         <p v-if="!simulation.state.incomes.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
       <section class="edit-summary policy">
-        <header><div><i>03</i><h2>정책 혜택</h2></div><button @click="router.push('/simulation/policy')">수정</button></header>
-        <p v-for="item in simulation.state.policies" :key="item.id"><span>🏛️ {{ item.name }}</span><strong>{{ item.detail }}</strong></p>
+        <header>
+          <div>
+            <span class="confirm-section-dot" aria-hidden="true"></span>
+            <h2>정책 혜택</h2>
+          </div>
+          <button
+            class="confirm-edit-action"
+            type="button"
+            aria-label="정책 혜택 수정"
+            title="수정"
+            @click="router.push('/simulation/policy')"
+          >
+            <AppIcon name="edit" :size="18" />
+          </button>
+        </header>
+        <p v-for="item in simulation.state.policies" :key="item.id">
+          <span class="confirm-item-name"
+            ><i><AppIcon name="landmark" :size="18" /></i>{{ item.name }}</span
+          ><strong class="confirm-item-amount confirm-policy-amount"
+            ><span>{{ confirmAmount(item, 'policy') }}</span
+            ><span v-if="policySupportMonths(item)" class="confirm-policy-duration"
+              >x {{ policySupportMonths(item) }}개월</span
+            ></strong
+          >
+        </p>
         <p v-if="!simulation.state.policies.length" class="empty-row">건너뛴 단계예요.</p>
       </section>
 
-      <div class="final-result"><span>예상 버티는 기간</span><p><del>{{ currentMonthsLabel }}</del><b>→</b><strong>{{ expectedMonthsLabel }}</strong></p><em>{{ addedMonthsLabel }}</em></div>
       <p class="api-notice neutral">확정하면 이 계획을 기준으로 퀘스트가 생성됩니다.</p>
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
       <div class="wizard-actions confirm-actions">
         <button
-          class="sim-text-button confirm-back-button"
+          class="sim-btn sim-btn--yellow simulation-primary-cta"
+          :disabled="simulation.syncing"
           type="button"
-          aria-label="입력 내용 수정"
-          @click="router.push('/simulation/policy/preview')"
+          @click="confirm"
         >
-          ‹
-        </button>
-        <button class="sim-btn sim-btn--yellow" :disabled="simulation.syncing" type="button" @click="confirm">
-          {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기 →' }}
+          {{ simulation.syncing ? '확정하는 중…' : '시뮬레이션 확정하기' }}
         </button>
       </div>
     </template>
@@ -285,6 +549,226 @@ async function confirm() {
 
 .report-preview > h2 {
   font-size: 16px;
+}
+
+.ai-plan-recommendation {
+  padding: 18px;
+  border: 1px solid #e1e5ee;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgb(26 39 78 / 9%);
+}
+
+.ai-plan-recommendation__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-plan-recommendation__heading > span {
+  display: grid;
+  flex: 0 0 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  background: #121f8d;
+  color: #ffd95b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ai-plan-recommendation__heading h2 {
+  font-size: 16px;
+}
+
+.ai-plan-recommendation__heading p {
+  margin-top: 3px;
+  color: #858d9d;
+  font-size: 11px;
+}
+
+.ai-plan-recommendation__form {
+  margin-top: 18px;
+}
+
+.ai-plan-recommendation__form > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ai-plan-recommendation__input {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #dfe3ec;
+  border-radius: 13px;
+  background: #f8f9fc;
+}
+
+.ai-plan-recommendation__input input {
+  min-width: 0;
+  height: 48px;
+  padding: 0 12px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 12px;
+}
+
+.ai-plan-recommendation__input > span {
+  padding: 0 9px;
+  color: #9aa1ae;
+  font-size: 10px;
+}
+
+.ai-plan-recommendation__input button,
+.ai-plan-recommendation__results article > button {
+  border: 0;
+  background: #101c83;
+  color: #fff;
+  font-weight: 800;
+}
+
+.ai-plan-recommendation__input button {
+  align-self: stretch;
+  min-width: 78px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.ai-plan-recommendation__input button:disabled {
+  background: #dfe3eb;
+  color: #9da4b0;
+}
+
+.ai-plan-recommendation__form > small {
+  display: block;
+  margin-top: 7px;
+  color: #9aa1ae;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.ai-plan-recommendation__results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ai-plan-recommendation__results article {
+  display: flex;
+  min-width: 0;
+  min-height: 176px;
+  flex-direction: column;
+  padding: 12px;
+  border: 1px solid #e7eaf0;
+  border-radius: 14px;
+  background: #fbfcff;
+}
+
+.ai-plan-recommendation__results header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-plan-recommendation__results header span {
+  color: #111d82;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-plan-recommendation__results header b {
+  color: #8b93a2;
+  font-size: 9px;
+}
+
+.ai-plan-recommendation__results article > p {
+  margin-top: 8px;
+  color: #6f7787;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.ai-plan-recommendation__results ul {
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-plan-recommendation__results li {
+  min-width: 0;
+}
+
+.ai-plan-recommendation__results li strong,
+.ai-plan-recommendation__results li small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-plan-recommendation__results li strong {
+  font-size: 10px;
+}
+
+.ai-plan-recommendation__results li small {
+  margin-top: 2px;
+  color: #969daa;
+  font-size: 8px;
+}
+
+.ai-plan-recommendation__results article > button {
+  width: 100%;
+  min-height: 30px;
+  margin-top: auto;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.ai-plan-recommendation__empty,
+.ai-plan-recommendation__error {
+  margin-top: 16px;
+  padding: 18px 12px;
+  border-radius: 12px;
+  font-size: 10px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.ai-plan-recommendation__empty {
+  background: #f4f6fa;
+  color: #7e8695;
+}
+
+.ai-plan-recommendation__error {
+  background: #fff0f0;
+  color: #d94f55;
+}
+
+@media (max-width: 560px) {
+  .ai-plan-recommendation__input {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ai-plan-recommendation__input button {
+    grid-column: 1 / -1;
+    min-height: 40px;
+  }
+
+  .ai-plan-recommendation__results {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-plan-recommendation__results article {
+    min-height: 150px;
+  }
 }
 
 .report-preview__card {
@@ -446,6 +930,63 @@ async function confirm() {
   background: #8faff7;
 }
 
+.confirm-item-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirm-item-name > i {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: #f4f5f7;
+  color: #555;
+}
+
+.confirm-item-name > i svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edit-summary.expense .confirm-item-name > i {
+  background: #ffe8e5;
+  color: #d85b52;
+}
+.edit-summary.income .confirm-item-name > i {
+  background: #e2f7ed;
+  color: #288d67;
+}
+.edit-summary.policy .confirm-item-name > i {
+  background: #eeeafb;
+  color: #7561b1;
+}
+
+.confirm-section-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: #e95858;
+}
+
+.edit-summary.income .confirm-section-dot {
+  background: #2fbb85;
+}
+
+.edit-summary.policy .confirm-section-dot {
+  background: #7e66c6;
+}
+
 @media (max-width: 767px) {
   .sim-flow-continue {
     padding-bottom: 48px;
@@ -458,7 +999,7 @@ async function confirm() {
 
   .sim-flow-confirm .confirm-back-button {
     color: #222;
-    font-size: 24px;
+    font-size: 16px;
     font-weight: 700;
     text-decoration: none;
   }
@@ -481,7 +1022,7 @@ async function confirm() {
 
   .sim-flow-confirm .final-result > span {
     font-size: 13px;
-    font-weight: 400;
+    font-weight: 600;
   }
 
   .sim-flow-confirm .final-result del {
@@ -562,6 +1103,15 @@ async function confirm() {
 
 .sim-flow-categories .period-grid label {
   min-width: 0;
+  background: #fcfdff;
+  box-shadow: none;
+}
+
+.sim-flow-categories > .buttie-transition {
+  border: 0;
+  background: none !important;
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .sim-flow-categories .period-grid input[type='date'] {
@@ -571,6 +1121,7 @@ async function confirm() {
   min-width: 0;
   box-sizing: border-box;
   padding-right: 24px;
+  background: #fcfdff;
 }
 
 .sim-flow-categories .period-grid input[type='date']::-webkit-calendar-picker-indicator {
@@ -582,8 +1133,16 @@ async function confirm() {
 @media (min-width: 768px) {
   .sim-flow-confirm > .confirm-actions {
     grid-column: 1 / -1;
-    width: min(100%, 540px);
-    justify-self: center;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .sim-flow-confirm > .final-result {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
   }
 
   .sim-wizard.sim-flow-categories {
@@ -592,15 +1151,6 @@ async function confirm() {
     max-width: 1120px;
     margin: 0 auto;
     padding: 24px 0 72px;
-  }
-
-  .sim-flow-categories .categories-desktop-back {
-    display: flex;
-    width: fit-content;
-    margin: 0 0 26px;
-    color: #181818;
-    font-size: 14px;
-    font-weight: 800;
   }
 
   .sim-flow-categories > .wizard-title {
@@ -649,14 +1199,12 @@ async function confirm() {
     text-align: center;
   }
 
-  .sim-flow-categories > .period-section,
-  .sim-flow-categories > .baseline-report {
+  .sim-flow-categories > .period-section {
     width: 100%;
     margin: 0;
   }
 
-  .sim-flow-categories > .period-section h2,
-  .sim-flow-categories > .baseline-report > h2 {
+  .sim-flow-categories > .period-section h2 {
     font-size: 16px;
   }
 
@@ -677,7 +1225,7 @@ async function confirm() {
     min-height: 62px;
     padding: 11px 18px;
     border-color: #d5eee2;
-    background: #edfff6;
+    background: #fcfdff;
   }
 
   .sim-flow-categories .period-grid input {
@@ -769,6 +1317,378 @@ async function confirm() {
     min-height: 58px;
     border-radius: 12px;
     font-size: 15px;
+  }
+}
+
+/* Renewed /simulation/new layout */
+.sim-wizard.sim-flow-categories {
+  width: min(100%, 700px);
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 10px 0 24px;
+}
+
+.sim-flow-categories > .wizard-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 27px !important;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.38;
+}
+
+.sim-flow-categories > .wizard-title em {
+  color: #b37f0c;
+  font-style: normal;
+}
+
+.sim-flow-categories > .sim-subtitle {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.sim-flow-categories > .buttie-transition {
+  display: grid;
+  width: 100%;
+  min-height: 158px;
+  grid-template-columns: 1fr 70px 1fr;
+  align-items: center;
+  margin: 14px 0;
+  padding: 14px 30px 12px;
+  border: 1px solid rgb(190 160 50 / 16%);
+  border-radius: 24px;
+  background: #fff !important;
+  background-image: none !important;
+  box-shadow: none;
+}
+
+.sim-flow-categories .buttie-transition > div {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+
+.sim-flow-categories .buttie-transition span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sim-flow-categories .buttie-transition img {
+  width: 112px;
+  height: 76px;
+  object-fit: contain;
+}
+
+.sim-flow-categories .buttie-transition > div:last-child img {
+  width: 86px;
+}
+
+.sim-flow-categories .buttie-transition small {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sim-flow-categories .buttie-transition small.danger {
+  background: #fce3e1;
+  color: #c0473f;
+}
+
+.sim-flow-categories .buttie-transition small.safe {
+  background: #dff1d9;
+  color: #3e7a34;
+}
+
+.sim-flow-categories .buttie-transition > b {
+  display: flex;
+  align-items: center;
+  color: #d99b19;
+  font-size: 25px;
+  font-weight: 500;
+}
+
+.sim-flow-categories .buttie-transition > b i {
+  width: 38px;
+  border-top: 2px dashed currentColor;
+}
+
+.sim-flow-categories > .period-section {
+  width: 100%;
+  margin: 0;
+  padding: 15px 18px 17px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.sim-flow-categories > .period-section h2 {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.sim-flow-categories > .period-section > p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sim-flow-categories .period-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.sim-flow-categories .period-presets button {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid #dedfe5;
+  border-radius: 999px;
+  background: #fff;
+  color: #57503f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sim-flow-categories .period-presets button.active {
+  border-color: var(--accent-strong);
+  background: #fff6dc;
+  color: #8a6407;
+  font-weight: 700;
+}
+
+.sim-flow-categories .period-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.sim-flow-categories .period-grid label {
+  min-height: 62px;
+  padding: 8px 13px;
+  border: 1px solid rgb(190 160 50 / 24%);
+  border-radius: 14px;
+  background: #fffbec;
+  box-shadow: none;
+}
+
+.sim-flow-categories .period-grid label > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sim-flow-categories .period-grid input[type='date'] {
+  height: 30px;
+  padding: 0 24px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sim-flow-categories .period-separator {
+  display: block;
+  color: var(--muted);
+  font-size: 15px;
+  font-style: normal;
+  text-align: center;
+}
+
+.sim-flow-categories > .wide {
+  width: 100%;
+  min-height: 56px;
+  margin: 18px 0 0;
+  border-radius: 16px;
+  background: var(--accent-strong);
+  box-shadow: 0 4px 0 rgb(180 140 30 / 30%);
+  color: #3a3222;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+@media (max-width: 767px) {
+  .sim-wizard.sim-flow-categories {
+    width: 100%;
+    padding: 2px 4px 82px;
+  }
+
+  .sim-flow-categories > .wizard-title {
+    font-size: 22px !important;
+  }
+
+  .sim-flow-categories > .sim-subtitle {
+    font-size: 14px;
+  }
+
+  .sim-flow-categories > .buttie-transition {
+    min-height: 148px;
+    grid-template-columns: 1fr 48px 1fr;
+    margin: 12px 0;
+    padding: 12px 10px 10px;
+    border-radius: 20px;
+  }
+
+  .sim-flow-categories .buttie-transition img {
+    width: 96px;
+    height: 66px;
+  }
+
+  .sim-flow-categories .buttie-transition > div:last-child img {
+    width: 76px;
+  }
+
+  .sim-flow-categories .buttie-transition > b i {
+    width: 22px;
+  }
+
+  .sim-flow-categories > .period-section {
+    padding: 14px 14px 16px;
+  }
+
+  .sim-flow-categories .period-grid {
+    grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) !important;
+    gap: 5px;
+  }
+
+  .sim-flow-categories .period-grid label {
+    min-height: 60px;
+    padding: 8px 9px;
+  }
+
+  .sim-flow-categories .period-grid input[type='date'] {
+    font-size: 14px;
+  }
+
+  .sim-flow-categories > .wide {
+    min-height: 54px;
+    margin-top: 16px;
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 768px) {
+  .sim-flow-categories > .simulation-back-button {
+    display: inline-flex !important;
+    width: 48px !important;
+    height: 45px !important;
+    min-width: 48px !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    margin: 0 0 20px !important;
+    padding: 0 !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    font-weight: 900 !important;
+    line-height: 0.8 !important;
+    text-align: left !important;
+  }
+
+  .sim-flow-categories > .simulation-back-button::before {
+    width: 13px;
+    height: 13px;
+    border-bottom: 5px solid #222;
+    border-left: 5px solid #222;
+    content: '';
+    transform: rotate(45deg);
+  }
+}
+
+/* 확정 항목 이름과 금액의 반응형 타이포그래피를 동일한 굵기로 통일한다. */
+:global(#app .app-shell main .sim-flow-confirm .edit-summary > p > .confirm-item-name),
+:global(#app .app-shell main .sim-flow-confirm .edit-summary > p > strong) {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+@media (max-width: 767px) {
+  :global(#app .app-shell main .sim-flow-confirm .edit-summary > p > .confirm-item-name),
+  :global(#app .app-shell main .sim-flow-confirm .edit-summary > p > strong) {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+}
+
+:global(#app .app-shell main .sim-flow-confirm .confirm-policy-amount) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0 4px;
+  text-align: right;
+}
+
+:global(#app .app-shell main .sim-flow-confirm .confirm-policy-amount > span) {
+  white-space: nowrap;
+}
+
+:global(#app .app-shell main .sim-flow-confirm .edit-summary header button.confirm-edit-action) {
+  display: grid;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #5f8df7;
+  text-decoration: none;
+}
+
+:global(
+  #app .app-shell main .sim-flow-confirm .edit-summary header button.confirm-edit-action:hover
+) {
+  background: #f0f4ff;
+}
+
+:global(
+  #app .app-shell main .sim-flow-confirm .edit-summary header button.confirm-edit-action .app-icon
+) {
+  width: 18px;
+  height: 18px;
+}
+
+/* confirm 버튼이 430px 기본 wizard 폭에 갇히지 않도록 상위 컨테이너부터 확장한다. */
+@media (min-width: 768px) {
+  :global(#app .app-shell main .sim-wizard.sim-flow-confirm) {
+    width: min(100%, 1066px) !important;
+    max-width: 1066px !important;
+  }
+
+  :global(#app .app-shell main .sim-wizard.sim-flow-confirm > .wizard-actions.confirm-actions) {
+    display: grid !important;
+    width: 100% !important;
+    max-width: none !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-self: stretch !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  :global(
+    #app .app-shell main .sim-wizard.sim-flow-confirm > .wizard-actions.confirm-actions > button
+  ) {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
+}
+@media (min-width: 768px) {
+  :global(#app .app-shell main .sim-flow-confirm .final-result > span) {
+    font-weight: 600 !important;
   }
 }
 </style>

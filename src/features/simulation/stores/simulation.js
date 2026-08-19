@@ -31,20 +31,22 @@ import {
 import { getPoliciesApi } from '@/api/policy'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import { getMyDataAssetsApi } from '@/api/mydata'
-import {
-  EXPENSE_CATEGORY_OPTIONS,
-  expenseLabelToCategory,
-  normalizeExpenseCategoryLabel,
-} from '@/constants/expenseCategories'
 import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
+import {
+  EXPENSE_CATEGORY_LABELS,
+  expenseCategoryLabel,
+  expenseCategoryValue,
+} from '@/constants/expenseCategories'
+import { isInfinitePrepMonths } from '@/utils/prepMonths'
 
 const STORAGE_KEY = 'buttie-simulation-v4'
 const CONFIRMED_SNAPSHOT_KEY = 'buttie-simulation-confirmed-snapshot-v1'
 const CLIENT_CALCULATION_VERSION = 2
+const REMOTE_LOOKUP_CACHE_MS = 4000
 const CATEGORY_META = {
   식비: { icon: '🍚', color: '#ffd0d0' },
-  '술·유흥': { icon: '🍺', color: '#f5ae77' },
-  '카페·간식': { icon: '☕', color: '#d7a86e' },
+  '술·유흥': { icon: '🍻', color: '#e9b8a8' },
+  '카페·간식': { icon: '☕', color: '#e8c89a' },
   '취업 준비': { icon: '📚', color: '#77b6df' },
   쇼핑: { icon: '🛍️', color: '#88a9f6' },
   '취미·여가': { icon: '🎮', color: '#c8a8ef' },
@@ -53,7 +55,9 @@ const CATEGORY_META = {
   '의료·건강': { icon: '🏥', color: '#8dd5c1' },
   '기타 금융': { icon: '🧾', color: '#b8bdc8' },
 }
-const REDUCTION_CATEGORIES = [...EXPENSE_CATEGORY_OPTIONS]
+const EXPENSE_TARGET_CATEGORY_NAMES = Object.entries(EXPENSE_CATEGORY_LABELS)
+  .filter(([category]) => category !== 'HOUSING_COMMUNICATION')
+  .map(([, name]) => name)
 const DAYS_PER_MONTH = 365.2425 / 12
 
 function finiteNumberOrNull(value) {
@@ -101,11 +105,17 @@ function getStatus(months, targetMonths) {
   return { key: 'safe', label: '안정', rate }
 }
 
-function getApiRiskStatus(riskLevel, fallbackStatus) {
-  if (riskLevel === 'DANGER') return { ...fallbackStatus, key: 'danger', label: '위험' }
-  if (riskLevel === 'CAUTION') return { ...fallbackStatus, key: 'caution', label: '주의' }
-  if (riskLevel) return { ...fallbackStatus, key: 'safe', label: '안정' }
-  return fallbackStatus
+function getApiRiskStatus(riskLevel) {
+  if (riskLevel === 'DANGER') return { key: 'danger', label: '위험' }
+  if (riskLevel === 'CAUTION') return { key: 'caution', label: '주의' }
+  if (riskLevel === 'STABLE') return { key: 'safe', label: '안정' }
+  return { key: 'unknown', label: '확인 불가' }
+}
+
+function getApiSustainableStatus(value) {
+  if (value === true) return { key: 'safe', label: '안정' }
+  if (value === false) return { key: 'danger', label: '위험' }
+  return { key: 'unknown', label: '확인 불가' }
 }
 
 const defaultState = () => ({
@@ -154,22 +164,57 @@ export const useSimulationStore = defineStore('simulation', () => {
   const policyCatalog = ref([])
   const policyCatalogLoading = ref(false)
   const policyCatalogError = ref('')
+  const policyCatalogPageInfo = ref({
+    page: 1,
+    size: 10,
+    totalElements: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrevious: false,
+  })
   const financialDataReady = computed(() => financeState.loaded && !financeState.loading)
-  const recentAnalysis = computed(() => analyzePreviousCompletedMonths(financeTransactions.value))
   const previousMonthExpenseAnalysis = computed(() =>
     analyzePreviousCompletedMonths(financeTransactions.value, new Date(), 1),
   )
   let runwayBaselineRequest = null
   let financialSnapshotRequest = null
+  let draftHydrationRequest = null
+  let confirmedHydrationRequest = null
+  let reportHydrationRequest = null
+  let policyCatalogParams = null
+  let policyCatalogRequestId = 0
+  const policyCatalogPageSize = 10
+  const policyStatusCache = {
+    AVAILABLE: { totalElements: null, pages: new Map() },
+    CLOSED: { totalElements: null, pages: new Map() },
+  }
+  let policyStatusInitializationRequest = null
+  let draftHydratedAt = 0
+  let confirmedHydratedAt = 0
+  let reportHydratedAt = 0
+  let cachedDraft = null
+  let cachedConfirmed = null
+
+  const isRecentLookup = (checkedAt) =>
+    checkedAt > 0 && Date.now() - checkedAt < REMOTE_LOOKUP_CACHE_MS
+
+  function invalidateRemoteLookups({ draft = true, confirmed = true, report = true } = {}) {
+    if (draft) {
+      draftHydratedAt = 0
+      cachedDraft = null
+    }
+    if (confirmed) {
+      confirmedHydratedAt = 0
+      cachedConfirmed = null
+    }
+    if (report) reportHydratedAt = 0
+  }
 
   async function hydrateFinancialSnapshot(force = false) {
     if (!remoteEnabled) return null
     if (!force && financialSnapshotRequest) return financialSnapshotRequest
 
-    financialSnapshotRequest = Promise.allSettled([
-      getMyDataAssetsApi(),
-      loadTransactions(force),
-    ])
+    financialSnapshotRequest = Promise.allSettled([getMyDataAssetsApi(), loadTransactions(force)])
       .then(([assetsResult]) => {
         if (assetsResult.status === 'fulfilled') {
           const accounts = Array.isArray(assetsResult.value?.accounts)
@@ -216,17 +261,12 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function persistConfirmedSnapshot(snapshot) {
-    if (remoteEnabled) return
     const userKey = currentUserKey()
     if (!userKey) return
     sessionStorage.setItem(CONFIRMED_SNAPSHOT_KEY, JSON.stringify({ userKey, snapshot }))
   }
 
   function restoreConfirmedSnapshot() {
-    if (remoteEnabled) {
-      sessionStorage.removeItem(CONFIRMED_SNAPSHOT_KEY)
-      return null
-    }
     let savedSnapshot = null
     try {
       savedSnapshot = JSON.parse(sessionStorage.getItem(CONFIRMED_SNAPSHOT_KEY) || 'null')
@@ -251,28 +291,28 @@ export const useSimulationStore = defineStore('simulation', () => {
   }
 
   function buildExpenseCategories(existing = state.expenses) {
-    const breakdownRows = previousMonthExpenseAnalysis.value.categories.map(
-      ({ name, current }) => ({
-        id: name,
-        name,
-        icon: CATEGORY_META[name]?.icon || CATEGORY_META['기타 금융'].icon,
-        color: CATEGORY_META[name]?.color || CATEGORY_META['기타 금융'].color,
-        current,
-      }),
-    )
-    const totals = Object.fromEntries(REDUCTION_CATEGORIES.map((name) => [name, 0]))
-    breakdownRows.forEach((item) => {
-      const category = normalizeExpenseCategoryLabel(item.name)
-      totals[category] += item.current
+    const groupedBreakdown = new Map()
+    previousMonthExpenseAnalysis.value.categories.forEach(({ name, current }) => {
+      const normalizedName = expenseCategoryLabel(expenseCategoryValue(name))
+      const previous = groupedBreakdown.get(normalizedName)
+      if (previous) previous.current += current
+      else
+        groupedBreakdown.set(normalizedName, {
+          id: normalizedName,
+          name: normalizedName,
+          icon: CATEGORY_META[normalizedName]?.icon || CATEGORY_META['기타 금융'].icon,
+          color: CATEGORY_META[normalizedName]?.color || CATEGORY_META['기타 금융'].color,
+          current,
+        })
     })
-    const rows = REDUCTION_CATEGORIES.map((name) => {
+    const breakdownRows = groupedBreakdown.size
+      ? [...groupedBreakdown.values()]
+      : defaultState().expenses
+    const rows = EXPENSE_TARGET_CATEGORY_NAMES.map((name) => {
+      const current = groupedBreakdown.get(name)?.current || 0
       const previous = existing.find(
-        (item) =>
-          item.id === name ||
-          item.name === name ||
-          normalizeExpenseCategoryLabel(item.name) === name,
+        (item) => expenseCategoryLabel(expenseCategoryValue(item.name)) === name,
       )
-      const current = totals[name]
       return {
         id: name,
         name,
@@ -286,7 +326,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
     return {
       rows,
-      breakdownRows: breakdownRows.length ? breakdownRows : defaultState().expenses,
+      breakdownRows,
       monthKeys: previousMonthExpenseAnalysis.value.monthKeys,
     }
   }
@@ -334,19 +374,14 @@ export const useSimulationStore = defineStore('simulation', () => {
   const monthlyIncome = computed(() =>
     remoteEnabled
       ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyIncome) ??
-        finiteNumberOrNull(firstRemoteProjection.value?.expectedIncome) ??
-        (financialDataReady.value ? recentAnalysis.value.monthlyIncome : null))
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedIncome))
       : recentAnalysis.value.monthlyIncome,
   )
   const monthlyExpense = computed(() =>
     remoteEnabled
       ? (finiteNumberOrNull(remoteReport.value?.cashflow?.beforeMonthlyExpense) ??
-        finiteNumberOrNull(firstRemoteProjection.value?.expectedExpense) ??
-        (financialDataReady.value ? recentAnalysis.value.monthlyExpense : null))
+        finiteNumberOrNull(firstRemoteProjection.value?.expectedExpense))
       : recentAnalysis.value.monthlyExpense,
-  )
-  const runwayCalculationReady = computed(
-    () => !remoteEnabled && financialDataReady.value && monthlyExpense.value > 0,
   )
   const targetMonths = computed(() =>
     remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate),
@@ -432,13 +467,44 @@ export const useSimulationStore = defineStore('simulation', () => {
   const expectedMonths = computed(() =>
     remoteEnabled ? remoteExpectedMonths.value : localExpectedMonths.value,
   )
-  const currentStatus = computed(() =>
-    getApiRiskStatus(
-      session.currentUser.riskLevel,
-      getStatus(currentMonths.value, targetMonths.value),
-    ),
+  const runwayCalculationReady = computed(() =>
+    remoteEnabled
+      ? finiteNumberOrNull(currentMonths.value) !== null &&
+        finiteNumberOrNull(expectedMonths.value) !== null
+      : financialDataReady.value && monthlyExpense.value > 0,
   )
-  const expectedStatus = computed(() => getStatus(expectedMonths.value, targetMonths.value))
+  const currentStatus = computed(() =>
+    remoteEnabled
+      ? session.currentUser.riskLevel
+        ? getApiRiskStatus(session.currentUser.riskLevel)
+        : getApiSustainableStatus(
+            remoteReport.value?.currentSustainable ?? recentConfirmed.value?.currentSustainable,
+          )
+      : getStatus(currentMonths.value, targetMonths.value),
+  )
+  const expectedStatus = computed(() =>
+    remoteEnabled
+      ? getApiSustainableStatus(
+          remoteReport.value?.expectSustainable ?? recentConfirmed.value?.expectSustainable,
+        )
+      : getStatus(expectedMonths.value, targetMonths.value),
+  )
+  const reportCashflow = computed(() => {
+    const cashflow = remoteReport.value?.cashflow
+    if (!cashflow) return null
+    const mapped = {
+      beforeMonthlyIncome: finiteNumberOrNull(cashflow.beforeMonthlyIncome),
+      afterMonthlyIncome: finiteNumberOrNull(cashflow.afterMonthlyIncome),
+      beforeMonthlyExpense: finiteNumberOrNull(cashflow.beforeMonthlyExpense),
+      afterMonthlyExpense: finiteNumberOrNull(cashflow.afterMonthlyExpense),
+      beforeMonthlyNetCashFlow: finiteNumberOrNull(cashflow.beforeMonthlyNetCashFlow),
+      afterMonthlyNetCashFlow: finiteNumberOrNull(cashflow.afterMonthlyNetCashFlow),
+      incomeDelta: finiteNumberOrNull(cashflow.incomeDelta),
+      expenseDelta: finiteNumberOrNull(cashflow.expenseDelta),
+      netCashFlowDelta: finiteNumberOrNull(cashflow.netCashFlowDelta),
+    }
+    return Object.values(mapped).some((value) => value !== null) ? mapped : null
+  })
   const expensePreviewMonthlyBurn = computed(() =>
     Math.max(1, currentMonthlyBurn.value - expenseSaving.value),
   )
@@ -452,6 +518,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   )
   const addedMonths = computed(() => {
     if (currentMonths.value === null || expectedMonths.value === null) return 0
+    if (isInfinitePrepMonths(expectedMonths.value)) return expectedMonths.value
     return Math.max(0, Math.round((expectedMonths.value - currentMonths.value) * 10) / 10)
   })
   const completedCategories = computed(
@@ -584,31 +651,104 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
   }
 
-  async function fetchPolicyCatalogPages(params) {
-    const response = await getPoliciesApi({ ...params, page: 1 })
-    const firstPage = mapPolicyPage(response)
-    const remainingPages = firstPage.hasNext
-      ? await Promise.all(
-          Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
-            getPoliciesApi({ ...params, page: index + 2 }),
-          ),
-        )
-      : []
+  async function fetchPolicyCatalogPage(params, page) {
+    return mapPolicyPage(await getPoliciesApi({ ...params, page, size: policyCatalogPageSize }))
+  }
 
-    return [...firstPage.content, ...remainingPages.flatMap((page) => mapPolicyPage(page).content)]
+  async function initializeAllPolicyStatuses() {
+    if (policyStatusInitializationRequest) return policyStatusInitializationRequest
+
+    policyStatusInitializationRequest = Promise.all(
+      Object.entries(policyStatusCache).map(async ([policyStatus, cache]) => {
+        if (cache.totalElements !== null) return
+        const result = await fetchPolicyCatalogPage({ policyStatus }, 1)
+        cache.totalElements = result.totalElements
+        cache.pages.set(1, result.content)
+      }),
+    ).catch((error) => {
+      policyStatusInitializationRequest = null
+      throw error
+    })
+
+    return policyStatusInitializationRequest
+  }
+
+  async function loadPolicyStatusRange(policyStatus, offset, length) {
+    if (length <= 0) return []
+
+    const cache = policyStatusCache[policyStatus]
+    const firstPage = Math.floor(offset / policyCatalogPageSize) + 1
+    const lastPage = Math.floor((offset + length - 1) / policyCatalogPageSize) + 1
+    const missingPages = []
+
+    for (let page = firstPage; page <= lastPage; page += 1) {
+      if (!cache.pages.has(page)) missingPages.push(page)
+    }
+
+    await Promise.all(
+      missingPages.map(async (page) => {
+        const result = await fetchPolicyCatalogPage({ policyStatus }, page)
+        cache.pages.set(page, result.content)
+      }),
+    )
+
+    return Array.from({ length }, (_, index) => {
+      const absoluteIndex = offset + index
+      const page = Math.floor(absoluteIndex / policyCatalogPageSize) + 1
+      const indexInPage = absoluteIndex % policyCatalogPageSize
+      return cache.pages.get(page)?.[indexInPage]
+    }).filter(Boolean)
+  }
+
+  async function fetchAllPolicyStatuses(page) {
+    await initializeAllPolicyStatuses()
+
+    const availableTotal = policyStatusCache.AVAILABLE.totalElements || 0
+    const closedTotal = policyStatusCache.CLOSED.totalElements || 0
+    const totalElements = availableTotal + closedTotal
+    const totalPages = Math.ceil(totalElements / policyCatalogPageSize)
+    const currentPage = totalPages ? Math.min(Math.max(1, page), totalPages) : 1
+    const start = (currentPage - 1) * policyCatalogPageSize
+    const availableOffset = Math.min(start, availableTotal)
+    const availableLength = Math.min(
+      policyCatalogPageSize,
+      Math.max(0, availableTotal - availableOffset),
+    )
+    const closedOffset = Math.max(0, start - availableTotal)
+    const closedLength = Math.min(
+      policyCatalogPageSize - availableLength,
+      Math.max(0, closedTotal - closedOffset),
+    )
+
+    const [available, closed] = await Promise.all([
+      loadPolicyStatusRange('AVAILABLE', availableOffset, availableLength),
+      loadPolicyStatusRange('CLOSED', closedOffset, closedLength),
+    ])
+
+    return {
+      content: [...available, ...closed],
+      page: currentPage,
+      size: policyCatalogPageSize,
+      totalElements,
+      totalPages,
+      hasNext: currentPage < totalPages,
+      hasPrevious: currentPage > 1,
+    }
   }
 
   async function loadPolicyCatalog(customParams) {
+    const requestId = ++policyCatalogRequestId
+    const isExplicitFilterRequest = Boolean(customParams)
+    const loadAllStatuses = customParams?.allStatuses === true
     policyCatalogLoading.value = true
     policyCatalogError.value = ''
     // 정책 API는 명세와 달리 REEMPLOYMENT 조회 시 CATALOG_005를 반환한다.
     // 재취업을 UNEMPLOYED로 임의 변환하지 않고, 서버가 지원하는 첫취업만 자동 조건으로 사용한다.
-    const employmentPrepStatus =
-      session.currentUser.jobType === 'first' ? 'FIRST_JOB' : undefined
+    const employmentPrepStatus = session.currentUser.jobType === 'first' ? 'FIRST_JOB' : undefined
+    const requestedPage = Math.max(1, Number(customParams?.page) || 1)
     const params = customParams
-      ? { ...customParams, size: 100 }
+      ? { ...customParams }
       : {
-          size: 100,
           policyStatus: 'AVAILABLE',
           ...(employmentPrepStatus ? { employmentPrepStatus } : {}),
           ...(calculateAge(session.currentUser.birth) !== undefined
@@ -618,18 +758,71 @@ export const useSimulationStore = defineStore('simulation', () => {
             ? { policyRegion: normalizePolicyRegion(session.currentUser.region) }
             : {}),
         }
+    delete params.page
+    delete params.size
+    delete params.allStatuses
 
     try {
-      const catalog = await fetchPolicyCatalogPages(params)
-      policyCatalog.value = catalog
-      reconcileSelectedPolicies(catalog)
-      return catalog
+      let pageResult
+      let effectiveParams = params
+      if (loadAllStatuses) {
+        pageResult = await fetchAllPolicyStatuses(requestedPage)
+        effectiveParams = { allStatuses: true }
+      } else {
+        try {
+          pageResult = await fetchPolicyCatalogPage(params, requestedPage)
+        } catch (error) {
+          if (error.code !== 'CATALOG_005' || isExplicitFilterRequest) throw error
+
+          const relaxedParams = { ...params }
+          if (relaxedParams.policyRegion) delete relaxedParams.policyRegion
+          else delete relaxedParams.employmentPrepStatus
+          effectiveParams = relaxedParams
+          pageResult = await fetchPolicyCatalogPage(relaxedParams, requestedPage)
+        }
+
+        // 백엔드의 지역 필터는 해당 지역 전용 정책만 남기고 전국 정책을 제외한다.
+        // 정확 조건 결과가 비었을 때는 지역만 완화해 나이와 취업 상태에 맞는
+        // 정책까지 모두 사라지는 상황을 방지한다.
+        if (
+          !isExplicitFilterRequest &&
+          !pageResult.totalElements &&
+          requestedPage === 1 &&
+          effectiveParams.policyRegion
+        ) {
+          const fallbackParams = { ...params }
+          delete fallbackParams.policyRegion
+          effectiveParams = fallbackParams
+          pageResult = await fetchPolicyCatalogPage(fallbackParams, requestedPage)
+        }
+      }
+
+      if (requestId !== policyCatalogRequestId) return []
+      policyCatalogParams = effectiveParams
+      policyCatalog.value = pageResult.content
+      policyCatalogPageInfo.value = pageResult
+      reconcileSelectedPolicies(pageResult.content)
+      return pageResult.content
     } catch (error) {
+      if (requestId !== policyCatalogRequestId) return []
       policyCatalogError.value = error.message || '정책 목록을 불러오지 못했습니다.'
+      policyCatalog.value = []
+      policyCatalogPageInfo.value = {
+        page: 1,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrevious: false,
+      }
       return []
     } finally {
-      policyCatalogLoading.value = false
+      if (requestId === policyCatalogRequestId) policyCatalogLoading.value = false
     }
+  }
+
+  async function loadPolicyCatalogPage(page) {
+    return loadPolicyCatalog({ ...(policyCatalogParams || {}), page })
   }
 
   async function runItemMutation(request, onSuccess) {
@@ -640,7 +833,8 @@ export const useSimulationStore = defineStore('simulation', () => {
       onSuccess(result)
       if (remoteEnabled) {
         try {
-          await refreshRemoteReport()
+          invalidateRemoteLookups({ draft: false })
+          await refreshRemoteReport(true)
         } catch (error) {
           syncError.value = error.message || '시뮬레이션 결과를 새로고침하지 못했습니다.'
         }
@@ -784,8 +978,10 @@ export const useSimulationStore = defineStore('simulation', () => {
 
     if (remoteEnabled) {
       for (const category of ['expense', 'income', 'policy']) {
-        if (!(await syncCategory(category))) return false
+        if (!(await syncCategory(category, { refreshReport: false }))) return false
       }
+      invalidateRemoteLookups({ draft: false })
+      await refreshRemoteReport(true)
     }
 
     const localSnapshot = remoteEnabled ? null : buildClientConfirmedSnapshot()
@@ -801,6 +997,9 @@ export const useSimulationStore = defineStore('simulation', () => {
       let confirmed = localSnapshot
 
       if (remoteEnabled) {
+        // 확정 조회 API에는 지속 가능 여부가 없으므로, 확정 직전 보고서에서 받은
+        // 서버 판정값을 확정 결과와 함께 보존한다.
+        const reportAtConfirmation = remoteReport.value
         await confirmSimulationApi()
         const response = await getLatestConfirmedSimulationApi()
         const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
@@ -809,8 +1008,18 @@ export const useSimulationStore = defineStore('simulation', () => {
           throw new Error('확정된 시뮬레이션 결과를 불러오지 못했습니다.')
         }
 
-        confirmed = remoteConfirmed
-        applyConfirmedItems(remoteConfirmed)
+        confirmed = {
+          ...localSnapshot,
+          ...remoteConfirmed,
+          ...(typeof reportAtConfirmation?.currentSustainable === 'boolean'
+            ? { currentSustainable: reportAtConfirmation.currentSustainable }
+            : {}),
+          ...(typeof reportAtConfirmation?.expectSustainable === 'boolean'
+            ? { expectSustainable: reportAtConfirmation.expectSustainable }
+            : {}),
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        }
+        applyConfirmedItems(confirmed)
         remoteSimulation.value = response
         remoteReport.value = null
       }
@@ -820,6 +1029,9 @@ export const useSimulationStore = defineStore('simulation', () => {
       state.draftStarted = false
       state.ignoreRemoteDraft = false
       remoteDraftExists.value = false
+      invalidateRemoteLookups()
+      confirmedHydratedAt = Date.now()
+      cachedConfirmed = confirmed
       recentConfirmed.value = confirmed
       persistConfirmedSnapshot(confirmed)
       state.startDate = confirmed.startDate || state.startDate
@@ -840,6 +1052,7 @@ export const useSimulationStore = defineStore('simulation', () => {
       state.ignoreRemoteDraft = false
       remoteDraftExists.value = true
       clearConfirmedSnapshot()
+      invalidateRemoteLookups()
     })
     if (reverted && remoteEnabled) {
       await hydrateDraft()
@@ -891,6 +1104,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     remoteSimulation.value = null
     clearConfirmedSnapshot()
     remoteDraftExists.value = null
+    invalidateRemoteLookups()
     syncError.value = ''
   }
 
@@ -912,6 +1126,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     remoteReport.value = null
     remoteSimulation.value = null
     remoteDraftExists.value = null
+    invalidateRemoteLookups()
     clearConfirmedSnapshot()
     syncError.value = ''
   }
@@ -948,14 +1163,10 @@ export const useSimulationStore = defineStore('simulation', () => {
   async function ensureRemoteDraft() {
     if (!remoteEnabled) return true
 
-    try {
-      const draft = await getCurrentSimulationApi()
-      remoteDraftExists.value = true
-      state.ignoreRemoteDraft = false
-      applyRemoteSimulation(draft)
-      return true
-    } catch (error) {
-      if (error.status !== 404) throw error
+    const existingDraft = await hydrateDraft()
+    if (existingDraft) return true
+    if (remoteDraftExists.value !== false) {
+      throw new Error(syncError.value || '미확정 시뮬레이션 상태를 확인하지 못했습니다.')
     }
 
     remoteDraftExists.value = false
@@ -970,65 +1181,180 @@ export const useSimulationStore = defineStore('simulation', () => {
     remoteDraftExists.value = true
     state.ignoreRemoteDraft = false
     applyRemoteSimulation(created)
+    cachedDraft = created
+    draftHydratedAt = Date.now()
+    invalidateRemoteLookups({ draft: false })
     return true
   }
 
-  async function refreshRemoteReport() {
+  async function refreshRemoteReport(force = false) {
     if (!remoteEnabled || state.ignoreRemoteDraft) return null
-    const report = await getSimulationReportApi()
-    remoteReport.value = report
-    return report
+    if (reportHydrationRequest) return reportHydrationRequest
+    if (!force && isRecentLookup(reportHydratedAt)) return remoteReport.value
+
+    const request = getSimulationReportApi()
+      .then((report) => {
+        remoteReport.value = report
+        reportHydratedAt = Date.now()
+        return report
+      })
+      .catch((error) => {
+        reportHydratedAt = 0
+        throw error
+      })
+      .finally(() => {
+        if (reportHydrationRequest === request) reportHydrationRequest = null
+      })
+    reportHydrationRequest = request
+    return request
   }
 
-  async function hydrateDraft() {
+  async function hydrateDraft(force = false) {
     if (!remoteEnabled) return null
+    if (draftHydrationRequest) return draftHydrationRequest
+    if (!force && isRecentLookup(draftHydratedAt)) return cachedDraft
+
+    const request = (async () => {
+      syncing.value = true
+      syncError.value = ''
+      try {
+        const data = await getCurrentSimulationApi()
+        remoteDraftExists.value = true
+        cachedDraft = data
+        draftHydratedAt = Date.now()
+        applyRemoteSimulation(data)
+        state.ignoreRemoteDraft = false
+        await refreshRemoteReport(force)
+        return data
+      } catch (error) {
+        if (error.status === 404) {
+          remoteDraftExists.value = false
+          cachedDraft = null
+          draftHydratedAt = Date.now()
+          remoteSimulation.value = null
+          remoteReport.value = null
+          reportHydratedAt = 0
+        } else {
+          draftHydratedAt = 0
+          syncError.value = error.message
+        }
+        return null
+      } finally {
+        syncing.value = false
+      }
+    })()
+
+    draftHydrationRequest = request
+    try {
+      return await request
+    } finally {
+      if (draftHydrationRequest === request) draftHydrationRequest = null
+    }
+  }
+
+  async function prepareConfirmationPreview() {
     syncing.value = true
     syncError.value = ''
     try {
-      const data = await getCurrentSimulationApi()
-      remoteDraftExists.value = true
-      applyRemoteSimulation(data)
-      state.ignoreRemoteDraft = false
-      await refreshRemoteReport()
-      return data
+      await loadTransactions()
+
+      if (remoteEnabled) {
+        try {
+          const serverReport = await refreshRemoteReport()
+          remoteReport.value = state.ignoreRemoteDraft ? null : serverReport
+        } catch {
+          // 기간 값은 시뮬레이션 응답에서 유지하되, 현금흐름은 임의 계산하지 않고
+          // 보고서가 없다는 상태를 화면에서 별도로 안내한다.
+        }
+      }
+
+      const previewReady = runwayCalculationReady.value
+      if (!previewReady) {
+        syncError.value = remoteEnabled
+          ? '서버에서 시뮬레이션 기간 결과를 불러오지 못했습니다.'
+          : '월 지출 내역이 없어 예상 버티는 기간을 계산할 수 없습니다.'
+        return false
+      }
+      return true
     } catch (error) {
-      if (error.status === 404) {
-        remoteDraftExists.value = false
-        remoteSimulation.value = null
-        remoteReport.value = null
-      } else syncError.value = error.message
-      return null
+      syncError.value =
+        error.message || '재정 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      return false
     } finally {
       syncing.value = false
     }
   }
 
-  async function hydrateConfirmed() {
+  async function hydrateConfirmed(force = false) {
     if (!remoteEnabled) return null
-    syncing.value = true
-    syncError.value = ''
-    try {
-      const response = await getLatestConfirmedSimulationApi()
-      const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
-      if (!remoteConfirmed) return null
-      applyConfirmedItems(remoteConfirmed)
-      remoteSimulation.value = response
-      remoteReport.value = null
-      recentConfirmed.value = remoteConfirmed
-      state.confirmed = true
-      state.draftStarted = false
-      state.ignoreRemoteDraft = false
-      return remoteConfirmed
-    } catch (error) {
-      if (error.status === 404) {
-        clearConfirmedSnapshot()
-        remoteSimulation.value = null
+    if (confirmedHydrationRequest) return confirmedHydrationRequest
+    if (!force && isRecentLookup(confirmedHydratedAt)) return cachedConfirmed
+
+    const request = (async () => {
+      syncing.value = true
+      syncError.value = ''
+      try {
+        const response = await getLatestConfirmedSimulationApi()
+        const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
+
+      const restored = restoreConfirmedSnapshot()
+      const canReuseClientSnapshot =
+        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
+        restored.simulationId === remoteConfirmed.simulationId &&
+        restored.confirmedAt === remoteConfirmed.confirmedAt &&
+        Number.isFinite(Number(restored.currentMonths)) &&
+        Number.isFinite(Number(restored.expectedMonths))
+      let confirmed
+
+      if (canReuseClientSnapshot) {
+        confirmed = {
+          ...restored,
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        }
+        applyConfirmedItems(confirmed)
+      } else {
+        confirmed = {
+          ...remoteConfirmed,
+          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        }
+        applyConfirmedItems(confirmed)
+        recentConfirmed.value = null
+      }
+
+        remoteSimulation.value = response
         remoteReport.value = null
-        state.confirmed = false
-      } else syncError.value = error.message
-      return null
+        recentConfirmed.value = confirmed
+        cachedConfirmed = remoteConfirmed
+        confirmedHydratedAt = Date.now()
+        persistConfirmedSnapshot(confirmed)
+        state.confirmed = true
+        state.draftStarted = false
+        state.ignoreRemoteDraft = false
+        return remoteConfirmed
+      } catch (error) {
+        if (error.status === 404) {
+          clearConfirmedSnapshot()
+          cachedConfirmed = null
+          confirmedHydratedAt = Date.now()
+          remoteSimulation.value = null
+          remoteReport.value = null
+          state.confirmed = false
+        } else {
+          confirmedHydratedAt = 0
+          syncError.value = error.message
+        }
+        return null
+      } finally {
+        syncing.value = false
+      }
+    })()
+
+    confirmedHydrationRequest = request
+    try {
+      return await request
     } finally {
-      syncing.value = false
+      if (confirmedHydrationRequest === request) confirmedHydrationRequest = null
     }
   }
 
@@ -1051,14 +1377,28 @@ export const useSimulationStore = defineStore('simulation', () => {
       if (remoteDraftExists.value) {
         await updateSimulationPeriodApi(payload)
       } else {
-        const data = await createSimulationApi(payload)
+        let data
+        try {
+          data = await createSimulationApi(payload)
+        } catch (createError) {
+          if (createError.code !== 'SIMULATION_901') throw createError
+
+          // 조회 API는 Draft가 없다고 응답하지만 생성 API는 기존 Draft를 감지하는
+          // 서버 불일치 상태가 있을 수 있다. 새 시뮬레이션 시작 요청이므로 남은
+          // 미확정 Draft를 정리한 뒤 생성 요청을 한 번만 다시 시도한다.
+          await deleteDraftSimulationApi()
+          data = await createSimulationApi(payload)
+        }
         remoteDraftExists.value = true
         applyRemoteSimulation(data)
       }
       const draft = await getCurrentSimulationApi()
       applyRemoteSimulation(draft)
+      cachedDraft = draft
+      draftHydratedAt = Date.now()
       state.ignoreRemoteDraft = false
-      await refreshRemoteReport()
+      invalidateRemoteLookups({ draft: false })
+      await refreshRemoteReport(true)
       return true
     } catch (error) {
       syncError.value = error.message
@@ -1080,7 +1420,10 @@ export const useSimulationStore = defineStore('simulation', () => {
       })
       const draft = await getCurrentSimulationApi()
       applyRemoteSimulation(draft)
-      await refreshRemoteReport()
+      cachedDraft = draft
+      draftHydratedAt = Date.now()
+      invalidateRemoteLookups({ draft: false })
+      await refreshRemoteReport(true)
       return true
     } catch (error) {
       syncError.value = error.message
@@ -1088,7 +1431,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  async function syncCategory(category) {
+  async function syncCategory(category, { refreshReport = true } = {}) {
     if (!remoteEnabled) return true
     syncing.value = true
     syncError.value = ''
@@ -1103,7 +1446,7 @@ export const useSimulationStore = defineStore('simulation', () => {
                 payload: {
                   category: 'EXPENSE',
                   itemName: `${item.name} 줄이기`,
-                  expenseCategory: expenseLabelToCategory(item.name),
+                  expenseCategory: expenseCategoryValue(item.name),
                   amount: item.saving,
                   applyStartDate: state.startDate,
                   applyEndDate: state.endDate,
@@ -1147,7 +1490,8 @@ export const useSimulationStore = defineStore('simulation', () => {
         item.remoteId = result?.itemId || item.remoteId
         item.remoteSynced = true
       }
-      await refreshRemoteReport()
+      invalidateRemoteLookups({ draft: false })
+      if (refreshReport) await refreshRemoteReport(true)
       return true
     } catch (error) {
       syncError.value = error.message
@@ -1201,10 +1545,12 @@ export const useSimulationStore = defineStore('simulation', () => {
     policyCatalog,
     policyCatalogLoading,
     policyCatalogError,
+    policyCatalogPageInfo,
     totalAssets,
     availableAssets,
     monthlyIncome,
     monthlyExpense,
+    reportCashflow,
     targetMonths,
     currentMonths,
     currentStatus,
@@ -1261,6 +1607,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     resetScenario,
     prepareNewScenario,
     hydrateDraft,
+    prepareConfirmationPreview,
     hydrateConfirmed,
     hydrateRunwayBaseline,
     hydrateFinancialSnapshot,
@@ -1271,5 +1618,6 @@ export const useSimulationStore = defineStore('simulation', () => {
     refreshCategory,
     hydrateCategory,
     loadPolicyCatalog,
+    loadPolicyCatalogPage,
   }
 })

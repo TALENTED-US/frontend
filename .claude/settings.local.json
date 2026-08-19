@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -nE \"#[0-9a-fA-F]{3,8}\\\\b\" src/features/finance/pages/FixedExpensePage.vue)"
-    ]
-  }
-}
