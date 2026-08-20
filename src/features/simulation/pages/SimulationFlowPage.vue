@@ -8,9 +8,10 @@ import {
   getExpenseRecommendationsApi,
   getIncomeRecommendationsApi,
   getPolicyRecommendationsApi,
+  getSimulationRecommendationsApi,
 } from '@/api/simulation'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
+import SimulationEntryLoader from '@/features/simulation/components/SimulationEntryLoader.vue'
 import {
   filterExpenseRecommendationsForPrompt,
   normalizeCategoryRecommendationResponse,
@@ -83,8 +84,8 @@ const hasRunwayResult = computed(
     Number.isFinite(Number(simulation.currentMonths)) &&
     Number.isFinite(Number(simulation.expectedMonths)),
 )
-const financialSummary = computed(
-  () => aiRecommendations.value?.financialRecommendation?.summary || '',
+const financialSummary = computed(() =>
+  String(aiRecommendations.value?.financialRecommendation?.summary || '').trim(),
 )
 const aiPromptLength = computed(() => aiPrompt.value.length)
 const nextDraftPath = computed(() => {
@@ -142,6 +143,20 @@ async function submitAiPrompt() {
   await loadAiRecommendations(prompt)
 }
 
+async function loadInitialAiRecommendations() {
+  if (aiLoading.value) return
+
+  aiLoading.value = true
+  aiError.value = ''
+  try {
+    aiRecommendations.value = await getSimulationRecommendationsApi()
+  } catch (error) {
+    aiError.value = recommendationErrorMessage(error)
+  } finally {
+    aiLoading.value = false
+  }
+}
+
 onMounted(async () => {
   await simulation.hydrateRunwayBaseline()
 
@@ -150,6 +165,7 @@ onMounted(async () => {
   if (step.value === 'categories') {
     startDate.value = getTodayDate()
     simulation.clearAiPlanRecommendations()
+    await loadInitialAiRecommendations()
     return
   }
 
@@ -226,6 +242,22 @@ async function confirm() {
 
 <template>
   <section class="page sim-page sim-wizard" :class="`sim-flow-${step}`">
+    <Teleport to="body">
+      <Transition name="simulation-ai-page-loader">
+        <div
+          v-if="step === 'categories' && aiLoading"
+          class="simulation-ai-page-loader"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          @wheel.prevent
+          @touchmove.prevent
+        >
+          <SimulationEntryLoader />
+        </div>
+      </Transition>
+    </Teleport>
+
     <template v-if="step === 'continue'">
       <div class="resume-hero">
         <button
@@ -267,7 +299,7 @@ async function confirm() {
       <h1 class="wizard-title">
         <template v-if="financialSummary">{{ financialSummary }}</template>
         <template v-else>
-          지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
+          나에게 맞는 재정 계획으로<br />버티는 기간을 늘려볼까요?
         </template>
       </h1>
       <div class="category-intro-card">
@@ -351,7 +383,6 @@ async function confirm() {
         </form>
 
         <p v-if="aiError" class="ai-plan-recommendation__error">{{ aiError }}</p>
-        <AiRecommendationLoader v-else-if="aiLoading" class="ai-plan-recommendation__loader" />
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
@@ -494,6 +525,39 @@ async function confirm() {
 </template>
 
 <style scoped>
+.simulation-ai-page-loader {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(83 99 221 / 9%), transparent 34%),
+    rgb(244 247 252 / 97%);
+  backdrop-filter: blur(6px);
+}
+
+.simulation-ai-page-loader-enter-active,
+.simulation-ai-page-loader-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.simulation-ai-page-loader-enter-active :deep(.simulation-entry-loader),
+.simulation-ai-page-loader-leave-active :deep(.simulation-entry-loader) {
+  transition: transform 0.22s ease;
+}
+
+.simulation-ai-page-loader-enter-from,
+.simulation-ai-page-loader-leave-to {
+  opacity: 0;
+}
+
+.simulation-ai-page-loader-enter-from :deep(.simulation-entry-loader),
+.simulation-ai-page-loader-leave-to :deep(.simulation-entry-loader) {
+  transform: translateY(10px) scale(0.98);
+}
+
 .final-result em {
   display: inline-flex;
   height: 35px;
@@ -801,11 +865,11 @@ async function confirm() {
   color: #d94f55;
 }
 
-.ai-plan-recommendation__loader {
-  margin-top: 16px;
-}
-
 @media (max-width: 560px) {
+  .simulation-ai-page-loader {
+    padding: 18px;
+  }
+
   .ai-plan-recommendation__input {
     grid-template-columns: 1fr auto;
   }
@@ -821,6 +885,13 @@ async function confirm() {
 
   .ai-plan-recommendation__results article {
     min-height: 150px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simulation-ai-page-loader,
+  .simulation-entry-loader {
+    transition: none !important;
   }
 }
 

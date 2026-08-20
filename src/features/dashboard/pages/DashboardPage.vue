@@ -35,6 +35,8 @@ const dashboardApiLoading = ref(false)
 const financialAssets = ref(null)
 const financialAssetsError = ref('')
 const showMyDataConnectModal = ref(false)
+const MAX_BUTTIE_LEVEL = 5
+const MAX_BUTTIE_LEVEL_EXP = 500
 const dashboardMonth = new Date()
 const dashboardCalendarKey = `${dashboardMonth.getFullYear()}-${String(
   dashboardMonth.getMonth() + 1,
@@ -260,22 +262,32 @@ const apiButtieProgression = computed(() =>
 const buttieExp = computed(() =>
   session.isMockMode
     ? progression.exp
-    : (apiButtieProgression.value?.exp ?? finiteNumberOrNull(session.currentUser.totalExp)),
+    : (finiteNumberOrNull(session.currentUser.totalExp) ?? apiButtieProgression.value?.exp),
 )
 const buttieRequiredExp = computed(() =>
   session.isMockMode
     ? progression.nextLevelExp
-    : (apiButtieProgression.value?.requiredExp ??
-      finiteNumberOrNull(session.currentUser.requiredExp)),
+    : (finiteNumberOrNull(session.currentUser.requiredExp) ??
+      apiButtieProgression.value?.requiredExp),
 )
-const buttieLevel = computed(() =>
-  session.isMockMode
-    ? progression.level
-    : (apiButtieProgression.value?.level ?? finiteNumberOrNull(session.currentUser.level)),
+const apiButtieLevel = computed(
+  () => finiteNumberOrNull(session.currentUser.level) ?? apiButtieProgression.value?.level,
 )
-const buttieRemainingExp = computed(() => Math.max(0, buttieRequiredExp.value - buttieExp.value))
+const buttieLevel = computed(() => {
+  if (session.isMockMode) return progression.level
+
+  return buttieExp.value >= MAX_BUTTIE_LEVEL_EXP
+    ? MAX_BUTTIE_LEVEL
+    : Math.min(MAX_BUTTIE_LEVEL, Math.max(1, apiButtieLevel.value || 1))
+})
+const isMaxButtieLevel = computed(() => buttieLevel.value >= MAX_BUTTIE_LEVEL)
+const buttieRemainingExp = computed(() =>
+  isMaxButtieLevel.value ? 0 : Math.max(0, buttieRequiredExp.value - buttieExp.value),
+)
 const buttieProgressPercent = computed(() =>
-  buttieRequiredExp.value > 0
+  isMaxButtieLevel.value
+    ? 100
+    : buttieRequiredExp.value > 0
     ? Math.min(100, Math.max(0, (buttieExp.value / buttieRequiredExp.value) * 100))
     : 100,
 )
@@ -575,7 +587,7 @@ const financialStatus = computed(() => {
     return {
       key: 'unknown',
       label: '확인 불가',
-      message: '서버에서 재정 위험 상태를 불러오지 못했어요',
+      message: '재정 위험 상태를 확인하지 못했어요',
       image: buttieDashboard.value?.buttieImageUrl || fallbackImage,
       fallbackImage,
       imageAlt: '재정 위험 상태를 확인할 수 없는 버티',
@@ -584,16 +596,18 @@ const financialStatus = computed(() => {
   const isDanger = apiRisk === 'DANGER' || (session.isMockMode && achievementRate.value <= 30)
   const isCaution = apiRisk === 'CAUTION' || (session.isMockMode && achievementRate.value < 80)
   const apiImage = buttieDashboard.value?.buttieImageUrl
+  const levelWasCorrected = !session.isMockMode && buttieLevel.value !== apiButtieLevel.value
 
   if (isDanger) {
     const fallbackImage = getButtieLevelImage(buttieLevel.value, 'danger')
+    const image = levelWasCorrected || buttieLevel.value === 4 ? fallbackImage : apiImage || fallbackImage
     return {
       key: 'risk',
       label: '위험',
       message: session.isMockMode
         ? `버티는 기간이 목표보다 ${Math.max(1, Math.ceil(shortageMonths.value))}개월 부족해서 버티가 녹고 있어요`
-        : '서버에서 현재 재정 상태를 위험으로 판정했어요',
-      image: apiImage || fallbackImage,
+        : '현재 재정 상태는 위험 단계예요',
+      image,
       fallbackImage,
       imageAlt: '거의 녹아내린 위험 상태의 버티',
     }
@@ -606,8 +620,8 @@ const financialStatus = computed(() => {
       label: '주의',
       message: session.isMockMode
         ? '버티는 기간이 목표보다 조금 부족해 주의가 필요해요'
-        : '서버에서 현재 재정 상태를 주의로 판정했어요',
-      image: apiImage || fallbackImage,
+        : '현재 재정 상태는 주의 단계예요',
+      image: levelWasCorrected ? fallbackImage : apiImage || fallbackImage,
       fallbackImage,
       imageAlt: '조금 녹아내린 주의 상태의 버티',
     }
@@ -619,8 +633,8 @@ const financialStatus = computed(() => {
     label: '안정',
     message: session.isMockMode
       ? '버티는 기간이 목표를 넉넉히 채워서 걱정 없어요'
-      : '서버에서 현재 재정 상태를 안정으로 판정했어요',
-    image: apiImage || fallbackImage,
+      : '현재 재정 상태는 안정 단계예요',
+    image: levelWasCorrected ? fallbackImage : apiImage || fallbackImage,
     fallbackImage,
     imageAlt: '온전한 안정 상태의 버티',
   }
@@ -740,7 +754,7 @@ const targetMonthText = computed(() =>
               </ul>
             </div>
           </div>
-          <span v-if="buttieLevel < 5">다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span>
+          <span v-if="!isMaxButtieLevel">다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span>
           <span v-else>최고 레벨 달성</span>
         </div>
         <div
@@ -751,10 +765,10 @@ const targetMonthText = computed(() =>
           aria-valuemin="0"
           aria-valuemax="100"
         >
-          <b v-if="buttieLevel < 5">
+          <b v-if="!isMaxButtieLevel">
             {{ formatExp(buttieExp) }} / {{ formatExp(buttieRequiredExp) }} EXP
           </b>
-          <b v-else>MAX LEVEL</b>
+          <b v-else>MAX</b>
           <i aria-hidden="true">
             <span :style="{ width: `${buttieProgressPercent}%` }" />
           </i>
@@ -2596,7 +2610,7 @@ const targetMonthText = computed(() =>
   font-size: 16px;
   font-weight: 700;
   text-decoration: none;
-  transition: background .16s ease;
+  transition: background 0.16s ease;
 }
 @media (hover: hover) {
   .quest-empty a:hover {

@@ -279,7 +279,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!force && remoteTimeline.value) return remoteTimeline.value
 
     try {
-      const timeline = await getTimelineApi()
+      const timeline = await getTimelineApi({ fresh: force })
       remoteTimeline.value = timeline
       return timeline
     } catch {
@@ -1335,7 +1335,7 @@ export const useSimulationStore = defineStore('simulation', () => {
       const previewReady = runwayCalculationReady.value
       if (!previewReady) {
         syncError.value = remoteEnabled
-          ? '서버에서 시뮬레이션 기간 결과를 불러오지 못했습니다.'
+          ? '시뮬레이션 기간 결과를 불러오지 못했습니다.'
           : '월 지출 내역이 없어 예상 버티는 기간을 계산할 수 없습니다.'
         return false
       }
