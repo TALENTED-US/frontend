@@ -2512,6 +2512,7 @@ svg text {
   }
 
   .page-heading {
+    align-items: center;
     margin-bottom: 16px;
   }
 

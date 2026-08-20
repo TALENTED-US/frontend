@@ -573,15 +573,6 @@ function reconnectMyData() {
     </button>
     <h1 class="desktop-only">{{ info[0] }}</h1>
     <p class="desktop-only detail-description">{{ info[1] }}</p>
-    <h1
-      class="mobile-only mobile-section-title"
-      :class="{
-        'mobile-section-title--flat':
-          route.name === 'notificationSettings' || route.name === 'dataManagement',
-      }"
-    >
-      {{ info[0] }}
-    </h1>
 
     <template v-if="route.name === 'myInfo'">
       <div class="identity-row">
@@ -1084,20 +1075,6 @@ function reconnectMyData() {
   color: #777;
   font-size: var(--font-small);
 }
-.mobile-section-title {
-  padding: 12px 15px;
-  border: 1px solid #e2e3e8;
-  border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 2px 4px rgb(15 23 42 / 12%);
-  font-size: var(--font-body);
-}
-
-.mobile-section-title--flat {
-  box-shadow: none !important;
-  font-size: var(--font-small);
-}
-
 .identity-row {
   display: flex;
   align-items: center;
@@ -1714,9 +1691,6 @@ function reconnectMyData() {
 
   .detail-page {
     padding-bottom: 18px;
-  }
-  .mobile-section-title {
-    margin-bottom: 12px;
   }
   .identity-row {
     margin: 8px 8px 16px;

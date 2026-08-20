@@ -74,7 +74,6 @@ const hasMobileBack = computed(
     isNotifications.value,
 )
 const mobileTitle = computed(() => {
-  if (isMyPageDetail.value) return '마이페이지'
   if (isSimulationPreview.value) return '미리보기'
   if (isSimulationCategory.value) {
     return (
@@ -434,7 +433,6 @@ watch(
     min-height: 64px;
     padding: 10px 16px;
     padding-right: 8px;
-    border-bottom: 1px solid #e7e7e7;
   }
   .app-header--finance {
     position: sticky;

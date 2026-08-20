@@ -479,7 +479,7 @@ async function toggle(item) {
   .quest-overview-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+    align-items: center;
     gap: 12px;
   }
   .quest-overview-tabs {
