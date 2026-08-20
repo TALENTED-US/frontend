@@ -102,7 +102,7 @@ svg text {
 
 #app :where(button, input, select, textarea):disabled {
   cursor: not-allowed;
-  opacity: .62;
+  opacity: 0.62;
 }
 
 #app :where(.app-shell, .auth-shell, .admin-shell) :where(small, figcaption) {
@@ -110,7 +110,9 @@ svg text {
   line-height: 1.45;
 }
 
-#app :where(.app-shell, .auth-shell, .admin-shell) :where(p, li, label, input, select, textarea, button) {
+#app
+  :where(.app-shell, .auth-shell, .admin-shell)
+  :where(p, li, label, input, select, textarea, button) {
   line-height: max(1.45, var(--line-height-body));
 }
 
@@ -121,67 +123,80 @@ svg text {
 }
 
 /* Shared heading rhythm for the main signed-in pages. */
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance-heading > div,
-  .search-heading,
-  .sim-heading,
-  .mypage-heading,
-  .notification-page > .page-heading
-) {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance-heading > div,
+    .search-heading,
+    .sim-heading,
+    .mypage-heading,
+    .notification-page > .page-heading
+  ) {
   min-width: 0;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .search-heading,
-  .sim-heading,
-  .mypage-heading,
-  .notification-page > .page-heading
-) {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .search-heading,
+    .sim-heading,
+    .mypage-heading,
+    .notification-page > .page-heading
+  ) {
   margin-bottom: 28px;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance-heading > div,
-  .search-heading,
-  .sim-heading,
-  .mypage-heading,
-  .notification-page > .page-heading
-) :where(.app-page-heading__eyebrow, .finance-heading__eyebrow) {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance-heading > div,
+    .search-heading,
+    .sim-heading,
+    .mypage-heading,
+    .notification-page > .page-heading
+  )
+  :where(.app-page-heading__eyebrow, .finance-heading__eyebrow) {
   margin: 0 0 8px !important;
   color: var(--primary) !important;
   font-size: 12px !important;
   font-weight: 900 !important;
   line-height: 1.2;
-  letter-spacing: .14em;
+  letter-spacing: 0.14em;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance-heading > div,
-  .search-heading,
-  .sim-heading,
-  .mypage-heading,
-  .notification-page > .page-heading
-) h1 {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance-heading > div,
+    .search-heading,
+    .sim-heading,
+    .mypage-heading,
+    .notification-page > .page-heading
+  )
+  h1 {
   margin: 0 !important;
   color: var(--text) !important;
   font-size: var(--type-page-title-size) !important;
   font-weight: var(--type-page-title-weight) !important;
   line-height: 1.2;
-  letter-spacing: -.04em;
+  letter-spacing: -0.04em;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance-heading > div,
-  .search-heading,
-  .sim-heading,
-  .mypage-heading,
-  .notification-page > .page-heading
-) .app-page-heading__description,
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance-heading > div,
+    .search-heading,
+    .sim-heading,
+    .mypage-heading,
+    .notification-page > .page-heading
+  )
+  .app-page-heading__description,
 #app .app-shell .finance-heading > div > p:last-child {
   margin: 8px 0 0 !important;
   color: var(--muted) !important;
@@ -191,26 +206,30 @@ svg text {
 }
 
 @media (max-width: 767px) {
-  #app .app-shell :where(
-    .dashboard__heading,
-    .finance-heading > div,
-    .search-heading,
-    .sim-heading,
-    .mypage-heading,
-    .notification-page > .page-heading
-  ) h1 {
+  #app
+    .app-shell
+    :where(
+      .dashboard__heading,
+      .finance-heading > div,
+      .search-heading,
+      .sim-heading,
+      .mypage-heading,
+      .notification-page > .page-heading
+    )
+    h1 {
     font-size: var(--type-page-title-size) !important;
   }
 }
 
 /* Unified back controls: keep navigation easy to see and tap on every screen. */
-#app :where(
-  .detail-back,
-  .sim-back,
-  .filter-back,
-  .password-verification-page__back,
-  .password-change-page__back
-) {
+#app
+  :where(
+    .detail-back,
+    .sim-back,
+    .filter-back,
+    .password-verification-page__back,
+    .password-change-page__back
+  ) {
   min-height: 52px;
   align-items: center;
   border: 0;
@@ -220,12 +239,13 @@ svg text {
   line-height: 1.2;
 }
 
-#app :where(
-  .filter-back,
-  .password-verification-page__back,
-  .password-change-page__back,
-  .sim-back:not(:has(+ .wizard-progress-tabs))
-) {
+#app
+  :where(
+    .filter-back,
+    .password-verification-page__back,
+    .password-change-page__back,
+    .sim-back:not(:has(+ .wizard-progress-tabs))
+  ) {
   display: inline-flex;
   gap: 8px;
   padding: 0 14px 0 4px;
@@ -246,13 +266,14 @@ svg text {
   line-height: 1;
 }
 
-#app :where(
-  .detail-back,
-  .sim-back,
-  .filter-back,
-  .password-verification-page__back,
-  .password-change-page__back
-):hover {
+#app
+  :where(
+    .detail-back,
+    .sim-back,
+    .filter-back,
+    .password-verification-page__back,
+    .password-change-page__back
+  ):hover {
   background: transparent;
   color: var(--primary);
 }
@@ -299,143 +320,145 @@ svg text {
 }
 
 /* Product body scale. Larger component-specific text keeps its own hierarchy. */
-#app .app-shell main :where(
-  p,
-  small,
-  figcaption,
-  dt,
-  dd,
-  li
-) {
+#app .app-shell main :where(p, small, figcaption, dt, dd, li) {
   font-size: max(var(--type-body-size), 1em) !important;
 }
 
-#app .app-shell main :where(
-  p,
-  small,
-  figcaption,
-  dt,
-  .sim-subtitle,
-  .api-notice,
-  .timeline-note,
-  .result-heading span,
-  .result-card p,
-  .result-card small
-) {
+#app
+  .app-shell
+  main
+  :where(
+    p,
+    small,
+    figcaption,
+    dt,
+    .sim-subtitle,
+    .api-notice,
+    .timeline-note,
+    .result-heading span,
+    .result-card p,
+    .result-card small
+  ) {
   color: #6b7684;
   line-height: 1.55;
 }
 
-#app .app-shell .sim-page :where(
-  .wizard-progress-tabs span,
-  .expense-analysis-total span,
-  .expense-analysis-body li,
-  .expense-analysis-body li > strong,
-  .expense-analysis-body li small,
-  .expense-analysis-card > p,
-  .expense-target-card > p,
-  .expense-target-info > span,
-  .expense-target-editor > label,
-  .expense-target-editor > small,
-  .expense-target-editor input,
-  .section-heading > span,
-  .added-expense-goals article > strong,
-  .expense-goal-controls > strong,
-  .expense-goal-controls button,
-  .income-plan-form label,
-  .income-form-heading,
-  .income-form-heading button,
-  .income-plan-form legend,
-  .income-money-field b,
-  .added-income-plans article small,
-  .added-income-plans article em,
-  .income-plan-controls > strong,
-  .income-plan-controls button,
-  .policy-catalog-list small,
-  .period-change-card small,
-  .preview-section-title p,
-  .cashflow-comparison small,
-  .cashflow-comparison strong,
-  .comparison-legend,
-  .net-cashflow-row small,
-  .net-cashflow-row strong,
-  .result-delta-badges span,
-  .result-delta-badges i,
-  .edit-summary header button,
-  .edit-summary > p,
-  .final-result > span,
-  .final-result em,
-  .simulation-edit-card small,
-  .simulation-edit-card em,
-  .simulation-edit-card > b
-) {
+#app
+  .app-shell
+  .sim-page
+  :where(
+    .wizard-progress-tabs span,
+    .expense-analysis-total span,
+    .expense-analysis-body li,
+    .expense-analysis-body li > strong,
+    .expense-analysis-body li small,
+    .expense-analysis-card > p,
+    .expense-target-card > p,
+    .expense-target-info > span,
+    .expense-target-editor > label,
+    .expense-target-editor > small,
+    .expense-target-editor input,
+    .section-heading > span,
+    .added-expense-goals article > strong,
+    .expense-goal-controls > strong,
+    .expense-goal-controls button,
+    .income-plan-form label,
+    .income-form-heading,
+    .income-form-heading button,
+    .income-plan-form legend,
+    .income-money-field b,
+    .added-income-plans article small,
+    .added-income-plans article em,
+    .income-plan-controls > strong,
+    .income-plan-controls button,
+    .policy-catalog-list small,
+    .period-change-card small,
+    .preview-section-title p,
+    .cashflow-comparison small,
+    .cashflow-comparison strong,
+    .comparison-legend,
+    .net-cashflow-row small,
+    .net-cashflow-row strong,
+    .result-delta-badges span,
+    .result-delta-badges i,
+    .edit-summary header button,
+    .edit-summary > p,
+    .final-result > span,
+    .final-result em,
+    .simulation-edit-card small,
+    .simulation-edit-card em,
+    .simulation-edit-card > b
+  ) {
   font-size: 16px !important;
   line-height: 1.5;
 }
 
-#app .app-shell .sim-page :where(
-  .expense-analysis-body li small,
-  .expense-target-editor > small,
-  .added-income-plans article small,
-  .policy-catalog-list p,
-  .policy-catalog-list small,
-  .preview-section-title p,
-  .net-cashflow-row small,
-  .simulation-edit-card small
-) {
+#app
+  .app-shell
+  .sim-page
+  :where(
+    .expense-analysis-body li small,
+    .expense-target-editor > small,
+    .added-income-plans article small,
+    .policy-catalog-list p,
+    .policy-catalog-list small,
+    .preview-section-title p,
+    .net-cashflow-row small,
+    .simulation-edit-card small
+  ) {
   color: #6b7684 !important;
 }
 
-#app .app-shell .sim-page :where(
-  .added-expense-goals article > strong,
-  .added-income-plans article > div:nth-child(2) > strong,
-  .expense-goal-controls > strong,
-  .income-plan-controls > strong,
-  .cashflow-comparison strong,
-  .net-cashflow-row strong
-) {
+#app
+  .app-shell
+  .sim-page
+  :where(
+    .added-expense-goals article > strong,
+    .added-income-plans article > div:nth-child(2) > strong,
+    .expense-goal-controls > strong,
+    .income-plan-controls > strong,
+    .cashflow-comparison strong,
+    .net-cashflow-row strong
+  ) {
   color: var(--text);
   font-weight: 750;
 }
 
-#app .app-shell .dashboard :where(
-  .level-overview span,
-  .survival-card small,
-  .survival-card__legend small,
-  .summary-card small,
-  .quest-period__heading p,
-  .quest-period__heading > span,
-  .quest-row__copy small,
-  .quest-card__footer span,
-  .quest-card__footer p,
-  .goal-card span
-),
-#app .app-shell .finance :where(
-  .summary small,
-  .calendar small,
-  .transaction small,
-  .list-actions > span,
-  .category li,
-  .category-insight,
-  .timeline-note,
-  .sheet label,
-  .transaction-detail__list dt,
-  .transaction-detail__list dd
-),
-#app .app-shell .search-page :where(
-  .search-heading p,
-  .filter-chip,
-  .result-heading span,
-  .result-card p,
-  .result-card small
-),
-#app .app-shell .mypage :where(
-  p,
-  small,
-  dt,
-  dd,
-  label
-) {
+#app
+  .app-shell
+  .dashboard
+  :where(
+    .level-overview span,
+    .survival-card small,
+    .survival-card__legend small,
+    .summary-card small,
+    .quest-period__heading p,
+    .quest-period__heading > span,
+    .quest-row__copy small,
+    .quest-card__footer span,
+    .quest-card__footer p,
+    .goal-card span
+  ),
+#app
+  .app-shell
+  .finance
+  :where(
+    .summary small,
+    .calendar small,
+    .transaction small,
+    .list-actions > span,
+    .category li,
+    .category-insight,
+    .timeline-note,
+    .sheet label,
+    .transaction-detail__list dt,
+    .transaction-detail__list dd
+  ),
+#app
+  .app-shell
+  .search-page
+  :where(.search-heading p, .filter-chip, .result-heading span, .result-card p, .result-card small),
+#app .app-shell .mypage :where(p, small, dt, dd, label) {
   font-size: var(--type-body-size) !important;
   line-height: 1.5;
 }
@@ -450,14 +473,7 @@ svg text {
 }
 
 @media (max-width: 767px) {
-  #app .app-shell main :where(
-    small,
-    label,
-    figcaption,
-    dt,
-    dd,
-    li
-  ) {
+  #app .app-shell main :where(small, label, figcaption, dt, dd, li) {
     font-size: var(--type-body-size) !important;
   }
 
@@ -465,7 +481,18 @@ svg text {
     font-size: 13px !important;
   }
 
-  :where(#app .app-shell main button:not(.primary-button):not(.primary-action):not(.primary-cta):not(.simulation-primary-cta):not(.sim-btn):not(.sim-btn--yellow):not(.sim-btn--orange):not(.sim-text-button):not(.expense-add-button):not(.income-add-button):not(.policy-add-button):not(.policy-filter-button):not(.simulation-create-new-bottom):not(.add-btn)) {
+  :where(
+    #app
+      .app-shell
+      main
+      button:not(.primary-button):not(.primary-action):not(.primary-cta):not(
+        .simulation-primary-cta
+      ):not(.sim-btn):not(.sim-btn--yellow):not(.sim-btn--orange):not(.sim-text-button):not(
+        .expense-add-button
+      ):not(.income-add-button):not(.policy-add-button):not(.policy-filter-button):not(
+        .simulation-create-new-bottom
+      ):not(.add-btn)
+  ) {
     font-size: var(--type-button-small-size) !important;
     font-weight: var(--type-button-small-weight) !important;
   }
@@ -478,33 +505,39 @@ svg text {
     font-size: 15px !important;
   }
 
-  #app .app-shell .sim-page :where(
-    .wizard-progress-tabs span,
-    .expense-analysis-body li,
-    .expense-analysis-body li > strong,
-    .expense-analysis-body li small,
-    .expense-target-info > span,
-    .expense-target-editor > label,
-    .expense-target-editor > small,
-    .added-expense-goals article > strong,
-    .expense-goal-controls > strong,
-    .income-plan-form label,
-    .income-form-heading,
-    .income-plan-form legend,
-    .added-income-plans article small,
-    .added-income-plans article em,
-    .income-plan-controls > strong,
-    .comparison-legend,
-    .net-cashflow-row small
-  ) {
+  #app
+    .app-shell
+    .sim-page
+    :where(
+      .wizard-progress-tabs span,
+      .expense-analysis-body li,
+      .expense-analysis-body li > strong,
+      .expense-analysis-body li small,
+      .expense-target-info > span,
+      .expense-target-editor > label,
+      .expense-target-editor > small,
+      .added-expense-goals article > strong,
+      .expense-goal-controls > strong,
+      .income-plan-form label,
+      .income-form-heading,
+      .income-plan-form legend,
+      .added-income-plans article small,
+      .added-income-plans article em,
+      .income-plan-controls > strong,
+      .comparison-legend,
+      .net-cashflow-row small
+    ) {
     font-size: var(--type-body-size) !important;
   }
 
-  #app .app-shell .sim-page :where(
-    .expense-goal-controls button,
-    .income-form-heading button,
-    .income-plan-controls button
-  ) {
+  #app
+    .app-shell
+    .sim-page
+    :where(
+      .expense-goal-controls button,
+      .income-form-heading button,
+      .income-plan-controls button
+    ) {
     font-size: var(--type-button-small-size) !important;
     font-weight: var(--type-button-small-weight) !important;
   }
@@ -593,7 +626,11 @@ svg text {
   fill: var(--primary);
 }
 
-#app .app-shell :where(.finance, .sim-page) .timeline-chart :where(.current-badge text, .scenario-badge text) {
+#app
+  .app-shell
+  :where(.finance, .sim-page)
+  .timeline-chart
+  :where(.current-badge text, .scenario-badge text) {
   font-size: 14px;
   font-weight: 850;
 }
@@ -787,7 +824,7 @@ svg text {
   color: var(--text) !important;
   font-size: var(--type-page-title-size) !important;
   font-weight: var(--type-page-title-weight);
-  letter-spacing: -.045em;
+  letter-spacing: -0.045em;
   line-height: 1.25;
 }
 
@@ -829,7 +866,6 @@ svg text {
   background: var(--primary);
 }
 
-
 #app .app-shell .sim-category-page > .wizard-progress-tabs span {
   font-size: 15px !important;
 }
@@ -838,23 +874,26 @@ svg text {
   font-size: 16px !important;
 }
 
-#app .app-shell .sim-page :where(
-  .expense-analysis-card,
-  .expense-target-card,
-  .added-expense-goals,
-  .income-plan-form,
-  .added-income-plans,
-  .policy-qualification,
-  .policy-selected-card,
-  .policy-catalog-scroll,
-  .baseline-report,
-  .period-change-card,
-  .preview-timeline-section,
-  .application-result,
-  .edit-summary,
-  .simulation-edit-period,
-  .simulation-edit-card
-) {
+#app
+  .app-shell
+  .sim-page
+  :where(
+    .expense-analysis-card,
+    .expense-target-card,
+    .added-expense-goals,
+    .income-plan-form,
+    .added-income-plans,
+    .policy-qualification,
+    .policy-selected-card,
+    .policy-catalog-scroll,
+    .baseline-report,
+    .period-change-card,
+    .preview-timeline-section,
+    .application-result,
+    .edit-summary,
+    .simulation-edit-period,
+    .simulation-edit-card
+  ) {
   border: 0 !important;
   border-radius: 22px !important;
   background: #fff !important;
@@ -908,14 +947,17 @@ svg text {
   background: var(--sim-butter-soft);
 }
 
-#app .app-shell .sim-page :where(
-  .sim-btn--yellow,
-  .sim-btn--orange,
-  .expense-add-button,
-  .income-add-button,
-  .policy-filter-button,
-  .policy-add-button
-) {
+#app
+  .app-shell
+  .sim-page
+  :where(
+    .sim-btn--yellow,
+    .sim-btn--orange,
+    .expense-add-button,
+    .income-add-button,
+    .policy-filter-button,
+    .policy-add-button
+  ) {
   border: 0 !important;
   border-radius: 14px !important;
   background: #fbedb0 !important;
@@ -926,40 +968,49 @@ svg text {
 }
 
 @media (hover: hover) {
-  #app .app-shell .sim-page :where(
+  #app
+    .app-shell
+    .sim-page
+    :where(
+      .sim-btn--yellow,
+      .sim-btn--orange,
+      .expense-add-button,
+      .income-add-button,
+      .policy-filter-button,
+      .policy-add-button
+    ):not(:disabled):hover {
+    background: #f7e48f !important;
+    box-shadow: 0 4px 12px rgb(241 185 76 / 35%) !important;
+  }
+}
+
+#app
+  .app-shell
+  .sim-page
+  :where(
     .sim-btn--yellow,
     .sim-btn--orange,
     .expense-add-button,
     .income-add-button,
     .policy-filter-button,
     .policy-add-button
-  ):not(:disabled):hover {
-    background: #f7e48f !important;
-    box-shadow: 0 4px 12px rgb(241 185 76 / 35%) !important;
-  }
-}
-
-#app .app-shell .sim-page :where(
-  .sim-btn--yellow,
-  .sim-btn--orange,
-  .expense-add-button,
-  .income-add-button,
-  .policy-filter-button,
-  .policy-add-button
-):not(:disabled):active {
+  ):not(:disabled):active {
   background: #f1dc7c !important;
   box-shadow: none !important;
   transform: translateY(1px);
 }
 
-#app .app-shell .sim-page :where(
-  .sim-btn--yellow,
-  .sim-btn--orange,
-  .expense-add-button,
-  .income-add-button,
-  .policy-filter-button,
-  .policy-add-button
-):disabled {
+#app
+  .app-shell
+  .sim-page
+  :where(
+    .sim-btn--yellow,
+    .sim-btn--orange,
+    .expense-add-button,
+    .income-add-button,
+    .policy-filter-button,
+    .policy-add-button
+  ):disabled {
   background: #e1e1e1 !important;
   color: #999999 !important;
 }
@@ -968,7 +1019,10 @@ svg text {
   background: #f1b94c !important;
 }
 
-#app .app-shell .sim-page :where(.added-expense-goals article, .selected-policies article, .policy-selected-list article) {
+#app
+  .app-shell
+  .sim-page
+  :where(.added-expense-goals article, .selected-policies article, .policy-selected-list article) {
   border: 0;
   border-radius: 14px;
   background: var(--sim-butter-soft);
@@ -1238,10 +1292,10 @@ svg text {
 #app .app-shell .dashboard .survival-card__character img {
   z-index: 2;
   display: block;
+  max-width: calc(100% - 32px);
   visibility: visible;
   opacity: 1;
-  transform: translateX(-50%) scale(1.42);
-  transform-origin: 50% 56%;
+  transform: translateX(-50%);
 }
 
 @media (max-width: 767px) {
@@ -1251,7 +1305,8 @@ svg text {
   }
 
   #app .app-shell .dashboard .survival-card__character img {
-    transform: translateX(-50%) scale(1.25);
+    max-width: calc(100% - 20px);
+    transform: translateX(-50%);
   }
 }
 
@@ -1298,7 +1353,7 @@ svg text {
 /* Keep the finance report and goal details inside one calm dashboard surface. */
 #app .app-shell .dashboard .dashboard-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, .84fr);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.84fr);
   align-items: stretch;
   gap: 0;
   padding: 30px;
@@ -1429,19 +1484,22 @@ svg text {
     margin-bottom: 24px;
   }
 
-  #app .app-shell .sim-page :where(
-    .expense-analysis-card,
-    .expense-target-card,
-    .added-expense-goals,
-    .income-plan-form,
-    .added-income-plans,
-    .policy-qualification,
-    .policy-selected-card,
-    .policy-catalog-scroll,
-    .period-change-card,
-    .preview-timeline-section,
-    .application-result
-  ) {
+  #app
+    .app-shell
+    .sim-page
+    :where(
+      .expense-analysis-card,
+      .expense-target-card,
+      .added-expense-goals,
+      .income-plan-form,
+      .added-income-plans,
+      .policy-qualification,
+      .policy-selected-card,
+      .policy-catalog-scroll,
+      .period-change-card,
+      .preview-timeline-section,
+      .application-result
+    ) {
     border-radius: 18px !important;
     box-shadow: none !important;
   }
@@ -1486,7 +1544,9 @@ svg text {
   color: var(--text);
 }
 
-#app .app-shell :where(.card, .profile-card, .settings-card, .form-card, .sim-card, .result-card, .flow-card) {
+#app
+  .app-shell
+  :where(.card, .profile-card, .settings-card, .form-card, .sim-card, .result-card, .flow-card) {
   border-color: transparent !important;
   background: #fff;
   box-shadow: var(--shadow-figma) !important;
@@ -1505,30 +1565,36 @@ svg text {
   box-shadow: 0 0 0 3px rgb(10 22 128 / 12%);
 }
 
-#app .app-shell :where(
-  .primary-action,
-  .btn-primary,
-  .btn-secondary,
-  .save,
-  .add-btn,
-  .sim-btn--orange,
-  .sim-btn--yellow
-) {
+#app
+  .app-shell
+  :where(
+    .primary-action,
+    .btn-primary,
+    .btn-secondary,
+    .save,
+    .add-btn,
+    .sim-btn--orange,
+    .sim-btn--yellow
+  ) {
   min-height: 50px;
   border-radius: 14px;
   box-shadow: none !important;
-  transition: background .16s ease, transform .16s ease;
+  transition:
+    background 0.16s ease,
+    transform 0.16s ease;
 }
 
-#app .app-shell :where(
-  .primary-action,
-  .btn-primary,
-  .btn-secondary,
-  .save,
-  .add-btn,
-  .sim-btn--orange,
-  .sim-btn--yellow
-):not(:disabled):hover {
+#app
+  .app-shell
+  :where(
+    .primary-action,
+    .btn-primary,
+    .btn-secondary,
+    .save,
+    .add-btn,
+    .sim-btn--orange,
+    .sim-btn--yellow
+  ):not(:disabled):hover {
   box-shadow: none !important;
   transform: translateY(-1px);
 }
@@ -1544,31 +1610,43 @@ svg text {
   border-radius: 11px;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance .heading,
-  .sim-heading,
-  .search-heading,
-  .mypage > .mypage__title
-) {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance .heading,
+    .sim-heading,
+    .search-heading,
+    .mypage > .mypage__title
+  ) {
   padding-top: 0;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance .heading,
-  .sim-heading,
-  .search-heading,
-  .mypage > .mypage__title
-)::before {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance .heading,
+    .sim-heading,
+    .search-heading,
+    .mypage > .mypage__title
+  )::before {
   display: none;
 }
 
-#app .app-shell :where(.dashboard__heading h1, .finance .heading h1, .sim-heading h1, .search-heading h1, .mypage__title) {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading h1,
+    .finance .heading h1,
+    .sim-heading h1,
+    .search-heading h1,
+    .mypage__title
+  ) {
   color: var(--text) !important;
   font-size: var(--type-page-title-size) !important;
   font-weight: var(--type-page-title-weight);
-  letter-spacing: -.045em;
+  letter-spacing: -0.045em;
 }
 
 #app .app-shell :where(.summary-card, .summary article, .sim-report-grid article) {
@@ -1744,7 +1822,15 @@ svg text {
 }
 
 @media (max-width: 767px) {
-  #app .app-shell :where(.dashboard__heading h1, .finance .heading h1, .sim-heading h1, .search-heading h1, .mypage__title) {
+  #app
+    .app-shell
+    :where(
+      .dashboard__heading h1,
+      .finance .heading h1,
+      .sim-heading h1,
+      .search-heading h1,
+      .mypage__title
+    ) {
     font-size: var(--type-page-title-size) !important;
   }
 
@@ -1773,9 +1859,9 @@ svg text {
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    animation-duration: .01ms !important;
+    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -1807,13 +1893,13 @@ svg text {
 #app :where(.app-shell, .auth-shell, .admin-shell) h1 {
   color: var(--primary);
   font-weight: 900;
-  letter-spacing: -.045em;
+  letter-spacing: -0.045em;
 }
 
 #app :where(.app-shell, .auth-shell, .admin-shell) h2 {
   color: #252631;
   font-weight: 850;
-  letter-spacing: -.025em;
+  letter-spacing: -0.025em;
 }
 
 .page-description {
@@ -1833,17 +1919,19 @@ svg text {
 }
 
 /* Landing-inspired application system */
-#app :where(.app-shell, .auth-shell, .admin-shell) :where(
-  .card,
-  article,
-  .profile-card,
-  .settings-card,
-  .form-card,
-  .sim-card,
-  .result-card,
-  .flow-card,
-  .sheet
-) {
+#app
+  :where(.app-shell, .auth-shell, .admin-shell)
+  :where(
+    .card,
+    article,
+    .profile-card,
+    .settings-card,
+    .form-card,
+    .sim-card,
+    .result-card,
+    .flow-card,
+    .sheet
+  ) {
   border-color: rgb(10 22 128 / 14%);
   border-radius: var(--radius-md);
 }
@@ -1853,7 +1941,10 @@ svg text {
   border-radius: 13px;
   background: #fffdf4;
   color: var(--text);
-  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
 }
 
 #app :where(.app-shell, .auth-shell, .admin-shell) :where(input, select, textarea):focus {
@@ -1862,15 +1953,17 @@ svg text {
   box-shadow: 0 0 0 4px rgb(147 178 248 / 24%);
 }
 
-#app :where(.app-shell, .auth-shell) :where(
-  .primary-action,
-  .btn-primary,
-  .btn-secondary,
-  .login-submit,
-  .save,
-  .add-btn,
-  .sim-btn--orange
-) {
+#app
+  :where(.app-shell, .auth-shell)
+  :where(
+    .primary-action,
+    .btn-primary,
+    .btn-secondary,
+    .login-submit,
+    .save,
+    .add-btn,
+    .sim-btn--orange
+  ) {
   border-radius: 999px;
   background: var(--primary);
   color: #fff;
@@ -1878,15 +1971,17 @@ svg text {
   font-weight: 850;
 }
 
-#app :where(.app-shell, .auth-shell) :where(
-  .primary-action,
-  .btn-primary,
-  .btn-secondary,
-  .login-submit,
-  .save,
-  .add-btn,
-  .sim-btn--orange
-):not(:disabled):hover {
+#app
+  :where(.app-shell, .auth-shell)
+  :where(
+    .primary-action,
+    .btn-primary,
+    .btn-secondary,
+    .login-submit,
+    .save,
+    .add-btn,
+    .sim-btn--orange
+  ):not(:disabled):hover {
   box-shadow: 0 10px 0 rgb(10 22 128 / 11%);
   transform: translateY(-3px);
 }
@@ -1916,24 +2011,28 @@ svg text {
   font-weight: 850;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance .heading,
-  .sim-heading,
-  .search-heading,
-  .mypage > .mypage__title
-) {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance .heading,
+    .sim-heading,
+    .search-heading,
+    .mypage > .mypage__title
+  ) {
   position: relative;
   padding-top: 0;
 }
 
-#app .app-shell :where(
-  .dashboard__heading,
-  .finance .heading,
-  .sim-heading,
-  .search-heading,
-  .mypage > .mypage__title
-)::before {
+#app
+  .app-shell
+  :where(
+    .dashboard__heading,
+    .finance .heading,
+    .sim-heading,
+    .search-heading,
+    .mypage > .mypage__title
+  )::before {
   display: none;
   content: none;
 }
@@ -1951,7 +2050,10 @@ svg text {
 }
 
 #app .app-shell :where(.result-card, .policy-card, .transaction, .settings-card button) {
-  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
 }
 
 #app .app-shell :where(.result-card, .policy-card, .transaction, .settings-card button):hover {
@@ -2136,7 +2238,7 @@ svg text {
   background: var(--accent);
   color: var(--primary);
   font-size: 21px;
-  transition: transform .2s ease;
+  transition: transform 0.2s ease;
 }
 
 .secondary-details[open] > summary b {
@@ -2165,55 +2267,56 @@ svg text {
 }
 
 /* Figma의 공통 바깥쪽 그림자: X 0, Y 1, blur 5, black 25% */
-#app :where(
-  .card,
-  .summary article,
-  .tabs,
-  .summary-card,
-  .simulation-cta,
-  .profile-card,
-  .settings-card,
-  .form-card,
-  .form-card input,
-  .job-card input,
-  .job-card select,
-  .withdraw-password input,
-  .primary-action,
-  .info-logout,
-  .info-withdraw,
-  .toggle-card,
-  .security-card,
-  .devices-card,
-  .accounts-card,
-  .job-card,
-  .result-card,
-  .flow-card,
-  .accordion,
-  .consent-list,
-  .bank-list,
-  .asset-section,
-  .completion-summary,
-  .fixed-summary,
-  .fixed-page .search,
-  .fixed-page .suggest,
-  .fixed-page .total,
-  .fixed-page .expense-list,
-  .sheet,
-  .sim-hero,
-  .sim-hero__result,
-  .sim-card,
-  .sim-empty,
-  .choice-card,
-  .preview-summary,
-  .preview-panels article,
-  .confirm-group,
-  .expense-overview,
-  .impact-card,
-  .income-form,
-  .qualification-grid article,
-  .policy-list article,
-  .policy-summary
-) {
+#app
+  :where(
+    .card,
+    .summary article,
+    .tabs,
+    .summary-card,
+    .simulation-cta,
+    .profile-card,
+    .settings-card,
+    .form-card,
+    .form-card input,
+    .job-card input,
+    .job-card select,
+    .withdraw-password input,
+    .primary-action,
+    .info-logout,
+    .info-withdraw,
+    .toggle-card,
+    .security-card,
+    .devices-card,
+    .accounts-card,
+    .job-card,
+    .result-card,
+    .flow-card,
+    .accordion,
+    .consent-list,
+    .bank-list,
+    .asset-section,
+    .completion-summary,
+    .fixed-summary,
+    .fixed-page .search,
+    .fixed-page .suggest,
+    .fixed-page .total,
+    .fixed-page .expense-list,
+    .sheet,
+    .sim-hero,
+    .sim-hero__result,
+    .sim-card,
+    .sim-empty,
+    .choice-card,
+    .preview-summary,
+    .preview-panels article,
+    .confirm-group,
+    .expense-overview,
+    .impact-card,
+    .income-form,
+    .qualification-grid article,
+    .policy-list article,
+    .policy-summary
+  ) {
   box-shadow: var(--shadow-figma) !important;
 }
 
@@ -2549,7 +2652,6 @@ svg text {
     width: auto;
     padding: 18px;
   }
-
 }
 
 @media (min-width: 768px) {
@@ -2573,20 +2675,23 @@ svg text {
   line-height: 1.55;
 }
 
-#app .app-shell .finance :where(
-  .heading p,
-  .finance-state,
-  .list-actions > span,
-  .list-filter select,
-  .legend,
-  .category li,
-  .category-insight,
-  .fixed p,
-  .timeline-legend,
-  .timeline-note,
-  .sheet-error,
-  .transaction-detail__summary div span
-) {
+#app
+  .app-shell
+  .finance
+  :where(
+    .heading p,
+    .finance-state,
+    .list-actions > span,
+    .list-filter select,
+    .legend,
+    .category li,
+    .category-insight,
+    .fixed p,
+    .timeline-legend,
+    .timeline-note,
+    .sheet-error,
+    .transaction-detail__summary div span
+  ) {
   font-size: var(--type-body-size) !important;
 }
 
@@ -2635,16 +2740,19 @@ svg text {
   color: var(--danger) !important;
 }
 
-#app .app-shell .fixed-page :where(
-  header p,
-  .total span,
-  .total small,
-  .suggest p,
-  .selection-head,
-  .empty-message,
-  .expense-list small,
-  footer
-) {
+#app
+  .app-shell
+  .fixed-page
+  :where(
+    header p,
+    .total span,
+    .total small,
+    .suggest p,
+    .selection-head,
+    .empty-message,
+    .expense-list small,
+    footer
+  ) {
   font-size: var(--type-body-size) !important;
 }
 
@@ -2653,31 +2761,34 @@ svg text {
   font-weight: var(--type-action-weight) !important;
 }
 
-#app .app-shell .sim-page :where(
-  .sim-subtitle,
-  .sim-hero__copy small,
-  .sim-hero__result span,
-  .sim-hero__result b,
-  .simulation-quest-api-notice,
-  .simulation-quest-progress span,
-  .simulation-quest-period > header p,
-  .simulation-quest-period > header > span,
-  .simulation-quest-empty-row,
-  .simulation-quest-footer span,
-  .simulation-quest-footer p,
-  .report-preview__badge,
-  .report-preview__period > span,
-  .report-preview__period em,
-  .period-grid label > span,
-  .preview-bar,
-  .simulation-edit-period > p,
-  .simulation-edit-period__grid label > span,
-  .simulation-edit-card em,
-  .simulation-edit-card > b,
-  .simulation-edit-forecast span,
-  .simulation-edit-benefit,
-  .api-notice
-) {
+#app
+  .app-shell
+  .sim-page
+  :where(
+    .sim-subtitle,
+    .sim-hero__copy small,
+    .sim-hero__result span,
+    .sim-hero__result b,
+    .simulation-quest-api-notice,
+    .simulation-quest-progress span,
+    .simulation-quest-period > header p,
+    .simulation-quest-period > header > span,
+    .simulation-quest-empty-row,
+    .simulation-quest-footer span,
+    .simulation-quest-footer p,
+    .report-preview__badge,
+    .report-preview__period > span,
+    .report-preview__period em,
+    .period-grid label > span,
+    .preview-bar,
+    .simulation-edit-period > p,
+    .simulation-edit-period__grid label > span,
+    .simulation-edit-card em,
+    .simulation-edit-card > b,
+    .simulation-edit-forecast span,
+    .simulation-edit-benefit,
+    .api-notice
+  ) {
   font-size: var(--type-body-size) !important;
   line-height: 1.5;
 }
@@ -2707,13 +2818,10 @@ svg text {
   --dashboard-shadow: 0 14px 40px rgb(32 42 74 / 9%);
 }
 
-#app .app-shell .dashboard :where(
-  .level-overview,
-  .survival-card,
-  .dashboard-overview,
-  .quest-card,
-  .quest-empty
-) {
+#app
+  .app-shell
+  .dashboard
+  :where(.level-overview, .survival-card, .dashboard-overview, .quest-card, .quest-empty) {
   border: 1px solid var(--dashboard-border) !important;
   background: var(--surface) !important;
   box-shadow: var(--dashboard-shadow) !important;
@@ -2737,20 +2845,20 @@ svg text {
   border-radius: 24px;
 }
 
-#app .app-shell .dashboard :where(
-  .survival-card__metric,
-  .survival-card__character-panel,
-  .dashboard-report__summary article
-) {
+#app
+  .app-shell
+  .dashboard
+  :where(
+    .survival-card__metric,
+    .survival-card__character-panel,
+    .dashboard-report__summary article
+  ) {
   border: 1px solid #f0f2f5 !important;
   background: var(--dashboard-subtle) !important;
   box-shadow: none !important;
 }
 
-#app .app-shell .dashboard :where(
-  .survival-card__metric,
-  .survival-card__character-panel
-) {
+#app .app-shell .dashboard :where(.survival-card__metric, .survival-card__character-panel) {
   background: var(--surface) !important;
 }
 
@@ -2769,23 +2877,29 @@ svg text {
   color: var(--muted);
 }
 
-#app .app-shell .dashboard :where(
-  .level-overview__progress i,
-  .survival-card__progress,
-  .goal-card__progress,
-  .quest-completion__track
-) {
+#app
+  .app-shell
+  .dashboard
+  :where(
+    .level-overview__progress i,
+    .survival-card__progress,
+    .goal-card__progress,
+    .quest-completion__track
+  ) {
   border: 0;
   background: var(--dashboard-track);
   box-shadow: none;
 }
 
-#app .app-shell .dashboard :where(
-  .level-overview__progress i span,
-  .survival-card__progress span,
-  .goal-card__progress i,
-  .quest-completion__track span
-) {
+#app
+  .app-shell
+  .dashboard
+  :where(
+    .level-overview__progress i span,
+    .survival-card__progress span,
+    .goal-card__progress i,
+    .quest-completion__track span
+  ) {
   background: var(--primary);
 }
 
@@ -2877,13 +2991,10 @@ svg text {
 }
 
 @media (max-width: 767px) {
-  #app .app-shell .dashboard :where(
-    .level-overview,
-    .survival-card,
-    .dashboard-overview,
-    .quest-card,
-    .quest-empty
-  ) {
+  #app
+    .app-shell
+    .dashboard
+    :where(.level-overview, .survival-card, .dashboard-overview, .quest-card, .quest-empty) {
     border-color: var(--dashboard-divider) !important;
     box-shadow: none !important;
   }
@@ -2908,28 +3019,9 @@ svg text {
 /* Tiers: main (yellow CTA), sub (white outline), small (link-style),  */
 /* small-outline (delete-style), disabled.                             */
 /* ------------------------------------------------------------------ */
-#app .app-shell :where(
-  .primary-button,
-  .primary-action,
-  .primary-cta,
-  .simulation-primary-cta,
-  .sim-btn,
-  .sim-btn--yellow,
-  .sim-btn--orange,
-  .expense-add-button,
-  .income-add-button,
-  .policy-add-button,
-  .policy-filter-button,
-  .add-btn,
-  .sheet__primary,
-  .quest-empty a,
-  .quest-card__footer a
-) {
-  transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
-}
-
-@media (hover: hover) {
-  #app .app-shell :where(
+#app
+  .app-shell
+  :where(
     .primary-button,
     .primary-action,
     .primary-cta,
@@ -2945,50 +3037,75 @@ svg text {
     .sheet__primary,
     .quest-empty a,
     .quest-card__footer a
-  ):not(:disabled):hover {
+  ) {
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+@media (hover: hover) {
+  #app
+    .app-shell
+    :where(
+      .primary-button,
+      .primary-action,
+      .primary-cta,
+      .simulation-primary-cta,
+      .sim-btn,
+      .sim-btn--yellow,
+      .sim-btn--orange,
+      .expense-add-button,
+      .income-add-button,
+      .policy-add-button,
+      .policy-filter-button,
+      .add-btn,
+      .sheet__primary,
+      .quest-empty a,
+      .quest-card__footer a
+    ):not(:disabled):hover {
     background: #f7e48f !important;
     box-shadow: 0 4px 12px rgb(241 185 76 / 35%) !important;
     transform: none !important;
   }
 }
 
-#app .app-shell :where(
-  .primary-button,
-  .primary-action,
-  .primary-cta,
-  .simulation-primary-cta,
-  .sim-btn,
-  .sim-btn--yellow,
-  .sim-btn--orange,
-  .expense-add-button,
-  .income-add-button,
-  .policy-add-button,
-  .policy-filter-button,
-  .add-btn,
-  .sheet__primary,
-  .quest-empty a,
-  .quest-card__footer a
-):not(:disabled):active {
+#app
+  .app-shell
+  :where(
+    .primary-button,
+    .primary-action,
+    .primary-cta,
+    .simulation-primary-cta,
+    .sim-btn,
+    .sim-btn--yellow,
+    .sim-btn--orange,
+    .expense-add-button,
+    .income-add-button,
+    .policy-add-button,
+    .policy-filter-button,
+    .add-btn,
+    .sheet__primary,
+    .quest-empty a,
+    .quest-card__footer a
+  ):not(:disabled):active {
   background: #f1dc7c !important;
   box-shadow: none !important;
   transform: translateY(1px);
 }
 
 /* Sub tier: white outline buttons (건너뛰기, 처음부터 다시 만들기, 새로 만들기 등) */
-#app .app-shell :where(
-  .sim-text-button,
-  .resume-reset,
-  .simulation-create-new
-) {
-  transition: background .15s ease, color .15s ease, border-color .15s ease;
+#app .app-shell :where(.sim-text-button, .resume-reset, .simulation-create-new) {
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 @media (hover: hover) {
-  #app .app-shell :where(
-    .sim-text-button,
-    .resume-reset,
-    .simulation-create-new
-  ):not(:disabled):hover {
+  #app
+    .app-shell
+    :where(.sim-text-button, .resume-reset, .simulation-create-new):not(:disabled):hover {
     border-color: #d8dae0 !important;
     background: #f4f5f8 !important;
     color: #475569 !important;
@@ -2996,68 +3113,78 @@ svg text {
 }
 
 /* Small tier: link-style small buttons (수정하기 →, 저장, 변경 등) */
-#app .app-shell :where(
-  .simulation-edit-card > button,
-  .simulation-edit-period button,
-  .expense-goal-controls button,
-  .income-plan-controls button,
-  .edit-summary header button
-) {
-  transition: background .15s ease;
-}
-
-@media (hover: hover) {
-  #app .app-shell :where(
+#app
+  .app-shell
+  :where(
     .simulation-edit-card > button,
     .simulation-edit-period button,
     .expense-goal-controls button,
     .income-plan-controls button,
     .edit-summary header button
-  ):not(:disabled):hover {
+  ) {
+  transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+  #app
+    .app-shell
+    :where(
+      .simulation-edit-card > button,
+      .simulation-edit-period button,
+      .expense-goal-controls button,
+      .income-plan-controls button,
+      .edit-summary header button
+    ):not(:disabled):hover {
     background: #fbedb0 !important;
   }
 }
 
 /* Small outline tier: delete-style small buttons */
-#app .app-shell :where(
-  .delete-button,
-  .policy-selected-list article button,
-  .added-expense-goals article button:last-child,
-  .income-plan-controls button:last-child
-) {
-  transition: background .15s ease;
-}
-
-@media (hover: hover) {
-  #app .app-shell :where(
+#app
+  .app-shell
+  :where(
     .delete-button,
     .policy-selected-list article button,
     .added-expense-goals article button:last-child,
     .income-plan-controls button:last-child
-  ):not(:disabled):hover {
+  ) {
+  transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+  #app
+    .app-shell
+    :where(
+      .delete-button,
+      .policy-selected-list article button,
+      .added-expense-goals article button:last-child,
+      .income-plan-controls button:last-child
+    ):not(:disabled):hover {
     background: #f4f5f8 !important;
   }
 }
 
 /* Disabled state: consistent across all tiers, no hover effect */
-#app .app-shell :where(
-  .primary-button,
-  .primary-action,
-  .primary-cta,
-  .simulation-primary-cta,
-  .sim-btn,
-  .sim-btn--yellow,
-  .sim-btn--orange,
-  .expense-add-button,
-  .income-add-button,
-  .policy-add-button,
-  .policy-filter-button,
-  .add-btn,
-  .sheet__primary,
-  .sim-text-button,
-  .resume-reset,
-  .simulation-create-new
-):disabled {
+#app
+  .app-shell
+  :where(
+    .primary-button,
+    .primary-action,
+    .primary-cta,
+    .simulation-primary-cta,
+    .sim-btn,
+    .sim-btn--yellow,
+    .sim-btn--orange,
+    .expense-add-button,
+    .income-add-button,
+    .policy-add-button,
+    .policy-filter-button,
+    .add-btn,
+    .sheet__primary,
+    .sim-text-button,
+    .resume-reset,
+    .simulation-create-new
+  ):disabled {
   background: #f0f1f4 !important;
   color: #b0b4be !important;
   box-shadow: none !important;

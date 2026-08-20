@@ -874,7 +874,7 @@ function reconnectMyData() {
       >
       <p v-if="withdrawError" class="withdraw-error" role="alert">{{ withdrawError }}</p>
       <p v-if="withdrawVerified" class="withdraw-success" aria-live="polite">
-        비밀번호가 입력되었습니다. 최종 탈퇴 시 서버에서 확인합니다.
+        비밀번호가 입력되었습니다. 최종 탈퇴 단계에서 다시 확인합니다.
       </p>
       <div class="withdraw-character">
         <img :src="profileImage" alt="" />

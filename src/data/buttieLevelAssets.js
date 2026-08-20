@@ -11,7 +11,7 @@ import level5Caution from '@/assets/images/dashboard/levels/buttie-l5-caution.pn
 import level1Danger from '@/assets/images/dashboard/levels/buttie-l1-danger.png'
 import level2Danger from '@/assets/images/dashboard/levels/buttie-l2-danger.png'
 import level3Danger from '@/assets/images/dashboard/levels/buttie-l3-danger.png'
-import level4Danger from '@/assets/images/dashboard/levels/buttie-l4-danger.png'
+import level4Danger from '@/assets/images/dashboard/levels/buttie-l4-danger-v2.png'
 import level5Danger from '@/assets/images/dashboard/levels/buttie-l5-danger.png'
 
 const levelImages = {
