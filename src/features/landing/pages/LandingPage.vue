@@ -1,13 +1,20 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import buttieLogo from '@/assets/images/brand/buttie-logo-blue.png'
 import buttieCaution from '@/assets/images/dashboard/buttie-caution.png'
 import buttieFront from '@/assets/images/dashboard/buttie-front.png'
 import buttieStable from '@/assets/images/dashboard/buttie-stable.png'
+import { getButtieLevelImage } from '@/data/buttieLevelAssets.js'
 import SkipLink from '@/components/ui/SkipLink.vue'
 import LandingHeroEntrance from './LandingHeroEntrance.vue'
 
 const landingRoot = ref(null)
+const heroButtieLevel = ref(1)
+const heroButtieImage = computed(() => getButtieLevelImage(heroButtieLevel.value, 'stable'))
+
+function cycleHeroButtie() {
+  heroButtieLevel.value = (heroButtieLevel.value % 5) + 1
+}
 const mascotScene = ref(null)
 const motionSequence = ref(null)
 const productShowcase = ref(null)
@@ -238,15 +245,19 @@ const policies = [
 
         <div
           class="hero-buttie-stage"
-          role="img"
-          aria-label="공중에서 움직이는 버티 캐릭터"
+          role="button"
+          tabindex="0"
+          :aria-label="`버티 캐릭터 (레벨 ${heroButtieLevel}). 눌러서 다음 레벨 보기`"
           @pointermove="moveHeroButtie"
           @pointerleave="resetHeroButtie"
+          @click="cycleHeroButtie"
+          @keydown.enter="cycleHeroButtie"
+          @keydown.space.prevent="cycleHeroButtie"
         >
           <span class="hero-buttie-shadow" aria-hidden="true"></span>
           <div class="hero-buttie-parallax">
             <div class="hero-buttie-float">
-              <img :src="buttieStable" alt="" />
+              <img :src="heroButtieImage" :key="heroButtieLevel" alt="" />
             </div>
           </div>
         </div>
@@ -472,7 +483,7 @@ const policies = [
     <section id="policy" class="policy section shell">
       <div class="section-heading" data-reveal>
         <p class="section-label">POLICY MATCH</p>
-        <h2>나에게 맞는 지원은<br />찾는 시간을 줄이고.</h2>
+        <h2>나에게 맞는 지원,<br />찾는 시간은 줄이고.</h2>
         <p>지역·나이·소득·취업 상태를 바탕으로 확인할 가치가 높은 정책부터 보여드려요.</p>
       </div>
 
