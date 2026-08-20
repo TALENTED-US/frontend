@@ -1040,6 +1040,18 @@ async function confirm() {
   background: #7e66c6;
 }
 
+.edit-summary header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.edit-summary header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 @media (max-width: 767px) {
   .sim-flow-continue {
     padding-bottom: 48px;

@@ -234,6 +234,23 @@ async function createNewSimulation() {
           </div>
         </section>
 
+        <div class="simulation-edit-desktop-actions">
+          <button
+            class="simulation-create-new"
+            type="button"
+            @click="showNewSimulationModal = true"
+          >
+            새 시뮬레이션 만들기
+          </button>
+          <button
+            class="simulation-edit-all simulation-primary-cta"
+            type="button"
+            @click="editCategory('expense')"
+          >
+            시뮬레이션 전체 수정하기
+          </button>
+        </div>
+
         <div class="simulation-edit-mobile-actions">
           <button
             class="simulation-edit-all simulation-primary-cta"
@@ -836,6 +853,48 @@ async function createNewSimulation() {
   .simulation-new-modal p {
     font-size: 14px;
   }
+  .simulation-edit-actions > div {
+    display: none !important;
+  }
+  .simulation-edit-desktop-actions {
+    display: flex !important;
+    width: 100%;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .simulation-edit-desktop-actions .simulation-edit-all,
+  .simulation-edit-desktop-actions .simulation-create-new {
+    width: auto;
+    flex: 1 1 0;
+    min-height: 50px;
+    height: 50px;
+    margin: 0;
+    font-size: 17px;
+  }
+  .simulation-edit-forecast {
+    grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+  }
+  .simulation-edit-runway.expected {
+    justify-items: end;
+    text-align: right;
+  }
+  .simulation-edit-growth {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: center;
+    align-self: center;
+  }
+  .simulation-edit-actions {
+    grid-row: 2;
+    grid-column: 1 / -1 !important;
+    justify-items: center !important;
+    width: auto !important;
+    padding: 0 !important;
+  }
+  .simulation-edit-actions p {
+    text-align: center;
+  }
 }
 
 /* 7a 계획 확인·수정 화면 */
@@ -1325,6 +1384,10 @@ async function createNewSimulation() {
   display: none;
 }
 
+.simulation-edit-desktop-actions {
+  display: none;
+}
+
 @media (max-width: 767px) {
   :global(#app .app-shell__body:has(.simulation-edit-page)),
   :global(#app .app-shell__content:has(.simulation-edit-page)) {
@@ -1642,26 +1705,54 @@ async function createNewSimulation() {
 
   .simulation-edit-forecast {
     grid-template-columns: minmax(110px, 1fr) 64px minmax(130px, 1fr);
+    grid-template-rows: auto auto;
     gap: 16px;
   }
 
+  .simulation-edit-runway.expected {
+    justify-items: end;
+    text-align: right;
+  }
+
+  .simulation-edit-growth {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: center;
+    align-self: center;
+  }
+
   .simulation-edit-forecast > .simulation-edit-actions {
+    grid-row: 2;
     grid-column: 1 / -1;
-    justify-items: stretch;
+    justify-items: center;
+    padding: 0;
   }
 
   .simulation-edit-actions p {
-    text-align: left;
+    text-align: center;
   }
 
   .simulation-edit-actions > div {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    display: none;
   }
 
   .simulation-edit-all,
   .simulation-create-new {
     width: 100%;
+  }
+
+  .simulation-edit-desktop-actions {
+    display: flex;
+    width: 100%;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .simulation-edit-desktop-actions .simulation-edit-all,
+  .simulation-edit-desktop-actions .simulation-create-new {
+    flex: 1 1 0;
+    min-height: 50px;
+    height: 50px;
+    font-size: 17px;
   }
 }
 
@@ -1724,6 +1815,7 @@ async function createNewSimulation() {
   }
 
   .simulation-edit-hero {
+    align-items: center;
     gap: 14px;
     padding: 20px 20px 18px;
     background: #fff8dc;
