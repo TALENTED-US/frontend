@@ -353,17 +353,13 @@ onMounted(async () => {
     />
 
     <section v-if="simulation.state.confirmed" class="sim-quests simulation-quest-status">
-      <QuestOverview :rows="questRows" :edit-loading="simulation.syncing" />
+      <QuestOverview
+        :rows="questRows"
+        :edit-loading="simulation.syncing"
+        show-create-new
+        @create-new="showNewSimulationModal = true"
+      />
     </section>
-
-    <button
-      v-if="simulation.state.confirmed"
-      class="simulation-create-new-bottom"
-      type="button"
-      @click="showNewSimulationModal = true"
-    >
-      새 시뮬레이션 만들기
-    </button>
 
     <div
       v-if="showNewSimulationModal"
@@ -673,8 +669,6 @@ onMounted(async () => {
 .simulation-quest-footer strong { grid-column: 2; grid-row: 1 / span 2; font-size: 18px; white-space: nowrap; }
 .simulation-quest-footer button { grid-column: 1 / -1; justify-self: center; margin-top: 7px; font-size: 13px; font-weight: 800; }
 .simulation-quest-footer p { color: #818793; font-size: 12px; }
-.simulation-create-new-bottom { display: block; margin: 28px auto 0; color: #777e89; font-size: 12px; font-weight: 700; text-decoration: underline; }
-
 .quest-overview-card {
   --quest-ink: #222;
   --quest-paper: #fcfdff;
@@ -1378,15 +1372,6 @@ onMounted(async () => {
   color: #818793;
   font-size: 12px;
 }
-.simulation-create-new-bottom {
-  display: block;
-  margin: 28px auto 0;
-  color: #777e89;
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: underline;
-}
-
 .confirmed-timeline-description {
   margin-top: 6px;
   color: #6b7684;
@@ -1833,10 +1818,6 @@ onMounted(async () => {
   }
   .simulation-new-modal section > div button,
   .simulation-quest-footer button {
-    font-size: var(--type-action-size);
-    font-weight: var(--type-action-weight);
-  }
-  .simulation-create-new-bottom {
     font-size: var(--type-action-size);
     font-weight: var(--type-action-weight);
   }

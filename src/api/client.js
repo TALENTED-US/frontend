@@ -126,7 +126,7 @@ function reissueAccessTokenOnce() {
 apiClient.interceptors.response.use(
   (response) => {
     const authorization = response.headers?.authorization
-    if (authorization?.startsWith('Bearer ')) {
+    if (!response.config?.skipTokenUpdate && authorization?.startsWith('Bearer ')) {
       setAccessToken(authorization.slice(7))
     }
     return response

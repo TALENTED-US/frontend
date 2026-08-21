@@ -16,12 +16,12 @@ import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCate
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
 import AiRecommendationPrompt from '@/features/simulation/components/AiRecommendationPrompt.vue'
+import ButtieAiLogo from '@/features/simulation/components/ButtieAiLogo.vue'
 import {
   aiRecommendationTargets,
   filterExpenseRecommendationsForPrompt,
   normalizeCategoryRecommendationResponse,
 } from '@/features/simulation/utils/aiRecommendationScope'
-import assistantAvatar from '@/assets/images/simulation/buttie-ai-assistant.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -889,7 +889,7 @@ function skip() {
       />
       <section class="ai-inline-recommendations" aria-live="polite">
         <header>
-          <img :src="assistantAvatar" alt="" aria-hidden="true" />
+          <ButtieAiLogo class="ai-inline-recommendations__logo" />
           <div>
             <h2>{{ aiRecommendationCopy.title }}</h2>
             <p>{{ aiRecommendationDescription }}</p>
@@ -1054,7 +1054,7 @@ function skip() {
       />
       <section class="ai-inline-recommendations" aria-live="polite">
         <header>
-          <img :src="assistantAvatar" alt="" aria-hidden="true" />
+          <ButtieAiLogo class="ai-inline-recommendations__logo" />
           <div>
             <h2>{{ aiRecommendationCopy.title }}</h2>
             <p>{{ aiRecommendationDescription }}</p>
@@ -1354,7 +1354,7 @@ function skip() {
       />
       <section class="ai-inline-recommendations" aria-live="polite">
         <header>
-          <img :src="assistantAvatar" alt="" aria-hidden="true" />
+          <ButtieAiLogo class="ai-inline-recommendations__logo" />
           <div>
             <h2>{{ aiRecommendationCopy.title }}</h2>
             <p>{{ aiRecommendationDescription }}</p>
@@ -1646,12 +1646,10 @@ function skip() {
   align-items: center;
 }
 
-.ai-inline-recommendations > header > img {
+.ai-inline-recommendations__logo {
   display: block;
   width: 42px;
   height: 42px;
-  border-radius: 14px;
-  object-fit: cover;
 }
 
 .ai-inline-recommendations > header h2 {

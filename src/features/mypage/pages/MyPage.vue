@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { getButtieDashboardApi } from '@/api/dashboard'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
@@ -13,14 +14,33 @@ const router = useRouter()
 const session = useSessionStore()
 const progression = useProgressionStore()
 const simulation = useSimulationStore()
+const buttieDashboard = ref(null)
+
+function finiteNumberOrNull(value) {
+  const number = Number(value)
+  return value !== null && value !== undefined && Number.isFinite(number) ? number : null
+}
+
 const profileExp = computed(() =>
-  Number(session.isMockMode ? progression.exp : session.currentUser.exp),
+  session.isMockMode
+    ? Number(progression.exp)
+    : (finiteNumberOrNull(buttieDashboard.value?.buttieTotalExp) ??
+      finiteNumberOrNull(session.currentUser.exp) ??
+      0),
 )
 const profileRequiredExp = computed(() =>
-  Number(session.isMockMode ? progression.nextLevelExp : session.currentUser.requiredExp),
+  session.isMockMode
+    ? Number(progression.nextLevelExp)
+    : (finiteNumberOrNull(buttieDashboard.value?.requiredExp) ??
+      finiteNumberOrNull(session.currentUser.requiredExp) ??
+      0),
 )
 const profileLevel = computed(() =>
-  Number(session.isMockMode ? progression.level : session.currentUser.level),
+  session.isMockMode
+    ? Number(progression.level)
+    : (finiteNumberOrNull(buttieDashboard.value?.buttieLevel) ??
+      finiteNumberOrNull(session.currentUser.level) ??
+      1),
 )
 const profileRemainingExp = computed(() => Math.max(0, profileRequiredExp.value - profileExp.value))
 const profileProgressPercent = computed(() =>
@@ -30,7 +50,7 @@ const profileProgressPercent = computed(() =>
 )
 
 const profileState = computed(() => {
-  const apiRisk = session.currentUser.riskLevel
+  const apiRisk = buttieDashboard.value?.riskLevel || session.currentUser.riskLevel
   const key =
     apiRisk === 'DANGER'
       ? 'danger'
@@ -41,22 +61,44 @@ const profileState = computed(() => {
           : session.isMockMode
             ? simulation.currentStatus?.key
             : 'unknown'
-  const apiImage = session.currentUser.buttieImageUrl
+  const apiImage = buttieDashboard.value?.buttieImageUrl || session.currentUser.buttieImageUrl
   if (key === 'danger' || key === 'risk') {
     const fallbackImage = getButtieLevelImage(profileLevel.value, 'danger')
-    return { label: '위험', image: apiImage || fallbackImage, fallbackImage }
+    return { key: 'danger', label: '위험', image: apiImage || fallbackImage, fallbackImage }
   }
   if (key === 'caution') {
     const fallbackImage = getButtieLevelImage(profileLevel.value, 'caution')
-    return { label: '주의', image: apiImage || fallbackImage, fallbackImage }
+    return { key: 'caution', label: '주의', image: apiImage || fallbackImage, fallbackImage }
   }
   if (key === 'unknown') {
     const fallbackImage = getButtieLevelImage(profileLevel.value || 1, 'stable')
-    return { label: '확인 불가', image: apiImage || fallbackImage, fallbackImage }
+    return { key: 'unknown', label: '확인 불가', image: apiImage || fallbackImage, fallbackImage }
   }
   const fallbackImage = getButtieLevelImage(profileLevel.value, 'stable')
-  return { label: '안정', image: apiImage || fallbackImage, fallbackImage }
+  return { key: 'stable', label: '안정', image: apiImage || fallbackImage, fallbackImage }
 })
+
+async function loadButtieDashboard() {
+  if (session.isMockMode) return
+
+  try {
+    const dashboard = await getButtieDashboardApi()
+    buttieDashboard.value = dashboard
+    Object.assign(session.currentUser, {
+      level: finiteNumberOrNull(dashboard.buttieLevel),
+      exp: finiteNumberOrNull(dashboard.buttieTotalExp),
+      totalExp: finiteNumberOrNull(dashboard.buttieTotalExp),
+      requiredExp: finiteNumberOrNull(dashboard.requiredExp),
+      buttieImageUrl: dashboard.buttieImageUrl,
+      riskLevel: dashboard.riskLevel,
+      goalDate: dashboard.targetEmploymentDate || session.currentUser.goalDate,
+    })
+  } catch {
+    // 대시보드 조회 실패 시 로그인 시 불러온 프로필 요약값을 유지한다.
+  }
+}
+
+onMounted(loadButtieDashboard)
 
 function formatDate(value) {
   return value ? value.replaceAll('-', '.') : '-'
@@ -123,7 +165,7 @@ async function logout() {
             Lv {{ profileLevel }} · 다음 레벨까지 {{ formatExp(profileRemainingExp) }} EXP
           </span>
           <span v-else>Lv 5 · 최고 레벨</span>
-          <em>{{ profileState.label }}</em>
+          <em :class="`is-${profileState.key}`">{{ profileState.label }}</em>
         </div>
         <strong v-if="profileLevel < 5">
           {{ formatExp(profileExp) }} / {{ formatExp(profileRequiredExp) }} EXP
@@ -275,11 +317,23 @@ async function logout() {
   min-width: 84px;
   padding: 5px 12px;
   border-radius: 999px;
-  background: #def7e8;
-  color: #14a669;
+  background: #eef0f4;
+  color: #697386;
   text-align: center;
   font-size: var(--font-small);
   font-style: normal;
+}
+.profile-card__level em.is-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.profile-card__level em.is-caution {
+  background: #fff3d8;
+  color: #b66a00;
+}
+.profile-card__level em.is-stable {
+  background: var(--success-soft);
+  color: #15865a;
 }
 .profile-card__progress > strong {
   display: block;

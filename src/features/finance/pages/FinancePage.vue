@@ -18,6 +18,7 @@ import {
   analyzableSignedAmount,
   isExpenseTransaction,
   isIncomeTransaction,
+  isTransferTransaction,
   transactionKind,
 } from '@/features/finance/transactionAnalysis'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
@@ -340,6 +341,8 @@ const enrichedCalendarTransactions = computed(() => {
           analysisExcluded: transaction.analysisExcluded,
           classificationMethod: transaction.classificationMethod,
           transactionSource: transaction.transactionSource,
+          transactionType: transaction.transactionType || row.transactionType,
+          expenseCategory: transaction.expenseCategory || row.expenseCategory,
           merchantName: transaction.merchantName,
           merchantRegistrationNumber: transaction.merchantRegistrationNumber,
           memo: transaction.memo,
@@ -695,6 +698,8 @@ async function openDetail(row) {
       ...detail,
       id: detail?.id || row.id,
       apiId: detail?.apiId || row.apiId,
+      transactionType: detail?.transactionType || row.transactionType,
+      transactionSource: detail?.transactionSource || row.transactionSource,
     }
   } catch (error) {
     actionError.value = error.message || '거래 상세 정보를 불러오지 못했습니다.'
@@ -705,7 +710,7 @@ function openEdit(row, preferredClassificationType = null) {
   actionError.value = ''
   editingId.value = row.apiId || row.id
   editingTransaction.value = row
-  const isTransfer = row.transactionType === 'TRANSFER'
+  const isTransfer = isTransferTransaction(row)
   Object.assign(form, {
     type: transactionKind(row) === 'income' ? 'income' : 'expense',
     classificationType:
@@ -748,10 +753,7 @@ async function save() {
   try {
     if (editingId.value) {
       const source = editingTransaction.value?.transactionSource
-      const type = editingTransaction.value?.transactionType
-      if (!source || source === 'MANUAL') {
-        await updateTransaction(editingId.value, payload)
-      } else if (type === 'TRANSFER') {
+      if (isTransferTransaction(editingTransaction.value)) {
         await classifyTransaction(editingId.value, {
           transactionType: form.classificationType,
           expenseCategory: expenseLabelToCategory(form.category),
@@ -759,6 +761,8 @@ async function save() {
         if (form.memo !== (editingTransaction.value?.memo || '')) {
           await updateExternalTransactionMemo(editingId.value, form.memo)
         }
+      } else if (!source || source === 'MANUAL') {
+        await updateTransaction(editingId.value, payload)
       } else {
         await updateExternalTransactionMemo(editingId.value, form.memo)
       }
@@ -775,12 +779,13 @@ async function save() {
 const isExternalEdit = computed(() =>
   Boolean(
     editingId.value &&
-    editingTransaction.value?.transactionSource &&
-    editingTransaction.value.transactionSource !== 'MANUAL',
+    (isTransferTransaction(editingTransaction.value) ||
+      (editingTransaction.value?.transactionSource &&
+        editingTransaction.value.transactionSource !== 'MANUAL')),
   ),
 )
 const isTransferEdit = computed(
-  () => isExternalEdit.value && editingTransaction.value?.transactionType === 'TRANSFER',
+  () => isExternalEdit.value && isTransferTransaction(editingTransaction.value),
 )
 const canEditTransactionFields = computed(() => !isExternalEdit.value || isTransferEdit.value)
 const canDeleteTransaction = computed(() => !isExternalEdit.value)
@@ -1265,7 +1270,7 @@ onMounted(async () => {
             </div>
           </dl>
           <div
-            v-if="selectedTransaction.transactionType === 'TRANSFER'"
+            v-if="isTransferTransaction(selectedTransaction)"
             class="transfer-registration-actions"
           >
             <button type="button" @click="openEdit(selectedTransaction, 'EXPENSE')">

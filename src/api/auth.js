@@ -27,6 +27,23 @@ const publicRequestConfig = {
   skipUnauthorizedHandler: true,
 }
 
+export async function verifyLoginCredentialsApi(userEmail, password) {
+  try {
+    const response = await apiClient.post(
+      'auth/login',
+      { userEmail, password },
+      {
+        ...publicRequestConfig,
+        skipTokenUpdate: true,
+        withCredentials: false,
+      },
+    )
+    return unwrapApiResponse(response)
+  } catch (error) {
+    throw normalizeApiError(error)
+  }
+}
+
 function identityVerificationConfig(identityVerificationToken) {
   return {
     ...publicRequestConfig,
