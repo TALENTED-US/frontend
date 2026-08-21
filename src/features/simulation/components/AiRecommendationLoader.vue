@@ -1,22 +1,12 @@
 <script setup>
-import loadingSymbol from '@/assets/images/simulation/buttie-loading-symbol.png'
-import loadingWordmark from '@/assets/images/simulation/buttie-loading-wordmark.png'
+import ButtieAiLogo from '@/features/simulation/components/ButtieAiLogo.vue'
 </script>
 
 <template>
   <div class="ai-recommendation-loader" role="status" aria-live="polite">
     <div class="ai-recommendation-loader__visual" aria-hidden="true">
       <span class="ai-recommendation-loader__core">
-        <img
-          class="ai-recommendation-loader__symbol"
-          :src="loadingSymbol"
-          alt=""
-        />
-        <img
-          class="ai-recommendation-loader__wordmark"
-          :src="loadingWordmark"
-          alt=""
-        />
+        <ButtieAiLogo class="ai-recommendation-loader__logo" />
       </span>
       <span class="ai-recommendation-loader__orbit ai-recommendation-loader__orbit--one"></span>
       <span class="ai-recommendation-loader__orbit ai-recommendation-loader__orbit--two"></span>
@@ -85,33 +75,17 @@ import loadingWordmark from '@/assets/images/simulation/buttie-loading-wordmark.
 .ai-recommendation-loader__core {
   position: relative;
   z-index: 2;
-  display: flex;
+  display: block;
   width: 80px;
   height: 80px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  overflow: hidden;
-  border: 1px solid rgb(244 173 29 / 22%);
-  border-radius: 23px;
-  background: #fff;
-  box-shadow: 0 7px 18px rgb(21 35 156 / 16%);
   animation: ai-core-pulse 1.6s ease-in-out infinite;
 }
 
-.ai-recommendation-loader__symbol {
+.ai-recommendation-loader__logo {
   display: block;
-  width: 47px;
-  height: 42px;
-  object-fit: contain;
-}
-
-.ai-recommendation-loader__wordmark {
-  display: block;
-  width: 52px;
-  height: 19px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  box-shadow: 4px 4px 8px rgb(0 0 0 / 20%);
 }
 
 .ai-recommendation-loader__orbit {
@@ -295,16 +269,6 @@ import loadingWordmark from '@/assets/images/simulation/buttie-loading-wordmark.
     width: 70px;
     height: 70px;
     border-radius: 20px;
-  }
-
-  .ai-recommendation-loader__symbol {
-    width: 41px;
-    height: 36px;
-  }
-
-  .ai-recommendation-loader__wordmark {
-    width: 47px;
-    height: 17px;
   }
 
   .ai-recommendation-loader__copy strong {

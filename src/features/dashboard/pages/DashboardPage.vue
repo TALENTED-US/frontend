@@ -155,8 +155,14 @@ const POLICY_APPLICATION_URLS = Object.freeze({
   'youth-saving': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
 })
 const levelInfoOpen = ref(false)
+const levelInfoButton = ref(null)
 const levelTitle = computed(() => LEVEL_TITLES[buttieLevel.value] || LEVEL_TITLES[1])
 const levelMessage = ref('')
+
+function closeLevelInfoOnMouseLeave() {
+  levelInfoOpen.value = false
+  levelInfoButton.value?.blur()
+}
 
 function parseLocalDate(value) {
   const [year, month, day] = String(value || '')
@@ -682,9 +688,9 @@ const monthlyNetChange = computed(() => {
   return value === null ? null : Math.abs(value)
 })
 const monthlyNetChangeLabel = computed(() => {
-  if (netCashFlow.value > 0) return '매달 들어오는 금액'
-  if (netCashFlow.value < 0) return '매달 나가는 금액'
-  return '매달 순변동 금액'
+  if (netCashFlow.value > 0) return '이번 달 수입 초과액'
+  if (netCashFlow.value < 0) return '이번 달 지출 초과액'
+  return '이번 달 수입·지출 차액'
 })
 const remainingDurationText = computed(() => {
   if (remainingDays.value <= 0) return '목표일 도달'
@@ -725,8 +731,12 @@ const targetMonthText = computed(() =>
             <strong>Lv.{{ buttieLevel }}</strong>
             <b>{{ levelTitle }}</b>
           </div>
-          <div :class="['level-info', { 'level-info--open': levelInfoOpen }]">
+          <div
+            :class="['level-info', { 'level-info--open': levelInfoOpen }]"
+            @mouseleave="closeLevelInfoOnMouseLeave"
+          >
             <button
+              ref="levelInfoButton"
               type="button"
               class="level-info__button"
               aria-label="버티 레벨 설명 보기"
