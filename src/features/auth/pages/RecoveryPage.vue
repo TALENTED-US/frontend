@@ -245,7 +245,7 @@ async function resetPassword() {
       class="mobile-header"
       :class="{ 'result-mobile-header': isIdResult, 'id-mobile-header': isId }"
     >
-      <button v-if="!isId" type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">
+      <button type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">
         <AppIcon name="chevron-left" :size="22" />
       </button>
       <strong>{{ isId ? '아이디 찾기' : '비밀번호 찾기' }}</strong>
@@ -953,8 +953,8 @@ async function resetPassword() {
 
 @media (max-width: 767px) {
   .recovery-page {
-    width: min(100%, 393px);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     padding: 0;
     background: var(--surface);
   }
@@ -989,20 +989,6 @@ async function resetPassword() {
 
   .mobile-header.result-mobile-header .mobile-back {
     width: 9px;
-  }
-
-  .mobile-header.id-mobile-header {
-    grid-template-columns: 1fr;
-    padding: 0 20px;
-  }
-
-  .mobile-header.id-mobile-header::after {
-    content: none;
-  }
-
-  .mobile-header.id-mobile-header strong {
-    color: #222 !important;
-    text-align: left;
   }
 
   .mobile-header strong {

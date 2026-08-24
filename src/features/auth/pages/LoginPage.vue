@@ -473,10 +473,13 @@ function clearError() {
   .login-card label > input,
   .login-card label i {
     min-height: 50px;
-    height: auto;
+    height: 50px;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: 999px !important;
     background: #fffbea;
+  }
+  .login-card label > input:focus {
+    border-radius: 999px !important;
   }
   .login-submit {
     min-height: 48px;

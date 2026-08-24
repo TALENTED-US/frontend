@@ -341,7 +341,6 @@ const policies = [
 
       <div class="story-grid">
         <article class="statement-card" data-reveal="left">
-          <span class="pill-tag">오늘도 +1</span>
           <p>취업 준비생의 진짜 질문</p>
           <h3>“내가 앞으로<br /><span>몇 달이나 더</span><br />버틸 수 있을까?”</h3>
           <img :src="buttieCaution" alt="걱정스러운 표정의 버티 캐릭터" />
@@ -528,6 +527,21 @@ const policies = [
         </RouterLink>
       </div>
     </section>
+
+    <footer class="footer shell">
+      <div>
+        <a class="brand" href="#top" aria-label="버티 홈으로 이동">
+          <img :src="buttieLogo" alt="버티" />
+        </a>
+        <p>취업 준비를 버티는 가장 현실적인 방법</p>
+      </div>
+      <div class="footer-links">
+        <a href="#story">서비스 소개</a>
+        <a href="#features">이용 방법</a>
+        <a href="#policy">정책 추천</a>
+      </div>
+      <div class="copyright">© 2026 BUTTIE.<br />ALL RIGHTS RESERVED.</div>
+    </footer>
 
   </main>
 </template>
