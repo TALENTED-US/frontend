@@ -178,13 +178,10 @@ async function startSimulation() {
   starting.value = true
 
   try {
-    // 로컬의 Draft 존재 여부는 다른 탭이나 이전 요청 이후 오래된 값일 수 있다.
-    // 생성 직전에 서버를 다시 확인해 동일 사용자의 미확정 시뮬레이션 중복 생성을 막는다.
-    const existingDraft = await simulation.hydrateDraft()
-    if (existingDraft) {
-      router.replace('/simulation/continue')
-      return
-    }
+    // 시작 버튼을 누른 현재 흐름에서는 기존 Draft가 있어도 이어하기 화면으로
+    // 이동하지 않는다. 서버 상태만 최신화한 뒤 beginSimulation()이 같은 Draft의
+    // 기간을 갱신해 지출 단계로 진행한다.
+    await simulation.hydrateDraft(true)
     if (simulation.syncError) return
 
     // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
