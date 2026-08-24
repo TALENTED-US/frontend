@@ -276,6 +276,25 @@ onBeforeUnmount(() => {
   }
 }
 
+@keyframes hero-mobile-word-in {
+  0% { opacity: 0; transform: translateY(10px) scale(.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 599px) {
+  .hero-flight-write {
+    clip-path: none;
+  }
+
+  .hero-flight-write-first {
+    animation: hero-mobile-word-in .4s ease-out 1.18s both;
+  }
+
+  .hero-flight-write-second {
+    animation: hero-mobile-word-in .46s ease-out 1.72s both;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-flight-title,
   .hero-flight-backdrop {
