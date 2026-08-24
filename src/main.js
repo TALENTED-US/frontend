@@ -32,6 +32,7 @@ function markPwaLandingSeen() {
 async function bootstrap() {
   const app = createApp(App)
   const pinia = createPinia()
+  const session = useSessionStore(pinia)
 
   app.use(pinia)
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
@@ -41,21 +42,25 @@ async function bootstrap() {
   const initialRoute = router.resolve(initialPath)
   const isProtectedInitialRoute = initialRoute.matched.some((route) => route.meta.requiresAuth)
   const isPwaRootLaunch = isMobileStandalone && initialPath === '/'
-  const isReturningPwaLaunch = isPwaRootLaunch && hasSeenPwaLanding()
 
-  if (isPwaRootLaunch && !isReturningPwaLaunch) markPwaLandingSeen()
-
-  await useSessionStore(pinia).restoreSession({
-    reissueIfMissing: isProtectedInitialRoute || isReturningPwaLaunch,
+  await session.restoreSession({
+    reissueIfMissing: isProtectedInitialRoute || isPwaRootLaunch,
   })
+
+  const shouldSkipPwaLanding =
+    isPwaRootLaunch && (session.isAuthenticated || hasSeenPwaLanding())
+
+  if (isPwaRootLaunch && !session.isAuthenticated && !shouldSkipPwaLanding) {
+    markPwaLandingSeen()
+  }
 
   if (isMobileStandalone) {
     const remainingSplashTime = Math.max(0, 1000 - (performance.now() - splashStartedAt))
     await new Promise((resolve) => window.setTimeout(resolve, remainingSplashTime))
   }
 
-  if (isReturningPwaLaunch) {
-    const destination = useSessionStore(pinia).isAuthenticated ? '/dashboard' : '/auth/login'
+  if (shouldSkipPwaLanding) {
+    const destination = session.isAuthenticated ? '/dashboard' : '/auth/login'
     const destinationPath = `${basePath}${destination}`
     window.history.replaceState(window.history.state, '', destinationPath)
   }
