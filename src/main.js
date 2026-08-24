@@ -11,6 +11,23 @@ import './styles/global.css'
 
 const isMobileStandalone = document.documentElement.classList.contains('pwa-standalone')
 const splashStartedAt = performance.now()
+const PWA_LANDING_SEEN_KEY = 'buttie-pwa-landing-seen'
+
+function hasSeenPwaLanding() {
+  try {
+    return localStorage.getItem(PWA_LANDING_SEEN_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function markPwaLandingSeen() {
+  try {
+    localStorage.setItem(PWA_LANDING_SEEN_KEY, 'true')
+  } catch {
+    // 저장소를 사용할 수 없는 환경에서는 기존 랜딩 동작을 유지한다.
+  }
+}
 
 async function bootstrap() {
   const app = createApp(App)
@@ -23,14 +40,24 @@ async function bootstrap() {
     : window.location.pathname
   const initialRoute = router.resolve(initialPath)
   const isProtectedInitialRoute = initialRoute.matched.some((route) => route.meta.requiresAuth)
+  const isPwaRootLaunch = isMobileStandalone && initialPath === '/'
+  const isReturningPwaLaunch = isPwaRootLaunch && hasSeenPwaLanding()
+
+  if (isPwaRootLaunch && !isReturningPwaLaunch) markPwaLandingSeen()
 
   await useSessionStore(pinia).restoreSession({
-    reissueIfMissing: isProtectedInitialRoute,
+    reissueIfMissing: isProtectedInitialRoute || isReturningPwaLaunch,
   })
 
   if (isMobileStandalone) {
     const remainingSplashTime = Math.max(0, 1000 - (performance.now() - splashStartedAt))
     await new Promise((resolve) => window.setTimeout(resolve, remainingSplashTime))
+  }
+
+  if (isReturningPwaLaunch) {
+    const destination = useSessionStore(pinia).isAuthenticated ? '/dashboard' : '/auth/login'
+    const destinationPath = `${basePath}${destination}`
+    window.history.replaceState(window.history.state, '', destinationPath)
   }
 
   app.use(router)
