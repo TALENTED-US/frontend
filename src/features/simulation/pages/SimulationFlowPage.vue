@@ -178,21 +178,19 @@ async function startSimulation() {
   starting.value = true
 
   try {
-    // 로컬의 Draft 존재 여부는 다른 탭이나 이전 요청 이후 오래된 값일 수 있다.
-    // 생성 직전에 서버를 다시 확인해 동일 사용자의 미확정 시뮬레이션 중복 생성을 막는다.
-    const existingDraft = await simulation.hydrateDraft()
-    if (existingDraft) {
-      router.replace('/simulation/continue')
-      return
-    }
+    // /simulation/new는 이어하기가 아닌 새 시작이므로 서버에 남은 Draft와
+    // 이전 항목을 먼저 삭제한다. 로컬만 초기화하면 다음 카테고리 조회에서
+    // 과거 항목이 다시 섞일 수 있다.
+    const existingDraft = await simulation.hydrateDraft(true)
     if (simulation.syncError) return
+    if (existingDraft && !(await simulation.deleteDraftScenario())) return
 
-    // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
-    // 먼저 Draft로 되돌려 새 시뮬레이션 생성 요청(409)을 방지한다.
+    // 확정 계획이 남은 상태로 /simulation/new에 직접 진입한 경우에도 기존
+    // 시뮬레이션을 삭제해 새 Draft에 과거 항목이 포함되지 않도록 한다.
     const confirmed = await simulation.hydrateConfirmed()
     if (confirmed) {
-      const reverted = await simulation.revertConfirmedScenario()
-      if (!reverted) return
+      const deleted = await simulation.deleteConfirmedScenario()
+      if (!deleted) return
     } else if (simulation.syncError) {
       return
     }

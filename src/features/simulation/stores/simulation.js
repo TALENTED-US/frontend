@@ -1241,10 +1241,10 @@ export const useSimulationStore = defineStore('simulation', () => {
     }))
   }
 
-  async function ensureRemoteDraft() {
+  async function ensureRemoteDraft(forceLookup = false) {
     if (!remoteEnabled) return true
 
-    const existingDraft = await hydrateDraft()
+    const existingDraft = await hydrateDraft(forceLookup)
     if (existingDraft) return true
     if (remoteDraftExists.value !== false) {
       throw new Error(syncError.value || '미확정 시뮬레이션 상태를 확인하지 못했습니다.')
@@ -1305,7 +1305,16 @@ export const useSimulationStore = defineStore('simulation', () => {
         draftHydratedAt = Date.now()
         applyRemoteSimulation(data)
         state.ignoreRemoteDraft = false
-        await refreshRemoteReport(force)
+        try {
+          await refreshRemoteReport(force)
+        } catch (reportError) {
+          // Draft 생성 직후에는 적용 항목이 없어 보고서가 아직 없을 수 있다.
+          // 보고서 조회 실패를 Draft 미존재로 오인하지 않는다.
+          if (reportError.code !== 'SIMULATION_401' && reportError.status !== 404) {
+            throw reportError
+          }
+          remoteReport.value = null
+        }
         return data
       } catch (error) {
         if (error.status === 404) {
@@ -1481,7 +1490,15 @@ export const useSimulationStore = defineStore('simulation', () => {
       draftHydratedAt = Date.now()
       state.ignoreRemoteDraft = false
       invalidateRemoteLookups({ draft: false })
-      await refreshRemoteReport(true)
+      try {
+        await refreshRemoteReport(true)
+      } catch (reportError) {
+        // 항목을 추가하기 전에는 계산 보고서가 없는 것이 정상이다.
+        if (reportError.code !== 'SIMULATION_401' && reportError.status !== 404) {
+          throw reportError
+        }
+        remoteReport.value = null
+      }
       return true
     } catch (error) {
       syncError.value = error.message
@@ -1514,15 +1531,19 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   }
 
-  async function syncCategory(category, { refreshReport = true } = {}) {
+  async function syncCategory(
+    category,
+    { refreshReport = true, retryMissingDraft = true } = {},
+  ) {
     if (!remoteEnabled) return true
     syncing.value = true
     syncError.value = ''
     try {
-      await ensureRemoteDraft()
-      const pendingItems =
-        category === 'expense'
-          ? selectedExpenses.value
+      try {
+        await ensureRemoteDraft()
+        const pendingItems =
+          category === 'expense'
+            ? selectedExpenses.value
               .filter((item) => !item.remoteSynced)
               .map((item) => ({
                 item,
@@ -1536,8 +1557,8 @@ export const useSimulationStore = defineStore('simulation', () => {
                   recurrenceType: 'MONTHLY',
                 },
               }))
-          : category === 'income'
-            ? state.incomes
+            : category === 'income'
+              ? state.incomes
                 .filter((item) => !item.remoteSynced)
                 .map((item) => ({
                   item,
@@ -1552,44 +1573,90 @@ export const useSimulationStore = defineStore('simulation', () => {
                     policyId: null,
                   },
                 }))
-            : state.policies
-                .filter((item) => !item.remoteSynced && item.policyId)
-                .map((item) => ({
-                  item,
-                  payload: {
-                    category: 'POLICY',
-                    policyId: String(item.policyId),
-                    applyStartDate: state.startDate,
-                    itemName: null,
-                    amount: null,
-                    expenseCategory: null,
-                    applyEndDate: null,
-                    recurrenceType: null,
-                  },
-                }))
+              : state.policies
+                  .filter((item) => !item.remoteSynced && item.policyId)
+                  .map((item) => ({
+                    item,
+                    payload: {
+                      category: 'POLICY',
+                      policyId: String(item.policyId),
+                      applyStartDate: state.startDate,
+                      itemName: null,
+                      amount: null,
+                      expenseCategory: null,
+                      applyEndDate: null,
+                      recurrenceType: null,
+                    },
+                  }))
 
-      for (const { item, payload } of pendingItems) {
-        const result = await applySimulationItemApi(payload)
-        item.remoteId = result?.itemId || item.remoteId
-        item.remoteSynced = true
+        for (const { item, payload } of pendingItems) {
+          const result = await applySimulationItemApi(payload)
+          item.remoteId = result?.itemId || item.remoteId
+          item.remoteSynced = true
+        }
+        invalidateRemoteLookups({ draft: false })
+      } catch (error) {
+        if (retryMissingDraft && error.code === 'SIMULATION_401') {
+          // 항목 POST의 SIMULATION_401만으로 기존 항목을 재전송하지 않는다.
+          // 서버에서 Draft 부재를 다시 확인한 경우에만 새 Draft로 전체 항목을 복구한다.
+          const existingDraft = await hydrateDraft(true)
+          if (existingDraft || remoteDraftExists.value !== false) {
+            syncError.value = syncError.value || error.message
+            return false
+          }
+          resetRemoteItemState()
+          await ensureRemoteDraft()
+          return syncCategory(category, { refreshReport, retryMissingDraft: false })
+        }
+        syncError.value = error.message
+        return false
       }
-      invalidateRemoteLookups({ draft: false })
-      if (refreshReport) await refreshRemoteReport(true)
+
+      if (refreshReport) {
+        try {
+          await refreshRemoteReport(true)
+        } catch (reportError) {
+          // 항목 POST는 이미 성공했다. 보고서가 아직 없는 상태에서는 저장 항목을
+          // 초기화하거나 재전송하지 않고 빈 보고서 상태만 유지한다.
+          if (reportError.code === 'SIMULATION_401' || reportError.status === 404) {
+            remoteReport.value = null
+            reportHydratedAt = Date.now()
+          } else {
+            syncError.value = reportError.message
+            return false
+          }
+        }
+      }
+
       return true
-    } catch (error) {
-      syncError.value = error.message
-      return false
     } finally {
       syncing.value = false
     }
   }
 
-  async function refreshCategory(category) {
+  async function refreshCategory(category, retryMissingDraft = true) {
     if (!remoteEnabled) return []
     try {
       const data = await getSimulationItemsApi(category.toUpperCase())
       return data?.appliedItems || []
     } catch (error) {
+      if (retryMissingDraft && error.code === 'SIMULATION_401') {
+        // 카테고리 이동 사이에 Draft가 사라진 경우에도 빈 오류 화면을 남기지 않고
+        // Draft를 복구한 뒤 해당 카테고리를 한 번만 다시 조회한다.
+        try {
+          const existingDraft = await hydrateDraft(true)
+          if (existingDraft || remoteDraftExists.value !== false) {
+            syncError.value = syncError.value || error.message
+            return []
+          }
+          resetRemoteItemState()
+          await ensureRemoteDraft()
+          return refreshCategory(category, false)
+        } catch (recoveryError) {
+          syncError.value = recoveryError.message
+          return []
+        }
+      }
       syncError.value = error.message
       return []
     }
@@ -1597,6 +1664,14 @@ export const useSimulationStore = defineStore('simulation', () => {
 
   async function hydrateCategory(category) {
     if (state.ignoreRemoteDraft) return []
+    try {
+      // 카테고리 화면에서는 짧은 조회 캐시보다 서버의 실제 Draft 존재 여부를 우선한다.
+      // Draft가 사라졌다면 항목 조회 전에 즉시 재생성한다.
+      await ensureRemoteDraft(true)
+    } catch (error) {
+      syncError.value = error.message
+      return []
+    }
     const items = await refreshCategory(category)
     const mappedItems = items
       .map((item) => mapSimulationItemResponse(item, policyCatalog.value))
