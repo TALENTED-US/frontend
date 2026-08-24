@@ -307,7 +307,12 @@ router.beforeEach(async (to, from) => {
     try {
       const syncResult = await refreshMyDataForPage()
       session.refreshMyData(syncResult?.lastSyncedAt)
-    } catch {
+    } catch (error) {
+      if (error.code === 'MYDATA_010') {
+        // 연결 동의만 남고 등록 자산이 없는 상태는 재연동이 필요하다.
+        // 페이지 컴포넌트가 미연결 상태를 감지해 연결 모달을 표시하도록 맞춘다.
+        session.clearMyDataConnection()
+      }
       // 최신화 실패가 페이지 이동과 기존 데이터 표시를 막지 않도록 한다.
     }
   }

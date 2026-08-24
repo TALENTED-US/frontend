@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getFixedExpenseSummaryApi, getTransactionDetailApi } from '@/api/transactions'
+import MyDataConnectModal from '@/components/ui/MyDataConnectModal.vue'
 import { EXPENSE_CATEGORY_OPTIONS, expenseLabelToCategory } from '@/constants/expenseCategories'
 import { calendarState, calendarTransactions, loadCalendar } from '@/features/finance/calendarStore'
 import {
@@ -22,14 +23,47 @@ import {
   transactionKind,
 } from '@/features/finance/transactionAnalysis'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
+import { useSessionStore } from '@/stores/session'
 import { formatPrepMonthsWithUnit } from '@/utils/prepMonths'
 
 const router = useRouter()
+const session = useSessionStore()
 const simulation = useSimulationStore()
+
+const showMyDataConnectModal = ref(false)
+
+function isMyDataConnected() {
+  return session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
+}
+
+function goToMyDataConnect() {
+  showMyDataConnectModal.value = false
+  router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/finance' } })
+}
+
+const hasConfirmedSimulationDurations = computed(
+  () =>
+    Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
+    Number.isFinite(Number(simulation.recentConfirmed?.expectedMonths)),
+)
+
+const confirmedCurrentMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.currentMonths))
+    : simulation.currentMonths,
+)
+
+const confirmedExpectedMonths = computed(() =>
+  hasConfirmedSimulationDurations.value
+    ? Math.max(0, Number(simulation.recentConfirmed.expectedMonths))
+    : simulation.expectedMonths,
+)
+
 const timelineCurrentMonths = computed(() => {
   const months = Number(simulation.remoteTimeline?.currentPrepMonths)
   return Number.isFinite(months) ? months : simulation.currentMonths
 })
+
 const timelineExpectedMonths = computed(() => {
   const months = Number(simulation.remoteTimeline?.expectPrepMonths)
   return Number.isFinite(months) ? months : null
@@ -819,6 +853,11 @@ watch(month, () => {
 })
 
 onMounted(async () => {
+  if (!session.isMockMode && !isMyDataConnected()) {
+    showMyDataConnectModal.value = true
+    return
+  }
+
   await Promise.allSettled([
     loadTransactions(),
     loadSelectedCalendar(),
@@ -1409,6 +1448,12 @@ onMounted(async () => {
         </template>
       </aside>
     </div>
+
+    <MyDataConnectModal
+      :visible="showMyDataConnectModal"
+      @close="showMyDataConnectModal = false"
+      @connect="goToMyDataConnect"
+    />
   </section>
 </template>
 

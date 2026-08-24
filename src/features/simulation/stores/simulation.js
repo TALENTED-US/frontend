@@ -1414,7 +1414,9 @@ export const useSimulationStore = defineStore('simulation', () => {
         state.ignoreRemoteDraft = false
         return remoteConfirmed
       } catch (error) {
-        if (error.status === 404) {
+        if (error.status === 404 || error.code === 'SIMULATION_402') {
+          // 확정 시뮬레이션이 아직 없는 것은 조회 실패가 아니라 정상적인 빈 상태다.
+          // 백엔드의 HTTP 상태 코드가 달라져도 도메인 코드로 동일하게 처리한다.
           clearConfirmedSnapshot()
           cachedConfirmed = null
           confirmedHydratedAt = Date.now()
