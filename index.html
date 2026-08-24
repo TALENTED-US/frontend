@@ -5,7 +5,7 @@
     <link rel="icon" type="image/png" href="/icons/icon-192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0a1680">
     <meta name="application-name" content="버티">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,17 +29,19 @@
         position: fixed;
         inset: 0;
         display: flex;
-        width: 100%;
+        width: 100vw;
         height: 100vh;
         height: 100dvh;
+        min-height: -webkit-fill-available;
         overflow: hidden;
         background: #fbedb0;
       }
 
       .pwa-standalone #pwa-splash img {
-        width: 100%;
+        width: 100vw;
         height: 100%;
-        object-fit: cover;
+        max-width: none;
+        object-fit: fill;
       }
     </style>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">

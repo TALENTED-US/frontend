@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buttie-app-v4'
+const CACHE_NAME = 'buttie-app-v5'
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
