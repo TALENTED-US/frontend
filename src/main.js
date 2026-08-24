@@ -11,23 +11,6 @@ import './styles/global.css'
 
 const isMobileStandalone = document.documentElement.classList.contains('pwa-standalone')
 const splashStartedAt = performance.now()
-const PWA_LANDING_SEEN_KEY = 'buttie-pwa-landing-seen'
-
-function hasSeenPwaLanding() {
-  try {
-    return localStorage.getItem(PWA_LANDING_SEEN_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-function markPwaLandingSeen() {
-  try {
-    localStorage.setItem(PWA_LANDING_SEEN_KEY, 'true')
-  } catch {
-    // 저장소를 사용할 수 없는 환경에서는 기존 랜딩 동작을 유지한다.
-  }
-}
 
 async function bootstrap() {
   const app = createApp(App)
@@ -47,12 +30,7 @@ async function bootstrap() {
     reissueIfMissing: isProtectedInitialRoute || isPwaRootLaunch,
   })
 
-  const shouldSkipPwaLanding =
-    isPwaRootLaunch && (session.isAuthenticated || hasSeenPwaLanding())
-
-  if (isPwaRootLaunch && !session.isAuthenticated && !shouldSkipPwaLanding) {
-    markPwaLandingSeen()
-  }
+  const shouldSkipPwaLanding = isPwaRootLaunch && session.isAuthenticated
 
   if (isMobileStandalone) {
     const remainingSplashTime = Math.max(0, 1000 - (performance.now() - splashStartedAt))
@@ -60,8 +38,7 @@ async function bootstrap() {
   }
 
   if (shouldSkipPwaLanding) {
-    const destination = session.isAuthenticated ? '/dashboard' : '/auth/login'
-    const destinationPath = `${basePath}${destination}`
+    const destinationPath = `${basePath}/dashboard`
     window.history.replaceState(window.history.state, '', destinationPath)
   }
 
