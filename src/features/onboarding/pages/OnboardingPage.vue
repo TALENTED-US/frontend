@@ -111,10 +111,32 @@ const hasValidEmploymentPreparation = computed(() => {
     Boolean(form.value.region) &&
     Number.isInteger(household) &&
     household >= 1 &&
-    household <= 99 &&
+    household < 10 &&
     hasMinimumLivingFund.value
   )
 })
+
+function preventInvalidHouseholdKey(event) {
+  if (['-', '+', 'e', 'E', '.'].includes(event.key)) {
+    event.preventDefault()
+  }
+}
+
+function updateHousehold(event) {
+  const value = event.target.value
+
+  if (value === '') {
+    form.value.household = ''
+    return
+  }
+
+  const household = Number(value)
+  if (Number.isFinite(household)) {
+    const normalizedHousehold = Math.min(9, Math.max(1, Math.trunc(household)))
+    form.value.household = normalizedHousehold
+    event.target.value = String(normalizedHousehold)
+  }
+}
 
 const selectedBalance = computed(() =>
   accounts.value
@@ -473,15 +495,18 @@ async function next() {
           <label class="field-group">
             <span class="field-label"><AppIcon name="users" :size="16" /> 세대원 수</span>
             <input
-              v-model.number="form.household"
+              :value="form.household"
               class="control"
               type="number"
               min="1"
-              max="99"
+              max="9"
+              step="1"
               inputmode="numeric"
               placeholder="세대원 수를 입력하세요"
+              @keydown="preventInvalidHouseholdKey"
+              @input="updateHousehold"
             />
-            <small>본인을 포함한 세대원 수를 입력해주세요</small>
+            <small>본인을 포함해 1~9명까지 입력할 수 있어요</small>
           </label>
 
           <label class="field-group">

@@ -19,6 +19,7 @@ import {
   analyzableSignedAmount,
   isExpenseTransaction,
   isIncomeTransaction,
+  isTransferTransaction,
   transactionKind,
 } from '@/features/finance/transactionAnalysis'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
@@ -28,6 +29,7 @@ import { formatPrepMonthsWithUnit } from '@/utils/prepMonths'
 const router = useRouter()
 const session = useSessionStore()
 const simulation = useSimulationStore()
+
 const showMyDataConnectModal = ref(false)
 
 function isMyDataConnected() {
@@ -38,21 +40,34 @@ function goToMyDataConnect() {
   showMyDataConnectModal.value = false
   router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/finance' } })
 }
+
 const hasConfirmedSimulationDurations = computed(
   () =>
     Number.isFinite(Number(simulation.recentConfirmed?.currentMonths)) &&
     Number.isFinite(Number(simulation.recentConfirmed?.expectedMonths)),
 )
+
 const confirmedCurrentMonths = computed(() =>
   hasConfirmedSimulationDurations.value
     ? Math.max(0, Number(simulation.recentConfirmed.currentMonths))
     : simulation.currentMonths,
 )
+
 const confirmedExpectedMonths = computed(() =>
   hasConfirmedSimulationDurations.value
     ? Math.max(0, Number(simulation.recentConfirmed.expectedMonths))
     : simulation.expectedMonths,
 )
+
+const timelineCurrentMonths = computed(() => {
+  const months = Number(simulation.remoteTimeline?.currentPrepMonths)
+  return Number.isFinite(months) ? months : simulation.currentMonths
+})
+
+const timelineExpectedMonths = computed(() => {
+  const months = Number(simulation.remoteTimeline?.expectPrepMonths)
+  return Number.isFinite(months) ? months : null
+})
 const spreadFinanceTimelineLabels = (items) => {
   const sorted = [...items].sort((a, b) => a.position - b.position)
   const hasCollision = sorted.some(
@@ -83,10 +98,11 @@ const spreadFinanceTimelineLabels = (items) => {
   return items.map((item) => ({ ...item, ...layout.get(item.id) }))
 }
 const financeTimelineItems = computed(() => {
-  const current = Math.max(0, Number(confirmedCurrentMonths.value) || 0)
-  const expected = hasConfirmedSimulationDurations.value
-    ? Math.max(current, Number(confirmedExpectedMonths.value) || 0)
-    : null
+  const current = Math.max(0, Number(timelineCurrentMonths.value) || 0)
+  const expected =
+    timelineExpectedMonths.value === null
+      ? null
+      : Math.max(current, Number(timelineExpectedMonths.value) || 0)
   const target = Math.max(0, Math.ceil(Number(simulation.targetMonths) || 0))
   const scale = Math.max(current, expected || 0, target, 1)
   const position = (value) => Math.min(96, Math.max(4, (value / scale) * 92 + 4))
@@ -163,12 +179,16 @@ const isSaving = ref(false)
 
 const form = reactive({
   type: 'expense',
+  classificationType: 'EXPENSE',
   amount: '',
   category: '식비',
   date: todayIso,
   time: '12:10',
   memo: '',
 })
+const MAX_TRANSACTION_AMOUNT = 99_999_999
+const MIN_TRANSACTION_DATE = '2000-01-01'
+const MAX_TRANSACTION_DATE = '2099-12-31'
 const money = (value) => new Intl.NumberFormat('ko-KR').format(Math.abs(Number(value) || 0))
 const signed = (value) => `${Number(value) >= 0 ? '+' : '-'}${money(value)}원`
 const transactionTypeLabel = (row) =>
@@ -202,16 +222,53 @@ const compactWon = (value) => {
 const formattedAmount = computed({
   get: () => (form.amount ? money(form.amount) : ''),
   set: (value) => {
-    form.amount = String(value).replace(/\D/g, '')
+    const digits = String(value).replace(/\D/g, '')
+    if (!digits) {
+      form.amount = ''
+      return
+    }
+    form.amount = String(Math.min(Number(digits), MAX_TRANSACTION_AMOUNT))
   },
 })
 
-const formattedDate = computed({
-  get: () => form.date.replaceAll('-', '.'),
-  set: (value) => {
-    form.date = String(value).replaceAll('.', '-')
-  },
+const isValidTransactionDate = computed(() => {
+  if (!/^20\d{2}-\d{2}-\d{2}$/.test(form.date)) return false
+  if (form.date < MIN_TRANSACTION_DATE || form.date > MAX_TRANSACTION_DATE) return false
+
+  const [year, monthNumber, day] = form.date.split('-').map(Number)
+  const candidate = new Date(year, monthNumber - 1, day)
+  return (
+    candidate.getFullYear() === year &&
+    candidate.getMonth() === monthNumber - 1 &&
+    candidate.getDate() === day
+  )
 })
+
+const isValidTransactionAmount = computed(() => {
+  const amount = Number(form.amount)
+  return Number.isInteger(amount) && amount >= 1 && amount <= MAX_TRANSACTION_AMOUNT
+})
+
+function enforceTransactionDateRange(event) {
+  const input = event.currentTarget
+  let value = input.value
+
+  if (value > MAX_TRANSACTION_DATE) value = MAX_TRANSACTION_DATE
+  if (value && value < MIN_TRANSACTION_DATE) value = MIN_TRANSACTION_DATE
+  if (!value && event.type === 'blur') value = todayIso
+
+  input.value = value
+  form.date = value
+}
+
+const canSaveTransaction = computed(
+  () =>
+    !isSaving.value &&
+    (isTransferEdit.value
+      ? ['EXPENSE', 'FIXED'].includes(form.classificationType) &&
+        EXPENSE_CATEGORY_OPTIONS.includes(form.category)
+      : isExternalEdit.value || (isValidTransactionAmount.value && isValidTransactionDate.value)),
+)
 
 const selectedYear = computed({
   get: () => Number(month.value.slice(0, 4)),
@@ -262,7 +319,48 @@ async function reloadFinanceData() {
     loadTransactions(true),
     loadSelectedCalendar(true),
     loadFixedExpenseSummary(),
+    simulation.hydrateRunwayBaseline(true),
+    simulation.hydrateConfirmed(true),
+    simulation.hydrateTimeline(true),
   ])
+}
+
+const timelineMonthValue = (value) => {
+  const months = Number(value)
+  return Number.isFinite(months) ? months : null
+}
+
+const timelineFingerprint = (current, expected) =>
+  JSON.stringify([timelineMonthValue(current), timelineMonthValue(expected)])
+
+const wait = (milliseconds) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds)
+  })
+
+async function refreshAfterTransactionMutation() {
+  const previousTimeline = timelineFingerprint(
+    timelineCurrentMonths.value,
+    timelineExpectedMonths.value,
+  )
+  await Promise.allSettled([
+    loadSelectedCalendar(true),
+    loadFixedExpenseSummary(),
+    simulation.hydrateRunwayBaseline(true),
+  ])
+
+  const retryDelays = [0, 250, 500, 1000, 2000]
+  for (const delay of retryDelays) {
+    if (delay) await wait(delay)
+    const timeline = await simulation.hydrateTimeline(true)
+    const refreshedTimeline = timelineFingerprint(
+      timeline?.currentPrepMonths,
+      timeline?.expectPrepMonths,
+    )
+    if (timeline && refreshedTimeline !== previousTimeline) return timeline
+  }
+
+  return simulation.remoteTimeline
 }
 
 const enrichedCalendarTransactions = computed(() => {
@@ -277,6 +375,8 @@ const enrichedCalendarTransactions = computed(() => {
           analysisExcluded: transaction.analysisExcluded,
           classificationMethod: transaction.classificationMethod,
           transactionSource: transaction.transactionSource,
+          transactionType: transaction.transactionType || row.transactionType,
+          expenseCategory: transaction.expenseCategory || row.expenseCategory,
           merchantName: transaction.merchantName,
           merchantRegistrationNumber: transaction.merchantRegistrationNumber,
           memo: transaction.memo,
@@ -632,20 +732,30 @@ async function openDetail(row) {
       ...detail,
       id: detail?.id || row.id,
       apiId: detail?.apiId || row.apiId,
+      transactionType: detail?.transactionType || row.transactionType,
+      transactionSource: detail?.transactionSource || row.transactionSource,
     }
   } catch (error) {
     actionError.value = error.message || '거래 상세 정보를 불러오지 못했습니다.'
   }
 }
 
-function openEdit(row) {
+function openEdit(row, preferredClassificationType = null) {
   actionError.value = ''
   editingId.value = row.apiId || row.id
   editingTransaction.value = row
+  const isTransfer = isTransferTransaction(row)
   Object.assign(form, {
     type: transactionKind(row) === 'income' ? 'income' : 'expense',
+    classificationType:
+      preferredClassificationType || (row.transactionType === 'FIXED' ? 'FIXED' : 'EXPENSE'),
     amount: String(Math.abs(row.amount)),
-    category: row.amount > 0 ? '수입' : row.category,
+    category:
+      row.amount > 0
+        ? '수입'
+        : isTransfer && !EXPENSE_CATEGORY_OPTIONS.includes(row.category)
+          ? ''
+          : row.category,
     date: row.date,
     time: row.time || '12:00',
     memo: row.memo || row.title,
@@ -653,7 +763,16 @@ function openEdit(row) {
   panel.value = 'form'
 }
 async function save() {
-  if (!Number(form.amount) || !form.date) return
+  if (!isExternalEdit.value) {
+    if (!isValidTransactionAmount.value) {
+      actionError.value = '금액은 1원 이상 99,999,999원 이하로 입력해 주세요.'
+      return
+    }
+    if (!isValidTransactionDate.value) {
+      actionError.value = '거래일은 2000.01.01부터 2099.12.31 사이의 날짜로 입력해 주세요.'
+      return
+    }
+  }
   const payload = {
     date: form.date,
     time: form.time,
@@ -668,22 +787,21 @@ async function save() {
   try {
     if (editingId.value) {
       const source = editingTransaction.value?.transactionSource
-      const type = editingTransaction.value?.transactionType
-      if (!source || source === 'MANUAL') {
-        await updateTransaction(editingId.value, payload)
-      } else if (type === 'TRANSFER') {
+      if (isTransferTransaction(editingTransaction.value)) {
         await classifyTransaction(editingId.value, {
-          transactionType: form.type === 'income' ? 'INCOME' : 'EXPENSE',
+          transactionType: form.classificationType,
           expenseCategory: expenseLabelToCategory(form.category),
         })
         if (form.memo !== (editingTransaction.value?.memo || '')) {
           await updateExternalTransactionMemo(editingId.value, form.memo)
         }
+      } else if (!source || source === 'MANUAL') {
+        await updateTransaction(editingId.value, payload)
       } else {
         await updateExternalTransactionMemo(editingId.value, form.memo)
       }
     } else await addTransaction(payload)
-    await loadSelectedCalendar(true).catch(() => {})
+    await refreshAfterTransactionMutation()
     panel.value = ''
   } catch (error) {
     actionError.value = error.message || '거래를 저장하지 못했습니다.'
@@ -695,12 +813,13 @@ async function save() {
 const isExternalEdit = computed(() =>
   Boolean(
     editingId.value &&
-    editingTransaction.value?.transactionSource &&
-    editingTransaction.value.transactionSource !== 'MANUAL',
+    (isTransferTransaction(editingTransaction.value) ||
+      (editingTransaction.value?.transactionSource &&
+        editingTransaction.value.transactionSource !== 'MANUAL')),
   ),
 )
 const isTransferEdit = computed(
-  () => isExternalEdit.value && editingTransaction.value?.transactionType === 'TRANSFER',
+  () => isExternalEdit.value && isTransferTransaction(editingTransaction.value),
 )
 const canEditTransactionFields = computed(() => !isExternalEdit.value || isTransferEdit.value)
 const canDeleteTransaction = computed(() => !isExternalEdit.value)
@@ -710,7 +829,7 @@ async function remove() {
   isSaving.value = true
   try {
     await deleteTransaction(editingId.value)
-    await loadSelectedCalendar(true).catch(() => {})
+    await refreshAfterTransactionMutation()
     panel.value = ''
   } catch (error) {
     actionError.value = error.message || '거래를 삭제하지 못했습니다.'
@@ -745,6 +864,7 @@ onMounted(async () => {
     loadFixedExpenseSummary(),
     simulation.hydrateRunwayBaseline(),
     simulation.hydrateConfirmed(),
+    simulation.hydrateTimeline(),
   ])
 })
 </script>
@@ -1132,8 +1252,8 @@ onMounted(async () => {
       </div>
       <p class="timeline-note">
         직전 3개월 월평균 기준
-        <template v-if="hasConfirmedSimulationDurations">
-          · 계획 적용 시 {{ formatPrepMonthsWithUnit(confirmedExpectedMonths) }}</template
+        <template v-if="timelineExpectedMonths !== null">
+          · 계획 적용 시 {{ formatPrepMonthsWithUnit(timelineExpectedMonths) }}</template
         >
         <template v-else> · 계획을 만들면 적용 후 기간도 함께 표시돼요</template>
       </p>
@@ -1188,16 +1308,43 @@ onMounted(async () => {
               <dd>{{ selectedTransaction.fixed ? '정기 거래' : '일반 거래' }}</dd>
             </div>
           </dl>
-          <button class="sheet__primary" type="button" @click="openEdit(selectedTransaction)">
+          <div
+            v-if="isTransferTransaction(selectedTransaction)"
+            class="transfer-registration-actions"
+          >
+            <button type="button" @click="openEdit(selectedTransaction, 'EXPENSE')">
+              지출로 등록하기
+            </button>
+            <button type="button" @click="openEdit(selectedTransaction, 'FIXED')">
+              고정 지출로 등록하기
+            </button>
+          </div>
+          <button v-else class="sheet__primary" type="button" @click="openEdit(selectedTransaction)">
             수정하기
           </button>
         </template>
 
         <template v-else>
           <p class="sheet__eyebrow">NEW TRANSACTION</p>
-          <h2>{{ editingId ? '거래 수정' : '거래 추가' }}</h2>
-          <p class="form-label">거래 타입</p>
-          <div class="type-toggle">
+          <h2>{{ isTransferEdit ? '계좌이체 지출 등록' : editingId ? '거래 수정' : '거래 추가' }}</h2>
+          <p class="form-label">{{ isTransferEdit ? '등록 유형' : '거래 타입' }}</p>
+          <div v-if="isTransferEdit" class="type-toggle">
+            <button
+              type="button"
+              :class="{ active: form.classificationType === 'EXPENSE' }"
+              @click="form.classificationType = 'EXPENSE'"
+            >
+              일반 지출
+            </button>
+            <button
+              type="button"
+              :class="{ active: form.classificationType === 'FIXED' }"
+              @click="form.classificationType = 'FIXED'"
+            >
+              고정 지출
+            </button>
+          </div>
+          <div v-else class="type-toggle">
             <button
               type="button"
               :class="{ active: form.type === 'expense' }"
@@ -1231,14 +1378,18 @@ onMounted(async () => {
                 v-model="formattedAmount"
                 type="text"
                 inputmode="numeric"
+                maxlength="10"
                 placeholder="0"
                 :disabled="isExternalEdit"
+                aria-describedby="transaction-amount-help"
               /><b>원</b>
             </div>
+            <small v-if="!isExternalEdit" id="transaction-amount-help"> 최대 99,999,999원 </small>
           </label>
           <label v-if="form.type === 'expense'" class="sheet-field">
             <span>카테고리</span>
             <select v-model="form.category" :disabled="isExternalEdit && !isTransferEdit">
+              <option v-if="isTransferEdit" disabled value="">카테고리를 선택해 주세요</option>
               <option v-for="name in EXPENSE_CATEGORY_OPTIONS" :key="name">
                 {{ name }}
               </option>
@@ -1248,10 +1399,14 @@ onMounted(async () => {
             <label class="sheet-field">
               <span>거래일</span>
               <input
-                v-model="formattedDate"
-                type="text"
-                inputmode="numeric"
+                v-model="form.date"
+                type="date"
+                :min="MIN_TRANSACTION_DATE"
+                :max="MAX_TRANSACTION_DATE"
                 :disabled="isExternalEdit"
+                @input="enforceTransactionDateRange"
+                @change="enforceTransactionDateRange"
+                @blur="enforceTransactionDateRange"
               />
             </label>
             <label class="sheet-field">
@@ -1262,7 +1417,7 @@ onMounted(async () => {
           <p v-if="isExternalEdit" class="form-label">
             {{
               isTransferEdit
-                ? '계좌이체는 수입·지출 분류와 메모만 변경할 수 있어요.'
+                ? '계좌이체를 일반 지출 또는 고정 지출로 등록하고 메모를 변경할 수 있어요.'
                 : '외부 거래는 메모만 변경할 수 있어요.'
             }}
           </p>
@@ -1270,10 +1425,19 @@ onMounted(async () => {
             <span>메모</span>
             <input v-model="form.memo" placeholder="거래 내용을 입력해 주세요" />
           </label>
-          <button class="sheet__primary" type="button" :disabled="isSaving" @click="save">
+          <button
+            class="sheet__primary"
+            type="button"
+            :disabled="!canSaveTransaction"
+            @click="save"
+          >
             {{
               isSaving
                 ? '저장 중...'
+                : isTransferEdit
+                  ? form.classificationType === 'FIXED'
+                    ? '고정 지출로 등록'
+                    : '지출로 등록'
                 : editingId
                   ? '변경사항 저장'
                   : form.type === 'income'
@@ -2697,6 +2861,29 @@ input {
   display: grid;
   grid-template-columns: 1.25fr 0.75fr;
   gap: 12px;
+}
+
+.transfer-registration-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.transfer-registration-actions button {
+  min-height: 54px;
+  padding: 0 12px;
+  border: 1px solid var(--primary);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.transfer-registration-actions button:last-child {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
 }
 
 .sheet__primary,

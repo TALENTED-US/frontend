@@ -3,19 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
-import {
-  getCustomRecommendationsApi,
-  getExpenseRecommendationsApi,
-  getIncomeRecommendationsApi,
-  getPolicyRecommendationsApi,
-} from '@/api/simulation'
+import { getCustomRecommendationsApi, getSimulationRecommendationsApi } from '@/api/simulation'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
-import {
-  filterExpenseRecommendationsForPrompt,
-  normalizeCategoryRecommendationResponse,
-  targetedRecommendationCategories,
-} from '@/features/simulation/utils/aiRecommendationScope'
+import SimulationEntryLoader from '@/features/simulation/components/SimulationEntryLoader.vue'
 import assistantAvatar from '@/assets/images/simulation/buttie-ai-assistant.png'
 import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import meltingImage from '@/assets/images/dashboard/buttie-melting.png'
@@ -83,8 +73,8 @@ const hasRunwayResult = computed(
     Number.isFinite(Number(simulation.currentMonths)) &&
     Number.isFinite(Number(simulation.expectedMonths)),
 )
-const financialSummary = computed(
-  () => aiRecommendations.value?.financialRecommendation?.summary || '',
+const financialSummary = computed(() =>
+  String(aiRecommendations.value?.financialRecommendation?.summary || '').trim(),
 )
 const aiPromptLength = computed(() => aiPrompt.value.length)
 const nextDraftPath = computed(() => {
@@ -105,32 +95,16 @@ async function loadAiRecommendations(prompt) {
   if (aiLoading.value) return
   aiLoading.value = true
   aiError.value = ''
-  aiRecommendationCompleted.value = false
 
   try {
-    const targetCategories = targetedRecommendationCategories(prompt)
-    let recommendations
-
-    if (targetCategories.length === 1) {
-      const targetCategory = targetCategories[0]
-      const response =
-        targetCategory === 'expense'
-          ? await getExpenseRecommendationsApi(prompt)
-          : targetCategory === 'income'
-            ? await getIncomeRecommendationsApi(prompt)
-            : await getPolicyRecommendationsApi(prompt)
-      recommendations = normalizeCategoryRecommendationResponse(targetCategory, response)
-      if (targetCategory === 'expense') {
-        recommendations = filterExpenseRecommendationsForPrompt(recommendations, prompt)
-      }
-    } else {
-      recommendations = await getCustomRecommendationsApi(prompt)
-    }
+    const recommendations = await getCustomRecommendationsApi(prompt)
     aiRecommendations.value = recommendations
     if (prompt) simulation.setAiPlanRecommendations(prompt, recommendations)
     aiRecommendationCompleted.value = true
+    return true
   } catch (error) {
     aiError.value = recommendationErrorMessage(error)
+    return false
   } finally {
     aiLoading.value = false
   }
@@ -139,7 +113,32 @@ async function loadAiRecommendations(prompt) {
 async function submitAiPrompt() {
   const prompt = aiPrompt.value.trim()
   if (!prompt) return
-  await loadAiRecommendations(prompt)
+  const recommended = await loadAiRecommendations(prompt)
+  if (recommended) await startSimulation()
+}
+
+async function loadInitialAiSummary() {
+  if (aiLoading.value) return
+
+  aiLoading.value = true
+  try {
+    const recommendations = await getSimulationRecommendationsApi()
+    aiRecommendations.value = recommendations
+    simulation.setAiPlanRecommendations('', recommendations)
+  } catch {
+    // 첫 진입 추천은 제목 보조 정보이므로, 실패해도 기본 문구로 화면을 유지한다.
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+async function initializeNewCategories() {
+  startDate.value = getTodayDate()
+  aiPrompt.value = ''
+  aiError.value = ''
+  aiRecommendationCompleted.value = false
+  simulation.clearAiPlanRecommendations()
+  await loadInitialAiSummary()
 }
 
 onMounted(async () => {
@@ -148,8 +147,7 @@ onMounted(async () => {
   // 새 시뮬레이션 화면은 기존 미확정 시뮬레이션을 삭제한 뒤 진입한다.
   // 여기서 다시 조회하면 정상적인 "데이터 없음" 응답이 404 오류처럼 노출된다.
   if (step.value === 'categories') {
-    startDate.value = getTodayDate()
-    simulation.clearAiPlanRecommendations()
+    await initializeNewCategories()
     return
   }
 
@@ -169,7 +167,8 @@ onMounted(async () => {
   // 이어갈 미확정 시뮬레이션이 실제로 없다면 빈 이어하기 화면에 머물지 않는다.
   if (step.value === 'continue' && !simulation.syncError) {
     simulation.prepareNewScenario()
-    router.replace('/simulation/new')
+    await router.replace('/simulation/new')
+    await initializeNewCategories()
   }
 })
 
@@ -215,7 +214,8 @@ async function reset() {
   startDate.value = getTodayDate()
   simulation.state.startDate = startDate.value
   endDate.value = simulation.state.endDate
-  router.push('/simulation/new')
+  await router.push('/simulation/new')
+  await initializeNewCategories()
 }
 
 async function confirm() {
@@ -226,6 +226,22 @@ async function confirm() {
 
 <template>
   <section class="page sim-page sim-wizard" :class="`sim-flow-${step}`">
+    <Teleport to="body">
+      <Transition name="simulation-ai-page-loader">
+        <div
+          v-if="step === 'categories' && aiLoading"
+          class="simulation-ai-page-loader"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          @wheel.prevent
+          @touchmove.prevent
+        >
+          <SimulationEntryLoader />
+        </div>
+      </Transition>
+    </Teleport>
+
     <template v-if="step === 'continue'">
       <div class="resume-hero">
         <button
@@ -267,7 +283,7 @@ async function confirm() {
       <h1 class="wizard-title">
         <template v-if="financialSummary">{{ financialSummary }}</template>
         <template v-else>
-          지출을 매달 <em>100,000원</em> 줄이면<br />생존기간이 얼마나 늘어날까요?
+          나에게 맞는 재정 계획으로<br />버티는 기간을 늘려볼까요?
         </template>
       </h1>
       <div class="category-intro-card">
@@ -337,7 +353,6 @@ async function confirm() {
               maxlength="50"
               placeholder="원하는 컨셉을 넣어보세요"
               :disabled="aiLoading"
-              @input="aiRecommendationCompleted = false"
             />
             <span>{{ aiPromptLength }}/50</span>
             <button type="submit" :disabled="aiLoading || !aiPrompt.trim()">추천받기</button>
@@ -351,7 +366,6 @@ async function confirm() {
         </form>
 
         <p v-if="aiError" class="ai-plan-recommendation__error">{{ aiError }}</p>
-        <AiRecommendationLoader v-else-if="aiLoading" class="ai-plan-recommendation__loader" />
       </section>
 
       <p v-if="simulation.syncError" class="api-notice">{{ simulation.syncError }}</p>
@@ -494,6 +508,39 @@ async function confirm() {
 </template>
 
 <style scoped>
+.simulation-ai-page-loader {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(83 99 221 / 9%), transparent 34%),
+    rgb(244 247 252 / 97%);
+  backdrop-filter: blur(6px);
+}
+
+.simulation-ai-page-loader-enter-active,
+.simulation-ai-page-loader-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.simulation-ai-page-loader-enter-active :deep(.simulation-entry-loader),
+.simulation-ai-page-loader-leave-active :deep(.simulation-entry-loader) {
+  transition: transform 0.22s ease;
+}
+
+.simulation-ai-page-loader-enter-from,
+.simulation-ai-page-loader-leave-to {
+  opacity: 0;
+}
+
+.simulation-ai-page-loader-enter-from :deep(.simulation-entry-loader),
+.simulation-ai-page-loader-leave-to :deep(.simulation-entry-loader) {
+  transform: translateY(10px) scale(0.98);
+}
+
 .final-result em {
   display: inline-flex;
   height: 35px;
@@ -801,11 +848,11 @@ async function confirm() {
   color: #d94f55;
 }
 
-.ai-plan-recommendation__loader {
-  margin-top: 16px;
-}
-
 @media (max-width: 560px) {
+  .simulation-ai-page-loader {
+    padding: 18px;
+  }
+
   .ai-plan-recommendation__input {
     grid-template-columns: 1fr auto;
   }
@@ -821,6 +868,13 @@ async function confirm() {
 
   .ai-plan-recommendation__results article {
     min-height: 150px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simulation-ai-page-loader,
+  .simulation-entry-loader {
+    transition: none !important;
   }
 }
 

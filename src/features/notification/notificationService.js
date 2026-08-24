@@ -16,7 +16,7 @@ export async function showDeviceNotification(title, options = {}) {
 
   if ('serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.register('/notification-sw.js')
+      const registration = await navigator.serviceWorker.register('/sw.js')
       await registration.showNotification(title, notificationOptions)
       return true
     } catch {

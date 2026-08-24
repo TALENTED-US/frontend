@@ -260,7 +260,7 @@ onMounted(loadFixedExpenseData)
       <p v-if="!fixedApiLoading && !visibleRows.length" class="empty-message">
         {{
           mode === 'add'
-            ? '서버에서 제공한 고정지출 후보가 없어요.'
+            ? '추천할 수 있는 고정지출 후보가 없어요.'
             : mode === 'delete'
               ? '해제할 고정지출이 없어요.'
               : '서버에 등록된 고정지출이 없어요.'

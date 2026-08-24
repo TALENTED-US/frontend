@@ -1,17 +1,5 @@
 <script setup>
 import buttieLogo from '@/assets/images/brand/buttie-logo-blue.png'
-
-const projectLinks = [
-  {
-    label: 'Frontend GitHub',
-    href: 'https://github.com/TALENTED-US/frontend',
-  },
-  {
-    label: 'Backend GitHub',
-    href: 'https://github.com/TALENTED-US/backend',
-  },
-]
-
 </script>
 
 <template>
@@ -25,20 +13,15 @@ const projectLinks = [
         <span>오늘의 자산에서 취업 이후의 계획까지, 버티가 함께해요.</span>
       </div>
 
-      <nav class="app-footer__links" aria-label="프로젝트 링크">
-        <div>
-          <strong>PROJECT</strong>
-          <a
-            v-for="link in projectLinks"
-            :key="link.href"
-            :href="link.href"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {{ link.label }} <span aria-hidden="true">↗</span>
-          </a>
-        </div>
-      </nav>
+      <section class="app-footer__contact" aria-label="버티 연락처">
+        <strong>CONTACT</strong>
+        <address>
+          <p><b>대표</b> 감만세</p>
+          <p><b>대표전화</b> 02-0000-2026</p>
+          <p><b>대표이메일</b> hello@buttie.example</p>
+          <p><b>주소</b> (00000) 서울특별시 버티구 희망로 26, 버티타워 3층</p>
+        </address>
+      </section>
 
       <div class="app-footer__meta">
         <p>© 2026 BUTTIE.<br />ALL RIGHTS RESERVED.</p>
@@ -99,19 +82,14 @@ const projectLinks = [
   line-height: 1.6;
 }
 
-.app-footer__links {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.app-footer__links > div {
+.app-footer__contact {
   display: grid;
   align-content: start;
   justify-items: start;
   gap: 10px;
 }
 
-.app-footer__links strong {
+.app-footer__contact > strong {
   margin-bottom: 5px;
   color: #4f5d73;
   font-size: 11px;
@@ -119,22 +97,23 @@ const projectLinks = [
   letter-spacing: 0.13em;
 }
 
-.app-footer__links a {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.app-footer__contact address {
+  display: grid;
+  gap: 8px;
+  font-style: normal;
+}
+
+.app-footer__contact p {
+  margin: 0;
   color: #657188;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
-  transition: color 0.15s ease;
 }
 
-.app-footer__links a:hover {
-  color: var(--primary);
-}
-
-.app-footer__links a span {
-  color: #7b8798;
+.app-footer__contact b {
+  margin-right: 5px;
+  color: #4f5d73;
+  font-weight: 750;
 }
 
 .app-footer__meta {
@@ -176,11 +155,6 @@ const projectLinks = [
     grid-template-columns: 1fr;
     gap: 36px;
     padding: 44px 24px 38px;
-  }
-
-  .app-footer__links {
-    grid-template-columns: 1fr;
-    gap: 32px;
   }
 
   .app-footer__meta {

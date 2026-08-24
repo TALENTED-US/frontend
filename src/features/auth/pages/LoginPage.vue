@@ -427,11 +427,9 @@ function clearError() {
 @media (max-width: 767px) {
   .login-page {
     display: block;
-    width: min(100%, 393px);
-    max-width: 100%;
+    width: 100%;
     min-height: 100dvh;
-    margin: 0 auto;
-    padding: 18px 16px;
+    padding: max(18px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
     overflow-x: hidden;
     background: #fff;
   }
@@ -442,15 +440,16 @@ function clearError() {
   }
   .mobile-brand {
     margin-top: 2px;
+    margin-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
   }
   .login-card {
     width: 100%;
     margin-top: 76px;
-    padding: 30px 22px;
+    padding: 30px max(22px, env(safe-area-inset-right)) 30px max(22px, env(safe-area-inset-left));
     border: 0;
-    border-radius: 26px;
+    border-radius: 0;
     background: #fff;
-    box-shadow: 8px 10px 0 #dbe5ff;
+    box-shadow: none;
   }
   .login-buttie {
     top: -62px;

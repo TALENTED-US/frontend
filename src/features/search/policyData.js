@@ -1,9 +1,29 @@
+import { normalizePolicyRegion } from '@/mappers/policy'
+
 export const defaultPolicyFilters = []
 
 export const policyFilterGroups = [
   ['취업 준비 상태', ['첫취업', '재취업', '재직자', '예비창업자', '미취업자']],
   ['정책 분야', ['취업', '주거', '복지', '교육', '교통', '청년지원']],
-  ['정책 지역', ['전국', '서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종']],
+  [
+    '정책 지역',
+    [
+      '전국',
+      '서울',
+      '경기',
+      '인천',
+      '부산',
+      '대구',
+      '경남',
+      '경북',
+      '광주',
+      '전남',
+      '전북',
+      '대전',
+      '울산',
+      '세종',
+    ],
+  ],
   ['신청 상태', ['신청 가능', '마감']],
   ['신청 마감', ['오늘 마감', '3일 이내', '7일 이내', '30일 이내', '상시']],
 ]
@@ -51,6 +71,7 @@ export function toPolicySearchRequest(filters, amount = 0, keyword = '', options
   const category = policyFilterGroups[1][1].find((item) => filters.includes(item))
   const employment = policyFilterGroups[0][1].find((item) => filters.includes(item))
   const region = policyFilterGroups[2][1].find((item) => filters.includes(item))
+  const policyRegion = normalizePolicyRegion(region || options.policyRegion)
   const deadline = policyFilterGroups[4][1].find((item) => filters.includes(item))
   const available = filters.includes('신청 가능')
   const closed = filters.includes('마감')
@@ -67,6 +88,6 @@ export function toPolicySearchRequest(filters, amount = 0, keyword = '', options
     ...(available || closed ? { policyStatus: closed ? 'CLOSED' : 'AVAILABLE' } : {}),
     ...(Number(amount) > 0 ? { policySupportAmount: Number(amount) * 10000 } : {}),
     ...(options.age !== undefined ? { age: options.age } : {}),
-    ...(region || options.policyRegion ? { policyRegion: region || options.policyRegion } : {}),
+    ...(policyRegion ? { policyRegion } : {}),
   }
 }

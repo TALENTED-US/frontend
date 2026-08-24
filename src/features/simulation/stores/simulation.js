@@ -171,6 +171,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   const policyCatalogError = ref('')
   const aiPlanPrompt = ref('')
   const aiPlanRecommendations = ref(null)
+  const aiCategoryPrompts = ref({ expense: '', income: '', policy: '' })
   const policyCatalogPageInfo = ref({
     page: 1,
     size: 10,
@@ -279,7 +280,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!force && remoteTimeline.value) return remoteTimeline.value
 
     try {
-      const timeline = await getTimelineApi()
+      const timeline = await getTimelineApi({ fresh: force })
       remoteTimeline.value = timeline
       return timeline
     } catch {
@@ -1165,11 +1166,27 @@ export const useSimulationStore = defineStore('simulation', () => {
   function setAiPlanRecommendations(prompt, recommendations) {
     aiPlanPrompt.value = String(prompt || '').trim()
     aiPlanRecommendations.value = recommendations || null
+    aiCategoryPrompts.value = { expense: '', income: '', policy: '' }
+  }
+
+  function setAiCategoryRecommendations(category, prompt, recommendations) {
+    const next = { ...(aiPlanRecommendations.value || {}) }
+
+    if (category === 'expense') next.financialRecommendation = recommendations?.financialRecommendation
+    if (category === 'income') next.incomeRecommendation = recommendations?.incomeRecommendation
+    if (category === 'policy') next.policyRecommendations = recommendations?.policyRecommendations || []
+
+    aiPlanRecommendations.value = next
+    aiCategoryPrompts.value = {
+      ...aiCategoryPrompts.value,
+      [category]: String(prompt || '').trim(),
+    }
   }
 
   function clearAiPlanRecommendations() {
     aiPlanPrompt.value = ''
     aiPlanRecommendations.value = null
+    aiCategoryPrompts.value = { expense: '', income: '', policy: '' }
   }
 
   function prepareNewScenario() {
@@ -1335,7 +1352,7 @@ export const useSimulationStore = defineStore('simulation', () => {
       const previewReady = runwayCalculationReady.value
       if (!previewReady) {
         syncError.value = remoteEnabled
-          ? '서버에서 시뮬레이션 기간 결과를 불러오지 못했습니다.'
+          ? '시뮬레이션 기간 결과를 불러오지 못했습니다.'
           : '월 지출 내역이 없어 예상 버티는 기간을 계산할 수 없습니다.'
         return false
       }
@@ -1614,6 +1631,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     policyCatalogPageInfo,
     aiPlanPrompt,
     aiPlanRecommendations,
+    aiCategoryPrompts,
     totalAssets,
     availableAssets,
     monthlyIncome,
@@ -1647,6 +1665,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     runwayBaselineError,
     clearSyncError,
     setAiPlanRecommendations,
+    setAiCategoryRecommendations,
     clearAiPlanRecommendations,
     remoteReport,
     remoteTimeline,
