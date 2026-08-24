@@ -9,6 +9,9 @@ import './styles/tokens.css'
 import './styles/reset.css'
 import './styles/global.css'
 
+const isMobileStandalone = document.documentElement.classList.contains('pwa-standalone')
+const splashStartedAt = performance.now()
+
 async function bootstrap() {
   const app = createApp(App)
   const pinia = createPinia()
@@ -24,8 +27,22 @@ async function bootstrap() {
   await useSessionStore(pinia).restoreSession({
     reissueIfMissing: isProtectedInitialRoute,
   })
+
+  if (isMobileStandalone) {
+    const remainingSplashTime = Math.max(0, 1000 - (performance.now() - splashStartedAt))
+    await new Promise((resolve) => window.setTimeout(resolve, remainingSplashTime))
+  }
+
   app.use(router)
   app.mount('#app')
 }
 
 bootstrap()
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('서비스 워커 등록에 실패했습니다.', error)
+    })
+  })
+}
