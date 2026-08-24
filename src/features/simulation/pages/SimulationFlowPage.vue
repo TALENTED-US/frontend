@@ -178,18 +178,19 @@ async function startSimulation() {
   starting.value = true
 
   try {
-    // 시작 버튼을 누른 현재 흐름에서는 기존 Draft가 있어도 이어하기 화면으로
-    // 이동하지 않는다. 서버 상태만 최신화한 뒤 beginSimulation()이 같은 Draft의
-    // 기간을 갱신해 지출 단계로 진행한다.
-    await simulation.hydrateDraft(true)
+    // /simulation/new는 이어하기가 아닌 새 시작이므로 서버에 남은 Draft와
+    // 이전 항목을 먼저 삭제한다. 로컬만 초기화하면 다음 카테고리 조회에서
+    // 과거 항목이 다시 섞일 수 있다.
+    const existingDraft = await simulation.hydrateDraft(true)
     if (simulation.syncError) return
+    if (existingDraft && !(await simulation.deleteDraftScenario())) return
 
-    // 대시보드 등에서 /simulation/new로 바로 진입한 경우에도 확정 계획을
-    // 먼저 Draft로 되돌려 새 시뮬레이션 생성 요청(409)을 방지한다.
+    // 확정 계획이 남은 상태로 /simulation/new에 직접 진입한 경우에도 기존
+    // 시뮬레이션을 삭제해 새 Draft에 과거 항목이 포함되지 않도록 한다.
     const confirmed = await simulation.hydrateConfirmed()
     if (confirmed) {
-      const reverted = await simulation.revertConfirmedScenario()
-      if (!reverted) return
+      const deleted = await simulation.deleteConfirmedScenario()
+      if (!deleted) return
     } else if (simulation.syncError) {
       return
     }
