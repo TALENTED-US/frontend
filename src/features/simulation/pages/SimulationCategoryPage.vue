@@ -8,8 +8,9 @@ import { policyFilterGroups, toPolicySearchRequest } from '@/features/search/pol
 import { calculateAge, mapPolicyResponse, normalizePolicyRegionFilter } from '@/mappers/policy'
 import { expenseCategoryLabel } from '@/constants/expenseCategories'
 import {
-  getCustomRecommendationsApi,
-  getSimulationRecommendationsApi,
+  getExpenseRecommendationsApi,
+  getIncomeRecommendationsApi,
+  getPolicyRecommendationsApi,
 } from '@/api/simulation'
 import '@/features/simulation/styles/simulation.css'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
@@ -17,11 +18,7 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
 import AiRecommendationPrompt from '@/features/simulation/components/AiRecommendationPrompt.vue'
 import ButtieAiLogo from '@/features/simulation/components/ButtieAiLogo.vue'
-import {
-  aiRecommendationTargets,
-  filterExpenseRecommendationsForPrompt,
-  normalizeCategoryRecommendationResponse,
-} from '@/features/simulation/utils/aiRecommendationScope'
+import { normalizeCategoryRecommendationResponse } from '@/features/simulation/utils/aiRecommendationScope'
 
 const route = useRoute()
 const router = useRouter()
@@ -196,10 +193,6 @@ const aiIncomeLinks = computed(() =>
     .slice(0, 3),
 )
 
-const aiIncomeSearchKeyword = computed(
-  () => aiRecommendations.value?.incomeRecommendation?.searchKeyword || '',
-)
-
 const aiPolicyRecommendations = computed(() =>
   (aiRecommendations.value?.policyRecommendations || [])
     .map(mapPolicyResponse)
@@ -241,39 +234,38 @@ const aiRecommendationCopy = computed(
 )
 
 const aiRecommendationDescription = computed(() => {
-  const prompt = simulation.aiPlanPrompt
+  const summary = String(aiRecommendations.value?.financialRecommendation?.summary || '').trim()
+  if (category.value === 'expense' && summary) return summary
+
+  if (category.value === 'income') {
+    const incomeNotice = String(aiRecommendations.value?.incomeRecommendation?.notice || '').trim()
+    if (incomeNotice) return incomeNotice
+
+    const incomePrompt = simulation.aiCategoryPrompts.income
+    if (incomePrompt) return `“${incomePrompt}” 조건을 바탕으로 채용 공고를 찾아봤어요.`
+    return '지출 절약 계획과 함께, 아래 채용 플랫폼에서 추가 수입 기회를 찾아보세요.'
+  }
+
+  const prompt = simulation.aiCategoryPrompts[category.value] || simulation.aiPlanPrompt
   if (!prompt || !usingCustomAiRecommendations.value) return aiRecommendationCopy.value.description
   return `“${prompt}” 컨셉을 바탕으로 추천했어요.`
 })
 
-function scopedCustomRecommendations(recommendations, currentCategory, prompt) {
-  if (!recommendations || !prompt) return null
-
-  const targets = aiRecommendationTargets(prompt)
-  const financialItems = recommendations?.financialRecommendation?.recommendations || []
-  const incomeItems = recommendations?.incomeRecommendation?.jobs || []
-  const incomeLinks = recommendations?.incomeRecommendation?.links || []
-  const policyItems = recommendations?.policyRecommendations || []
-  const responseHasCategory = {
-    expense: financialItems.length > 0,
-    income: incomeItems.length > 0 || incomeLinks.length > 0,
-    policy: policyItems.length > 0,
-  }
-  const hasExplicitTarget = Object.values(targets).some(Boolean)
-
-  if (hasExplicitTarget ? !targets[currentCategory] : !responseHasCategory[currentCategory]) {
-    return null
-  }
-
-  if (currentCategory !== 'expense') return recommendations
-
-  return filterExpenseRecommendationsForPrompt(recommendations, prompt)
+function scopedRecommendations(recommendations) {
+  return recommendations || null
 }
 
-async function requestCustomRecommendationsForCategory(currentCategory, prompt) {
+async function requestCategoryRecommendations(currentCategory, prompt) {
+  const response =
+    currentCategory === 'expense'
+      ? await getExpenseRecommendationsApi(prompt)
+      : currentCategory === 'income'
+        ? await getIncomeRecommendationsApi(prompt)
+        : await getPolicyRecommendationsApi(prompt)
+
   return normalizeCategoryRecommendationResponse(
     currentCategory,
-    await getCustomRecommendationsApi(String(prompt || '').trim()),
+    response,
   )
 }
 
@@ -285,14 +277,10 @@ async function submitAiRecommendationPrompt(prompt) {
   usingCustomAiRecommendations.value = true
 
   try {
-    const recommendations = await requestCustomRecommendationsForCategory(category.value, prompt)
-    const scopedRecommendations =
-      category.value === 'expense'
-        ? filterExpenseRecommendationsForPrompt(recommendations, prompt)
-        : recommendations
+    const recommendations = await requestCategoryRecommendations(category.value, prompt)
 
-    simulation.setAiPlanRecommendations(prompt, scopedRecommendations)
-    aiRecommendations.value = scopedRecommendations
+    simulation.setAiCategoryRecommendations(category.value, prompt, recommendations)
+    aiRecommendations.value = recommendations
   } catch (error) {
     aiRecommendationError.value = aiRecommendationErrorMessage(error)
   } finally {
@@ -309,15 +297,12 @@ function aiRecommendationErrorMessage(error) {
 async function loadAiRecommendations(regenerate = false) {
   if (aiRecommendationLoading.value) return
 
-  const storedCustomRecommendations = scopedCustomRecommendations(
-    simulation.aiPlanRecommendations,
-    category.value,
-    simulation.aiPlanPrompt,
-  )
+  const categoryPrompt = simulation.aiCategoryPrompts[category.value] || simulation.aiPlanPrompt
+  const storedRecommendations = scopedRecommendations(simulation.aiPlanRecommendations)
 
-  if (!regenerate && storedCustomRecommendations) {
-    aiRecommendations.value = storedCustomRecommendations
-    usingCustomAiRecommendations.value = true
+  if (!regenerate && storedRecommendations) {
+    aiRecommendations.value = storedRecommendations
+    usingCustomAiRecommendations.value = Boolean(categoryPrompt)
     aiRecommendationError.value = ''
     return
   }
@@ -325,22 +310,18 @@ async function loadAiRecommendations(regenerate = false) {
   aiRecommendationLoading.value = true
   aiRecommendationError.value = ''
   try {
-    if (regenerate && storedCustomRecommendations) {
-      const recommendations = await requestCustomRecommendationsForCategory(
+    if (regenerate && storedRecommendations && simulation.aiCategoryPrompts[category.value]) {
+      const prompt = simulation.aiCategoryPrompts[category.value]
+      const recommendations = await requestCategoryRecommendations(
         category.value,
-        simulation.aiPlanPrompt,
+        prompt,
       )
-      simulation.setAiPlanRecommendations(simulation.aiPlanPrompt, recommendations)
-      aiRecommendations.value =
-        scopedCustomRecommendations(recommendations, category.value, simulation.aiPlanPrompt) ||
-        recommendations
+      simulation.setAiCategoryRecommendations(category.value, prompt, recommendations)
+      aiRecommendations.value = scopedRecommendations(recommendations)
       usingCustomAiRecommendations.value = true
     } else {
-      aiRecommendations.value = normalizeCategoryRecommendationResponse(
-        category.value,
-        await getSimulationRecommendationsApi(),
-      )
-      usingCustomAiRecommendations.value = false
+      aiRecommendations.value = storedRecommendations
+      usingCustomAiRecommendations.value = Boolean(categoryPrompt)
     }
   } catch (error) {
     aiRecommendationError.value = aiRecommendationErrorMessage(error)
@@ -1121,10 +1102,7 @@ function skip() {
             <div class="ai-inline-card-copy">
               <span>추천 채용 플랫폼</span>
               <strong>{{ link.platform }}</strong>
-              <p v-if="aiIncomeSearchKeyword">
-                “{{ aiIncomeSearchKeyword }}” 검색 결과를 확인해 보세요.
-              </p>
-              <p v-else>내 조건에 맞는 채용 공고를 확인해 보세요.</p>
+              <p>맞춤 조건이 적용된 채용 공고를 확인해 보세요.</p>
             </div>
             <div class="ai-inline-card-actions">
               <a
@@ -2933,6 +2911,36 @@ function skip() {
   background: #f7f6fc;
 }
 
+.policy-profile-badges {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.policy-profile-badges > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #e0e3f1;
+  border-radius: 999px;
+  background: #fff;
+  color: #303c72;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.policy-profile-badges small {
+  color: #7d879b;
+  font-size: 10px;
+  font-weight: 600;
+}
+
 .policy-catalog-list {
   display: grid;
   gap: 10px;
@@ -3198,6 +3206,11 @@ function skip() {
     grid-column: 2;
     justify-self: end;
     white-space: nowrap;
+  }
+
+  .sim-category-page .policy-catalog-heading .policy-profile-badges {
+    grid-row: 2;
+    grid-column: 1 / -1;
   }
 
   .sim-category-page .policy-selected-empty {
