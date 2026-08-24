@@ -1239,7 +1239,7 @@ async function createNewSimulation() {
   margin-top: auto;
   padding-top: 0;
   padding-bottom: 0;
-  border: 1px solid rgb(241 185 76 / 40%);
+  border: 0;
   border-radius: 8px;
   background: #fff8dc;
   color: var(--primary);
@@ -1953,7 +1953,7 @@ async function createNewSimulation() {
   }
 
   .simulation-edit-mobile-actions .simulation-edit-all {
-    min-height: 48px;
+    min-height: 50px;
     border: 0;
     border-radius: 12px;
     font-size: var(--type-action-size) !important;
@@ -1961,7 +1961,7 @@ async function createNewSimulation() {
   }
 
   .simulation-edit-mobile-actions .simulation-create-new {
-    min-height: 46px;
+    min-height: 50px;
     border-radius: 12px;
     font-size: var(--type-action-size) !important;
     font-weight: var(--type-action-secondary-weight) !important;
@@ -2132,6 +2132,54 @@ async function createNewSimulation() {
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
+  }
+}
+
+/* Mobile-only: keep the period box exactly as wide as the forecast box
+   below it (same side margins as .simulation-edit-body), with 시작일/종료일
+   and the 변경·저장 button staying on one row, before and after editing. */
+@media (max-width: 767px) {
+  .simulation-edit-hero,
+  :global(#app .app-shell main .simulation-edit-page .simulation-edit-hero),
+  .simulation-edit-body,
+  :global(#app .app-shell main .simulation-edit-page .simulation-edit-body) {
+    padding-right: 4px !important;
+    padding-left: 4px !important;
+  }
+
+  .simulation-edit-hero > .simulation-edit-period,
+  :global(
+    #app .app-shell .simulation-edit-page .simulation-edit-hero > section.simulation-edit-period
+  ) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr) auto !important;
+    grid-template-rows: auto !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    gap: 6px 8px !important;
+  }
+
+  .simulation-edit-period > label:first-of-type {
+    grid-column: 1;
+  }
+
+  .simulation-edit-period > i {
+    grid-column: 2;
+    text-align: center;
+  }
+
+  .simulation-edit-period > label:nth-of-type(2) {
+    grid-column: 3;
+  }
+
+  .simulation-edit-period > button {
+    grid-column: 4 !important;
+    width: auto !important;
+    min-width: 56px;
+    margin: 0 !important;
   }
 }
 </style>

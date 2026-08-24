@@ -112,7 +112,6 @@ function reissueAccessTokenOnce() {
       })
       .catch((error) => {
         setAccessToken('')
-        unauthorizedHandler?.()
         throw error
       })
       .finally(() => {
@@ -133,10 +132,10 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const config = error.config
-    const shouldHandleUnauthorized =
-      error.response?.status === 401 && !config?.skipUnauthorizedHandler
+    const isUnauthorized = error.response?.status === 401
+    const shouldHandleUnauthorized = isUnauthorized && !config?.skipUnauthorizedHandler
     const canReissue =
-      shouldHandleUnauthorized &&
+      isUnauthorized &&
       !config?.skipAuthRefresh &&
       !config?._accessTokenRetry &&
       typeof accessTokenReissueHandler === 'function'
@@ -150,6 +149,7 @@ apiClient.interceptors.response.use(
         config.headers.Authorization = `Bearer ${accessToken}`
         return apiClient(config)
       } catch (reissueError) {
+        if (shouldHandleUnauthorized) unauthorizedHandler?.()
         return Promise.reject(reissueError)
       }
     }

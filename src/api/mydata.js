@@ -29,7 +29,14 @@ export function registerMyDataAssetsApi({ accountIds = [], cardIds = [], assetSe
 }
 
 export function syncMyDataTransactionsApi() {
-  return request({ method: 'post', url: 'mydata/transactions/sync', timeout: 30000 })
+  return request({
+    method: 'post',
+    url: 'mydata/transactions/sync',
+    timeout: 30000,
+    // 페이지 진입 시 실행되는 부가 동기화 실패가 로그인 세션까지 지우면 안 된다.
+    // Access Token 재발급은 시도하되, 실패 결과는 호출 화면에서 처리한다.
+    skipUnauthorizedHandler: true,
+  })
 }
 
 export function disconnectMyDataAssetApi(assetType, assetId) {
