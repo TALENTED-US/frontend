@@ -1,0 +1,37 @@
+{
+  "id": "/",
+  "name": "버티 - 취업 준비 금융생활 지원",
+  "short_name": "버티",
+  "description": "취업 준비 기간의 자산을 분석하고 미래를 계획하는 금융생활 지원 서비스",
+  "lang": "ko-KR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fbedb0",
+  "theme_color": "#0a1680",
+  "categories": ["finance", "lifestyle", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/start-screen.png",
+      "sizes": "919x1963",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "버티 앱 시작 화면"
+    }
+  ]
+}
