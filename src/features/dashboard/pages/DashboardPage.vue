@@ -35,6 +35,12 @@ const dashboardApiLoading = ref(false)
 const financialAssets = ref(null)
 const financialAssetsError = ref('')
 const showMyDataConnectModal = ref(false)
+const MAX_BUTTIE_LEVEL = 5
+const MAX_BUTTIE_LEVEL_EXP = 500
+const dashboardMonth = new Date()
+const dashboardCalendarKey = `${dashboardMonth.getFullYear()}-${String(
+  dashboardMonth.getMonth() + 1,
+).padStart(2, '0')}`
 
 function isMyDataConnected() {
   return session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
@@ -105,17 +111,21 @@ async function loadFinancialAssets() {
   }
 }
 
+async function loadDashboardCalendar() {
+  if (session.isMockMode) return
+  try {
+    await loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true)
+  } catch {
+    // calendarState.error를 화면에 표시하므로 여기서는 재전파하지 않는다.
+  }
+}
+
 onMounted(async () => {
-  const dashboardMonth = new Date()
   await Promise.all([
     loadButtieDashboard(),
     loadFinancialAssets(),
     loadTransactions().catch(() => null),
-    session.isMockMode
-      ? Promise.resolve()
-      : loadCalendar(dashboardMonth.getFullYear(), dashboardMonth.getMonth() + 1, true).catch(
-          () => null,
-        ),
+    loadDashboardCalendar(),
   ])
   const confirmed = await simulation.hydrateConfirmed()
   if (confirmed) await quests.fetchQuests(confirmed.simulationId, confirmed)
@@ -145,8 +155,14 @@ const POLICY_APPLICATION_URLS = Object.freeze({
   'youth-saving': 'https://www.kinfa.or.kr/financialProduct/youthLeapAccount.do',
 })
 const levelInfoOpen = ref(false)
+const levelInfoButton = ref(null)
 const levelTitle = computed(() => LEVEL_TITLES[buttieLevel.value] || LEVEL_TITLES[1])
 const levelMessage = ref('')
+
+function closeLevelInfoOnMouseLeave() {
+  levelInfoOpen.value = false
+  levelInfoButton.value?.blur()
+}
 
 function parseLocalDate(value) {
   const [year, month, day] = String(value || '')
@@ -252,22 +268,32 @@ const apiButtieProgression = computed(() =>
 const buttieExp = computed(() =>
   session.isMockMode
     ? progression.exp
-    : (apiButtieProgression.value?.exp ?? finiteNumberOrNull(session.currentUser.totalExp)),
+    : (finiteNumberOrNull(session.currentUser.totalExp) ?? apiButtieProgression.value?.exp),
 )
 const buttieRequiredExp = computed(() =>
   session.isMockMode
     ? progression.nextLevelExp
-    : (apiButtieProgression.value?.requiredExp ??
-      finiteNumberOrNull(session.currentUser.requiredExp)),
+    : (finiteNumberOrNull(session.currentUser.requiredExp) ??
+      apiButtieProgression.value?.requiredExp),
 )
-const buttieLevel = computed(() =>
-  session.isMockMode
-    ? progression.level
-    : (apiButtieProgression.value?.level ?? finiteNumberOrNull(session.currentUser.level)),
+const apiButtieLevel = computed(
+  () => finiteNumberOrNull(session.currentUser.level) ?? apiButtieProgression.value?.level,
 )
-const buttieRemainingExp = computed(() => Math.max(0, buttieRequiredExp.value - buttieExp.value))
+const buttieLevel = computed(() => {
+  if (session.isMockMode) return progression.level
+
+  return buttieExp.value >= MAX_BUTTIE_LEVEL_EXP
+    ? MAX_BUTTIE_LEVEL
+    : Math.min(MAX_BUTTIE_LEVEL, Math.max(1, apiButtieLevel.value || 1))
+})
+const isMaxButtieLevel = computed(() => buttieLevel.value >= MAX_BUTTIE_LEVEL)
+const buttieRemainingExp = computed(() =>
+  isMaxButtieLevel.value ? 0 : Math.max(0, buttieRequiredExp.value - buttieExp.value),
+)
 const buttieProgressPercent = computed(() =>
-  buttieRequiredExp.value > 0
+  isMaxButtieLevel.value
+    ? 100
+    : buttieRequiredExp.value > 0
     ? Math.min(100, Math.max(0, (buttieExp.value / buttieRequiredExp.value) * 100))
     : 100,
 )
@@ -299,15 +325,27 @@ const totalAssets = computed(() =>
 const recentFinancialAnalysis = computed(() =>
   analyzePreviousCompletedMonths(financeTransactions.value, today.value),
 )
+const hasDashboardCalendarSummary = computed(
+  () =>
+    session.isMockMode ||
+    (calendarState.loaded &&
+      calendarState.key === dashboardCalendarKey &&
+      !calendarState.loading &&
+      !calendarState.error),
+)
 const monthlyExpense = computed(() =>
   session.isMockMode
     ? recentFinancialAnalysis.value.monthlyExpense
-    : finiteNumberOrNull(calendarState.totalExpense),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.totalExpense)
+      : null,
 )
 const monthlyIncome = computed(() =>
   session.isMockMode
     ? recentFinancialAnalysis.value.monthlyIncome
-    : finiteNumberOrNull(calendarState.totalIncome),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.totalIncome)
+      : null,
 )
 const hasConfirmedSimulationDurations = computed(
   () =>
@@ -555,7 +593,7 @@ const financialStatus = computed(() => {
     return {
       key: 'unknown',
       label: '확인 불가',
-      message: '서버에서 재정 위험 상태를 불러오지 못했어요',
+      message: '재정 위험 상태를 확인하지 못했어요',
       image: buttieDashboard.value?.buttieImageUrl || fallbackImage,
       fallbackImage,
       imageAlt: '재정 위험 상태를 확인할 수 없는 버티',
@@ -564,16 +602,18 @@ const financialStatus = computed(() => {
   const isDanger = apiRisk === 'DANGER' || (session.isMockMode && achievementRate.value <= 30)
   const isCaution = apiRisk === 'CAUTION' || (session.isMockMode && achievementRate.value < 80)
   const apiImage = buttieDashboard.value?.buttieImageUrl
+  const levelWasCorrected = !session.isMockMode && buttieLevel.value !== apiButtieLevel.value
 
   if (isDanger) {
     const fallbackImage = getButtieLevelImage(buttieLevel.value, 'danger')
+    const image = levelWasCorrected || buttieLevel.value === 4 ? fallbackImage : apiImage || fallbackImage
     return {
       key: 'risk',
       label: '위험',
       message: session.isMockMode
         ? `버티는 기간이 목표보다 ${Math.max(1, Math.ceil(shortageMonths.value))}개월 부족해서 버티가 녹고 있어요`
-        : '서버에서 현재 재정 상태를 위험으로 판정했어요',
-      image: apiImage || fallbackImage,
+        : '현재 재정 상태는 위험 단계예요',
+      image,
       fallbackImage,
       imageAlt: '거의 녹아내린 위험 상태의 버티',
     }
@@ -586,8 +626,8 @@ const financialStatus = computed(() => {
       label: '주의',
       message: session.isMockMode
         ? '버티는 기간이 목표보다 조금 부족해 주의가 필요해요'
-        : '서버에서 현재 재정 상태를 주의로 판정했어요',
-      image: apiImage || fallbackImage,
+        : '현재 재정 상태는 주의 단계예요',
+      image: levelWasCorrected ? fallbackImage : apiImage || fallbackImage,
       fallbackImage,
       imageAlt: '조금 녹아내린 주의 상태의 버티',
     }
@@ -599,8 +639,8 @@ const financialStatus = computed(() => {
     label: '안정',
     message: session.isMockMode
       ? '버티는 기간이 목표를 넉넉히 채워서 걱정 없어요'
-      : '서버에서 현재 재정 상태를 안정으로 판정했어요',
-    image: apiImage || fallbackImage,
+      : '현재 재정 상태는 안정 단계예요',
+    image: levelWasCorrected ? fallbackImage : apiImage || fallbackImage,
     fallbackImage,
     imageAlt: '온전한 안정 상태의 버티',
   }
@@ -626,9 +666,11 @@ const financialRiskAmount = computed(
       ? Math.round(initialAssets.value * 0.2)
       : null),
 )
-const financialSafetyBuffer = computed(() =>
-  Math.max(0, (Number(totalAssets.value) || 0) - (Number(financialRiskAmount.value) || 0)),
-)
+const financialSafetyBuffer = computed(() => {
+  const assets = finiteNumberOrNull(totalAssets.value)
+  const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
+  return assets === null || riskAmount === null ? null : Math.max(0, assets - riskAmount)
+})
 const hasReachedFinancialRiskAmount = computed(() => {
   const assets = finiteNumberOrNull(totalAssets.value)
   const riskAmount = finiteNumberOrNull(financialRiskAmount.value)
@@ -637,13 +679,18 @@ const hasReachedFinancialRiskAmount = computed(() => {
 const netCashFlow = computed(() =>
   session.isMockMode
     ? monthlyIncome.value - monthlyExpense.value
-    : finiteNumberOrNull(calendarState.netCashFlow),
+    : hasDashboardCalendarSummary.value
+      ? finiteNumberOrNull(calendarState.netCashFlow)
+      : null,
 )
-const monthlyNetChange = computed(() => Math.abs(netCashFlow.value))
+const monthlyNetChange = computed(() => {
+  const value = finiteNumberOrNull(netCashFlow.value)
+  return value === null ? null : Math.abs(value)
+})
 const monthlyNetChangeLabel = computed(() => {
-  if (netCashFlow.value > 0) return '매달 들어오는 금액'
-  if (netCashFlow.value < 0) return '매달 나가는 금액'
-  return '매달 순변동 금액'
+  if (netCashFlow.value > 0) return '이번 달 수입 초과액'
+  if (netCashFlow.value < 0) return '이번 달 지출 초과액'
+  return '이번 달 수입·지출 차액'
 })
 const remainingDurationText = computed(() => {
   if (remainingDays.value <= 0) return '목표일 도달'
@@ -684,8 +731,12 @@ const targetMonthText = computed(() =>
             <strong>Lv.{{ buttieLevel }}</strong>
             <b>{{ levelTitle }}</b>
           </div>
-          <div :class="['level-info', { 'level-info--open': levelInfoOpen }]">
+          <div
+            :class="['level-info', { 'level-info--open': levelInfoOpen }]"
+            @mouseleave="closeLevelInfoOnMouseLeave"
+          >
             <button
+              ref="levelInfoButton"
               type="button"
               class="level-info__button"
               aria-label="버티 레벨 설명 보기"
@@ -713,7 +764,7 @@ const targetMonthText = computed(() =>
               </ul>
             </div>
           </div>
-          <span v-if="buttieLevel < 5">다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span>
+          <span v-if="!isMaxButtieLevel">다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span>
           <span v-else>최고 레벨 달성</span>
         </div>
         <div
@@ -724,10 +775,10 @@ const targetMonthText = computed(() =>
           aria-valuemin="0"
           aria-valuemax="100"
         >
-          <b v-if="buttieLevel < 5">
+          <b v-if="!isMaxButtieLevel">
             {{ formatExp(buttieExp) }} / {{ formatExp(buttieRequiredExp) }} EXP
           </b>
-          <b v-else>MAX LEVEL</b>
+          <b v-else>MAX</b>
           <i aria-hidden="true">
             <span :style="{ width: `${buttieProgressPercent}%` }" />
           </i>
@@ -743,6 +794,12 @@ const targetMonthText = computed(() =>
     <div v-if="financialAssetsError" class="dashboard-api-notice" role="alert">
       <span>{{ financialAssetsError }}</span>
       <button type="button" @click="loadFinancialAssets">다시 시도</button>
+    </div>
+    <div v-if="calendarState.error" class="dashboard-api-notice" role="alert">
+      <span>{{ calendarState.error }}</span>
+      <button type="button" :disabled="calendarState.loading" @click="loadDashboardCalendar">
+        {{ calendarState.loading ? '불러오는 중' : '다시 시도' }}
+      </button>
     </div>
 
     <section class="survival-section" aria-labelledby="survival-title">
@@ -844,18 +901,18 @@ const targetMonthText = computed(() =>
             <article>
               <span>{{ monthlyNetChangeLabel }}</span>
               <strong :class="{ 'is-positive': netCashFlow > 0 }">
-                {{ formatCompactWon(monthlyNetChange) }}
+                {{ formatOptionalCompactWon(monthlyNetChange) }}
               </strong>
             </article>
           </div>
           <div class="dashboard-report__cashflow" aria-label="월평균 수입과 지출">
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--income">
               <span>{{ session.isMockMode ? '월평균 수입' : '이번 달 수입' }}</span>
-              <strong>{{ formatCompactWon(monthlyIncome) }}</strong>
+              <strong>{{ formatOptionalCompactWon(monthlyIncome) }}</strong>
             </div>
             <div class="dashboard-report__cashflow-item dashboard-report__cashflow-item--expense">
               <span>{{ session.isMockMode ? '월평균 지출' : '이번 달 지출' }}</span>
-              <strong>{{ formatCompactWon(monthlyExpense) }}</strong>
+              <strong>{{ formatOptionalCompactWon(monthlyExpense) }}</strong>
             </div>
           </div>
           <p class="dashboard-report__notice">
@@ -876,14 +933,12 @@ const targetMonthText = computed(() =>
       <section class="goal-section">
         <div class="section-head section-head--goal">
           <h2>목표 정보</h2>
+          <RouterLink :to="{ name: 'jobInfo' }">수정하기 <span>›</span></RouterLink>
         </div>
         <article class="goal-card">
           <section class="goal-card__item">
             <header>
               <span>목표 취업일</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'goal-date' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <strong class="goal-card__value">{{ targetDateDisplayText }}</strong>
             <div class="goal-card__progress">
@@ -897,21 +952,18 @@ const targetMonthText = computed(() =>
           <section class="goal-card__item">
             <header>
               <span>재정 위험까지 남은 금액</span>
-              <RouterLink :to="{ name: 'jobInfo', query: { focus: 'risk-amount' } }"
-                >수정하기 ›</RouterLink
-              >
             </header>
             <div class="goal-card__amount-row">
               <strong
                 class="goal-card__value"
                 :class="{ 'goal-card__value--warning': hasReachedFinancialRiskAmount }"
-                >{{ formatCompactWon(financialSafetyBuffer) }}</strong
+                >{{ formatOptionalCompactWon(financialSafetyBuffer) }}</strong
               >
             </div>
             <p class="goal-card__risk-caption">
               현재 {{ formatOptionalCompactWon(totalAssets) }}
               <span aria-hidden="true">·</span>
-              위험 기준 {{ formatCompactWon(financialRiskAmount) }}
+              위험 기준 {{ formatOptionalCompactWon(financialRiskAmount) }}
             </p>
           </section>
         </article>
@@ -1734,18 +1786,12 @@ const targetMonthText = computed(() =>
 }
 
 .goal-card__item header span,
-.goal-card__item header a,
 .goal-card__item footer span,
 .goal-card__amount-row > span,
 .goal-card__item p {
   color: var(--type-supporting-color);
   font-size: var(--type-supporting-size);
   font-weight: var(--type-supporting-weight);
-}
-
-.goal-card__item header a {
-  color: #666;
-  white-space: nowrap;
 }
 
 .goal-card__value {
@@ -2559,9 +2605,27 @@ const targetMonthText = computed(() =>
   line-height: 1.6;
 }
 .quest-empty a {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin-top: 8px;
-  color: var(--accent-strong);
-  font-weight: 800;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 18px;
+  background: #fbedb0;
+  box-shadow: 0 2px 6px rgb(20 30 60 / 16%);
+  color: #0a1680;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.16s ease;
+}
+@media (hover: hover) {
+  .quest-empty a:hover {
+    background: #f1b94c;
+  }
 }
 
 .block-heading--goal a {
@@ -2700,7 +2764,6 @@ const targetMonthText = computed(() =>
   .survival-card__legend {
     margin-top: 9px;
     color: #666;
-    font-size: 11px;
   }
 
   .survival-card__character-panel {
@@ -2785,11 +2848,25 @@ const targetMonthText = computed(() =>
   }
 
   .level-overview {
-    max-width: 520px;
+    max-width: none;
+    width: 100%;
   }
 }
 
 @media (max-width: 767px) {
+  .survival-card__metric span,
+  .dashboard-report__summary article span,
+  .dashboard-report__cashflow-item span,
+  .goal-card__item header span {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .survival-card__legend small,
+  :global(#app .app-shell main .survival-card__legend small) {
+    font-size: 12px !important;
+  }
+
   .dashboard__top {
     display: block;
     margin-bottom: 16px;
@@ -2827,7 +2904,7 @@ const targetMonthText = computed(() =>
   }
 
   .survival-card {
-    min-height: 556px;
+    min-height: 576px;
     border-radius: 20px;
   }
 
@@ -2839,10 +2916,11 @@ const targetMonthText = computed(() =>
     left: 17px;
   }
 
-  .survival-card__intro h3 {
+  .survival-card__intro h3,
+  :global(#app .app-shell main .survival-card__intro h3) {
     max-width: 290px;
-    font-size: 23px;
-    font-weight: var(--type-page-title-weight);
+    font-size: var(--type-page-title-size) !important;
+    font-weight: var(--type-page-title-weight) !important;
     line-height: 1.35;
   }
 
@@ -2901,10 +2979,12 @@ const targetMonthText = computed(() =>
     width: calc(100% - 34px);
   }
 
-  .survival-card__progress-area b {
+  .survival-card__progress-area b,
+  :global(#app .app-shell main .survival-card__progress-area b) {
     display: flex;
     justify-content: space-between;
     margin-bottom: 9px;
+    font-size: 13px !important;
   }
 
   .survival-card__progress {
@@ -2965,7 +3045,7 @@ const targetMonthText = computed(() =>
   .survival-card__message p {
     position: absolute;
     right: 18px;
-    bottom: 13px;
+    top: 172px;
     left: 18px;
     color: var(--type-supporting-color);
     font-size: var(--type-supporting-size);
@@ -3026,9 +3106,10 @@ const targetMonthText = computed(() =>
     font-size: 16px;
   }
 
-  .dashboard-report__notice {
+  .dashboard-report__notice,
+  :global(#app .app-shell main .dashboard-report__notice) {
     padding: 9px 14px;
-    font-size: 12px;
+    font-size: 13px !important;
   }
 
   .summary__grid {

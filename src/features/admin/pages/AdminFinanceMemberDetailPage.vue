@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getAdminFinancePersonaDatasets } from '@/features/admin/api/financeDataApi'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const route = useRoute()
 
@@ -266,7 +267,9 @@ onMounted(async () => {
 
 <template>
   <section v-if="member" class="admin-finance-member">
-    <RouterLink to="/admin/finance-data" class="admin-finance-member__back">‹ 사용자별 금융데이터 조회</RouterLink>
+    <RouterLink to="/admin/finance-data" class="admin-finance-member__back"
+      ><AppIcon name="chevron-left" :size="20" />사용자별 금융데이터 조회</RouterLink
+    >
 
     <header class="admin-finance-member__header">
       <h1>{{ member.nickname }}님의 금융데이터</h1>
@@ -442,6 +445,9 @@ onMounted(async () => {
 
 <style scoped>
 .admin-finance-member__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: var(--font-small);
 }

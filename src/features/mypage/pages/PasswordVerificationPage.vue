@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { findEmailApi } from '@/api/auth'
 import { useSessionStore } from '@/stores/session'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
 import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
 
@@ -68,7 +69,7 @@ onMounted(async () => handleCompletedVerification(await restoreIdentityVerificat
       type="button"
       @click="router.push('/mypage/security')"
     >
-      ‹ 비밀번호·보안
+      <AppIcon name="chevron-left" :size="22" />비밀번호·보안
     </button>
 
     <div class="verification-content">
@@ -100,6 +101,9 @@ onMounted(async () => handleCompletedVerification(await restoreIdentityVerificat
 }
 
 .password-verification-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: #666;
   font-size: var(--font-card-title);
   font-weight: 800;

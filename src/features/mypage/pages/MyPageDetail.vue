@@ -5,6 +5,7 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import FinancialInstitutionLogo from '@/components/ui/FinancialInstitutionLogo.vue'
 import { getNotificationSettingsApi, updateNotificationSettingsApi } from '@/api/notifications'
+import { verifyLoginCredentialsApi } from '@/api/auth'
 import {
   clearTransactions,
   loadTransactions,
@@ -84,6 +85,7 @@ const notificationSettingsLoading = ref(false)
 const notificationSettingsError = ref('')
 const withdrawError = ref('')
 const withdrawVerified = ref(false)
+const withdrawVerifying = ref(false)
 const withdrawSubmitting = ref(false)
 const notificationDefaults = {
   all: true,
@@ -387,15 +389,36 @@ function resetWithdrawVerification() {
   withdrawError.value = ''
 }
 
-function verifyWithdrawalPassword() {
-  if (session.isMockMode && !session.verifyCurrentPassword(form.password)) {
-    withdrawVerified.value = false
-    withdrawError.value = '인증 실패: 비밀번호가 일치하지 않습니다.'
-    return
-  }
-
+async function verifyWithdrawalPassword() {
+  const password = form.password
+  withdrawVerified.value = false
   withdrawError.value = ''
-  withdrawVerified.value = true
+  if (!password || withdrawVerifying.value) return
+
+  withdrawVerifying.value = true
+  try {
+    if (session.isMockMode) {
+      if (!session.verifyCurrentPassword(password)) {
+        const error = new Error('비밀번호가 일치하지 않습니다.')
+        error.status = 401
+        throw error
+      }
+    } else {
+      const email = session.currentUser.email
+      if (!email) throw new Error('사용자 정보를 확인하지 못했습니다. 다시 로그인해 주세요.')
+      await verifyLoginCredentialsApi(email, password)
+    }
+
+    if (form.password === password) withdrawVerified.value = true
+  } catch (error) {
+    if (form.password !== password) return
+    const invalidPassword = error?.status === 401 || error?.status === 404
+    withdrawError.value = invalidPassword
+      ? '인증 실패: 비밀번호가 일치하지 않습니다.'
+      : error?.message || '비밀번호를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+  } finally {
+    withdrawVerifying.value = false
+  }
 }
 
 async function withdrawAccount() {
@@ -569,19 +592,10 @@ function reconnectMyData() {
       aria-label="마이페이지로 돌아가기"
       @click="router.push('/mypage')"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <h1 class="desktop-only">{{ info[0] }}</h1>
     <p class="desktop-only detail-description">{{ info[1] }}</p>
-    <h1
-      class="mobile-only mobile-section-title"
-      :class="{
-        'mobile-section-title--flat':
-          route.name === 'notificationSettings' || route.name === 'dataManagement',
-      }"
-    >
-      {{ info[0] }}
-    </h1>
 
     <template v-if="route.name === 'myInfo'">
       <div class="identity-row">
@@ -867,14 +881,18 @@ function reconnectMyData() {
             @input="resetWithdrawVerification"
             @keyup.enter="verifyWithdrawalPassword"
           />
-          <button type="button" :disabled="!form.password" @click="verifyWithdrawalPassword">
-            인증하기
+          <button
+            type="button"
+            :disabled="!form.password || withdrawVerifying"
+            @click="verifyWithdrawalPassword"
+          >
+            {{ withdrawVerifying ? '확인 중...' : '인증하기' }}
           </button>
         </div></label
       >
       <p v-if="withdrawError" class="withdraw-error" role="alert">{{ withdrawError }}</p>
       <p v-if="withdrawVerified" class="withdraw-success" aria-live="polite">
-        비밀번호가 입력되었습니다. 최종 탈퇴 시 서버에서 확인합니다.
+        비밀번호가 확인되었습니다.
       </p>
       <div class="withdraw-character">
         <img :src="profileImage" alt="" />
@@ -1084,20 +1102,6 @@ function reconnectMyData() {
   color: #777;
   font-size: var(--font-small);
 }
-.mobile-section-title {
-  padding: 12px 15px;
-  border: 1px solid #e2e3e8;
-  border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 2px 4px rgb(15 23 42 / 12%);
-  font-size: var(--font-body);
-}
-
-.mobile-section-title--flat {
-  box-shadow: none !important;
-  font-size: var(--font-small);
-}
-
 .identity-row {
   display: flex;
   align-items: center;
@@ -1319,10 +1323,14 @@ function reconnectMyData() {
   width: 43px;
   height: 24px;
   appearance: none;
+  border: 1px solid #cfd5df;
   border-radius: 999px;
-  background: #d9d9d9;
+  background: #e7eaf0;
   cursor: pointer;
-  transition: background 0.2s;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    box-shadow 0.2s;
 }
 .toggle-card input::after,
 .toggle-list input::after {
@@ -1339,11 +1347,18 @@ function reconnectMyData() {
 }
 .toggle-card input:checked,
 .toggle-list input:checked {
-  background: #4d352a;
+  border-color: #0a1680;
+  background: #0a1680;
+  box-shadow: 0 0 0 1px rgb(10 22 128 / 18%);
 }
 .toggle-card input:checked::after,
 .toggle-list input:checked::after {
   transform: translateX(19px);
+}
+.toggle-card input:focus-visible,
+.toggle-list input:focus-visible {
+  outline: 3px solid #93b2f8;
+  outline-offset: 2px;
 }
 .toggle-list {
   margin-top: 16px;
@@ -1612,6 +1627,32 @@ function reconnectMyData() {
 .withdraw-password {
   margin-top: 20px;
 }
+.withdraw-password input {
+  border: 2px solid #66758f !important;
+  background: #fff !important;
+  box-shadow:
+    inset 0 0 0 1px rgb(102 117 143 / 12%),
+    0 3px 8px rgb(15 23 42 / 13%) !important;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.withdraw-password input::placeholder {
+  color: #8a93a3;
+  opacity: 1;
+}
+@media (hover: hover) {
+  .withdraw-password input:hover:not(:focus) {
+    border-color: #0a1680 !important;
+  }
+}
+.withdraw-password input:focus {
+  border-color: #0a1680 !important;
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgb(10 22 128 / 16%),
+    0 3px 8px rgb(15 23 42 / 13%) !important;
+}
 .withdraw-password__row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 108px;
@@ -1629,7 +1670,8 @@ function reconnectMyData() {
   opacity: 0.45;
 }
 .withdraw-password input[aria-invalid='true'] {
-  border-color: #f0574f;
+  border-color: #f0574f !important;
+  box-shadow: 0 0 0 3px rgb(240 87 79 / 14%) !important;
 }
 .withdraw-error,
 .withdraw-success {
@@ -1714,9 +1756,6 @@ function reconnectMyData() {
 
   .detail-page {
     padding-bottom: 18px;
-  }
-  .mobile-section-title {
-    margin-bottom: 12px;
   }
   .identity-row {
     margin: 8px 8px 16px;

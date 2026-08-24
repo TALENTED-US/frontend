@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { findEmailApi, resetPasswordApi } from '@/api/auth'
 import BrandLogo from '@/components/navigation/BrandLogo.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import recoverySuccessCheck from '@/assets/auth-recovery-success-check.svg'
 import { useIdentityVerification } from '@/features/auth/composables/useIdentityVerification'
 import { IDENTITY_VERIFICATION_PURPOSE } from '@/features/auth/services/identityVerification'
@@ -245,7 +246,7 @@ async function resetPassword() {
       :class="{ 'result-mobile-header': isIdResult, 'id-mobile-header': isId }"
     >
       <button v-if="!isId" type="button" class="mobile-back" aria-label="뒤로가기" @click="goBack">
-        ‹
+        <AppIcon name="chevron-left" :size="22" />
       </button>
       <strong>{{ isId ? '아이디 찾기' : '비밀번호 찾기' }}</strong>
     </header>

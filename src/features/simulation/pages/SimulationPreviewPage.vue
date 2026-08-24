@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import ConfirmedFinancialTimeline from '@/features/simulation/components/ConfirmedFinancialTimeline.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import { formatPrepMonthsWithUnit, isInfinitePrepMonths } from '@/utils/prepMonths'
 import '@/features/simulation/styles/simulation.css'
 
@@ -116,7 +117,7 @@ const arrowPath = (before, after) => {
       aria-label="뒤로가기"
       @click="router.push(`/simulation/${category}`)"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <RouterLink

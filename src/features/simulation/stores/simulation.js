@@ -31,6 +31,7 @@ import {
 import { getPoliciesApi } from '@/api/policy'
 import { getButtieDashboardApi } from '@/api/dashboard'
 import { getMyDataAssetsApi } from '@/api/mydata'
+import { getTimelineApi } from '@/api/timeline'
 import { calculateAge, mapPolicyPage, normalizePolicyRegion } from '@/mappers/policy'
 import {
   EXPENSE_CATEGORY_LABELS,
@@ -157,13 +158,20 @@ export const useSimulationStore = defineStore('simulation', () => {
   const syncError = ref('')
   const remoteReport = ref(null)
   const remoteSimulation = ref(null)
+  const remoteTimeline = ref(null)
   const runwayBaseline = ref(null)
   const currentFinancialAssets = ref(null)
+  const financialSnapshotLoading = ref(false)
+  const financialSnapshotError = ref('')
+  const runwayBaselineError = ref('')
   const recentConfirmed = ref(null)
   const remoteDraftExists = ref(null)
   const policyCatalog = ref([])
   const policyCatalogLoading = ref(false)
   const policyCatalogError = ref('')
+  const aiPlanPrompt = ref('')
+  const aiPlanRecommendations = ref(null)
+  const aiCategoryPrompts = ref({ expense: '', income: '', policy: '' })
   const policyCatalogPageInfo = ref({
     page: 1,
     size: 10,
@@ -214,8 +222,11 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!remoteEnabled) return null
     if (!force && financialSnapshotRequest) return financialSnapshotRequest
 
+    financialSnapshotLoading.value = true
+    financialSnapshotError.value = ''
     financialSnapshotRequest = Promise.allSettled([getMyDataAssetsApi(), loadTransactions(force)])
-      .then(([assetsResult]) => {
+      .then(([assetsResult, transactionsResult]) => {
+        const errors = []
         if (assetsResult.status === 'fulfilled') {
           const accounts = Array.isArray(assetsResult.value?.accounts)
             ? assetsResult.value.accounts
@@ -223,10 +234,20 @@ export const useSimulationStore = defineStore('simulation', () => {
           currentFinancialAssets.value = accounts
             .filter((account) => account.isConsent !== false)
             .reduce((sum, account) => sum + (finiteNumberOrNull(account.balance) ?? 0), 0)
+        } else {
+          currentFinancialAssets.value = null
+          errors.push(assetsResult.reason?.message || '총자산을 불러오지 못했습니다.')
         }
+
+        if (transactionsResult.status === 'rejected') {
+          errors.push(transactionsResult.reason?.message || '거래 내역을 불러오지 못했습니다.')
+        }
+
+        financialSnapshotError.value = [...new Set(errors)].join(' ')
         return currentFinancialAssets.value
       })
       .finally(() => {
+        financialSnapshotLoading.value = false
         financialSnapshotRequest = null
       })
     return financialSnapshotRequest
@@ -237,16 +258,36 @@ export const useSimulationStore = defineStore('simulation', () => {
     if (!force && runwayBaseline.value) return runwayBaseline.value
     if (runwayBaselineRequest) return runwayBaselineRequest
 
+    runwayBaselineError.value = ''
     runwayBaselineRequest = getButtieDashboardApi()
       .then((data) => {
         runwayBaseline.value = data
         return data
       })
-      .catch(() => null)
+      .catch((error) => {
+        runwayBaseline.value = null
+        runwayBaselineError.value = error.message || '버티는 기간을 불러오지 못했습니다.'
+        return null
+      })
       .finally(() => {
         runwayBaselineRequest = null
       })
     return runwayBaselineRequest
+  }
+
+  async function hydrateTimeline(force = false) {
+    if (!remoteEnabled) return null
+    if (!force && remoteTimeline.value) return remoteTimeline.value
+
+    try {
+      const timeline = await getTimelineApi({ fresh: force })
+      remoteTimeline.value = timeline
+      return timeline
+    } catch {
+      // 타임라인 조회가 실패해도 확정 시뮬레이션과 사용자 목표일 값으로
+      // 화면을 표시할 수 있으므로 기존 데이터를 유지한다.
+      return null
+    }
   }
 
   function currentUserKey() {
@@ -257,6 +298,7 @@ export const useSimulationStore = defineStore('simulation', () => {
 
   function clearConfirmedSnapshot() {
     recentConfirmed.value = null
+    remoteTimeline.value = null
     sessionStorage.removeItem(CONFIRMED_SNAPSHOT_KEY)
   }
 
@@ -384,7 +426,11 @@ export const useSimulationStore = defineStore('simulation', () => {
       : recentAnalysis.value.monthlyExpense,
   )
   const targetMonths = computed(() =>
-    remainingMonthsUntil(session.currentUser.goalDate || session.currentUser.targetDate),
+    remainingMonthsUntil(
+      remoteTimeline.value?.targetEmploymentDate ||
+        session.currentUser.goalDate ||
+        session.currentUser.targetDate,
+    ),
   )
   const currentMonthlyBurn = computed(() => Math.max(1, monthlyExpense.value || 0))
   const localCurrentMonths = computed(() =>
@@ -395,6 +441,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   // 실 API 모드는 확정 결과, 보고서, 미확정 시뮬레이션 순으로 서버 계산값을 사용한다.
   const remoteCurrentMonths = computed(
     () =>
+      finiteNumberOrNull(state.confirmed ? remoteTimeline.value?.currentPrepMonths : null) ??
       finiteNumberOrNull(state.confirmed ? recentConfirmed.value?.currentMonths : null) ??
       finiteNumberOrNull(remoteReport.value?.currentPrepMonths) ??
       finiteNumberOrNull(remoteSimulation.value?.currentPrepMonths) ??
@@ -460,6 +507,7 @@ export const useSimulationStore = defineStore('simulation', () => {
   // 수정 중에는 보고서/미확정 시뮬레이션 값, 확정 후에는 확정 응답 값을 사용한다.
   const remoteExpectedMonths = computed(
     () =>
+      finiteNumberOrNull(state.confirmed ? remoteTimeline.value?.expectPrepMonths : null) ??
       finiteNumberOrNull(state.confirmed ? recentConfirmed.value?.expectedMonths : null) ??
       finiteNumberOrNull(remoteReport.value?.expectPrepMonths) ??
       finiteNumberOrNull(remoteSimulation.value?.expectPrepMonths),
@@ -482,13 +530,13 @@ export const useSimulationStore = defineStore('simulation', () => {
           )
       : getStatus(currentMonths.value, targetMonths.value),
   )
-  const expectedStatus = computed(() =>
-    remoteEnabled
-      ? getApiSustainableStatus(
-          remoteReport.value?.expectSustainable ?? recentConfirmed.value?.expectSustainable,
-        )
-      : getStatus(expectedMonths.value, targetMonths.value),
-  )
+  // 적용 후 상태는 영구적인 자금 고갈 여부(expectSustainable)가 아니라,
+  // 목표 취업일까지 필요한 기간 대비 실제로 버틸 수 있는 기간으로 판정한다.
+  const expectedStatus = computed(() => {
+    const months = finiteNumberOrNull(expectedMonths.value)
+    if (months === null) return { key: 'unknown', label: '확인 불가', rate: 0 }
+    return getStatus(months, targetMonths.value)
+  })
   const reportCashflow = computed(() => {
     const cashflow = remoteReport.value?.cashflow
     if (!cashflow) return null
@@ -1098,14 +1146,47 @@ export const useSimulationStore = defineStore('simulation', () => {
     })
     if (changed) state.completedQuestIds = [...new Set(migrated)]
   }
-  function resetScenario() {
+  function resetScenario({ clearFinancialData = false } = {}) {
     Object.assign(state, defaultState())
     remoteReport.value = null
     remoteSimulation.value = null
     clearConfirmedSnapshot()
     remoteDraftExists.value = null
+    if (clearFinancialData) {
+      runwayBaseline.value = null
+      currentFinancialAssets.value = null
+      financialSnapshotError.value = ''
+      runwayBaselineError.value = ''
+    }
     invalidateRemoteLookups()
     syncError.value = ''
+    clearAiPlanRecommendations()
+  }
+
+  function setAiPlanRecommendations(prompt, recommendations) {
+    aiPlanPrompt.value = String(prompt || '').trim()
+    aiPlanRecommendations.value = recommendations || null
+    aiCategoryPrompts.value = { expense: '', income: '', policy: '' }
+  }
+
+  function setAiCategoryRecommendations(category, prompt, recommendations) {
+    const next = { ...(aiPlanRecommendations.value || {}) }
+
+    if (category === 'expense') next.financialRecommendation = recommendations?.financialRecommendation
+    if (category === 'income') next.incomeRecommendation = recommendations?.incomeRecommendation
+    if (category === 'policy') next.policyRecommendations = recommendations?.policyRecommendations || []
+
+    aiPlanRecommendations.value = next
+    aiCategoryPrompts.value = {
+      ...aiCategoryPrompts.value,
+      [category]: String(prompt || '').trim(),
+    }
+  }
+
+  function clearAiPlanRecommendations() {
+    aiPlanPrompt.value = ''
+    aiPlanRecommendations.value = null
+    aiCategoryPrompts.value = { expense: '', income: '', policy: '' }
   }
 
   function prepareNewScenario() {
@@ -1271,7 +1352,7 @@ export const useSimulationStore = defineStore('simulation', () => {
       const previewReady = runwayCalculationReady.value
       if (!previewReady) {
         syncError.value = remoteEnabled
-          ? '서버에서 시뮬레이션 기간 결과를 불러오지 못했습니다.'
+          ? '시뮬레이션 기간 결과를 불러오지 못했습니다.'
           : '월 지출 내역이 없어 예상 버티는 기간을 계산할 수 없습니다.'
         return false
       }
@@ -1297,30 +1378,30 @@ export const useSimulationStore = defineStore('simulation', () => {
         const response = await getLatestConfirmedSimulationApi()
         const remoteConfirmed = mapConfirmedSimulationResponse(response, policyCatalog.value)
 
-      const restored = restoreConfirmedSnapshot()
-      const canReuseClientSnapshot =
-        restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
-        restored.simulationId === remoteConfirmed.simulationId &&
-        restored.confirmedAt === remoteConfirmed.confirmedAt &&
-        Number.isFinite(Number(restored.currentMonths)) &&
-        Number.isFinite(Number(restored.expectedMonths))
-      let confirmed
+        const restored = restoreConfirmedSnapshot()
+        const canReuseClientSnapshot =
+          restored?.clientCalculationVersion === CLIENT_CALCULATION_VERSION &&
+          restored.simulationId === remoteConfirmed.simulationId &&
+          restored.confirmedAt === remoteConfirmed.confirmedAt &&
+          Number.isFinite(Number(restored.currentMonths)) &&
+          Number.isFinite(Number(restored.expectedMonths))
+        let confirmed
 
-      if (canReuseClientSnapshot) {
-        confirmed = {
-          ...restored,
-          ...remoteConfirmed,
-          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+        if (canReuseClientSnapshot) {
+          confirmed = {
+            ...restored,
+            ...remoteConfirmed,
+            clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+          }
+          applyConfirmedItems(confirmed)
+        } else {
+          confirmed = {
+            ...remoteConfirmed,
+            clientCalculationVersion: CLIENT_CALCULATION_VERSION,
+          }
+          applyConfirmedItems(confirmed)
+          recentConfirmed.value = null
         }
-        applyConfirmedItems(confirmed)
-      } else {
-        confirmed = {
-          ...remoteConfirmed,
-          clientCalculationVersion: CLIENT_CALCULATION_VERSION,
-        }
-        applyConfirmedItems(confirmed)
-        recentConfirmed.value = null
-      }
 
         remoteSimulation.value = response
         remoteReport.value = null
@@ -1546,6 +1627,9 @@ export const useSimulationStore = defineStore('simulation', () => {
     policyCatalogLoading,
     policyCatalogError,
     policyCatalogPageInfo,
+    aiPlanPrompt,
+    aiPlanRecommendations,
+    aiCategoryPrompts,
     totalAssets,
     availableAssets,
     monthlyIncome,
@@ -1574,8 +1658,15 @@ export const useSimulationStore = defineStore('simulation', () => {
     hasDraft,
     syncing,
     syncError,
+    financialSnapshotLoading,
+    financialSnapshotError,
+    runwayBaselineError,
     clearSyncError,
+    setAiPlanRecommendations,
+    setAiCategoryRecommendations,
+    clearAiPlanRecommendations,
     remoteReport,
+    remoteTimeline,
     runwayBaseline,
     recentConfirmed,
     financialDataReady,
@@ -1609,6 +1700,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     hydrateDraft,
     prepareConfirmationPreview,
     hydrateConfirmed,
+    hydrateTimeline,
     hydrateRunwayBaseline,
     hydrateFinancialSnapshot,
     beginSimulation,

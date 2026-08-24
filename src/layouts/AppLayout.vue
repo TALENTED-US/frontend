@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/navigation/AppHeader.vue'
+import AppFooter from '@/components/navigation/AppFooter.vue'
 import BottomNavigation from '@/components/navigation/BottomNavigation.vue'
 import DesktopSidebar from '@/components/navigation/DesktopSidebar.vue'
 import SkipLink from '@/components/ui/SkipLink.vue'
@@ -10,6 +11,9 @@ const route = useRoute()
 const body = ref(null)
 const mainContent = ref(null)
 const isSimulationContinue = computed(() => route.name === 'simulationContinue')
+const isEmptyHeaderPage = computed(() =>
+  ['dashboard', 'finance', 'simulation', 'search', 'mypage'].includes(route.name),
+)
 
 watch(
   () => route.fullPath,
@@ -30,16 +34,25 @@ watch(
       class="app-shell__body"
       :class="{ 'app-shell__body--continue': isSimulationContinue }"
     >
-      <AppHeader :class="{ 'app-shell__header--continue': isSimulationContinue }" />
+      <AppHeader
+        :class="{
+          'app-shell__header--continue': isSimulationContinue,
+          'app-shell__header--empty': isEmptyHeaderPage,
+        }"
+      />
       <main
         id="main-content"
         ref="mainContent"
         class="app-shell__content"
-        :class="{ 'app-shell__content--continue': isSimulationContinue }"
+        :class="{
+          'app-shell__content--continue': isSimulationContinue,
+          'app-shell__content--empty-header': isEmptyHeaderPage,
+        }"
         tabindex="-1"
       >
         <RouterView />
       </main>
+      <AppFooter class="desktop-only" />
     </div>
     <BottomNavigation class="mobile-only" />
   </div>
@@ -54,6 +67,8 @@ watch(
 
 .app-shell__body {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh;
   margin-left: var(--sidebar-width);
 }
@@ -65,6 +80,7 @@ watch(
 
 .app-shell__content {
   width: min(100%, 1180px);
+  flex: 1;
   margin: 0 auto;
   padding: 79px clamp(32px, 5vw, 64px) 96px;
 }
@@ -99,6 +115,25 @@ watch(
   .app-shell__content--continue {
     min-height: 100dvh;
     padding: 0;
+  }
+
+  .app-shell__header--empty {
+    display: none;
+  }
+
+  .app-shell__content--empty-header {
+    padding-top: 32px;
+  }
+
+  /* Desktop layout does not reflow/shrink below this width — narrower
+     windows get a horizontal scrollbar instead, like a fixed-width desktop
+     site. Only the mobile breakpoint above gets a truly fluid layout. */
+  .app-shell {
+    min-width: 1240px;
+  }
+
+  .app-shell__body {
+    min-width: 1024px;
   }
 }
 </style>

@@ -9,6 +9,8 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { expenseCategoryLabel } from '@/constants/expenseCategories'
 import { mapPolicyResponse } from '@/mappers/policy'
 import assistantAvatar from '@/assets/images/simulation/buttie-ai-assistant.png'
+import loadingSymbol from '@/assets/images/simulation/buttie-loading-symbol.png'
+import loadingWordmark from '@/assets/images/simulation/buttie-loading-wordmark.png'
 
 const props = defineProps({
   category: {
@@ -30,6 +32,7 @@ const panel = ref(null)
 let panelAnimation = null
 const PROMPT_LINE_HEIGHT = 20
 const PROMPT_MAX_LINES = 4
+let recommendationRequestId = 0
 
 function resizePromptInput() {
   const element = input.value
@@ -49,6 +52,22 @@ watch(
     nextTick(resizePromptInput)
   },
   { flush: 'post' },
+)
+
+watch(
+  () => props.category,
+  () => {
+    recommendationRequestId += 1
+    panelAnimation?.cancel()
+    panelAnimation = null
+    open.value = false
+    prompt.value = ''
+    conversation.value = null
+    recommendations.value = []
+    errorMessage.value = ''
+    loading.value = false
+    nextTick(resizePromptInput)
+  },
 )
 
 const selectedIds = computed(() => new Set(simulation.state.policies.map((policy) => policy.id)))
@@ -228,6 +247,9 @@ async function submitPrompt() {
   const question = prompt.value.trim()
   if (!question || loading.value) return
 
+  const requestCategory = props.category
+  const requestId = ++recommendationRequestId
+
   conversation.value = question
   prompt.value = ''
   errorMessage.value = ''
@@ -235,17 +257,22 @@ async function submitPrompt() {
   loading.value = true
 
   try {
-    recommendations.value =
-      props.category === 'expense'
+    const result =
+      requestCategory === 'expense'
         ? await getExpenseRecommendationsApi(question)
-        : props.category === 'income'
+        : requestCategory === 'income'
           ? await getIncomeRecommendationsApi(question)
           : await getPolicyRecommendationsApi(question)
+    if (requestId !== recommendationRequestId || requestCategory !== props.category) return
+    recommendations.value = result
   } catch (error) {
+    if (requestId !== recommendationRequestId || requestCategory !== props.category) return
     errorMessage.value = recommendationErrorMessage(error)
   } finally {
-    loading.value = false
-    nextTick(() => input.value?.focus())
+    if (requestId === recommendationRequestId && requestCategory === props.category) {
+      loading.value = false
+      nextTick(() => input.value?.focus())
+    }
   }
 }
 
@@ -279,14 +306,14 @@ function expenseSelected(item) {
       <span>AI</span>
     </button>
 
-  <section
-    v-if="open"
-    ref="panel"
-    class="ai-policy-panel"
-    role="dialog"
-    aria-modal="false"
-    aria-labelledby="ai-policy-title"
-  >
+    <section
+      v-if="open"
+      ref="panel"
+      class="ai-policy-panel"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="ai-policy-title"
+    >
       <header class="ai-policy-panel__header">
         <div>
           <span class="ai-policy-panel__mark">
@@ -328,7 +355,13 @@ function expenseSelected(item) {
         </div>
 
         <div v-if="loading" class="ai-policy-thinking">
-          <span /><span /><span />
+          <span class="ai-policy-thinking__brand" aria-hidden="true">
+            <img :src="loadingSymbol" alt="" />
+            <img :src="loadingWordmark" alt="" />
+          </span>
+          <span class="ai-policy-thinking__dots" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
           <p>{{ assistantCopy.thinking }}</p>
         </div>
 
@@ -692,17 +725,47 @@ function expenseSelected(item) {
   background: #fff;
   box-shadow: 0 2px 10px rgb(25 33 56 / 7%);
 }
-.ai-policy-thinking span {
+.ai-policy-thinking__brand {
+  display: flex !important;
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 34px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgb(233 170 42 / 22%);
+  border-radius: 11px !important;
+  background: #fff !important;
+  box-shadow: 0 4px 12px rgb(21 35 156 / 12%);
+  animation: ai-policy-brand-pulse 1.4s ease-in-out infinite !important;
+}
+.ai-policy-thinking__brand img:first-child {
+  width: 21px;
+  height: 19px;
+  object-fit: contain;
+}
+.ai-policy-thinking__brand img:last-child {
+  width: 24px;
+  height: 9px;
+  object-fit: contain;
+}
+.ai-policy-thinking__dots {
+  display: flex;
+  gap: 5px;
+}
+.ai-policy-thinking__dots i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #e9aa2a;
   animation: ai-policy-bounce 1s infinite alternate;
 }
-.ai-policy-thinking span:nth-child(2) {
+.ai-policy-thinking__dots i:nth-child(2) {
   animation-delay: 0.2s;
 }
-.ai-policy-thinking span:nth-child(3) {
+.ai-policy-thinking__dots i:nth-child(3) {
   animation-delay: 0.4s;
 }
 .ai-policy-thinking p {
@@ -714,6 +777,15 @@ function expenseSelected(item) {
   to {
     transform: translateY(-4px);
     opacity: 0.5;
+  }
+}
+@keyframes ai-policy-brand-pulse {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+  50% {
+    transform: scale(1.05);
   }
 }
 
@@ -946,5 +1018,4 @@ function expenseSelected(item) {
     padding-top: 11px;
   }
 }
-
 </style>

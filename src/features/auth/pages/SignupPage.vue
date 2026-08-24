@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   checkEmailDuplicateApi,
@@ -25,6 +25,7 @@ const isSubmitting = ref(false)
 const isSignupCompleted = ref(false)
 const createdUserId = ref('')
 const submissionError = ref('')
+const activeAgreement = ref(null)
 const isChecking = reactive({ email: false, nickname: false })
 const {
   isVerifying,
@@ -62,10 +63,90 @@ const agreements = reactive({
 })
 
 const agreementItems = [
-  { key: 'terms', label: '[필수] 이용약관 동의', required: true },
-  { key: 'privacy', label: '[필수] 개인정보 처리방침 동의', required: true },
-  { key: 'age', label: '[필수] 만 14세 이상 확인', required: true },
-  { key: 'marketing', label: '[선택] 마케팅 정보 수신 동의', required: false },
+  {
+    key: 'terms',
+    label: '[필수] 이용약관 동의',
+    title: 'BUTTIE 서비스 이용약관',
+    required: true,
+    sections: [
+      {
+        heading: '제1조 목적',
+        body: '본 약관은 BUTTIE가 제공하는 취업 준비 재정 관리, 정책 추천, 시뮬레이션 및 관련 서비스의 이용 조건과 회원의 권리·의무를 정하는 것을 목적으로 합니다.',
+      },
+      {
+        heading: '제2조 서비스 이용',
+        body: '회원은 본인 정보를 정확하게 입력해야 하며, 계정과 비밀번호를 안전하게 관리해야 합니다. 타인의 정보를 도용하거나 서비스 운영을 방해하는 행위는 금지됩니다.',
+      },
+      {
+        heading: '제3조 서비스 제공 및 변경',
+        body: 'BUTTIE는 자산 현황 분석, 취업 준비 기간 시뮬레이션, 맞춤형 정책 정보 등의 기능을 제공합니다. 안정적인 운영을 위해 서비스의 일부가 변경되거나 일시 중단될 수 있습니다.',
+      },
+      {
+        heading: '제4조 정보의 활용',
+        body: '서비스에서 제공하는 분석과 추천 결과는 취업 준비를 돕기 위한 참고 자료이며, 실제 금융·법률·행정 결과를 보장하지 않습니다. 중요한 결정은 관련 기관의 최신 정보를 함께 확인해 주세요.',
+      },
+    ],
+  },
+  {
+    key: 'privacy',
+    label: '[필수] 개인정보 처리방침 동의',
+    title: '개인정보 수집 및 이용 안내',
+    required: true,
+    sections: [
+      {
+        heading: '수집 항목',
+        body: '이름, 생년월일, 휴대전화 번호, 이메일, 닉네임, 본인인증 정보와 서비스 이용 중 회원이 입력하거나 연동한 재정·취업 준비 정보를 수집합니다.',
+      },
+      {
+        heading: '이용 목적',
+        body: '회원 식별과 가입 처리, 맞춤형 재정 분석 및 시뮬레이션 제공, 정책 추천, 문의 대응, 서비스 품질 개선과 부정 이용 방지를 위해 이용합니다.',
+      },
+      {
+        heading: '보유 기간',
+        body: '회원 탈퇴 시 지체 없이 삭제하는 것을 원칙으로 합니다. 다만 관계 법령에서 일정 기간 보관을 요구하는 정보는 해당 기간 동안 안전하게 분리 보관합니다.',
+      },
+      {
+        heading: '동의 거부 권리',
+        body: '개인정보 수집 및 이용에 동의하지 않을 수 있으나, 필수 정보에 대한 동의를 거부하면 회원가입과 핵심 서비스 이용이 제한될 수 있습니다.',
+      },
+    ],
+  },
+  {
+    key: 'age',
+    label: '[필수] 만 14세 이상 확인',
+    title: '만 14세 이상 이용 확인',
+    required: true,
+    sections: [
+      {
+        heading: '연령 확인',
+        body: 'BUTTIE는 만 14세 이상 사용자를 대상으로 제공됩니다. 회원가입을 진행하면 가입자 본인이 만 14세 이상임을 확인한 것으로 봅니다.',
+      },
+      {
+        heading: '보호자 안내',
+        body: '만 14세 미만 사용자의 개인정보는 법정대리인의 동의 없이 수집하지 않습니다. 연령 정보가 사실과 다른 것으로 확인되면 계정 이용이 제한될 수 있습니다.',
+      },
+    ],
+  },
+  {
+    key: 'marketing',
+    label: '[선택] 마케팅 정보 수신 동의',
+    title: '마케팅 정보 수신 동의',
+    required: false,
+    sections: [
+      {
+        heading: '수신 내용',
+        body: 'BUTTIE의 신규 기능, 취업 지원 정책, 재정 관리 팁, 이벤트와 혜택에 관한 안내를 이메일 또는 알림으로 보내드릴 수 있습니다.',
+      },
+      {
+        heading: '이용 정보 및 기간',
+        body: '안내 발송을 위해 이메일 주소와 알림 설정 정보를 회원 탈퇴 또는 마케팅 동의 철회 시까지 이용합니다.',
+      },
+      {
+        heading: '동의 철회',
+        body: '본 동의는 선택 사항이며 동의하지 않아도 기본 서비스를 이용할 수 있습니다. 동의 후에도 마이페이지의 알림 설정에서 언제든지 철회할 수 있습니다.',
+      },
+    ],
+  },
 ]
 
 const allAgreed = computed({
@@ -81,13 +162,39 @@ const passwordIsValid = computed(() => {
   return /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/.test(form.password)
 })
 
+const passwordFeedback = computed(() => {
+  if (!form.password) return null
+
+  return passwordIsValid.value
+    ? { message: '사용 가능한 비밀번호입니다.', valid: true }
+    : {
+        message: '영문, 숫자, 특수문자를 포함해 8자 이상 입력해 주세요.',
+        valid: false,
+      }
+})
+
+const passwordConfirmFeedback = computed(() => {
+  if (!form.confirm) return null
+
+  const valid = form.password === form.confirm
+  return {
+    message: valid ? '비밀번호가 일치합니다.' : '비밀번호가 일치하지 않습니다.',
+    valid,
+  }
+})
+
 const requiredAgreed = computed(() => {
   return agreements.terms && agreements.privacy && agreements.age
 })
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleTermsEscape)
   const verification = await restoreIdentityVerificationRedirect()
   await completeVerificationStep(verification)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleTermsEscape)
 })
 
 async function startVerification() {
@@ -216,8 +323,25 @@ function goToTerms() {
   }
 }
 
-function showTerms(label) {
-  window.alert(label + ' 약관 내용은 준비 중입니다.')
+function showTerms(item) {
+  activeAgreement.value = item
+}
+
+function closeTerms() {
+  activeAgreement.value = null
+}
+
+function agreeToActiveTerms() {
+  if (!activeAgreement.value) return
+
+  agreements[activeAgreement.value.key] = true
+  closeTerms()
+}
+
+function handleTermsEscape(event) {
+  if (event.key === 'Escape' && activeAgreement.value) {
+    closeTerms()
+  }
 }
 
 async function completeSignup() {
@@ -373,6 +497,7 @@ async function completeSignup() {
                 v-model="form.password"
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="영문, 숫자, 특수문자 포함 8자 이상"
+                :aria-invalid="Boolean(form.password) && !passwordIsValid"
                 @input="clearPasswordErrors"
               />
               <button
@@ -390,8 +515,13 @@ async function completeSignup() {
                 </svg>
               </button>
             </div>
-            <p v-if="errors.password" class="field-message">
-              {{ errors.password }}
+            <p
+              v-if="errors.password || passwordFeedback"
+              class="field-message"
+              :class="{ success: !errors.password && passwordFeedback?.valid }"
+              aria-live="polite"
+            >
+              {{ errors.password || passwordFeedback?.message }}
             </p>
           </div>
 
@@ -403,6 +533,7 @@ async function completeSignup() {
                 v-model="form.confirm"
                 :type="showPasswordConfirm ? 'text' : 'password'"
                 placeholder="비밀번호를 다시 입력하세요"
+                :aria-invalid="Boolean(form.confirm) && form.password !== form.confirm"
                 @input="errors.confirm = ''"
               />
               <button
@@ -420,8 +551,15 @@ async function completeSignup() {
                 </svg>
               </button>
             </div>
-            <p v-if="errors.confirm" class="field-message">
-              {{ errors.confirm }}
+            <p
+              v-if="errors.confirm || passwordConfirmFeedback"
+              class="field-message"
+              :class="{
+                success: !errors.confirm && passwordConfirmFeedback?.valid,
+              }"
+              aria-live="polite"
+            >
+              {{ errors.confirm || passwordConfirmFeedback?.message }}
             </p>
           </div>
 
@@ -472,7 +610,7 @@ async function completeSignup() {
               <input v-model="agreements[item.key]" type="checkbox" />
               <span :class="{ required: item.required }">{{ item.label }}</span>
             </label>
-            <button type="button" @click="showTerms(item.label)">보기</button>
+            <button type="button" @click="showTerms(item)">보기</button>
           </li>
         </ul>
 
@@ -499,6 +637,47 @@ async function completeSignup() {
         이미 계정이 있으신가요?
         <RouterLink to="/auth/login">로그인</RouterLink>
       </p>
+
+      <Teleport to="body">
+        <div
+          v-if="activeAgreement"
+          class="terms-modal-backdrop"
+          role="presentation"
+          @click.self="closeTerms"
+        >
+          <section
+            class="terms-modal"
+            role="dialog"
+            aria-modal="true"
+            :aria-labelledby="`agreement-title-${activeAgreement.key}`"
+          >
+            <header class="terms-modal-header">
+              <div>
+                <span>{{ activeAgreement.required ? '필수 약관' : '선택 약관' }}</span>
+                <h2 :id="`agreement-title-${activeAgreement.key}`">
+                  {{ activeAgreement.title }}
+                </h2>
+              </div>
+              <button type="button" aria-label="약관 상세 닫기" @click="closeTerms">×</button>
+            </header>
+
+            <div class="terms-modal-content">
+              <article v-for="section in activeAgreement.sections" :key="section.heading">
+                <h3>{{ section.heading }}</h3>
+                <p>{{ section.body }}</p>
+              </article>
+              <small>시행일: 2026년 8월 20일</small>
+            </div>
+
+            <footer class="terms-modal-actions">
+              <button type="button" class="terms-modal-close" @click="closeTerms">닫기</button>
+              <button type="button" class="terms-modal-confirm" @click="agreeToActiveTerms">
+                확인 및 동의
+              </button>
+            </footer>
+          </section>
+        </div>
+      </Teleport>
     </section>
   </main>
 </template>
@@ -937,6 +1116,123 @@ async function completeSignup() {
   font-size: var(--font-body);
 }
 
+.terms-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(17 24 39 / 52%);
+}
+
+.terms-modal {
+  display: grid;
+  width: min(100%, 640px);
+  max-height: min(760px, calc(100dvh - 48px));
+  overflow: hidden;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 24%);
+}
+
+.terms-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px 30px 22px;
+  border-bottom: 1px solid #e6e9ef;
+}
+
+.terms-modal-header span {
+  color: #14238f;
+  font-size: var(--font-caption);
+  font-weight: 800;
+}
+
+.terms-modal-header h2 {
+  margin: 6px 0 0;
+  color: #1f2430;
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.terms-modal-header button {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f0f3f8;
+  color: #4b5563;
+  cursor: pointer;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.terms-modal-content {
+  display: grid;
+  gap: 24px;
+  overflow-y: auto;
+  padding: 26px 30px 30px;
+}
+
+.terms-modal-content article {
+  display: grid;
+  gap: 8px;
+}
+
+.terms-modal-content h3 {
+  margin: 0;
+  color: #1f2430;
+  font-size: var(--font-card-title);
+}
+
+.terms-modal-content p {
+  margin: 0;
+  color: #5f6b7a;
+  font-size: var(--font-body);
+  line-height: 1.75;
+  word-break: keep-all;
+}
+
+.terms-modal-content small {
+  color: #8a94a6;
+  font-size: var(--font-caption);
+}
+
+.terms-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  padding: 20px 30px 26px;
+  border-top: 1px solid #e6e9ef;
+}
+
+.terms-modal-actions button {
+  height: 52px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: var(--font-body);
+  font-weight: 800;
+}
+
+.terms-modal-close {
+  border: 1px solid #d7ddea;
+  background: #ffffff;
+  color: #4b5563;
+}
+
+.terms-modal-confirm {
+  border: 0;
+  background: #ffbc42;
+  color: #17235c;
+}
+
 input[type='checkbox'] {
   width: 18px;
   height: 18px;
@@ -955,6 +1251,36 @@ input[type='checkbox'] {
   color: #222222;
   font-weight: 800;
   text-decoration: none;
+}
+
+@media (max-width: 767px) {
+  .terms-modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .terms-modal {
+    width: 100%;
+    max-height: 86dvh;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .terms-modal-header {
+    padding: 22px 20px 18px;
+  }
+
+  .terms-modal-header h2 {
+    font-size: 20px;
+  }
+
+  .terms-modal-content {
+    gap: 20px;
+    padding: 22px 20px 26px;
+  }
+
+  .terms-modal-actions {
+    padding: 16px 20px 22px;
+  }
 }
 
 @media (max-width: 767px) {

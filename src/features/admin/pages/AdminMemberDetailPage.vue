@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getAdminMemberDetail, updateAdminMemberStatus } from '@/features/admin/api/memberApi'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const STATUS_OPTIONS = [
   { value: 'normal', label: '정상' },
@@ -45,7 +46,9 @@ onMounted(load)
 
 <template>
   <section v-if="member" class="admin-member-detail">
-    <RouterLink to="/admin/members" class="admin-member-detail__back">‹ 회원 목록으로</RouterLink>
+    <RouterLink to="/admin/members" class="admin-member-detail__back"
+      ><AppIcon name="chevron-left" :size="20" />회원 목록으로</RouterLink
+    >
     <header class="admin-member-detail__header">
       <h1>회원 상세 · 상태 변경</h1>
       <p>회원 기본 정보와 상태를 확인하고 수정하세요.</p>
@@ -129,6 +132,9 @@ onMounted(load)
 
 <style scoped>
 .admin-member-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--muted);
   font-size: var(--font-small);
 }

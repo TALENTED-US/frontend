@@ -5,11 +5,20 @@ import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useSessionStore } from '@/stores/session'
 import { financeState, loadTransactions } from '@/features/finance/financeStore'
 import { policyFilterGroups, toPolicySearchRequest } from '@/features/search/policyData'
-import { normalizePolicyRegion } from '@/mappers/policy'
+import { calculateAge, mapPolicyResponse, normalizePolicyRegionFilter } from '@/mappers/policy'
+import { expenseCategoryLabel } from '@/constants/expenseCategories'
+import {
+  getExpenseRecommendationsApi,
+  getIncomeRecommendationsApi,
+  getPolicyRecommendationsApi,
+} from '@/api/simulation'
 import '@/features/simulation/styles/simulation.css'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import AiPolicyAssistant from '@/features/simulation/components/AiPolicyAssistant.vue'
+import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
+import AiRecommendationPrompt from '@/features/simulation/components/AiRecommendationPrompt.vue'
+import ButtieAiLogo from '@/features/simulation/components/ButtieAiLogo.vue'
+import { normalizeCategoryRecommendationResponse } from '@/features/simulation/utils/aiRecommendationScope'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,6 +60,11 @@ const form = reactive({
   cycle: '매월',
 })
 const editingIncomeId = ref(null)
+const aiRecommendations = ref(null)
+const usingCustomAiRecommendations = ref(false)
+const aiRecommendationLoading = ref(false)
+const aiRecommendationError = ref('')
+const aiIncomeAmounts = reactive({})
 const selectedExpenseId = ref('식비')
 const expenseAmount = ref('')
 const activeExpense = computed(
@@ -72,6 +86,9 @@ const expenseRangeProgress = computed(() => {
   const maximum = Number(activeExpense.value?.current) || 0
   return maximum ? Math.min(100, (Number(expenseAmount.value) / maximum) * 100) : 0
 })
+const expenseRangeMaximum = computed(
+  () => Math.floor((Number(activeExpense.value?.current) || 0) / 100) * 100,
+)
 const expenseRangeStyle = computed(() => ({
   '--expense-range-progress': `${expenseRangeProgress.value}%`,
 }))
@@ -102,8 +119,9 @@ const policyPageNumbers = computed(() => {
   const currentPage = simulation.policyCatalogPageInfo.page || 1
   if (!totalPages) return []
   const groupStart = Math.floor((currentPage - 1) / 5) * 5 + 1
-  return Array.from({ length: Math.min(5, totalPages - groupStart + 1) }, (_, index) =>
-    groupStart + index,
+  return Array.from(
+    { length: Math.min(5, totalPages - groupStart + 1) },
+    (_, index) => groupStart + index,
   )
 })
 const jobTypeLabel = computed(() =>
@@ -125,11 +143,253 @@ const isEditingConfirmedScenario = computed(
   () => Boolean(simulation.recentConfirmed) && !simulation.state.confirmed,
 )
 
+const aiExpenseRecommendations = computed(() =>
+  (aiRecommendations.value?.financialRecommendation?.recommendations || [])
+    .map((item, index) => {
+      const name = expenseCategoryLabel(item?.category || item?.expenseCategory)
+      const expense = simulation.state.expenses.find(
+        (entry) => entry.name === name || entry.expenseCategory === item?.category,
+      )
+      const suggestedAmount = Math.floor((Number(item?.suggestedMonthlyAmount) || 0) / 100) * 100
+      return {
+        id: `${item?.category || name}-${index}`,
+        expenseId: expense?.id,
+        name,
+        title: item?.title || `${name} 지출 줄이기`,
+        reason: item?.reason || '최근 소비 내역을 바탕으로 추천한 절약 목표예요.',
+        current: Number(expense?.current) || 0,
+        amount: Math.min(Number(expense?.current) || 0, suggestedAmount),
+      }
+    })
+    .filter((item) => item.expenseId && item.amount > 0)
+    .slice(0, 3),
+)
+
+const aiIncomeRecommendations = computed(() =>
+  (aiRecommendations.value?.incomeRecommendation?.jobs || [])
+    .filter((item) => item && (item.title || item.company))
+    .map((item, index) => {
+      const suggestedAmount = Number(
+        item.suggestedMonthlyAmount || item.monthlyAmount || item.monthlyIncome || item.amount,
+      )
+      return {
+        ...item,
+        id: item.url || `${item.title || item.company}-${index}`,
+        suggestedAmount,
+        hasSuggestedAmount: Number.isFinite(suggestedAmount) && suggestedAmount > 0,
+      }
+    })
+    .slice(0, 3),
+)
+
+const aiIncomeLinks = computed(() =>
+  (aiRecommendations.value?.incomeRecommendation?.links || [])
+    .filter((item) => item?.url)
+    .map((item, index) => ({
+      id: item.url || `${item.platform || 'job-platform'}-${index}`,
+      platform: item.platform || '채용 플랫폼',
+      url: item.url,
+    }))
+    .slice(0, 3),
+)
+
+const aiPolicyRecommendations = computed(() =>
+  (aiRecommendations.value?.policyRecommendations || [])
+    .map(mapPolicyResponse)
+    .filter(Boolean)
+    .slice(0, 3),
+)
+
+const activeAiRecommendations = computed(() => {
+  if (category.value === 'expense') return aiExpenseRecommendations.value
+  if (category.value === 'income') return aiIncomeRecommendations.value
+  return aiPolicyRecommendations.value
+})
+
+const hasActiveAiRecommendations = computed(() =>
+  category.value === 'income'
+    ? aiIncomeRecommendations.value.length > 0 || aiIncomeLinks.value.length > 0
+    : activeAiRecommendations.value.length > 0,
+)
+
+const aiRecommendationCopy = computed(
+  () =>
+    ({
+      expense: {
+        title: 'AI 지출 절약 추천',
+        description: '최근 소비 내역을 바탕으로 실천 가능한 목표를 추천했어요.',
+        empty: '현재 추가할 수 있는 지출 절약 추천이 없어요.',
+      },
+      income: {
+        title: 'AI 수입 늘리기 추천',
+        description: '내 조건에 맞는 일자리와 수입 계획을 추천했어요.',
+        empty: '현재 조건에 맞는 수입 추천이 없어요.',
+      },
+      policy: {
+        title: 'AI 맞춤 정책 추천',
+        description: '프로필과 재정 상태를 바탕으로 정책을 추천했어요.',
+        empty: '현재 추가할 수 있는 맞춤 정책 추천이 없어요.',
+      },
+    })[category.value],
+)
+
+const aiRecommendationDescription = computed(() => {
+  const summary = String(aiRecommendations.value?.financialRecommendation?.summary || '').trim()
+  if (category.value === 'expense' && summary) return summary
+
+  if (category.value === 'income') {
+    const incomeNotice = String(aiRecommendations.value?.incomeRecommendation?.notice || '').trim()
+    if (incomeNotice) return incomeNotice
+
+    const incomePrompt = simulation.aiCategoryPrompts.income
+    if (incomePrompt) return `“${incomePrompt}” 조건을 바탕으로 채용 공고를 찾아봤어요.`
+    return '지출 절약 계획과 함께, 아래 채용 플랫폼에서 추가 수입 기회를 찾아보세요.'
+  }
+
+  const prompt = simulation.aiCategoryPrompts[category.value] || simulation.aiPlanPrompt
+  if (!prompt || !usingCustomAiRecommendations.value) return aiRecommendationCopy.value.description
+  return `“${prompt}” 컨셉을 바탕으로 추천했어요.`
+})
+
+function scopedRecommendations(recommendations) {
+  return recommendations || null
+}
+
+async function requestCategoryRecommendations(currentCategory, prompt) {
+  const response =
+    currentCategory === 'expense'
+      ? await getExpenseRecommendationsApi(prompt)
+      : currentCategory === 'income'
+        ? await getIncomeRecommendationsApi(prompt)
+        : await getPolicyRecommendationsApi(prompt)
+
+  return normalizeCategoryRecommendationResponse(
+    currentCategory,
+    response,
+  )
+}
+
+async function submitAiRecommendationPrompt(prompt) {
+  if (!prompt || aiRecommendationLoading.value) return
+
+  aiRecommendationLoading.value = true
+  aiRecommendationError.value = ''
+  usingCustomAiRecommendations.value = true
+
+  try {
+    const recommendations = await requestCategoryRecommendations(category.value, prompt)
+
+    simulation.setAiCategoryRecommendations(category.value, prompt, recommendations)
+    aiRecommendations.value = recommendations
+  } catch (error) {
+    aiRecommendationError.value = aiRecommendationErrorMessage(error)
+  } finally {
+    aiRecommendationLoading.value = false
+  }
+}
+
+function aiRecommendationErrorMessage(error) {
+  if (error?.status === 503) return 'AI 추천을 지금 생성할 수 없어요. 잠시 후 다시 시도해 주세요.'
+  if (error?.status === 401) return '로그인 정보가 없어 AI 추천을 불러오지 못했어요.'
+  return error?.message || 'AI 추천을 불러오지 못했어요.'
+}
+
+async function loadAiRecommendations(regenerate = false) {
+  if (aiRecommendationLoading.value) return
+
+  const categoryPrompt = simulation.aiCategoryPrompts[category.value] || simulation.aiPlanPrompt
+  const storedRecommendations = scopedRecommendations(simulation.aiPlanRecommendations)
+
+  if (!regenerate && storedRecommendations) {
+    aiRecommendations.value = storedRecommendations
+    usingCustomAiRecommendations.value = Boolean(categoryPrompt)
+    aiRecommendationError.value = ''
+    return
+  }
+
+  aiRecommendationLoading.value = true
+  aiRecommendationError.value = ''
+  try {
+    if (regenerate && storedRecommendations && simulation.aiCategoryPrompts[category.value]) {
+      const prompt = simulation.aiCategoryPrompts[category.value]
+      const recommendations = await requestCategoryRecommendations(
+        category.value,
+        prompt,
+      )
+      simulation.setAiCategoryRecommendations(category.value, prompt, recommendations)
+      aiRecommendations.value = scopedRecommendations(recommendations)
+      usingCustomAiRecommendations.value = true
+    } else {
+      aiRecommendations.value = storedRecommendations
+      usingCustomAiRecommendations.value = Boolean(categoryPrompt)
+    }
+  } catch (error) {
+    aiRecommendationError.value = aiRecommendationErrorMessage(error)
+  } finally {
+    aiRecommendationLoading.value = false
+  }
+}
+
+function aiExpenseSelected(item) {
+  const expense = simulation.state.expenses.find((entry) => entry.id === item.expenseId)
+  return Boolean(expense?.selected && Number(expense.saving) === Number(item.amount))
+}
+
+async function addAiExpense(item) {
+  if (aiExpenseSelected(item) || simulation.syncing) return
+  await simulation.saveExpenseGoal(item.expenseId, item.amount)
+}
+
+function aiIncomeAmount(item) {
+  const enteredAmount = Number(aiIncomeAmounts[item.id])
+  if (enteredAmount > 0) return enteredAmount
+  return Number.isFinite(item.suggestedAmount) && item.suggestedAmount > 0
+    ? item.suggestedAmount
+    : 0
+}
+
+function updateAiIncomeAmount(item, event) {
+  const digits = String(event.target.value || '').replace(/\D/g, '')
+  aiIncomeAmounts[item.id] = digits ? String(Number(digits)) : ''
+  event.target.value = moneyInput(aiIncomeAmounts[item.id])
+}
+
+function aiIncomeSelected(item) {
+  return simulation.state.incomes.some(
+    (income) =>
+      income.aiRecommendationId === item.id || (item.url && income.sourceUrl === item.url),
+  )
+}
+
+function addAiIncome(item) {
+  const amount = aiIncomeAmount(item)
+  if (!amount || aiIncomeSelected(item) || simulation.syncing) return
+  simulation.addIncome({
+    name: item.title || item.company || 'AI 추천 수입 계획',
+    amount,
+    type: 'monthly',
+    startDate: simulation.state.startDate,
+    cycle: '매월',
+    sourceUrl: item.url || '',
+    aiRecommendationId: item.id,
+    remoteSynced: false,
+  })
+}
+
+function aiPolicySelected(policy) {
+  return simulation.state.policies.some((item) => item.id === policy.id)
+}
+
+function addAiPolicy(policy) {
+  if (aiPolicySelected(policy) || simulation.syncing) return
+  simulation.togglePolicy(policy)
+}
+
 function profilePolicyFilters() {
   // 현재 정책 API는 REEMPLOYMENT를 받으면 CATALOG_005를 반환한다.
   // 재취업 사용자를 미취업자로 간주하지 않고, 지원되는 첫취업만 자동 적용한다.
   const employment = session.currentUser.jobType === 'first' ? ['첫취업'] : []
-  const region = normalizePolicyRegion(session.currentUser.region)
+  const region = normalizePolicyRegionFilter(session.currentUser.region)
   const supportedRegions = policyFilterGroups[2][1]
   return [...employment, ...(supportedRegions.includes(region) ? [region] : []), '신청 가능']
 }
@@ -139,6 +399,19 @@ const policySupportAmount = ref(0)
 const policyFilterModalOpen = ref(false)
 const draftPolicyFilters = ref([])
 const draftPolicySupportAmount = ref(0)
+
+async function loadProfilePolicyCatalog() {
+  selectedPolicyFilters.value = profilePolicyFilters()
+  policySupportAmount.value = 0
+
+  const params = toPolicySearchRequest(selectedPolicyFilters.value, 0, '', {
+    page: 1,
+    size: 10,
+    age: calculateAge(session.currentUser.birth),
+  })
+
+  await simulation.loadPolicyCatalog(params)
+}
 
 const appliedPolicyEmployment = computed(
   () =>
@@ -192,6 +465,7 @@ async function applyPolicyFilters() {
     ? toPolicySearchRequest(selectedPolicyFilters.value, policySupportAmount.value, '', {
         page: 1,
         size: 10,
+        age: calculateAge(session.currentUser.birth),
       })
     : { page: 1, allStatuses: true }
   await simulation.loadPolicyCatalog(params)
@@ -225,8 +499,15 @@ watch(
   { immediate: true },
 )
 
-watch(category, (value, previousValue) => {
-  if (value === 'policy' && previousValue !== 'policy') simulation.loadPolicyCatalog()
+watch(category, async (value, previousValue) => {
+  if (value === 'policy' && previousValue !== 'policy') await loadProfilePolicyCatalog()
+  if (!previousValue || value === previousValue) return
+
+  aiRecommendations.value = null
+  usingCustomAiRecommendations.value = false
+  aiRecommendationError.value = ''
+  await simulation.hydrateCategory(value)
+  await loadAiRecommendations()
 })
 
 onMounted(async () => {
@@ -236,8 +517,9 @@ onMounted(async () => {
     } catch {}
     simulation.initializeExpensesFromAnalysis()
   }
-  if (category.value === 'policy') await simulation.loadPolicyCatalog()
+  if (category.value === 'policy') await loadProfilePolicyCatalog()
   await simulation.hydrateCategory(category.value)
+  await loadAiRecommendations()
 })
 
 const donutStyle = computed(() => {
@@ -315,9 +597,10 @@ function selectExpense(item, loadSaved = false) {
 function updateExpenseAmount(event) {
   const maximum = Number(activeExpense.value?.current) || 0
   const rawValue = String(event.target.value ?? '').replace(/[^0-9]/g, '')
-  const normalized = Math.max(0, Math.min(maximum, Math.trunc(Number(rawValue) || 0)))
+  const value = Math.max(0, Math.min(maximum, Math.trunc(Number(rawValue) || 0)))
+  const normalized = event.target.type === 'range' ? Math.round(value / 100) * 100 : value
   expenseAmount.value = normalized ? String(normalized) : ''
-  event.target.value = moneyInput(expenseAmount.value)
+  if (event.target.type !== 'range') event.target.value = moneyInput(expenseAmount.value)
 }
 
 function addQuickExpenseAmount(amount) {
@@ -394,7 +677,7 @@ function skip() {
       aria-label="뒤로가기"
       @click="router.push(backPath)"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <div class="wizard-progress-tabs" aria-label="시뮬레이션 진행 단계">
       <RouterLink
@@ -530,11 +813,11 @@ function skip() {
             class="expense-amount-range"
             type="range"
             min="0"
-            :max="activeExpense.current"
-            step="1"
+            :max="expenseRangeMaximum"
+            step="100"
             :value="Number(expenseAmount) || 0"
             :style="expenseRangeStyle"
-            :disabled="activeExpense.current <= 0"
+            :disabled="expenseRangeMaximum <= 0"
             aria-label="절약 목표 금액"
             @input="updateExpenseAmount($event)"
           />
@@ -577,6 +860,55 @@ function skip() {
               {{ activeExpense.selected ? '수정하기' : '추가하기' }}
             </button>
           </div>
+        </div>
+      </section>
+
+      <AiRecommendationPrompt
+        :category="category"
+        :loading="aiRecommendationLoading"
+        @submit="submitAiRecommendationPrompt"
+      />
+      <section class="ai-inline-recommendations" aria-live="polite">
+        <header>
+          <ButtieAiLogo class="ai-inline-recommendations__logo" />
+          <div>
+            <h2>{{ aiRecommendationCopy.title }}</h2>
+            <p>{{ aiRecommendationDescription }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="aiRecommendationLoading"
+            aria-label="AI 지출 추천 다시 불러오기"
+            @click="loadAiRecommendations(true)"
+          >
+            ↻
+          </button>
+        </header>
+        <AiRecommendationLoader v-if="aiRecommendationLoading" />
+        <div v-else-if="aiRecommendationError" class="ai-inline-state ai-inline-state--error">
+          <span>{{ aiRecommendationError }}</span>
+          <button type="button" @click="loadAiRecommendations(true)">다시 시도</button>
+        </div>
+        <p v-else-if="!hasActiveAiRecommendations" class="ai-inline-state">
+          {{ aiRecommendationCopy.empty }}
+        </p>
+        <div v-else class="ai-inline-list">
+          <article v-for="item in aiExpenseRecommendations" :key="item.id">
+            <div class="ai-inline-card-copy">
+              <span>{{ item.name }}</span>
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.reason }}</p>
+              <small>지난달 {{ money(item.current) }}원 · 월 {{ money(item.amount) }}원 절약</small>
+            </div>
+            <button
+              type="button"
+              :class="{ added: aiExpenseSelected(item) }"
+              :disabled="aiExpenseSelected(item) || simulation.syncing"
+              @click="addAiExpense(item)"
+            >
+              {{ aiExpenseSelected(item) ? '추가됨' : '+ 추가' }}
+            </button>
+          </article>
         </div>
       </section>
 
@@ -696,6 +1028,94 @@ function skip() {
           {{ editingIncomeId ? '수입 계획 수정하기' : '수입 계획 추가하기' }}
         </button>
       </form>
+      <AiRecommendationPrompt
+        :category="category"
+        :loading="aiRecommendationLoading"
+        @submit="submitAiRecommendationPrompt"
+      />
+      <section class="ai-inline-recommendations" aria-live="polite">
+        <header>
+          <ButtieAiLogo class="ai-inline-recommendations__logo" />
+          <div>
+            <h2>{{ aiRecommendationCopy.title }}</h2>
+            <p>{{ aiRecommendationDescription }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="aiRecommendationLoading"
+            aria-label="AI 수입 추천 다시 불러오기"
+            @click="loadAiRecommendations(true)"
+          >
+            ↻
+          </button>
+        </header>
+        <AiRecommendationLoader v-if="aiRecommendationLoading" />
+        <div v-else-if="aiRecommendationError" class="ai-inline-state ai-inline-state--error">
+          <span>{{ aiRecommendationError }}</span>
+          <button type="button" @click="loadAiRecommendations(true)">다시 시도</button>
+        </div>
+        <p v-else-if="!hasActiveAiRecommendations" class="ai-inline-state">
+          {{ aiRecommendationCopy.empty }}
+        </p>
+        <div v-else class="ai-inline-list">
+          <article v-for="item in aiIncomeRecommendations" :key="item.id">
+            <div class="ai-inline-card-copy">
+              <span>{{ item.company || '추천 일자리' }}</span>
+              <strong>{{ item.title || '수입 늘리기 계획' }}</strong>
+              <p>
+                {{ item.region || '지역 정보 없음' }} ·
+                {{ item.employmentType || '고용 형태 확인 필요' }}
+              </p>
+              <small>
+                {{ item.pay || '급여는 공고에서 확인해 주세요.' }}
+                <template v-if="item.hasSuggestedAmount">
+                  · 예상 월수입 {{ money(item.suggestedAmount) }}원
+                </template>
+              </small>
+              <label v-if="!item.hasSuggestedAmount">
+                <span>예상 월수입</span>
+                <input
+                  :value="moneyInput(aiIncomeAmounts[item.id])"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="금액 입력"
+                  @input="updateAiIncomeAmount(item, $event)"
+                />
+                <b>원</b>
+              </label>
+            </div>
+            <div class="ai-inline-card-actions">
+              <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer"
+                >공고 보기</a
+              >
+              <button
+                type="button"
+                :class="{ added: aiIncomeSelected(item) }"
+                :disabled="!aiIncomeAmount(item) || aiIncomeSelected(item) || simulation.syncing"
+                @click="addAiIncome(item)"
+              >
+                {{ aiIncomeSelected(item) ? '추가됨' : '+ 추가' }}
+              </button>
+            </div>
+          </article>
+          <article v-for="link in aiIncomeLinks" :key="link.id">
+            <div class="ai-inline-card-copy">
+              <span>추천 채용 플랫폼</span>
+              <strong>{{ link.platform }}</strong>
+              <p>맞춤 조건이 적용된 채용 공고를 확인해 보세요.</p>
+            </div>
+            <div class="ai-inline-card-actions">
+              <a
+                class="ai-income-platform-link"
+                :href="link.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                >공고 찾기</a
+              >
+            </div>
+          </article>
+        </div>
+      </section>
       <section v-if="simulation.state.incomes.length" class="added-income-plans">
         <div class="section-heading">
           <h2><i />추가한 수입 계획</h2>
@@ -775,7 +1195,8 @@ function skip() {
           <h2>내 조건에 맞는 정책 모두 보기</h2>
           <div class="policy-profile-badges" aria-label="맞춤 정책 검색 조건">
             <span v-for="badge in appliedPolicyBadges" :key="`${badge.label}-${badge.value}`">
-              <small>{{ badge.label }}</small>{{ badge.value }}
+              <small>{{ badge.label }}</small
+              >{{ badge.value }}
             </span>
             <span v-if="policySupportAmount">
               <small>지원 금액</small>{{ policySupportAmount }}만원 이상
@@ -832,19 +1253,6 @@ function skip() {
                 </svg>
               </button>
             </div>
-            <button
-              class="policy-add-button"
-              type="button"
-              :disabled="simulation.syncing"
-              @click="simulation.togglePolicy(policy)"
-            >
-              {{
-                simulation.state.policies.some((item) => item.id === policy.id)
-                  ? '✓ 추가됨'
-                  : '+ 추가하기'
-              }}
-            </button>
-            <strong>+{{ policy.detail }}</strong>
             <div
               v-if="expandedPolicyIds.has(`catalog:${policy.id}`)"
               :id="`policy-details-${policy.id}`"
@@ -867,6 +1275,20 @@ function skip() {
                 >정책 상세 페이지 열기</a
               >
             </div>
+            <button
+              class="policy-add-button"
+              :class="{ added: simulation.state.policies.some((item) => item.id === policy.id) }"
+              type="button"
+              :disabled="simulation.syncing"
+              @click="simulation.togglePolicy(policy)"
+            >
+              {{
+                simulation.state.policies.some((item) => item.id === policy.id)
+                  ? '✓ 추가됨'
+                  : '+ 추가하기'
+              }}
+            </button>
+            <strong>+{{ policy.detail }}</strong>
           </article>
         </div>
         <nav
@@ -901,6 +1323,64 @@ function skip() {
             ›
           </button>
         </nav>
+      </section>
+
+      <AiRecommendationPrompt
+        :category="category"
+        :loading="aiRecommendationLoading"
+        @submit="submitAiRecommendationPrompt"
+      />
+      <section class="ai-inline-recommendations" aria-live="polite">
+        <header>
+          <ButtieAiLogo class="ai-inline-recommendations__logo" />
+          <div>
+            <h2>{{ aiRecommendationCopy.title }}</h2>
+            <p>{{ aiRecommendationDescription }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="aiRecommendationLoading"
+            aria-label="AI 정책 추천 다시 불러오기"
+            @click="loadAiRecommendations(true)"
+          >
+            ↻
+          </button>
+        </header>
+        <AiRecommendationLoader v-if="aiRecommendationLoading" />
+        <div v-else-if="aiRecommendationError" class="ai-inline-state ai-inline-state--error">
+          <span>{{ aiRecommendationError }}</span>
+          <button type="button" @click="loadAiRecommendations(true)">다시 시도</button>
+        </div>
+        <p v-else-if="!hasActiveAiRecommendations" class="ai-inline-state">
+          {{ aiRecommendationCopy.empty }}
+        </p>
+        <div v-else class="ai-inline-list">
+          <article v-for="policy in aiPolicyRecommendations" :key="policy.id">
+            <div class="ai-inline-card-copy">
+              <span>맞춤 정책</span>
+              <strong>{{ policy.name }}</strong>
+              <p>{{ policy.benefit || policy.detail }}</p>
+              <p v-if="policy.recommendationReason" class="ai-policy-recommendation-reason">
+                <b>추천 이유</b>
+                {{ policy.recommendationReason }}
+              </p>
+              <small>신청 기한 {{ policy.deadline }}</small>
+            </div>
+            <div class="ai-inline-card-actions">
+              <a v-if="policy.url" :href="policy.url" target="_blank" rel="noopener noreferrer"
+                >상세 보기</a
+              >
+              <button
+                type="button"
+                :class="{ added: aiPolicySelected(policy) }"
+                :disabled="aiPolicySelected(policy) || simulation.syncing"
+                @click="addAiPolicy(policy)"
+              >
+                {{ aiPolicySelected(policy) ? '추가됨' : '+ 추가' }}
+              </button>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section class="policy-selected-card">
@@ -1013,8 +1493,9 @@ function skip() {
 
           <div class="policy-filter-modal-body">
             <p class="policy-filter-guide">
-              연령과 기본 거주 지역은 프로필 정보로 자동 반영돼요. 다른 지역을 선택하면 선택한
-              지역을 우선 적용해요.
+              연령과 정책 조회 API가 지원하는 기본 거주 지역은 자동 반영돼요. 다른 지역을 선택하면
+              선택한 지역을 우선 적용해요. 경남·경북은 대구, 전남·전북은 광주 정책으로 임시
+              조회돼요.
             </p>
             <div class="policy-filter-groups">
               <section v-for="group in policyFilterGroups" :key="group[0]">
@@ -1077,7 +1558,6 @@ function skip() {
       서버 저장에 실패했습니다. 입력 내용은 유지되니 잠시 후 다시 시도해 주세요.
       {{ simulation.syncError }}
     </p>
-    <AiPolicyAssistant :category="category" />
   </section>
 </template>
 
@@ -1102,6 +1582,8 @@ function skip() {
 }
 
 .sim-category-page > .wizard-progress-tabs span {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   font-size: 11px;
   cursor: pointer;
 }
@@ -1109,6 +1591,265 @@ function skip() {
 .sim-category-page > .wizard-progress-tabs span.active {
   font-size: 13px;
   font-weight: 900;
+}
+
+.ai-inline-recommendations {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgb(26 42 153 / 12%);
+  border-radius: 22px;
+  background: linear-gradient(145deg, #f7f8ff, #fff);
+  box-shadow: 0 8px 24px rgb(26 42 153 / 7%);
+}
+
+.ai-recommendation-prompt + .ai-inline-recommendations {
+  margin-top: 10px;
+}
+
+@media (min-width: 1280px) {
+  .sim-category-page > .ai-recommendation-prompt,
+  .sim-category-page > .ai-inline-recommendations {
+    grid-column: 1 / -1;
+    width: 100%;
+    box-sizing: border-box;
+    justify-self: stretch;
+  }
+}
+
+.ai-inline-recommendations > header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 34px;
+  gap: 11px;
+  align-items: center;
+}
+
+.ai-inline-recommendations__logo {
+  display: block;
+  width: 42px;
+  height: 42px;
+}
+
+.ai-inline-recommendations > header h2 {
+  margin: 0;
+  color: #17203a;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.ai-inline-recommendations > header p {
+  margin: 4px 0 0;
+  color: #747d90;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ai-inline-recommendations > header > button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e3e6f1;
+  border-radius: 50%;
+  background: #fff;
+  color: #15239c;
+  font-size: 18px;
+}
+
+.ai-inline-recommendations > header > button:disabled {
+  opacity: 0.45;
+}
+
+.ai-inline-state {
+  margin: 0;
+  padding: 22px 14px;
+  border-radius: 14px;
+  background: #f3f4f8;
+  color: #737b8b;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.ai-inline-state--error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff1f1;
+  color: #b34b4b;
+  text-align: left;
+}
+
+.ai-inline-state--error button {
+  flex: none;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: #fff;
+  color: #9f3333;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ai-inline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-inline-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid #e8eaf3;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.ai-inline-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.ai-inline-card-copy > span {
+  color: #5662b4;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ai-inline-card-copy > strong {
+  overflow: hidden;
+  color: #20263a;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+}
+
+.ai-inline-card-copy > p,
+.ai-inline-card-copy > small {
+  margin: 0;
+  color: #747d8f;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.ai-inline-card-copy > small {
+  color: #4d5870;
+  font-weight: 700;
+}
+
+.ai-inline-card-copy > .ai-policy-recommendation-reason {
+  display: grid;
+  gap: 3px;
+  margin: 3px 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: #f3f4ff;
+  color: #4c5572;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ai-policy-recommendation-reason b {
+  color: #2634a7;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.ai-inline-card-copy > label {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f4f5fa;
+  color: #5b6477;
+  font-size: 10px;
+}
+
+.ai-inline-card-copy > label input {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #20263a;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.ai-inline-card-copy > label b {
+  font-size: 10px;
+}
+
+.ai-inline-list article > button,
+.ai-inline-card-actions > button {
+  min-width: 58px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: #15239c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ai-inline-list button.added,
+.ai-inline-list button:disabled {
+  background: #eceef5;
+  color: #8b92a2;
+}
+
+.ai-inline-card-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.ai-inline-card-actions a {
+  color: #5360ad;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ai-inline-card-actions .ai-income-platform-link {
+  display: inline-flex;
+  min-width: 74px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: #15239c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .ai-inline-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-inline-list article > button,
+  .ai-inline-card-actions {
+    width: 100%;
+  }
+
+  .ai-inline-card-actions {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+
+  .ai-inline-card-actions > button {
+    width: 100%;
+  }
 }
 
 .expense-category-tabs button {
@@ -1611,8 +2352,8 @@ function skip() {
   border-radius: 999px;
   background: rgb(255 255 255 / 75%);
   color: #8a6407;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--type-button-choice-size) !important;
+  font-weight: var(--type-button-choice-weight) !important;
 }
 
 .expense-amount-options > small {
@@ -1743,11 +2484,15 @@ function skip() {
   }
 
   .sim-category-page .expense-analysis-card {
+    display: flex;
+    flex-direction: column;
     padding: clamp(22px, 3vw, 30px);
   }
 
   .sim-category-page .expense-analysis-body {
+    flex: 1;
     grid-template-columns: minmax(240px, 3fr) minmax(150px, 2fr);
+    align-content: center;
     gap: 18px;
     margin-top: 8px;
   }
@@ -1787,50 +2532,6 @@ function skip() {
     font-size: 14px !important;
     font-weight: 600 !important;
   }
-}
-
-.policy-profile-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.policy-profile-badges > span {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: #f6f3fc;
-  color: #4f465f;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.policy-profile-badges small {
-  color: #8e79cd;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.policy-catalog-heading > .policy-profile-badges {
-  min-width: 0;
-  justify-content: flex-end;
-  justify-self: end;
-  margin: 0;
-}
-
-.policy-catalog-heading > .policy-profile-badges > span {
-  min-height: 30px;
-  padding: 6px 10px;
-  font-size: 11px;
-}
-
-.policy-catalog-heading > .policy-profile-badges small {
-  font-size: 10px;
 }
 
 .policy-qualification {
@@ -1880,7 +2581,7 @@ function skip() {
 
 .policy-condition-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 8px;
   margin-top: 14px;
 }
@@ -1893,13 +2594,13 @@ function skip() {
   border-radius: 13px;
   background: #fff8d8;
   color: #9298a4;
-  font-size: 9px;
+  font-size: 14px;
 }
 
 .policy-condition-grid strong {
   overflow: hidden;
   color: #222;
-  font-size: 11px;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2169,13 +2870,20 @@ function skip() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #777e89;
-  font-size: 10px;
+  color: #222222;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.policy-selected-card footer p > span {
+  color: #222222;
+  font-weight: 700;
 }
 
 .policy-selected-card footer strong {
-  color: #222;
-  font-size: 11px;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .policy-catalog-scroll {
@@ -2203,6 +2911,36 @@ function skip() {
   background: #f7f6fc;
 }
 
+.policy-profile-badges {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.policy-profile-badges > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #e0e3f1;
+  border-radius: 999px;
+  background: #fff;
+  color: #303c72;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.policy-profile-badges small {
+  color: #7d879b;
+  font-size: 10px;
+  font-weight: 600;
+}
+
 .policy-catalog-list {
   display: grid;
   gap: 10px;
@@ -2218,9 +2956,16 @@ function skip() {
 
 .sim-category-page .policy-catalog-pagination button {
   display: grid;
-  width: 30px;
-  height: 30px;
+  flex: 0 0 30px !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  max-width: 30px !important;
+  max-height: 30px !important;
+  aspect-ratio: 1 / 1;
   place-items: center;
+  box-sizing: border-box;
   padding: 0;
   border: 1px solid #e1e3ea;
   border-radius: 50%;
@@ -2228,6 +2973,7 @@ function skip() {
   color: #626977;
   font-size: 11px;
   font-weight: 800;
+  line-height: 1;
 }
 
 .sim-category-page .policy-catalog-pagination button.active {
@@ -2278,7 +3024,7 @@ function skip() {
 }
 
 .sim-category-page .policy-catalog-list .policy-add-button {
-  grid-row: 2;
+  grid-row: 3;
   grid-column: 2;
   justify-self: end;
 }
@@ -2297,7 +3043,7 @@ function skip() {
   background: transparent !important;
   box-shadow: none !important;
   color: var(--primary, #0a1680) !important;
-  font-size: 12px;
+  font-size: 13px !important;
   font-weight: 400;
   line-height: 24px;
   white-space: nowrap;
@@ -2353,12 +3099,18 @@ function skip() {
   background: #f7f6fc;
 }
 
+.sim-category-page .policy-catalog-list article > .policy-detail-panel {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
 .sim-category-page .policy-detail-panel p {
   display: grid;
   grid-template-columns: 82px minmax(0, 1fr);
   gap: 10px;
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .policy-detail-panel p > span {
@@ -2456,21 +3208,9 @@ function skip() {
     white-space: nowrap;
   }
 
-  .sim-category-page .policy-catalog-heading > .policy-profile-badges {
-    width: 100%;
+  .sim-category-page .policy-catalog-heading .policy-profile-badges {
     grid-row: 2;
     grid-column: 1 / -1;
-    justify-content: flex-start;
-    justify-self: stretch;
-    gap: 7px;
-    margin: 0;
-  }
-
-  .sim-category-page .policy-catalog-heading > .policy-profile-badges > span {
-    min-width: 0;
-    min-height: 30px;
-    padding: 6px 10px;
-    font-size: 11px;
   }
 
   .sim-category-page .policy-selected-empty {
@@ -2528,8 +3268,12 @@ function skip() {
   }
 
   .sim-category-page .income-form-heading strong::after {
-    font-size: var(--type-field-label-size);
+    font-size: 15px;
     font-weight: var(--type-field-label-weight);
+  }
+
+  .sim-category-page .income-form-heading {
+    margin-bottom: -6px;
   }
 
   .sim-category-page input.income-field,
@@ -2540,12 +3284,16 @@ function skip() {
   }
 
   .sim-category-page .income-money-field input,
-  .sim-category-page .income-plan-form fieldset button,
   .sim-category-page .income-name-field input.income-field,
   .sim-category-page input.income-field[type='date'],
   .sim-category-page select.income-field {
     font-size: var(--type-input-size);
     font-weight: var(--type-input-weight);
+  }
+
+  .sim-category-page .income-plan-form fieldset button {
+    font-size: var(--type-button-choice-size) !important;
+    font-weight: 700 !important;
   }
 
   .sim-category-page .added-expense-goals footer,
@@ -2555,8 +3303,8 @@ function skip() {
   .sim-category-page .policy-selected-card footer p,
   .sim-category-page .policy-selected-card footer span,
   .sim-category-page .policy-selected-card footer strong {
-    font-size: var(--type-total-size);
-    font-weight: var(--type-total-weight);
+    font-size: var(--type-total-size) !important;
+    font-weight: var(--type-total-weight) !important;
   }
 
   .sim-category-page .policy-selected-card footer p,
@@ -2597,7 +3345,6 @@ function skip() {
 
   .policy-section-heading p,
   .policy-section-heading button,
-  .policy-condition-grid span,
   .policy-selected-heading span,
   .policy-catalog-heading > span,
   .policy-selected-list article small,
@@ -2605,6 +3352,11 @@ function skip() {
   .policy-catalog-list p,
   .policy-catalog-list article > small {
     font-size: 12px;
+    font-weight: 400;
+  }
+
+  .policy-condition-grid span {
+    font-size: 14px;
     font-weight: 400;
   }
 
@@ -2638,11 +3390,6 @@ function skip() {
 }
 
 @media (min-width: 768px) {
-  .sim-category-page > .sim-back {
-    font-size: 48px;
-    font-weight: 900;
-  }
-
   .sim-category-page > .wizard-progress-tabs {
     width: 100%;
     padding-right: 0;
@@ -2810,24 +3557,8 @@ function skip() {
   font-weight: 800;
 }
 
-.sim-category-page .policy-catalog-heading > .policy-profile-badges > span {
-  min-height: 34px;
-  gap: 7px;
-  padding: 7px 11px;
-  background: #e7e1f3;
-  color: #40344f;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.sim-category-page .policy-catalog-heading > .policy-profile-badges small {
-  color: #746584;
-  font-size: 9px;
-  font-weight: 600;
-}
-
 .sim-category-page .policy-selected-card footer strong {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 @media (max-width: 767px) {
@@ -2886,7 +3617,8 @@ function skip() {
     justify-content: center;
     gap: 0;
     padding: 6px 2px;
-    font-size: 15px !important;
+    font-size: var(--type-button-choice-size) !important;
+    font-weight: var(--type-button-choice-weight) !important;
     letter-spacing: -0.4px;
   }
 

@@ -8,7 +8,9 @@ import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/prog
 const props = defineProps({
   rows: { type: Array, default: () => [] },
   editLoading: { type: Boolean, default: false },
+  showCreateNew: { type: Boolean, default: false },
 })
+const emit = defineEmits(['create-new'])
 
 const quests = useQuestStore()
 const simulation = useSimulationStore()
@@ -164,10 +166,22 @@ async function toggle(item) {
         }}</strong>
       </div>
     </section>
-    <footer class="quest-overview-footer">
-      <RouterLink to="/simulation/edit" :class="{ disabled: editLoading }"
+    <footer :class="['quest-overview-footer', { 'has-secondary-action': showCreateNew }]">
+      <RouterLink
+        to="/simulation/edit"
+        :class="{ disabled: editLoading }"
+        :aria-disabled="editLoading"
+        @click="editLoading && $event.preventDefault()"
         >시뮬레이션 수정하기</RouterLink
       >
+      <button
+        v-if="showCreateNew"
+        type="button"
+        :disabled="editLoading"
+        @click="emit('create-new')"
+      >
+        새 시뮬레이션 만들기
+      </button>
     </footer>
   </article>
 </template>
@@ -207,7 +221,7 @@ async function toggle(item) {
   border: 0;
   border-radius: 999px;
   background: #e4ecfd;
-  box-shadow: inset 0 1px 2px rgba(10, 22, 128, 0.08);
+  box-shadow: none;
 }
 .quest-overview-tabs button {
   box-sizing: border-box;
@@ -437,6 +451,10 @@ async function toggle(item) {
   background: #fff;
   color: #666;
 }
+.quest-overview-empty strong {
+  font-size: 15px;
+  font-weight: 700;
+}
 .quest-overview-footer {
   display: flex;
   align-items: center;
@@ -450,18 +468,56 @@ async function toggle(item) {
   color: #81776b;
   font-size: 14px;
 }
-.quest-overview-footer a {
+.quest-overview-footer a,
+.quest-overview-footer button {
   display: flex;
+  flex: 1 1 100%;
+  box-sizing: border-box;
+  width: 100%;
   min-height: 42px;
   align-items: center;
   justify-content: center;
   padding: 0 18px;
+  border: 0;
   border-radius: 13px;
   background: #f5f7f9;
   color: #666;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: var(--type-action-size);
+  font-weight: var(--type-action-weight);
   text-decoration: none;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.quest-overview-footer.has-secondary-action {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.quest-overview-footer.has-secondary-action a,
+.quest-overview-footer.has-secondary-action button {
+  background: #fbedb0;
+  color: #0a1680;
+}
+@media (hover: hover) {
+  .quest-overview-footer.has-secondary-action a:hover:not(.disabled),
+  .quest-overview-footer.has-secondary-action button:hover:not(:disabled) {
+    background: #f7e48f;
+    box-shadow: 0 4px 12px rgb(241 185 76 / 30%);
+  }
+}
+.quest-overview-footer.has-secondary-action a:active:not(.disabled),
+.quest-overview-footer.has-secondary-action button:active:not(:disabled) {
+  background: #f1dc7c;
+  box-shadow: none;
+  transform: translateY(1px);
+}
+.quest-overview-footer a.disabled,
+.quest-overview-footer button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  pointer-events: none;
 }
 @media (max-width: 767px) {
   .quest-overview-card {
@@ -471,7 +527,7 @@ async function toggle(item) {
   .quest-overview-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+    align-items: center;
     gap: 12px;
   }
   .quest-overview-tabs {
@@ -572,7 +628,8 @@ async function toggle(item) {
   .quest-overview-footer p {
     display: none;
   }
-  .quest-overview-footer a {
+  .quest-overview-footer a,
+  .quest-overview-footer button {
     width: 100%;
   }
 }

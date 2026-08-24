@@ -74,7 +74,6 @@ const hasMobileBack = computed(
     isNotifications.value,
 )
 const mobileTitle = computed(() => {
-  if (isMyPageDetail.value) return '마이페이지'
   if (isSimulationPreview.value) return '미리보기'
   if (isSimulationCategory.value) {
     return (
@@ -106,7 +105,7 @@ function goBack() {
   else if (isFixedExpense.value) router.push('/finance')
   else if (isSimulationStart.value) router.push('/simulation')
   else if (isSimulationEdit.value) router.push('/simulation')
-  else if (isSimulationContinue.value) router.push('/')
+  else if (isSimulationContinue.value) router.back()
   else if (isSimulationPreview.value) router.push(`/simulation/${route.params.category}`)
   else if (isSimulationConfirm.value) router.push('/simulation/policy/preview')
   else if (isSimulationCategory.value) {
@@ -175,7 +174,7 @@ watch(
       "
       @click="goBack"
     >
-      ‹
+      <AppIcon name="chevron-left" :size="22" />
     </button>
     <BrandLogo
       v-if="!hasMobileBack && !isSimulationCategory"
@@ -194,7 +193,11 @@ watch(
     >
       <AppIcon name="logout" :size="24" />
     </button>
-    <div v-if="!isFixedExpense && !isNotifications" ref="popoverAnchor" class="popover-anchor">
+    <div
+      v-if="!isFixedExpense && !isNotifications"
+      ref="popoverAnchor"
+      class="popover-anchor mobile-only"
+    >
       <button
         :class="['header-chip', { active: openPopover === 'notification' }]"
         type="button"
@@ -257,13 +260,15 @@ watch(
   flex: 1;
 }
 .app-header__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 5px;
+  padding: 0;
   color: #222;
-  font-size: var(--font-page-title);
   line-height: 1;
 }
 .app-header__back--category {
-  font-size: 26px;
   font-weight: 900;
 }
 .app-header__logout {
@@ -428,7 +433,6 @@ watch(
     min-height: 64px;
     padding: 10px 16px;
     padding-right: 8px;
-    border-bottom: 1px solid #e7e7e7;
   }
   .app-header--finance {
     position: sticky;
