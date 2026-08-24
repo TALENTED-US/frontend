@@ -24,21 +24,22 @@ async function bootstrap() {
     : window.location.pathname
   const initialRoute = router.resolve(initialPath)
   const isProtectedInitialRoute = initialRoute.matched.some((route) => route.meta.requiresAuth)
-  const isPwaRootLaunch = isMobileStandalone && initialPath === '/'
+  const isPwaEntryRoute =
+    isMobileStandalone && (initialPath === '/' || initialPath === '/auth/login')
 
   await session.restoreSession({
-    reissueIfMissing: isProtectedInitialRoute || isPwaRootLaunch,
+    reissueIfMissing: isProtectedInitialRoute || isMobileStandalone,
   })
 
-  const shouldSkipPwaLanding = isPwaRootLaunch && session.isAuthenticated
+  const pwaEntryPath = session.isAuthenticated ? '/dashboard' : '/'
 
   if (isMobileStandalone) {
     const remainingSplashTime = Math.max(0, 1000 - (performance.now() - splashStartedAt))
     await new Promise((resolve) => window.setTimeout(resolve, remainingSplashTime))
   }
 
-  if (shouldSkipPwaLanding) {
-    const destinationPath = `${basePath}/dashboard`
+  if (isPwaEntryRoute && initialPath !== pwaEntryPath) {
+    const destinationPath = `${basePath}${pwaEntryPath}`
     window.history.replaceState(window.history.state, '', destinationPath)
   }
 

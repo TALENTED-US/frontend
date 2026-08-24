@@ -33,26 +33,34 @@ onMounted(async () => {
     }
 
     const styles = window.getComputedStyle(target)
-    const targetCenterX = targetRect.left + targetRect.width / 2
-    const targetCenterY = targetRect.top + targetRect.height / 2
     const isMobile = window.innerWidth < 600
     const desiredScale = isMobile ? 1.14 : 1.42
-    // 모바일에서는 제목 블록이 이미 화면 너비에 가깝다. 착지할 때 글자가
-    // 한 번 더 커지는 효과까지 포함해 안전 여백 안에 머물도록 배율을 제한한다.
     const safeHorizontalMargin = isMobile ? 16 : 32
     const landingOvershoot = isMobile ? 1.08 : 1
-    const availableWidth = Math.max(0, window.innerWidth - safeHorizontalMargin * 2)
-    const safeScale = availableWidth / (targetRect.width * landingOvershoot)
-    const scale = Math.min(desiredScale, safeScale)
 
     Object.assign(node.style, {
       left: `${targetRect.left}px`,
       top: `${targetRect.top}px`,
-      width: `${targetRect.width}px`,
+      width: 'max-content',
+      maxWidth: `calc(100vw - ${safeHorizontalMargin * 2}px)`,
       fontSize: styles.fontSize,
       lineHeight: styles.lineHeight,
       letterSpacing: styles.letterSpacing,
     })
+
+    const flightRect = node.getBoundingClientRect()
+    const contentWidth = Math.max(flightRect.width, node.scrollWidth)
+    const availableWidth = Math.max(0, window.innerWidth - safeHorizontalMargin * 2)
+    const safeScale = availableWidth / (contentWidth * landingOvershoot)
+    const scale = Math.min(desiredScale, safeScale)
+    const landingLeft = Math.min(
+      Math.max(targetRect.left, safeHorizontalMargin),
+      window.innerWidth - contentWidth - safeHorizontalMargin,
+    )
+    const targetCenterX = landingLeft + contentWidth / 2
+    const targetCenterY = targetRect.top + flightRect.height / 2
+
+    node.style.left = `${landingLeft}px`
     node.dataset.ready = 'true'
 
     flightAnimation = node.animate(
