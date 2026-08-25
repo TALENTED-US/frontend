@@ -10,6 +10,7 @@ const normalizedBaseUrl =
 let unauthorizedHandler = null
 let accessTokenReissueHandler = null
 let accessTokenReissuePromise = null
+let authGeneration = 0
 
 export const apiClient = axios.create({
   baseURL: normalizedBaseUrl,
@@ -27,6 +28,15 @@ export function getAccessToken() {
 export function setAccessToken(token) {
   if (token) sessionStorage.setItem(ACCESS_TOKEN_KEY, token)
   else sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+}
+
+export function getAuthGeneration() {
+  return authGeneration
+}
+
+export function invalidateAuthSession() {
+  authGeneration += 1
+  setAccessToken('')
 }
 
 export function getCookie(name) {
@@ -90,6 +100,8 @@ export function normalizeApiError(error) {
 }
 
 apiClient.interceptors.request.use((config) => {
+  config._authGeneration = authGeneration
+
   if (config.skipAuthorization) {
     if (typeof config.headers?.delete === 'function') config.headers.delete('Authorization')
     else if (config.headers) delete config.headers.Authorization
@@ -103,15 +115,19 @@ apiClient.interceptors.request.use((config) => {
 
 function reissueAccessTokenOnce() {
   if (!accessTokenReissuePromise) {
+    const reissueGeneration = authGeneration
     accessTokenReissuePromise = Promise.resolve()
       .then(() => accessTokenReissueHandler())
       .then((accessToken) => {
         if (!accessToken) throw new Error('Access Token을 재발급하지 못했습니다.')
+        if (reissueGeneration !== authGeneration) {
+          throw new Error('종료된 로그인 세션입니다.')
+        }
         setAccessToken(accessToken)
         return accessToken
       })
       .catch((error) => {
-        setAccessToken('')
+        if (reissueGeneration === authGeneration) setAccessToken('')
         throw error
       })
       .finally(() => {
@@ -125,7 +141,12 @@ function reissueAccessTokenOnce() {
 apiClient.interceptors.response.use(
   (response) => {
     const authorization = response.headers?.authorization
-    if (!response.config?.skipTokenUpdate && authorization?.startsWith('Bearer ')) {
+    const belongsToCurrentSession = response.config?._authGeneration === authGeneration
+    if (
+      belongsToCurrentSession &&
+      !response.config?.skipTokenUpdate &&
+      authorization?.startsWith('Bearer ')
+    ) {
       setAccessToken(authorization.slice(7))
     }
     return response
@@ -133,9 +154,12 @@ apiClient.interceptors.response.use(
   async (error) => {
     const config = error.config
     const isUnauthorized = error.response?.status === 401
-    const shouldHandleUnauthorized = isUnauthorized && !config?.skipUnauthorizedHandler
+    const belongsToCurrentSession = config?._authGeneration === authGeneration
+    const shouldHandleUnauthorized =
+      isUnauthorized && belongsToCurrentSession && !config?.skipUnauthorizedHandler
     const canReissue =
       isUnauthorized &&
+      belongsToCurrentSession &&
       !config?.skipAuthRefresh &&
       !config?._accessTokenRetry &&
       typeof accessTokenReissueHandler === 'function'

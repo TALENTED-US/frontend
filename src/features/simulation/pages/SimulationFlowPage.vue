@@ -187,7 +187,7 @@ async function startSimulation() {
 
     // 확정 계획이 남은 상태로 /simulation/new에 직접 진입한 경우에도 기존
     // 시뮬레이션을 삭제해 새 Draft에 과거 항목이 포함되지 않도록 한다.
-    const confirmed = await simulation.hydrateConfirmed()
+    const confirmed = await simulation.hydrateConfirmed(true)
     if (confirmed) {
       const deleted = await simulation.deleteConfirmedScenario()
       if (!deleted) return

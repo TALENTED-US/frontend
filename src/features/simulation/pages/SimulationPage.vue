@@ -188,9 +188,9 @@ async function start() {
   router.push(simulation.hasDraft ? '/simulation/continue' : '/simulation/new')
 }
 
-async function createNewSimulation() {
-  const ok = await simulation.deleteConfirmedScenario()
-  if (!ok) return
+function createNewSimulation() {
+  // 실제 삭제는 사용자가 기간을 확정하고 시작할 때 한 번만 수행한다.
+  // 설정 화면 진입만으로 기존 확정 시뮬레이션을 먼저 삭제하지 않는다.
   quests.resetQuests()
   simulation.prepareNewScenario()
   showNewSimulationModal.value = false
@@ -390,7 +390,7 @@ onMounted(async () => {
             :disabled="simulation.syncing"
             @click="createNewSimulation"
           >
-            {{ simulation.syncing ? '삭제하는 중…' : '새로 만들기' }}
+            {{ simulation.syncing ? '이동 중…' : '새로 만들기' }}
           </button>
         </div>
       </section>

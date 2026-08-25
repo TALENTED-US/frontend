@@ -1469,23 +1469,42 @@ export const useSimulationStore = defineStore('simulation', () => {
         }
       }
 
-      if (remoteDraftExists.value) {
-        await updateSimulationPeriodApi(payload)
-      } else {
+      const createDraft = async () => {
         let data
         try {
           data = await createSimulationApi(payload)
         } catch (createError) {
           if (createError.code !== 'SIMULATION_901') throw createError
 
-          // 조회 API는 Draft가 없다고 응답하지만 생성 API는 기존 Draft를 감지하는
-          // 서버 불일치 상태가 있을 수 있다. 새 시뮬레이션 시작 요청이므로 남은
-          // 미확정 Draft를 정리한 뒤 생성 요청을 한 번만 다시 시도한다.
-          await deleteDraftSimulationApi()
+          // 생성 시점에만 기존 Draft가 확인되는 경합 상태에서는 남은 Draft를
+          // 정리하고 생성을 한 번만 다시 시도한다.
+          try {
+            await deleteDraftSimulationApi()
+          } catch (deleteError) {
+            if (deleteError.status !== 404) throw deleteError
+          }
           data = await createSimulationApi(payload)
         }
         remoteDraftExists.value = true
         applyRemoteSimulation(data)
+      }
+
+      if (remoteDraftExists.value) {
+        try {
+          await updateSimulationPeriodApi(payload)
+        } catch (updateError) {
+          if (updateError.code !== 'SIMULATION_401' && updateError.status !== 404) throw updateError
+
+          // 조회 직후 Draft가 사라졌거나 과거 GET 응답이 남은 경우에는 PATCH를
+          // 반복하지 않고 새 Draft를 한 번 생성해 새 시작 흐름을 복구한다.
+          remoteDraftExists.value = false
+          remoteSimulation.value = null
+          remoteReport.value = null
+          invalidateRemoteLookups()
+          await createDraft()
+        }
+      } else {
+        await createDraft()
       }
       const draft = await getCurrentSimulationApi()
       applyRemoteSimulation(draft)
