@@ -120,6 +120,18 @@ export async function registerMyDataSelection({ accountIds, cardIds }) {
   }, '선택한 금융 자산을 등록하지 못했습니다.')
 }
 
+export function clearMyDataSelection({ clearCatalog = false } = {}) {
+  mydataState.selectedAccountIds = []
+  mydataState.selectedCardIds = []
+  mydataState.selectionInitialized = false
+  if (clearCatalog) {
+    mydataState.institutions = []
+    mydataState.accounts = []
+    mydataState.cards = []
+  }
+  localStorage.removeItem(SELECTION_KEY)
+}
+
 export async function syncMyData() {
   return run(async () => {
     const syncResult = await syncMyDataTransactionsApi()

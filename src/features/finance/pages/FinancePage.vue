@@ -36,6 +36,16 @@ function isMyDataConnected() {
   return session.myDataConnected || session.currentUser.mydataStatus === 'CONNECTED'
 }
 
+watch(
+  () => [session.myDataConnected, session.currentUser.mydataStatus],
+  () => {
+    if (!session.isMockMode && !isMyDataConnected()) {
+      showMyDataConnectModal.value = true
+    }
+  },
+  { immediate: true },
+)
+
 function goToMyDataConnect() {
   showMyDataConnectModal.value = false
   router.push({ name: 'onboarding', query: { mode: 'mydata', returnTo: '/finance' } })
