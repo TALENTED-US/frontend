@@ -9,6 +9,7 @@ import buttieLoadingImage from '@/assets/images/onboarding/buttie-loading.png'
 import buttieCompletionImage from '@/assets/images/dashboard/levels/buttie-l1-stable.png'
 import { loadTransactions, setFixed } from '@/features/finance/financeStore'
 import {
+  clearMyDataSelection,
   ensureMyDataConnection,
   loadMyDataCatalog,
   mydataState,
@@ -202,6 +203,7 @@ watch(
 )
 
 function toggleBank(bank) {
+  mydataError.value = ''
   selectedBanks.value = selectedBanks.value.includes(bank)
     ? selectedBanks.value.filter((item) => item !== bank)
     : [...selectedBanks.value, bank]
@@ -231,7 +233,12 @@ function belongsToSelectedInstitution(institutionName, selectedInstitutions) {
 function hydrateAssets() {
   const selectedInstitutions = new Set(selectedBanks.value)
   accounts.value = mydataState.accounts
-    .filter((item) => belongsToSelectedInstitution(item.institutionName, selectedInstitutions))
+    .filter(
+      (item) =>
+        item.accountId !== null &&
+        item.accountId !== undefined &&
+        belongsToSelectedInstitution(item.institutionName, selectedInstitutions),
+    )
     .map((item) => ({
       id: String(item.accountId),
       institutionName: item.institutionName,
@@ -241,7 +248,12 @@ function hydrateAssets() {
       selected: true,
     }))
   cards.value = mydataState.cards
-    .filter((item) => belongsToSelectedInstitution(item.institutionName, selectedInstitutions))
+    .filter(
+      (item) =>
+        item.cardId !== null &&
+        item.cardId !== undefined &&
+        belongsToSelectedInstitution(item.institutionName, selectedInstitutions),
+    )
     .map((item) => ({
       id: String(item.cardId),
       institutionName: item.institutionName,
@@ -352,6 +364,23 @@ async function registerAndSyncAssets() {
     session.refreshMyData(syncResult?.lastSyncedAt)
     step.value = 8
   } catch (error) {
+    if (error.code === 'MYDATA_008') {
+      clearMyDataSelection({ clearCatalog: true })
+      accounts.value = []
+      cards.value = []
+      selectedBanks.value = []
+      bankSearch.value = ''
+      step.value = 5
+
+      try {
+        await loadMyDataCatalog()
+        mydataError.value = '자산 목록이 변경되었습니다. 금융기관과 자산을 다시 선택해 주세요.'
+      } catch (catalogError) {
+        mydataError.value =
+          catalogError.message || '최신 자산 목록을 불러오지 못했습니다. 다시 시도해 주세요.'
+      }
+      return
+    }
     mydataError.value = error.message || '선택한 금융정보를 동기화하지 못했습니다.'
   } finally {
     mydataSubmitting.value = false
@@ -685,6 +714,8 @@ async function next() {
           </div>
           <strong>{{ selectedBanks.length }}개 선택됨</strong>
         </div>
+
+        <p v-if="mydataError" class="employment-error" role="alert">{{ mydataError }}</p>
 
         <input v-model="bankSearch" class="bank-search" placeholder="금융기관 검색" />
 
