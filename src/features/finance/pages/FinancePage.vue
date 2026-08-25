@@ -2945,18 +2945,24 @@ input {
     font-size: 25px;
   }
   .month-control__label select {
+    appearance: none;
     max-width: none;
-    padding-inline: 0;
+    padding: 0 22px 0 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 8px center !important;
+    background-size: 12px 12px !important;
     font-size: 16px;
   }
 
   .month-control__label select:first-child {
     display: block;
-    width: 88px;
+    width: 74px;
+    background-position: right 7px center !important;
   }
 
   .month-control__label select:last-child {
-    width: 48px;
+    width: 46px;
   }
 
   .view-toggle {
@@ -3201,9 +3207,16 @@ input {
   }
 
   .category-select select {
-    width: 128px;
-    max-width: 128px;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 96px;
+    max-width: 96px;
     height: 38px;
+    padding: 0 22px 0 10px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 6px center !important;
+    background-size: 12px 12px !important;
   }
 
   .date-divider {
