@@ -5,7 +5,7 @@ import { getButtieDashboardApi } from '@/api/dashboard'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import ButtieImage from '@/components/ui/ButtieImage.vue'
 import { useSessionStore } from '@/stores/session'
-import { formatExp, useProgressionStore } from '@/stores/progression'
+import { formatExp, normalizeButtieProgression, useProgressionStore } from '@/stores/progression'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { getButtieLevelImage } from '@/data/buttieLevelAssets'
 import { formatKoreanDateTime } from '@/utils/dateTime'
@@ -21,26 +21,39 @@ function finiteNumberOrNull(value) {
   return value !== null && value !== undefined && Number.isFinite(number) ? number : null
 }
 
+const apiProfileProgression = computed(() => {
+  const totalExp =
+    finiteNumberOrNull(buttieDashboard.value?.buttieTotalExp) ??
+    finiteNumberOrNull(session.currentUser.totalExp) ??
+    finiteNumberOrNull(session.currentUser.exp) ??
+    0
+  const normalized = normalizeButtieProgression(totalExp)
+  const reportedLevel =
+    finiteNumberOrNull(buttieDashboard.value?.buttieLevel) ??
+    finiteNumberOrNull(session.currentUser.reportedLevel) ??
+    finiteNumberOrNull(session.currentUser.level)
+  const level = Math.max(reportedLevel || 1, normalized.level)
+
+  return {
+    ...normalized,
+    level,
+    reportedLevel,
+    requiredExp:
+      level === normalized.level
+        ? normalized.requiredExp
+        : (finiteNumberOrNull(buttieDashboard.value?.requiredExp) ??
+          finiteNumberOrNull(session.currentUser.requiredExp) ??
+          0),
+  }
+})
 const profileExp = computed(() =>
-  session.isMockMode
-    ? Number(progression.exp)
-    : (finiteNumberOrNull(buttieDashboard.value?.buttieTotalExp) ??
-      finiteNumberOrNull(session.currentUser.exp) ??
-      0),
+  session.isMockMode ? Number(progression.exp) : apiProfileProgression.value.totalExp,
 )
 const profileRequiredExp = computed(() =>
-  session.isMockMode
-    ? Number(progression.nextLevelExp)
-    : (finiteNumberOrNull(buttieDashboard.value?.requiredExp) ??
-      finiteNumberOrNull(session.currentUser.requiredExp) ??
-      0),
+  session.isMockMode ? Number(progression.nextLevelExp) : apiProfileProgression.value.requiredExp,
 )
 const profileLevel = computed(() =>
-  session.isMockMode
-    ? Number(progression.level)
-    : (finiteNumberOrNull(buttieDashboard.value?.buttieLevel) ??
-      finiteNumberOrNull(session.currentUser.level) ??
-      1),
+  session.isMockMode ? Number(progression.level) : apiProfileProgression.value.level,
 )
 const profileRemainingExp = computed(() => Math.max(0, profileRequiredExp.value - profileExp.value))
 const profileProgressPercent = computed(() =>
@@ -62,20 +75,37 @@ const profileState = computed(() => {
             ? simulation.currentStatus?.key
             : 'unknown'
   const apiImage = buttieDashboard.value?.buttieImageUrl || session.currentUser.buttieImageUrl
+  const levelWasCorrected =
+    !session.isMockMode && profileLevel.value !== apiProfileProgression.value.reportedLevel
   if (key === 'danger' || key === 'risk') {
     const fallbackImage = getButtieLevelImage(profileLevel.value, 'danger')
-    return { key: 'danger', label: '위험', image: apiImage || fallbackImage, fallbackImage }
+    return {
+      key: 'danger',
+      label: '위험',
+      image: levelWasCorrected ? fallbackImage : apiImage || fallbackImage,
+      fallbackImage,
+    }
   }
   if (key === 'caution') {
     const fallbackImage = getButtieLevelImage(profileLevel.value, 'caution')
-    return { key: 'caution', label: '주의', image: apiImage || fallbackImage, fallbackImage }
+    return {
+      key: 'caution',
+      label: '주의',
+      image: levelWasCorrected ? fallbackImage : apiImage || fallbackImage,
+      fallbackImage,
+    }
   }
   if (key === 'unknown') {
     const fallbackImage = getButtieLevelImage(profileLevel.value || 1, 'stable')
     return { key: 'unknown', label: '확인 불가', image: apiImage || fallbackImage, fallbackImage }
   }
   const fallbackImage = getButtieLevelImage(profileLevel.value, 'stable')
-  return { key: 'stable', label: '안정', image: apiImage || fallbackImage, fallbackImage }
+  return {
+    key: 'stable',
+    label: '안정',
+    image: levelWasCorrected ? fallbackImage : apiImage || fallbackImage,
+    fallbackImage,
+  }
 })
 
 async function loadButtieDashboard() {
@@ -85,10 +115,11 @@ async function loadButtieDashboard() {
     const dashboard = await getButtieDashboardApi()
     buttieDashboard.value = dashboard
     Object.assign(session.currentUser, {
-      level: finiteNumberOrNull(dashboard.buttieLevel),
+      level: apiProfileProgression.value.level,
+      reportedLevel: finiteNumberOrNull(dashboard.buttieLevel),
       exp: finiteNumberOrNull(dashboard.buttieTotalExp),
       totalExp: finiteNumberOrNull(dashboard.buttieTotalExp),
-      requiredExp: finiteNumberOrNull(dashboard.requiredExp),
+      requiredExp: apiProfileProgression.value.requiredExp,
       buttieImageUrl: dashboard.buttieImageUrl,
       riskLevel: dashboard.riskLevel,
       goalDate: dashboard.targetEmploymentDate || session.currentUser.goalDate,

@@ -22,7 +22,12 @@ import { analyzePreviousCompletedMonths } from '@/features/finance/financeAnalyt
 import { formatPrepMonths, isInfinitePrepMonths } from '@/utils/prepMonths'
 import { useSimulationStore } from '@/features/simulation/stores/simulation'
 import { useQuestStore } from '@/features/quest/stores/quest'
-import { calculateQuestExp, formatExp, useProgressionStore } from '@/stores/progression'
+import {
+  calculateQuestExp,
+  formatExp,
+  normalizeButtieProgression,
+  useProgressionStore,
+} from '@/stores/progression'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -36,7 +41,6 @@ const financialAssets = ref(null)
 const financialAssetsError = ref('')
 const showMyDataConnectModal = ref(false)
 const MAX_BUTTIE_LEVEL = 5
-const MAX_BUTTIE_LEVEL_EXP = 500
 const dashboardMonth = new Date()
 const dashboardCalendarKey = `${dashboardMonth.getFullYear()}-${String(
   dashboardMonth.getMonth() + 1,
@@ -63,12 +67,15 @@ async function loadButtieDashboard() {
     buttieDashboard.value = await getButtieDashboardApi()
     const totalExp = finiteNumberOrNull(buttieDashboard.value.buttieTotalExp)
     const requiredExp = finiteNumberOrNull(buttieDashboard.value.requiredExp)
-    const level = finiteNumberOrNull(buttieDashboard.value.buttieLevel)
+    const reportedLevel = finiteNumberOrNull(buttieDashboard.value.buttieLevel)
+    const normalized = normalizeButtieProgression(totalExp)
+    const level = Math.max(reportedLevel || 1, normalized.level)
     Object.assign(session.currentUser, {
       level,
+      reportedLevel,
       exp: totalExp,
       totalExp,
-      requiredExp,
+      requiredExp: level === normalized.level ? normalized.requiredExp : requiredExp,
       buttieImageUrl: buttieDashboard.value.buttieImageUrl,
       riskLevel: buttieDashboard.value.riskLevel,
       goalDate: buttieDashboard.value.targetEmploymentDate,
@@ -256,15 +263,31 @@ function expenseQuestName(name) {
 }
 
 const currentUser = computed(() => session.currentUser)
-const apiButtieProgression = computed(() =>
-  buttieDashboard.value
-    ? {
-        level: finiteNumberOrNull(buttieDashboard.value.buttieLevel),
-        exp: finiteNumberOrNull(buttieDashboard.value.buttieTotalExp),
-        requiredExp: finiteNumberOrNull(buttieDashboard.value.requiredExp),
-      }
-    : null,
-)
+const apiButtieProgression = computed(() => {
+  const totalExp =
+    finiteNumberOrNull(buttieDashboard.value?.buttieTotalExp) ??
+    finiteNumberOrNull(session.currentUser.totalExp)
+  if (totalExp === null) return null
+
+  const normalized = normalizeButtieProgression(totalExp)
+  const reportedLevel =
+    finiteNumberOrNull(buttieDashboard.value?.buttieLevel) ??
+    finiteNumberOrNull(session.currentUser.reportedLevel) ??
+    finiteNumberOrNull(session.currentUser.level)
+  const level = Math.max(reportedLevel || 1, normalized.level)
+
+  return {
+    level,
+    reportedLevel,
+    exp: normalized.totalExp,
+    requiredExp:
+      level === normalized.level
+        ? normalized.requiredExp
+        : (finiteNumberOrNull(buttieDashboard.value?.requiredExp) ??
+          finiteNumberOrNull(session.currentUser.requiredExp) ??
+          0),
+  }
+})
 const buttieExp = computed(() =>
   session.isMockMode
     ? progression.exp
@@ -281,10 +304,7 @@ const apiButtieLevel = computed(
 )
 const buttieLevel = computed(() => {
   if (session.isMockMode) return progression.level
-
-  return buttieExp.value >= MAX_BUTTIE_LEVEL_EXP
-    ? MAX_BUTTIE_LEVEL
-    : Math.min(MAX_BUTTIE_LEVEL, Math.max(1, apiButtieLevel.value || 1))
+  return Math.min(MAX_BUTTIE_LEVEL, Math.max(1, apiButtieProgression.value?.level || 1))
 })
 const isMaxButtieLevel = computed(() => buttieLevel.value >= MAX_BUTTIE_LEVEL)
 const buttieRemainingExp = computed(() =>
@@ -294,8 +314,8 @@ const buttieProgressPercent = computed(() =>
   isMaxButtieLevel.value
     ? 100
     : buttieRequiredExp.value > 0
-    ? Math.min(100, Math.max(0, (buttieExp.value / buttieRequiredExp.value) * 100))
-    : 100,
+      ? Math.min(100, Math.max(0, (buttieExp.value / buttieRequiredExp.value) * 100))
+      : 100,
 )
 const today = computed(() => startOfToday())
 const preparationStartDate = computed(() => parseLocalDate(currentUser.value.startDate))
@@ -602,11 +622,14 @@ const financialStatus = computed(() => {
   const isDanger = apiRisk === 'DANGER' || (session.isMockMode && achievementRate.value <= 30)
   const isCaution = apiRisk === 'CAUTION' || (session.isMockMode && achievementRate.value < 80)
   const apiImage = buttieDashboard.value?.buttieImageUrl
-  const levelWasCorrected = !session.isMockMode && buttieLevel.value !== apiButtieLevel.value
+  const levelWasCorrected =
+    !session.isMockMode &&
+    buttieLevel.value !== (apiButtieProgression.value?.reportedLevel || apiButtieLevel.value)
 
   if (isDanger) {
     const fallbackImage = getButtieLevelImage(buttieLevel.value, 'danger')
-    const image = levelWasCorrected || buttieLevel.value === 4 ? fallbackImage : apiImage || fallbackImage
+    const image =
+      levelWasCorrected || buttieLevel.value === 4 ? fallbackImage : apiImage || fallbackImage
     return {
       key: 'risk',
       label: '위험',
@@ -764,7 +787,9 @@ const targetMonthText = computed(() =>
               </ul>
             </div>
           </div>
-          <span v-if="!isMaxButtieLevel">다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span>
+          <span v-if="!isMaxButtieLevel"
+            >다음 레벨까지 {{ formatExp(buttieRemainingExp) }} EXP</span
+          >
           <span v-else>최고 레벨 달성</span>
         </div>
         <div

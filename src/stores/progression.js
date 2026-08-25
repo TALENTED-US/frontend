@@ -14,16 +14,14 @@ export const LEVEL_REQUIREMENTS = Object.freeze({
 export function normalizeButtieProgression(totalExp) {
   const normalizedTotalExp = Math.max(0, Number(totalExp) || 0)
   let level = 1
-  let exp = normalizedTotalExp
 
-  while (level < 5 && exp >= LEVEL_REQUIREMENTS[level]) {
-    exp -= LEVEL_REQUIREMENTS[level]
+  while (level < 5 && normalizedTotalExp >= LEVEL_REQUIREMENTS[level]) {
     level += 1
   }
 
   return {
     level,
-    exp: level === 5 ? 0 : exp,
+    exp: normalizedTotalExp,
     requiredExp: LEVEL_REQUIREMENTS[level] || 0,
     totalExp: normalizedTotalExp,
   }
@@ -54,19 +52,19 @@ function loadProgression() {
     }
 
     if (saved && Number.isFinite(saved.level) && Number.isFinite(saved.exp)) {
-      const level = Math.min(5, Math.max(1, Math.trunc(saved.level)))
-      const exp = Math.max(0, saved.exp)
-      const hasInvalidExp = level === 5 ? exp > 0 : exp >= LEVEL_REQUIREMENTS[level]
-
-      if (hasInvalidExp) {
-        const restored = { ...DEFAULT_PROGRESSION, claimedQuestIds: [] }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(restored))
-        return restored
-      }
+      const savedLevel = Math.min(5, Math.max(1, Math.trunc(saved.level)))
+      const legacyAccumulatedExp = Object.entries(LEVEL_REQUIREMENTS).reduce(
+        (total, [level, requirement]) => (Number(level) < savedLevel ? total + requirement : total),
+        Math.max(0, saved.exp),
+      )
+      const totalExp = Number.isFinite(saved.totalExp)
+        ? Math.max(0, saved.totalExp)
+        : legacyAccumulatedExp
+      const normalized = normalizeButtieProgression(totalExp)
 
       return {
-        level,
-        exp: level === 5 ? 0 : exp,
+        level: normalized.level,
+        exp: normalized.totalExp,
         claimedQuestIds: Array.isArray(saved.claimedQuestIds) ? saved.claimedQuestIds : [],
       }
     }
@@ -100,19 +98,8 @@ export const useProgressionStore = defineStore('progression', () => {
   })
 
   function addExp(reward) {
-    if (level.value >= 5) {
-      exp.value = 0
-      return
-    }
-
     exp.value += Math.max(0, Number(reward) || 0)
-
-    while (level.value < 5 && exp.value >= LEVEL_REQUIREMENTS[level.value]) {
-      exp.value -= LEVEL_REQUIREMENTS[level.value]
-      level.value += 1
-    }
-
-    if (level.value >= 5) exp.value = 0
+    level.value = normalizeButtieProgression(exp.value).level
   }
 
   function claimQuest(questId, amount) {
@@ -123,14 +110,8 @@ export const useProgressionStore = defineStore('progression', () => {
   }
 
   function removeExp(reward) {
-    exp.value -= Math.max(0, Number(reward) || 0)
-
-    while (level.value > 1 && exp.value < 0) {
-      level.value -= 1
-      exp.value += LEVEL_REQUIREMENTS[level.value]
-    }
-
-    exp.value = Math.max(0, exp.value)
+    exp.value = Math.max(0, exp.value - Math.max(0, Number(reward) || 0))
+    level.value = normalizeButtieProgression(exp.value).level
   }
 
   function cancelQuestClaim(questId, amount) {
@@ -172,6 +153,7 @@ export const useProgressionStore = defineStore('progression', () => {
         JSON.stringify({
           level: level.value,
           exp: exp.value,
+          totalExp: exp.value,
           claimedQuestIds: claimedQuestIds.value,
         }),
       )
