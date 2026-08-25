@@ -457,13 +457,14 @@ watch(
     padding: 0;
     border: 0;
     border-radius: 14px;
-    background: #fff !important;
+    background: rgb(251 252 255 / 94%) !important;
     box-shadow: none;
     color: #172035;
   }
   .app-header__logout {
     flex: none;
     margin-right: -10px;
+    background: rgb(251 252 255 / 94%);
     box-shadow: none;
   }
   .header-badge {
