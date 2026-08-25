@@ -3,7 +3,7 @@ import { defineStore, getActivePinia } from 'pinia'
 import { loginApi, logoutApi, reissueAccessTokenApi, resetPasswordApi } from '@/api/auth'
 import {
   getAccessToken,
-  setAccessToken,
+  invalidateAuthSession,
   setAccessTokenReissueHandler,
   setUnauthorizedHandler,
 } from '@/api/client'
@@ -24,6 +24,8 @@ import { resetMyDataConnectionState } from '@/features/mydata/mydataStore'
 
 const AUTH_KEY = 'buttie-auth'
 const API_PROFILE_KEY = 'buttie-api-profile'
+const AUTH_SYNC_KEY = 'buttie-auth-sync'
+const AUTH_CHANNEL_NAME = 'buttie-auth'
 const isMockMode = import.meta.env.VITE_USE_MOCK_API === 'true'
 
 function readJson(storage, key) {
@@ -137,7 +139,7 @@ export const useSessionStore = defineStore('session', () => {
     sessionStorage.removeItem(AUTH_KEY)
     sessionStorage.removeItem(API_PROFILE_KEY)
     if (!isMockMode) localStorage.removeItem('buttie-profile')
-    setAccessToken('')
+    invalidateAuthSession()
     clearCalendar()
     clearTransactions()
     clearNotifications()
@@ -153,6 +155,40 @@ export const useSessionStore = defineStore('session', () => {
     myDataLastUpdated.value = ''
     currentUser.value = {}
   }
+
+  const authChannel =
+    typeof BroadcastChannel === 'function' ? new BroadcastChannel(AUTH_CHANNEL_NAME) : null
+
+  function handleRemoteAuthClear(event) {
+    if (event?.data?.type === 'auth-cleared') handleUnauthorized()
+  }
+
+  function broadcastAuthClear(reason) {
+    const message = {
+      type: 'auth-cleared',
+      reason,
+      timestamp: Date.now(),
+    }
+
+    if (authChannel) {
+      authChannel.postMessage(message)
+      return
+    }
+
+    localStorage.setItem(AUTH_SYNC_KEY, JSON.stringify(message))
+    localStorage.removeItem(AUTH_SYNC_KEY)
+  }
+
+  authChannel?.addEventListener('message', handleRemoteAuthClear)
+  window.addEventListener('storage', (event) => {
+    if (event.key !== AUTH_SYNC_KEY || !event.newValue) return
+
+    try {
+      handleRemoteAuthClear({ data: JSON.parse(event.newValue) })
+    } catch {
+      // 잘못된 탭 동기화 값은 인증 상태에 반영하지 않는다.
+    }
+  })
 
   function handleUnauthorized() {
     clearAuthState()
@@ -257,16 +293,20 @@ export const useSessionStore = defineStore('session', () => {
   async function logout() {
     if (isMockMode) {
       clearAuthState()
+      broadcastAuthClear('logout')
       return { ok: true }
     }
 
+    const accessToken = getAccessToken()
+    const logoutRequest = logoutApi(accessToken)
+    clearAuthState()
+    broadcastAuthClear('logout')
+
     try {
-      if (getAccessToken()) await logoutApi()
+      await logoutRequest
       return { ok: true }
     } catch (error) {
       return { ok: false, message: error.message }
-    } finally {
-      clearAuthState()
     }
   }
 
@@ -308,8 +348,13 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function withdrawAccount(password) {
-    if (!isMockMode) await withdrawUserApi(password)
+    if (!isMockMode) {
+      const accessToken = getAccessToken()
+      await withdrawUserApi(password)
+      await logoutApi(accessToken).catch(() => null)
+    }
     clearAuthState()
+    broadcastAuthClear('withdraw')
   }
 
   function verifyPasswordChange(identityVerificationToken = '') {

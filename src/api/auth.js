@@ -1,5 +1,6 @@
 import {
   apiClient,
+  getAuthGeneration,
   getCookie,
   normalizeApiError,
   setAccessToken,
@@ -141,17 +142,24 @@ export async function resetPasswordApi({ password, passwordCheck }, identityVeri
   }
 }
 
-export async function logoutApi() {
+export async function logoutApi(accessToken = '') {
   const csrfToken = getCookie('csrfToken') || getCookie('XSRF-TOKEN')
+  const headers = {
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    ...(csrfToken
+      ? {
+          'X-CSRF-Token': csrfToken,
+          'X-XSRF-TOKEN': csrfToken,
+        }
+      : {}),
+  }
 
   try {
     const response = await apiClient.delete('auth/logout', {
-      headers: csrfToken
-        ? {
-            'X-CSRF-Token': csrfToken,
-            'X-XSRF-TOKEN': csrfToken,
-          }
-        : undefined,
+      headers,
+      skipAuthRefresh: true,
+      skipUnauthorizedHandler: true,
+      skipTokenUpdate: true,
     })
     if (response.status === 204) return null
     return unwrapApiResponse(response)
@@ -161,6 +169,8 @@ export async function logoutApi() {
 }
 
 export async function reissueAccessTokenApi() {
+  const authGeneration = getAuthGeneration()
+
   try {
     const response = await apiClient.get('auth/reissue', {
       skipAuthorization: true,
@@ -174,6 +184,13 @@ export async function reissueAccessTokenApi() {
       const error = new Error('Access Token을 재발급하지 못했습니다.')
       error.code = 'TOKEN_REISSUE_FAILED'
       error.status = response?.status
+      throw error
+    }
+
+    if (authGeneration !== getAuthGeneration()) {
+      const error = new Error('종료된 로그인 세션입니다.')
+      error.code = 'AUTH_SESSION_INVALIDATED'
+      error.status = 401
       throw error
     }
 

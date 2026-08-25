@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buttie-app-v9'
+const CACHE_NAME = 'buttie-app-v10'
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -25,8 +25,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request
   const url = new URL(request.url)
+  const isApiRequest =
+    url.pathname === '/api' ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname === '/backend' ||
+    url.pathname.startsWith('/backend/')
 
-  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/backend')) {
+  if (request.method !== 'GET' || url.origin !== self.location.origin || isApiRequest) {
     return
   }
 
