@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, toRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { dashboard } from '@/data/mockData'
 import {
@@ -141,6 +141,9 @@ const defaultState = () => ({
   confirmed: false,
   draftStarted: false,
   ignoreRemoteDraft: false,
+  aiPlanPrompt: '',
+  aiPlanRecommendations: null,
+  aiCategoryPrompts: { expense: '', income: '', policy: '' },
 })
 const DEFAULT_SCENARIO_MONTHS = dateRangeMonths(defaultState().startDate, defaultState().endDate)
 
@@ -169,9 +172,9 @@ export const useSimulationStore = defineStore('simulation', () => {
   const policyCatalog = ref([])
   const policyCatalogLoading = ref(false)
   const policyCatalogError = ref('')
-  const aiPlanPrompt = ref('')
-  const aiPlanRecommendations = ref(null)
-  const aiCategoryPrompts = ref({ expense: '', income: '', policy: '' })
+  const aiPlanPrompt = toRef(state, 'aiPlanPrompt')
+  const aiPlanRecommendations = toRef(state, 'aiPlanRecommendations')
+  const aiCategoryPrompts = toRef(state, 'aiCategoryPrompts')
   const policyCatalogPageInfo = ref({
     page: 1,
     size: 10,

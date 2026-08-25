@@ -158,12 +158,45 @@ const allAgreed = computed({
   },
 })
 
+function hasConsecutiveOverlap(source, target, minimumLength = 7) {
+  const normalizedSource = String(source || '').trim().toLowerCase()
+  const normalizedTarget = String(target || '').trim().toLowerCase()
+  if (normalizedSource.length < minimumLength || normalizedTarget.length < minimumLength) {
+    return false
+  }
+
+  for (let index = 0; index <= normalizedTarget.length - minimumLength; index += 1) {
+    if (normalizedSource.includes(normalizedTarget.slice(index, index + minimumLength))) return true
+  }
+  return false
+}
+
+const passwordIdentityError = computed(() => {
+  const email = form.email.trim().toLowerCase()
+  const password = form.password.trim().toLowerCase()
+  if (email && password === email) return '이메일과 동일한 비밀번호는 사용할 수 없습니다.'
+
+  const emailIdentifier = email.split('@')[0]
+  return hasConsecutiveOverlap(password, emailIdentifier)
+    ? '이메일 아이디와 7자 이상 겹치는 비밀번호는 사용할 수 없습니다.'
+    : ''
+})
+
 const passwordIsValid = computed(() => {
-  return /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/.test(form.password)
+  return (
+    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/.test(form.password) &&
+    !passwordIdentityError.value
+  )
 })
 
 const passwordFeedback = computed(() => {
   if (!form.password) return null
+  if (passwordIdentityError.value) {
+    return {
+      message: passwordIdentityError.value,
+      valid: false,
+    }
+  }
 
   return passwordIsValid.value
     ? { message: '사용 가능한 비밀번호입니다.', valid: true }
@@ -176,9 +209,14 @@ const passwordFeedback = computed(() => {
 const passwordConfirmFeedback = computed(() => {
   if (!form.confirm) return null
 
-  const valid = form.password === form.confirm
+  const passwordsMatch = form.password === form.confirm
+  const valid = passwordIsValid.value && passwordsMatch
   return {
-    message: valid ? '비밀번호가 일치합니다.' : '비밀번호가 일치하지 않습니다.',
+    message: valid
+      ? '비밀번호가 일치합니다.'
+      : passwordsMatch
+        ? '사용할 수 없는 비밀번호입니다.'
+        : '비밀번호가 일치하지 않습니다.',
     valid,
   }
 })
@@ -243,6 +281,7 @@ function goBack() {
 function invalidate(field) {
   duplicateChecked[field] = false
   errors[field] = ''
+  if (field === 'email') clearPasswordErrors()
 }
 
 function clearPasswordErrors() {
@@ -305,7 +344,9 @@ function validateAccount() {
 
   errors.password = passwordIsValid.value
     ? ''
-    : '영문, 숫자, 특수문자를 포함해 8자 이상 입력해 주세요.'
+    : passwordIdentityError.value
+      ? passwordIdentityError.value
+      : '영문, 숫자, 특수문자를 포함해 8자 이상 입력해 주세요.'
 
   errors.confirm = form.password === form.confirm ? '' : '비밀번호가 일치하지 않습니다.'
 
@@ -346,6 +387,12 @@ function handleTermsEscape(event) {
 
 async function completeSignup() {
   if (!requiredAgreed.value || isSubmitting.value) return
+
+  if (!validateAccount()) {
+    step.value = 2
+    submissionError.value = '계정 정보를 다시 확인해 주세요.'
+    return
+  }
 
   if (!identityVerificationToken.value) {
     submissionError.value = '본인인증 정보가 없습니다. 처음 단계부터 다시 진행해 주세요.'
@@ -533,7 +580,7 @@ async function completeSignup() {
                 v-model="form.confirm"
                 :type="showPasswordConfirm ? 'text' : 'password'"
                 placeholder="비밀번호를 다시 입력하세요"
-                :aria-invalid="Boolean(form.confirm) && form.password !== form.confirm"
+                :aria-invalid="Boolean(form.confirm) && !passwordConfirmFeedback?.valid"
                 @input="errors.confirm = ''"
               />
               <button
