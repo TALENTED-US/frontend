@@ -11,6 +11,7 @@ import {
   getExpenseRecommendationsApi,
   getIncomeRecommendationsApi,
   getPolicyRecommendationsApi,
+  getSimulationRecommendationsApi,
 } from '@/api/simulation'
 import '@/features/simulation/styles/simulation.css'
 import { expenseCategoryIconPath } from '@/features/simulation/utils/expenseCategoryIcon'
@@ -18,7 +19,10 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import AiRecommendationLoader from '@/features/simulation/components/AiRecommendationLoader.vue'
 import AiRecommendationPrompt from '@/features/simulation/components/AiRecommendationPrompt.vue'
 import ButtieAiLogo from '@/features/simulation/components/ButtieAiLogo.vue'
-import { normalizeCategoryRecommendationResponse } from '@/features/simulation/utils/aiRecommendationScope'
+import {
+  filterExpenseRecommendationsForPrompt,
+  normalizeCategoryRecommendationResponse,
+} from '@/features/simulation/utils/aiRecommendationScope'
 
 const route = useRoute()
 const router = useRouter()
@@ -251,8 +255,17 @@ const aiRecommendationDescription = computed(() => {
   return `“${prompt}” 컨셉을 바탕으로 추천했어요.`
 })
 
-function scopedRecommendations(recommendations) {
-  return recommendations || null
+function scopedRecommendations(recommendations, prompt = '') {
+  if (!recommendations) return null
+  if (category.value === 'expense') {
+    if (!recommendations.financialRecommendation) return null
+    return filterExpenseRecommendationsForPrompt(recommendations, prompt)
+  }
+  if (category.value === 'income' && !recommendations.incomeRecommendation) return null
+  if (category.value === 'policy' && !Array.isArray(recommendations.policyRecommendations)) {
+    return null
+  }
+  return recommendations
 }
 
 async function requestCategoryRecommendations(currentCategory, prompt) {
@@ -263,10 +276,10 @@ async function requestCategoryRecommendations(currentCategory, prompt) {
         ? await getIncomeRecommendationsApi(prompt)
         : await getPolicyRecommendationsApi(prompt)
 
-  return normalizeCategoryRecommendationResponse(
-    currentCategory,
-    response,
-  )
+  const recommendations = normalizeCategoryRecommendationResponse(currentCategory, response)
+  return currentCategory === 'expense'
+    ? filterExpenseRecommendationsForPrompt(recommendations, prompt)
+    : recommendations
 }
 
 async function submitAiRecommendationPrompt(prompt) {
@@ -298,7 +311,10 @@ async function loadAiRecommendations(regenerate = false) {
   if (aiRecommendationLoading.value) return
 
   const categoryPrompt = simulation.aiCategoryPrompts[category.value] || simulation.aiPlanPrompt
-  const storedRecommendations = scopedRecommendations(simulation.aiPlanRecommendations)
+  const storedRecommendations = scopedRecommendations(
+    simulation.aiPlanRecommendations,
+    categoryPrompt,
+  )
 
   if (!regenerate && storedRecommendations) {
     aiRecommendations.value = storedRecommendations
@@ -310,8 +326,8 @@ async function loadAiRecommendations(regenerate = false) {
   aiRecommendationLoading.value = true
   aiRecommendationError.value = ''
   try {
-    if (regenerate && storedRecommendations && simulation.aiCategoryPrompts[category.value]) {
-      const prompt = simulation.aiCategoryPrompts[category.value]
+    if (regenerate && categoryPrompt) {
+      const prompt = categoryPrompt
       const recommendations = await requestCategoryRecommendations(
         category.value,
         prompt,
@@ -319,6 +335,12 @@ async function loadAiRecommendations(regenerate = false) {
       simulation.setAiCategoryRecommendations(category.value, prompt, recommendations)
       aiRecommendations.value = scopedRecommendations(recommendations)
       usingCustomAiRecommendations.value = true
+    } else if (!storedRecommendations) {
+      const response = await getSimulationRecommendationsApi()
+      const recommendations = normalizeCategoryRecommendationResponse(category.value, response)
+      simulation.setAiCategoryRecommendations(category.value, '', recommendations)
+      aiRecommendations.value = scopedRecommendations(recommendations)
+      usingCustomAiRecommendations.value = false
     } else {
       aiRecommendations.value = storedRecommendations
       usingCustomAiRecommendations.value = Boolean(categoryPrompt)
