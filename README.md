@@ -81,7 +81,7 @@ BUTTIE는 취업 준비 기간에 발생하는 소득 공백을 대비할 수 �
 | IDE | Visual Studio Code |
 | Version Control | Git, GitHub |
 | Issue Management | GitHub Issues, Jira |
-| API Documentation | Swagger UI, OpenAPI |
+| API Documentation | Notion API 명세서 |
 | Design | Figma |
 | Collaboration | Notion, Slack |
 | CI/CD | Jenkins |
@@ -730,11 +730,11 @@ Closes #{이슈 번호}
 
 ## 22. 관련 문서
 
-- 팀 Notion: [BUTTIE 프로젝트 문서](https://app.notion.com/p/phurray/3911aef33b808079ba77fe1c4ca97894?source=copy_link)
-- API 명세서: [Swagger UI](http://52.79.207.80:8080/swagger-ui.html)
-- OpenAPI JSON: [API Docs](http://52.79.207.80:8080/v2/api-docs)
+- API 명세서: [Notion API 명세서](https://app.notion.com/p/phurray/API-3911aef33b80804ab691e0a297c86576?source=copy_link)
+- Figma: [BUTTIE App](https://www.figma.com/design/payAhB7xdeA65cqvXQkRJP/Buttie-App-?t=1bZeMur7rrtbxnN0-0)
+- Jira 프로젝트: [BUT 프로젝트](https://pjt22-2.atlassian.net/jira/software/projects/BUT/boards/1/timeline)
+- Notion 문서: [BUTTIE 프로젝트 문서](https://app.notion.com/p/phurray/3911aef33b808079ba77fe1c4ca97894?source=copy_link)
 - Backend 저장소: [TALENTED-US/backend](https://github.com/TALENTED-US/backend)
-- 배포 사이트: [BUTTIE](https://www.buttie.site/)
 
 ---
 
