@@ -59,14 +59,25 @@ function mapProfileSummary(profile) {
   const goalDate = normalizeDate(profile.targetEmploymentDate)
   const totalExp = Number(profile.buttieTotalExp)
   const requiredExp = Number(profile.requiredExp)
-  const level = Number(profile.buttieLevel)
+  const reportedLevel = Number(profile.buttieLevel)
+  const normalizedProgression = Number.isFinite(totalExp)
+    ? normalizeButtieProgression(totalExp)
+    : null
+  const level = normalizedProgression
+    ? Math.max(Number.isFinite(reportedLevel) ? reportedLevel : 1, normalizedProgression.level)
+    : reportedLevel
+  const nextRequiredExp =
+    normalizedProgression && level === normalizedProgression.level
+      ? normalizedProgression.requiredExp
+      : requiredExp
   return {
     nickname: profile.userNickname,
     email: profile.userEmail,
     level: Number.isFinite(level) ? level : null,
+    reportedLevel: Number.isFinite(reportedLevel) ? reportedLevel : null,
     exp: Number.isFinite(totalExp) ? totalExp : null,
     totalExp: Number.isFinite(totalExp) ? totalExp : null,
-    requiredExp: Number.isFinite(requiredExp) ? requiredExp : null,
+    requiredExp: Number.isFinite(nextRequiredExp) ? nextRequiredExp : null,
     buttieImageUrl: profile.buttieImageUrl,
     riskLevel: profile.riskLevel,
     mydataStatus: profile.mydataStatus,
